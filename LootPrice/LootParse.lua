@@ -45,6 +45,71 @@ function LootParse.parse(compiled, msg)
   return nil
 end
 
+-- ---------------------------------------------------------------------------
+-- Raw gold (CHAT_MSG_MONEY)
+
+-- Guild form first: its "(%s deposited ...)" tail would otherwise be swallowed
+-- by the plain "You loot %s" pattern.
+local MONEY_KEYS = { "YOU_LOOT_MONEY_GUILD", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT" }
+local MONEY_UNITS = { { "GOLD_AMOUNT", 10000 }, { "SILVER_AMOUNT", 100 }, { "COPPER_AMOUNT", 1 } }
+local MONEY_SEPARATOR = ", "
+
+-- Turns the money message formats plus the three amount templates into
+-- anchored patterns. Missing globals are skipped.
+function LootParse.compileMoney(G)
+  local compiled = { messages = {}, units = {} }
+  for _, key in ipairs(MONEY_KEYS) do
+    if type(G[key]) == "string" then
+      compiled.messages[#compiled.messages + 1] = (toPattern(G[key]))
+    end
+  end
+  for _, u in ipairs(MONEY_UNITS) do
+    if type(G[u[1]]) == "string" then
+      compiled.units[#compiled.units + 1] = { pattern = (toPattern(G[u[1]])), mult = u[2] }
+    end
+  end
+  return compiled
+end
+
+-- "1 Gold, 23 Silver, 4 Copper" (any subset, each unit at most once) -> copper.
+local function moneyText(compiled, text)
+  local total, seen = 0, {}
+  local pos = 1
+  while true do
+    local cut = text:find(MONEY_SEPARATOR, pos, true)
+    local part = text:sub(pos, cut and cut - 1 or #text)
+    local matched = false
+    for i, u in ipairs(compiled.units) do
+      local n = part:match(u.pattern)
+      if n and not seen[i] then
+        seen[i] = true
+        total = total + tonumber(n) * u.mult
+        matched = true
+        break
+      end
+    end
+    if not matched then return nil end
+    if not cut then break end
+    pos = cut + #MONEY_SEPARATOR
+  end
+  return total
+end
+
+-- Returns the copper amount of the player's own money message (the first
+-- amount only for the guild bank form), else nil. 0 copper is not income.
+function LootParse.parseMoney(compiled, msg)
+  if type(compiled) ~= "table" or type(msg) ~= "string" then return nil end
+  for _, pattern in ipairs(compiled.messages) do
+    local text = msg:match(pattern)
+    if text then
+      local copper = moneyText(compiled, text)
+      if copper and copper > 0 then return copper end
+      return nil
+    end
+  end
+  return nil
+end
+
 function LootParse.itemID(link)
   if type(link) ~= "string" then return nil end
   local id = link:match("|Hitem:(%d+)")
