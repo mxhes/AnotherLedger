@@ -97,6 +97,7 @@ function Summary.attach(topBox, footer)
   local T = ns.Theme
   local S = T.sizes
   local ink, gold, stale = T.colors.ink, T.colors.gold, T.colors.stale
+  local line = T.colors.goldLine
 
   local summary = { topBox = topBox, footer = footer, rows = {}, height = nil }
 
@@ -113,7 +114,7 @@ function Summary.attach(topBox, footer)
     row:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, -(S.topHeaderHeight + (i - 1) * S.topRowHeight))
     local edge = row:CreateTexture(nil, "ARTWORK")
     edge:SetTexture(T.textures.rowHighlight)
-    edge:SetVertexColor(gold[1], gold[2], gold[3], 0.9)
+    edge:SetVertexColor(line[1], line[2], line[3], 0.9)
     edge:SetWidth(2)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     edge:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)

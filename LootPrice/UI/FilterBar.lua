@@ -207,7 +207,7 @@ function FilterBar.attach(row, db, onChange)
   -- Gold underline while any filter is active.
   local underline = row:CreateTexture(nil, "ARTWORK")
   underline:SetTexture(T.textures.rowHighlight)
-  local gold = T.colors.gold
+  local gold = T.colors.goldLine
   underline:SetVertexColor(gold[1], gold[2], gold[3], 1)
   underline:SetHeight(2)
   underline:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)

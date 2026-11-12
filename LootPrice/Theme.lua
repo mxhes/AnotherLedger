@@ -23,20 +23,23 @@ Theme.fonts = {
 }
 
 Theme.colors = {
-  ink = { 0.20, 0.12, 0.05, 1 },
-  stale = { 0.85, 0.45, 0.10, 1 },
-  gold = { 0.70, 0.52, 0.05, 1 },
+  ink = { 0.10, 0.06, 0.02, 1 },
+  stale = { 0.46, 0.12, 0.00, 1 },
+  gold = { 0.36, 0.23, 0.00, 1 },
+  -- Bright gold for lines (divider, edge, filter underline); not for text.
+  goldLine = { 1.00, 0.80, 0.20, 1 },
   flashNormal = { 1.00, 0.85, 0.30, 0.35 },
   flashStrong = { 1.00, 0.60, 0.10, 0.60 },
-  panelTint = { 0.86, 0.76, 0.54, 0.97 },
+  -- Old tint was 0.86 / 0.76 / 0.54; now 72 % of it (about 28 % darker).
+  panelTint = { 0.62, 0.55, 0.39, 0.97 },
   -- Coin colors (game gold / silver / copper, darkened to stay readable on the
-  -- parchment: see the contrast notes below the qualities).
+  -- darker parchment; contrast >= 3 against panelTint).
   moneyGold = { 0.36, 0.23, 0.00, 1 },
   moneySilver = { 0.20, 0.20, 0.27, 1 },
   moneyCopper = { 0.42, 0.12, 0.02, 1 },
-  hint = { 0.5, 0.5, 0.5, 1 },
-  scrollTrack = { 0.20, 0.12, 0.05, 0.15 },
-  scrollThumb = { 0.20, 0.12, 0.05, 0.6 },
+  hint = { 0.28, 0.22, 0.15, 1 },
+  scrollTrack = { 0.10, 0.06, 0.02, 0.20 },
+  scrollThumb = { 0.10, 0.06, 0.02, 0.6 },
 }
 
 -- Seconds a looted row's flash takes to fade.
@@ -89,16 +92,18 @@ local BRIGHT = {
   [6] = { 0.90, 0.80, 0.50 },
   [7] = { 0.00, 0.80, 1.00 },
 }
--- Darker variants readable on the parchment tint.
+-- Darker variants readable on the parchment tint (WCAG contrast against
+-- colors.panelTint is at least 3 for every tier; tests/test_theme.lua checks).
+-- The tint is mid-tone, so bright colors cannot reach 3: all text is dark.
 local DARK = {
-  [0] = { 0.38, 0.38, 0.38 },
-  [1] = { 0.20, 0.12, 0.05 },
-  [2] = { 0.05, 0.50, 0.00 },
-  [3] = { 0.00, 0.25, 0.60 },
-  [4] = { 0.42, 0.10, 0.65 },
-  [5] = { 0.70, 0.30, 0.00 },
-  [6] = { 0.55, 0.42, 0.10 },
-  [7] = { 0.00, 0.45, 0.62 },
+  [0] = { 0.25, 0.25, 0.25 },
+  [1] = { 0.10, 0.06, 0.02 },
+  [2] = { 0.00, 0.26, 0.00 },
+  [3] = { 0.00, 0.10, 0.42 },
+  [4] = { 0.28, 0.04, 0.46 },
+  [5] = { 0.45, 0.14, 0.00 },
+  [6] = { 0.34, 0.22, 0.02 },
+  [7] = { 0.00, 0.24, 0.36 },
 }
 
 function Theme.qualityColor(quality, onParchment)
