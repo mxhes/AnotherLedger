@@ -11,6 +11,7 @@ h.test("DB.defaults shape", function()
   h.eq(d.filter.minValue, 0)
   h.eq(d.filter.search, "")
   h.eq(d.sort, "ah")
+  h.eq(d.tab, "session")
   for q = 0, 7 do h.eq(d.filter.qualities[q], true) end
 end)
 

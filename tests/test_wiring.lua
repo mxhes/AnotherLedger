@@ -326,3 +326,83 @@ h.test("wiring: demo adds gold through the same path and reset clears it", funct
   slash(ctx, "demo")
   h.eq(ctx.ns.session.gold, 0)
 end)
+
+local function bagEnv(ctx, bags)
+  ctx.env.C_Container = {
+    GetContainerNumSlots = function(bag) return bags[bag] and bags[bag].n or 0 end,
+    GetContainerItemInfo = function(bag, slot)
+      local s = bags[bag] and bags[bag][slot]
+      if not s then return nil end
+      return { itemID = s[1], stackCount = s[2], hyperlink = "|cffffffff|Hitem:" .. s[1] .. "::|h[Item" .. s[1] .. "]|h|r" }
+    end,
+  }
+end
+
+h.test("wiring: bags tab lists the bag contents, footer shows only the items block", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 3, { 2589, 5 }, { 2592, 2 }, { 2589, 15 } } })
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bags")
+  h.eq(ctx.errors, {})
+  h.eq(L.tab, "bags")
+  h.eq(ctx.env.LootPriceDB.tab, "bags")
+  h.eq(#L.view.rows, 2)
+  h.eq(L.view.kind, "inventory")
+  -- a bag change marks the list dirty and shows up on the next refresh
+  bagEnv(ctx, { [0] = { n = 1, { 2592, 9 } } })
+  fire(ctx, "BAG_UPDATE_DELAYED")
+  h.eq(ctx.errors, {})
+  h.eq(#L.view.rows, 1)
+  h.eq(L.view.rows[1].quantity, 9)
+  L.setTab("session")
+  h.eq(L.view.kind, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: bank is scanned while open and shown from the saved scan", function()
+  local ctx = boot()
+  bagEnv(ctx, { [-1] = { n = 2, { 2589, 4 }, { 7910, 1 } } })
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bank")
+  h.eq(#L.view.rows, 0)
+  h.eq(L.view.note, "Open your bank once to scan it.")
+  fire(ctx, "BANKFRAME_OPENED")
+  h.eq(ctx.errors, {})
+  h.eq(#L.view.rows, 2)
+  h.eq(ctx.env.LootPriceCharDB.bank.scannedAt, ctx.now)
+  fire(ctx, "BANKFRAME_CLOSED")
+  -- away from the bank the scan is kept, the bags changing does not touch it
+  bagEnv(ctx, {})
+  fire(ctx, "BAG_UPDATE_DELAYED")
+  h.eq(ctx.env.LootPriceCharDB.bank.items[2589].qty, 4)
+  ctx.now = ctx.now + 7200
+  L.refresh()
+  h.eq(L.view.note, "Scanned 2h ago")
+  h.eq(#L.view.rows, 2)
+end)
+
+h.test("wiring: an empty scan right at opening does not wipe a saved scan", function()
+  local ctx = boot()
+  bagEnv(ctx, { [-1] = { n = 1, { 2589, 4 } } })
+  startWorld(ctx, false)
+  fire(ctx, "BANKFRAME_OPENED")
+  bagEnv(ctx, {})
+  fire(ctx, "BANKFRAME_CLOSED")
+  fire(ctx, "BANKFRAME_OPENED") -- slots not loaded yet
+  h.eq(ctx.env.LootPriceCharDB.bank.items[2589].qty, 4)
+  bagEnv(ctx, {})
+  fire(ctx, "BAG_UPDATE_DELAYED") -- bank open: a later empty scan is real
+  h.eq(next(ctx.env.LootPriceCharDB.bank.items), nil)
+end)
+
+h.test("wiring: the last tab survives a reload", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  ctx.ns.UI.Ledger.setTab("bags")
+  local reload = boot({ db = ctx.env.LootPriceDB, chardb = ctx.env.LootPriceCharDB, now = 2000 })
+  startWorld(reload, true)
+  h.eq(reload.errors, {})
+  h.eq(reload.ns.UI.Ledger.tab, "bags")
+end)

@@ -51,12 +51,24 @@ local function reportOnce(err)
   reportError(err)
 end
 
-function Ledger.buildView(now)
-  local session = ns.session
-  if not session then return nil end
+-- Current tab: "session" (loot), "bags" (live bag contents) or "bank" (the
+-- last saved bank scan).
+Ledger.tab = "session"
+local bagItems
+local bagsDirty = true
+
+function Ledger.markBagsDirty()
+  bagsDirty = true
+end
+
+function Ledger.isInventoryTab()
+  return Ledger.tab ~= "session"
+end
+
+local function viewOpts(now)
   local prices = ns.prices
   local db = ns.db or {}
-  return ns.View.build(session, {
+  return {
     now = now,
     filter = db.filter,
     sort = db.sort,
@@ -65,7 +77,48 @@ function Ledger.buildView(now)
       return guarded(prices.lookup, prices, id)
     end,
     itemInfo = function(id) return guarded(itemInfo, id) end,
-  })
+  }
+end
+
+function Ledger.buildView(now)
+  local session = ns.session
+  if not session then return nil end
+  local tab = Ledger.tab
+  if tab == "bags" then
+    if bagsDirty or not bagItems then
+      bagItems = ns.Inventory.scanBags(_G, now)
+      bagsDirty = false
+    end
+    return ns.View.buildInventory(bagItems, viewOpts(now))
+  elseif tab == "bank" then
+    local bank = ns.chardb and ns.chardb.bank or {}
+    local view = ns.View.buildInventory(bank.items or {}, viewOpts(now))
+    view.note, view.noteStale = ns.Inventory.scanNote(now, bank.scannedAt)
+    return view
+  end
+  return ns.View.build(session, viewOpts(now))
+end
+
+-- Switches the tab, remembers it and redraws the whole window for it.
+function Ledger.setTab(key)
+  if not ns.UI.Tabs.valid(key) then key = "session" end
+  Ledger.tab = key
+  if ns.db then ns.db.tab = key end
+  if ns.UI.Window and ns.UI.Window.setTitle then ns.UI.Window.setTitle(ns.UI.Tabs.title(key)) end
+  if ns.UI.Header and ns.UI.Header.instance then
+    ns.UI.Header.instance:SetSessionControls(key == "session")
+  end
+  if Ledger.tabs then Ledger.tabs:SetSelected(key) end
+  if list then list:SetOffset(0) end
+  Ledger.refresh()
+end
+
+-- Item data arrived: only matters for rows of the current tab.
+function Ledger.wantsItemInfo(itemID)
+  if Ledger.tab == "session" then
+    return ns.session ~= nil and ns.session.items[itemID] ~= nil
+  end
+  return true
 end
 
 function Ledger.refresh()
@@ -137,14 +190,34 @@ function Ledger.init()
     ns.UI.FilterBar.attach(frame.header.row2, ns.db, Ledger.refresh)
   end)
 
-  -- OnUpdate only runs while the frame is shown.
+  -- OnUpdate only runs while the frame is shown; the clock only ticks on the
+  -- session tab.
   local acc = 0
   frame:SetScript("OnUpdate", function(_, dt)
     acc = acc + dt
     if acc < TICK_SECONDS then return end
     acc = 0
-    if ns.session and ns.session.running then Ledger.refresh() end
+    if Ledger.tab == "session" and ns.session and ns.session.running then Ledger.refresh() end
   end)
+
+  -- Bags may have changed while the window was hidden.
+  frame:HookScript("OnShow", function()
+    if Ledger.isInventoryTab() then
+      Ledger.markBagsDirty()
+      Ledger.refresh()
+    end
+  end)
+
+  attach(ns.UI.Tabs, function()
+    Ledger.tabs = ns.UI.Tabs.attach(frame, Ledger.setTab)
+  end)
+  local saved = ns.db and ns.db.tab
+  if ns.UI.Tabs.valid(saved) then Ledger.tab = saved end
+  if ns.UI.Window.setTitle then ns.UI.Window.setTitle(ns.UI.Tabs.title(Ledger.tab)) end
+  if Ledger.tabs then Ledger.tabs:SetSelected(Ledger.tab) end
+  if ns.UI.Header and ns.UI.Header.instance then
+    ns.UI.Header.instance:SetSessionControls(Ledger.tab == "session")
+  end
 
   Ledger.refresh()
   return frame

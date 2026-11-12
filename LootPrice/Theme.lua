@@ -88,6 +88,9 @@ Theme.sizes = {
   footerGoldHeight = 16,
   footerTotalHeight = 38,
   footerHeight = 146,
+  -- Inventory tabs: the footer is the items block only, plus a one-line note
+  -- (bank scan age) when shown.
+  footerNoteHeight = 16,
   buttonHeight = 20,
   buttonGap = 2,
   timerWidth = 54,
@@ -145,6 +148,7 @@ Theme.sizes = {
 Theme.widths = {
   header = { start = 38, stop = 34, reset = 40, hide = 20 },
   filter = { quality = 70, min = 44, sort = 78 },
+  tab = 72, -- tab buttons hanging below the window
 }
 
 -- WCAG 2 contrast ratio (1..21) between two sRGB colors (components 0..1).

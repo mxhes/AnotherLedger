@@ -306,7 +306,7 @@ local events = {}
 function events.ADDON_LOADED(name)
   if name ~= ADDON then return end
   LootPriceDB = ns.DB.applyDefaults(LootPriceDB, ns.DB.defaults)
-  LootPriceCharDB = ns.DB.applyDefaults(LootPriceCharDB, {})
+  LootPriceCharDB = ns.DB.applyDefaults(LootPriceCharDB, ns.DB.charDefaults)
   ns.db = LootPriceDB
   ns.chardb = LootPriceCharDB
 end
@@ -343,9 +343,50 @@ function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
   if ns.session then Core.recordGold(moneyReward) end
 end
 
--- Only items in the ledger matter; the event fires for every item query.
+-- Only items on the shown tab matter; the event fires for every item query.
 function events.GET_ITEM_INFO_RECEIVED(itemID)
-  if ns.session and ns.session.items[itemID] then requestRefresh() end
+  local ledger = ns.UI and ns.UI.Ledger
+  local wanted
+  if ledger and ledger.wantsItemInfo then
+    wanted = ledger.wantsItemInfo(itemID)
+  else
+    wanted = ns.session ~= nil and ns.session.items[itemID] ~= nil
+  end
+  if wanted then requestRefresh() end
+end
+
+-- Bank contents can only be read while the bank window is open: scan while it
+-- is, keep the last scan (per character) for the Bank tab. A first scan that
+-- comes back empty right at opening is ignored when a scan is saved already
+-- (the slots may not be loaded yet); later scans of the same visit are trusted.
+local bankOpen = false
+
+function Core.scanBank(trustEmpty)
+  if not ns.chardb then return end
+  local now = time()
+  local items = ns.Inventory.scanBank(_G, now)
+  if next(items) == nil and not trustEmpty and ns.chardb.bank and next(ns.chardb.bank.items) ~= nil then
+    return
+  end
+  ns.chardb.bank = { scannedAt = now, items = items }
+  if ns.UI and ns.UI.Ledger and ns.UI.Ledger.tab == "bank" then refreshUI() end
+end
+
+function events.BANKFRAME_OPENED()
+  bankOpen = true
+  Core.scanBank(false)
+end
+
+function events.BANKFRAME_CLOSED()
+  bankOpen = false
+end
+
+function events.BAG_UPDATE_DELAYED()
+  if bankOpen then Core.scanBank(true) end
+  local ledger = ns.UI and ns.UI.Ledger
+  if not ledger then return end
+  ledger.markBagsDirty()
+  if ledger.tab == "bags" and ns.UI.Window and ns.UI.Window.isShown() then requestRefresh() end
 end
 
 function events.PLAYER_LOGOUT()

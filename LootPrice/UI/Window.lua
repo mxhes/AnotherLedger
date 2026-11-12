@@ -269,6 +269,18 @@ function Window.setMinWidth(required)
   end
 end
 
+function Window.setTitle(text)
+  local frame = Window.frame
+  if frame and frame.header and frame.header.title then frame.header.title:SetText(text) end
+end
+
+-- Height of the footer (the summaries); the list area reflows by anchoring.
+function Window.setFooterHeight(h)
+  local frame = Window.frame
+  if not frame then return end
+  frame.footer:SetHeight(tonumber(h) or ns.Theme.sizes.footerHeight)
+end
+
 -- Resizes the Top finds box; 0 collapses it. listArea reflows by anchoring.
 function Window.setTopBoxHeight(h)
   local frame = Window.frame

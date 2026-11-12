@@ -130,6 +130,15 @@ function Header.attach(row, handlers)
   header.timer, header.start, header.stop = timer, start, stop
   header.reset, header.hide = reset, hide
 
+  -- The clock and the Start / Stop / Reset buttons belong to the session tab;
+  -- the Hide button stays on every tab.
+  function header:SetSessionControls(shown)
+    self.timer:SetShown(shown)
+    self.start:SetShown(shown)
+    self.stop:SetShown(shown)
+    self.reset:SetShown(shown)
+  end
+
   function header:SetElapsed(seconds)
     self.timer:SetText(Header.formatElapsed(seconds))
   end

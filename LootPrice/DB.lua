@@ -13,6 +13,12 @@ DB.defaults = {
     search = "",
   },
   sort = "ah",
+  tab = "session", -- last shown tab: session / bags / bank
+}
+
+-- Per-character defaults (LootPriceCharDB): the last bank scan for the Bank tab.
+DB.charDefaults = {
+  bank = { scannedAt = 0, items = {} },
 }
 
 local function copy(v)

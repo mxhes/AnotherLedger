@@ -106,6 +106,17 @@ function Summary.footerLayout()
   return layout
 end
 
+-- Footer height per view kind: the session shows all three blocks; the
+-- inventory tabs only the items block, plus a note line when the view has one.
+function Summary.footerHeightFor(view)
+  local s = ns.Theme.sizes
+  local layout = Summary.footerLayout()
+  if type(view) == "table" and view.kind == "inventory" then
+    return layout.items.height + (view.note and s.footerNoteHeight or 0)
+  end
+  return layout.height
+end
+
 -- Window height the list needs: chrome around the content, header, a full Top
 -- finds block, `minListRows` rows and the footer.
 function Summary.requiredWindowHeight()
@@ -239,6 +250,12 @@ function Summary.attach(topBox, footer)
     rule:SetHeight(S.rowSeparator)
     rule:SetPoint("LEFT", label, "RIGHT", S.footerLabelGap, 0)
     rule:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
+    -- Label and rule live on the footer, so they are shown / hidden with the box.
+    function frame:SetBlockShown(shown)
+      self:SetShown(shown)
+      label:SetShown(shown)
+      rule:SetShown(shown)
+    end
     return frame
   end
 
@@ -278,14 +295,45 @@ function Summary.attach(topBox, footer)
   local totalBox = block(layout.total, L_LABEL_TOTAL)
   local total = pair(totalBox)
 
+  -- Scan-age note of the bank tab, under the items block.
+  local note = makeText(footer, T.fonts.summaryMarker, T.colors.ink, "LEFT")
+  note:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -(layout.items.height + 2))
+  note:Hide()
+
   summary.items, summary.vendor, summary.vendorRate = items, items.vendor, items.vendorRate
   summary.ah, summary.ahRate = items.ah, items.ahRate
   summary.filtered, summary.unpriced = filtered, unpriced
   summary.goldTotal, summary.goldRate = goldTotal, goldRate
   summary.total = total
+  summary.goldBox, summary.totalBox, summary.note = goldBox, totalBox, note
 
   function summary:Set(view)
     view = view or {}
+    local inventory = view.kind == "inventory"
+    if inventory ~= self.inventory then
+      self.inventory = inventory
+      self.goldBox:SetBlockShown(not inventory)
+      self.totalBox:SetBlockShown(not inventory)
+    end
+    local footerHeight = Summary.footerHeightFor(view)
+    if footerHeight ~= self.footerHeight then
+      self.footerHeight = footerHeight
+      if ns.UI.Window and ns.UI.Window.setFooterHeight then
+        ns.UI.Window.setFooterHeight(footerHeight)
+      end
+    end
+    if view.note then
+      local c = view.noteStale and stale or ink
+      self.note:SetTextColor(c[1], c[2], c[3], c[4] or 1)
+      self.note:SetText(view.note)
+      self.note:Show()
+    else
+      self.note:Hide()
+    end
+    if inventory then
+      self:SetTotals(view)
+      return
+    end
     local lines = Summary.topLines(view.top)
     for i = 1, MAX_TOP do
       local w, l = self.rows[i], lines[i]
@@ -308,6 +356,21 @@ function Summary.attach(topBox, footer)
       end
     end
 
+    self:SetTotals(view)
+
+    local g = Summary.goldText(view.gold)
+    self.goldTotal:SetText(g.totalColored)
+    self.goldRate:SetText(g.rateColored)
+
+    local c = Summary.combinedText(view.combined)
+    self.total.vendor:SetText(c.vendorColored)
+    self.total.vendorRate:SetText(c.vendorRateColored)
+    self.total.ah:SetText(c.ahColored)
+    self.total.ahRate:SetText(c.ahRateColored)
+  end
+
+  -- The items block (vendor / AH totals, unpriced and filtered markers).
+  function summary:SetTotals(view)
     local t = Summary.totalsText(view.totals)
     self.vendor:SetText(t.vendorColored)
     self.vendorRate:SetText(t.vendorRateColored)
@@ -320,16 +383,6 @@ function Summary.attach(topBox, footer)
       self.unpriced:Hide()
     end
     self.filtered:SetShown(t.filtered)
-
-    local g = Summary.goldText(view.gold)
-    self.goldTotal:SetText(g.totalColored)
-    self.goldRate:SetText(g.rateColored)
-
-    local c = Summary.combinedText(view.combined)
-    self.total.vendor:SetText(c.vendorColored)
-    self.total.vendorRate:SetText(c.vendorRateColored)
-    self.total.ah:SetText(c.ahColored)
-    self.total.ahRate:SetText(c.ahRateColored)
   end
 
   -- Ledger part: refreshed with every tick / loot event.

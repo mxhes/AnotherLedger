@@ -86,7 +86,10 @@ local SORTS = {
   name = byName,
 }
 
-function View.build(session, opts)
+-- Filtered, sorted rows and their vendor / AH totals for an items map
+-- ({ [itemID] = { id, link, qty, lastSeen } }); shared by the session and the
+-- inventory tabs.
+local function collect(items, opts)
   local filter = opts.filter
   local needle
   if type(filter) == "table" and type(filter.search) == "string" and filter.search ~= "" then
@@ -94,7 +97,7 @@ function View.build(session, opts)
   end
 
   local rows = {}
-  for _, item in pairs(session.items) do
+  for _, item in pairs(items) do
     if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 then
       local row = makeRow(item, opts)
       if visible(row, filter, needle) then rows[#rows + 1] = row end
@@ -108,6 +111,18 @@ function View.build(session, opts)
     totals.ah = totals.ah + (r.ahTotal or 0)
     if r.ahEach == nil then totals.unpriced = totals.unpriced + 1 end
   end
+  return rows, totals
+end
+
+-- Inventory tabs (bags, bank): rows and totals only, no clock, rates, raw gold
+-- or top finds.
+function View.buildInventory(items, opts)
+  local rows, totals = collect(items, opts)
+  return { rows = rows, top = {}, totals = totals, kind = "inventory" }
+end
+
+function View.build(session, opts)
+  local rows, totals = collect(session.items, opts)
   local elapsed = ns.Session.elapsed(session, opts.now)
   if num(elapsed) and elapsed >= View.MIN_RATE_SECONDS then
     totals.vendorPerHour = totals.vendor * 3600 / elapsed

@@ -147,3 +147,13 @@ h.test("combinedText formats like the item totals without markers", function()
   h.eq(e.ahRateColored, "\226\128\148")
   h.eq(S.combinedText(nil).vendor, "Vendor: 0c")
 end)
+
+h.test("Summary.footerHeightFor: session full, inventory items block plus note", function()
+  local S = ns.UI.Summary
+  local sz = ns.Theme.sizes
+  h.eq(S.footerHeightFor({}), sz.footerHeight)
+  h.eq(S.footerHeightFor(nil), sz.footerHeight)
+  h.eq(S.footerHeightFor({ kind = "inventory" }), sz.footerLabelHeight + sz.footerItemsHeight)
+  h.eq(S.footerHeightFor({ kind = "inventory", note = "x" }),
+    sz.footerLabelHeight + sz.footerItemsHeight + sz.footerNoteHeight)
+end)

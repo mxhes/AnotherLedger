@@ -18,9 +18,19 @@ The Session Ledger is a draggable, resizable, scrollable window:
 - **Quest rewards**: reward items are ordinary looted items (the client announces them like any other item) and appear in the list; only the money of a quest is tracked as raw gold.
 - **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than 12 hours.
 
+## Tabs
+
+Three tabs hang below the window's bottom edge; the window, rows, filters and sorts are the same on all of them (the filter bar and sort apply to every tab and are shared):
+
+- **Session**: the loot ledger described above (default).
+- **Bags**: every item in your bags (backpack, carried bags, reagent bag), identical stacks merged into one row, valued like loot rows (vendor, AH, age tag). The footer is the single Items block (vendor and AH totals, unpriced count, `filtered` marker); no clock, rates, raw gold or Top finds. The list refreshes when your bags change.
+- **Bank**: the same for your bank. The client only lets addons read the bank while its window is open, so LootPrice scans it while you are at the banker and saves the scan per character; away from the bank the tab shows the last scan with a note (`Scanned 3h ago`, orange after 12 h). Before the first visit it says `Open your bank once to scan it.`
+
+The last tab is remembered.
+
 ## Events used
 
-`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`.
+`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan).
 
 ## Requirements
 
@@ -94,6 +104,14 @@ Rows and list
 - [ ] Looting flashes the row, a hidden row scrolls into view, a stack increase re-flashes
 - [ ] An uncached item shows the link name, then corrects on `GET_ITEM_INFO_RECEIVED`
 - [ ] The ticker updates only while the session runs
+
+Tabs (Bags / Bank)
+- [ ] Three tab buttons hang under the window's bottom edge (Session, Bags, Bank); the selected one is disabled; the window title changes to Bag Ledger / Bank Ledger; Start / Stop / Reset and the timer hide on Bags and Bank, the X stays
+- [ ] Bags: every bag item appears once with its summed stack count; moving, looting, selling and splitting stacks update the list; opening the window on the Bags tab shows current contents
+- [ ] Bags footer shows only the Items block (no Raw gold, no Items + gold, no Top finds) and the list uses the freed space; switching back to Session restores all blocks
+- [ ] Bank: before any visit the list is empty with "Open your bank once to scan it."; opening the bank fills it; closing the bank and walking away keeps the list with "Scanned ... ago" (orange after 12 h); the scan survives `/reload` and relog
+- [ ] `C_Container.GetContainerItemInfo` returns `{ itemID, stackCount, hyperlink }`, and `BANK_CONTAINER`, `NUM_BAG_SLOTS`, `NUM_REAGENTBAG_SLOTS`, `NUM_BANKBAGSLOTS` match the real bag / bank container ids on Forever (`/dump BANK_CONTAINER, NUM_BAG_SLOTS, NUM_REAGENTBAG_SLOTS, NUM_BANKBAGSLOTS`); items in bank bags and the reagent bank/warband bank (if the client has them) are included or deliberately skipped
+- [ ] The last tab is restored after `/reload`
 
 Header
 - [ ] Title is not overlapped by the timer at 350 px

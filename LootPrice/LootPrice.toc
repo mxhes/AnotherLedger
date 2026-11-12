@@ -16,6 +16,7 @@ Sources\Vendor.lua
 Sources\TSM.lua
 Sources\Auctionator.lua
 Session.lua
+Inventory.lua
 View.lua
 Slash.lua
 UI\Window.lua
@@ -23,5 +24,6 @@ UI\Rows.lua
 UI\Header.lua
 UI\Summary.lua
 UI\FilterBar.lua
+UI\Tabs.lua
 UI\Ledger.lua
 Core.lua
