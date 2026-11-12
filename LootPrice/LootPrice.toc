@@ -1,4 +1,4 @@
-## Interface: 110207
+## Interface: 16001
 ## Title: LootPrice
 ## Version: @project-version@
 ## Notes: Session ledger showing vendor and auction house value of everything you loot.
