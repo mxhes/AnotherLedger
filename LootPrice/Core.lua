@@ -10,6 +10,7 @@ local KEY_RETRY_SECONDS = 10
 local keyState = { key = nil }
 local setupDone = false -- session/prices/UI are created once per Lua session
 local compiled -- LootParse patterns, built once from the real globals
+local compiledMoney -- LootParse money patterns, built lazily likewise
 local refreshPending = false
 
 local function say(msg)
@@ -160,6 +161,19 @@ function Core.recordLoot(link, qty)
   end
 end
 
+-- Raw gold: kind = "looted" | "quest", copper > 0. Refreshes the UI on success.
+function Core.recordGold(kind, copper)
+  if not ns.session then return end
+  if not ns.Session.addGold(ns.session, kind, copper, time()) then return end
+  refreshUI()
+end
+
+local function onMoneyMessage(text)
+  if not compiledMoney then compiledMoney = ns.LootParse.compileMoney(_G) end
+  local copper = ns.LootParse.parseMoney(compiledMoney, text)
+  if copper then Core.recordGold("looted", copper) end
+end
+
 local function onLootMessage(text)
   if not compiled then compiled = ns.LootParse.compile(_G) end
   local link, qty = ns.LootParse.parse(compiled, text)
@@ -185,7 +199,7 @@ local HELP = {
   "/lp reset - clear the session",
   "/lp keep on|off - keep the session across logins",
   "/lp tsm <source> - TSM price source (e.g. DBMarket)",
-  "/lp demo - add fake sample loot and temporary fake AH prices (UI check only)",
+  "/lp demo - add fake sample loot, gold and temporary fake AH prices (UI check only)",
   "Note: an AH age tag can look fresh when the price source serves old scan data.",
 }
 
@@ -205,6 +219,8 @@ local function demo()
   for _, d in ipairs(Core.DEMO_ITEMS) do
     Core.recordLoot(Core.makeLink(d[1], d[2], d[3]), d[4])
   end
+  Core.recordGold("looted", 840)
+  Core.recordGold("quest", 400)
   say("added demo loot.")
 end
 
@@ -317,6 +333,15 @@ end
 
 function events.CHAT_MSG_LOOT(text)
   if ns.session then onLootMessage(text) end
+end
+
+function events.CHAT_MSG_MONEY(text)
+  if ns.session then onMoneyMessage(text) end
+end
+
+-- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
+function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
+  if ns.session then Core.recordGold("quest", moneyReward) end
 end
 
 -- Only items in the ledger matter; the event fires for every item query.

@@ -90,6 +90,14 @@ local function boot(opts)
   env.SlashCmdList = {}
   env.LOOT_ITEM_SELF = "You receive loot: %s."
   env.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+  env.YOU_LOOT_MONEY = "You loot %s"
+  env.LOOT_MONEY_SPLIT = "Your share of the loot is %s."
+  env.YOU_LOOT_MONEY_GUILD = "You loot %s (%s deposited to guild bank)"
+  env.LOOT_ITEM_PUSHED_SELF = "You receive item: %s."
+  env.LOOT_ITEM_PUSHED_SELF_MULTIPLE = "You receive item: %sx%d."
+  env.GOLD_AMOUNT = "%d Gold"
+  env.SILVER_AMOUNT = "%d Silver"
+  env.COPPER_AMOUNT = "%d Copper"
   env.CreateFrame = function(_, name) return newFake(env, name) end
   env.UIParent = newFake(env)
   env.LootPriceDB = opts.db
@@ -253,4 +261,67 @@ h.test("wiring: a failing part attach does not stop the ledger", function()
   h.eq(ctx.ns.UI.Ledger.frame ~= nil, true)
   h.eq(ctx.ns.UI.Ledger.view ~= nil, true)
   h.eq(type(ctx.ns.UI.Ledger.frame._scripts.OnUpdate), "function")
+end)
+
+h.test("wiring: looted gold, split share and guild form land in gold.looted", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 1 Gold, 23 Silver, 4 Copper")
+  fire(ctx, "CHAT_MSG_MONEY", "Your share of the loot is 5 Silver.")
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 2 Gold (1 Gold deposited to guild bank)")
+  fire(ctx, "CHAT_MSG_MONEY", "Bob loots 9 Gold.")
+  fire(ctx, "CHAT_MSG_MONEY", "garbage")
+  h.eq(ctx.errors, {})
+  h.eq(ctx.ns.session.gold, { looted = 12304 + 500 + 20000, quest = 0 })
+  h.eq(ctx.ns.UI.Ledger.view.gold.total, 12304 + 500 + 20000)
+end)
+
+h.test("wiring: quest turn-in money lands in gold.quest", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "QUEST_TURNED_IN", 123, 500, 25000)
+  h.eq(ctx.ns.session.gold, { looted = 0, quest = 25000 })
+  for _, bad in ipairs({ 0, -4, "50", true }) do fire(ctx, "QUEST_TURNED_IN", 1, 0, bad) end
+  fire(ctx, "QUEST_TURNED_IN", 1, 0, nil)
+  fire(ctx, "QUEST_TURNED_IN", 1)
+  h.eq(ctx.ns.session.gold, { looted = 0, quest = 25000 })
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a stopped session and a missing session ignore gold", function()
+  local ctx = boot()
+  fire(ctx, "ADDON_LOADED", "LootPrice")
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  fire(ctx, "QUEST_TURNED_IN", 1, 0, 100)
+  h.eq(ctx.ns.session, nil)
+  fire(ctx, "PLAYER_ENTERING_WORLD", true, false)
+  slash(ctx, "stop")
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  fire(ctx, "QUEST_TURNED_IN", 1, 0, 100)
+  h.eq(ctx.ns.session.gold, { looted = 0, quest = 0 })
+  slash(ctx, "start")
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  h.eq(ctx.ns.session.gold.looted, 500)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: quest reward item is a normal list item", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", "You receive item: " .. LINK .. ".")
+  h.eq(ctx.ns.session.items[2589].qty, 1)
+  h.eq(#ctx.ns.UI.Ledger.view.rows, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: demo adds gold through the same path and reset clears it", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  slash(ctx, "demo")
+  h.eq(ctx.ns.session.gold, { looted = 840, quest = 400 })
+  slash(ctx, "reset")
+  h.eq(ctx.ns.session.gold, { looted = 0, quest = 0 })
+  slash(ctx, "stop")
+  slash(ctx, "demo")
+  h.eq(ctx.ns.session.gold, { looted = 0, quest = 0 })
 end)

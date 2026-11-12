@@ -207,3 +207,20 @@ h.test("recordLoot refreshes once", function()
   _G.time = nil
   h.eq({ refreshes, flashes }, { 1, 1 })
 end)
+
+h.test("Core.recordGold adds, refreshes once and ignores bad input", function()
+  local refreshes = 0
+  ns.session = ns.Session.new(0)
+  ns.UI = { refresh = function() refreshes = refreshes + 1 end }
+  _G.time = function() return 10 end
+  Core.recordGold("looted", 250)
+  Core.recordGold("quest", 0)
+  Core.recordGold("quest", nil)
+  Core.recordGold("bogus", 5)
+  h.eq(ns.session.gold, { looted = 250, quest = 0 })
+  h.eq(refreshes, 1)
+  ns.session = nil
+  Core.recordGold("looted", 5)
+  _G.time = nil
+  h.eq(refreshes, 1)
+end)
