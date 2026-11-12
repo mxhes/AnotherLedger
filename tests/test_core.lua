@@ -141,3 +141,69 @@ h.test("second demo updates the seeded record, original backup stays", function(
   Core.restoreDemoCache(db)
   h.eq(db.cache, demoDb().cache)
 end)
+
+h.test("Core.evalKey rejects non string/number parts", function()
+  h.eq(Core.evalKey({
+    GetCurrentRegionName = function() return {} end,
+    C_GameRules = { GetCurrentGameModeRecordID = function() return 7 end },
+  }), nil)
+  h.eq(Core.evalKey({
+    GetCurrentRegionName = function() return "EU" end,
+    C_GameRules = { GetCurrentGameModeRecordID = function() return true end },
+  }), nil)
+end)
+
+h.test("Core.keyFromState retries a nil key at most every 10 s", function()
+  local calls = 0
+  local ready = false
+  local env = {
+    GetCurrentRegionName = function() calls = calls + 1 return ready and "EU" or nil end,
+    C_GameRules = { GetCurrentGameModeRecordID = function() return 7 end },
+  }
+  local state = {}
+  h.eq(Core.keyFromState(state, env, 100), nil)
+  h.eq(calls, 1)
+  ready = true
+  h.eq(Core.keyFromState(state, env, 105), nil) -- throttled
+  h.eq(calls, 1)
+  h.eq(Core.keyFromState(state, env, 110), "EU-7")
+  h.eq(calls, 2)
+  h.eq(Core.keyFromState(state, env, 500), "EU-7") -- cached, no re-eval
+  h.eq(calls, 2)
+end)
+
+h.test("GET_ITEM_INFO_RECEIVED only refreshes for items in the session", function()
+  local pending = {}
+  _G.C_Timer = { After = function(_, fn) pending[#pending + 1] = fn end }
+  local refreshed = 0
+  ns.UI = { refresh = function() refreshed = refreshed + 1 end }
+  ns.session = ns.Session.new(0)
+  ns.Session.add(ns.session, 2589, "l", 1, 0)
+  Core.events.GET_ITEM_INFO_RECEIVED(999)
+  h.eq(#pending, 0)
+  Core.events.GET_ITEM_INFO_RECEIVED(2589)
+  h.eq(#pending, 1)
+  pending[1]()
+  h.eq(refreshed, 1)
+  ns.session = nil
+  Core.events.GET_ITEM_INFO_RECEIVED(2589)
+  h.eq(#pending, 1)
+  _G.C_Timer = nil
+end)
+
+h.test("recordLoot refreshes once", function()
+  local refreshes, flashes = 0, 0
+  ns.session = ns.Session.new(0)
+  ns.UI = {
+    refresh = function() refreshes = refreshes + 1 end,
+    flash = function() flashes = flashes + 1 end,
+  }
+  ns.prices = nil
+  _G.time = function() return 10 end
+  Core.recordLoot(Core.makeLink(2589, "Linen Cloth", "ffffff"), 1)
+  h.eq({ refreshes, flashes }, { 0, 1 })
+  ns.UI.flash = nil
+  Core.recordLoot(Core.makeLink(2589, "Linen Cloth", "ffffff"), 1)
+  _G.time = nil
+  h.eq({ refreshes, flashes }, { 1, 1 })
+end)

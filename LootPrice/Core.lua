@@ -5,6 +5,7 @@ ns.Core = Core
 
 local PREFIX = "|cff33ff99LootPrice|r: "
 local REFRESH_THROTTLE = 0.2
+local KEY_RETRY_SECONDS = 10
 
 local keyState = { key = nil }
 local compiled -- LootParse patterns, built once from the real globals
@@ -35,6 +36,16 @@ function Core.evalKey(env)
     if ok then modeID = v end
   end
   return ns.Prices.cacheKey(region, modeID)
+end
+
+-- Lazily re-evaluates a nil key (the game mode may be unknown right after
+-- login), at most once per KEY_RETRY_SECONDS. `state` = { key, tried }.
+function Core.keyFromState(state, env, now)
+  if state.key == nil and (state.tried == nil or now - state.tried >= KEY_RETRY_SECONDS) then
+    state.tried = now
+    state.key = Core.evalKey(env)
+  end
+  return state.key
 end
 
 -- Builds the Prices object over `env` (_G in the client). `getKey` returns the
@@ -139,9 +150,11 @@ function Core.recordLoot(link, qty)
     unitValue = info.ah or info.vendor
   end
   if ns.UI and ns.UI.flash then
+    -- flash refreshes the ledger itself
     ns.UI.flash(itemID, ns.View.flashLevel(unitValue, qty))
+  else
+    refreshUI()
   end
-  refreshUI()
 end
 
 local function onLootMessage(text)
@@ -179,6 +192,10 @@ end
 
 local function demo()
   if not ns.session then return end
+  if not ns.session.running then
+    say("session is stopped - press Start first.")
+    return
+  end
   local now = time()
   Core.seedDemoCache(ns.db, keyState.key, now)
   for _, d in ipairs(Core.DEMO_ITEMS) do
@@ -279,7 +296,9 @@ function events.PLAYER_LOGIN()
   ns.session = ns.Session.login(ns.chardb.session, ns.db.settings.keepSession, time())
   ns.chardb.session = ns.session
   keyState.key = Core.evalKey(_G)
-  ns.prices = Core.buildPrices(_G, ns.db, time, function() return keyState.key end)
+  ns.prices = Core.buildPrices(_G, ns.db, time, function()
+    return Core.keyFromState(keyState, _G, time())
+  end)
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   refreshUI()
 end
@@ -292,8 +311,9 @@ function events.CHAT_MSG_LOOT(text)
   if ns.session then onLootMessage(text) end
 end
 
-function events.GET_ITEM_INFO_RECEIVED()
-  requestRefresh()
+-- Only items in the ledger matter; the event fires for every item query.
+function events.GET_ITEM_INFO_RECEIVED(itemID)
+  if ns.session and ns.session.items[itemID] then requestRefresh() end
 end
 
 function events.PLAYER_LOGOUT()
@@ -303,6 +323,8 @@ function events.PLAYER_LOGOUT()
     ns.chardb.session = ns.session
   end
 end
+
+Core.events = events
 
 function Core.init()
   local frame = CreateFrame("Frame")

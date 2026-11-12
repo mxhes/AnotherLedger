@@ -15,7 +15,8 @@ local function validEntry(e)
 end
 
 function Prices.cacheKey(region, modeID)
-  if region == nil or modeID == nil then return nil end
+  local function ok(v) return type(v) == "string" or type(v) == "number" end
+  if not ok(region) or not ok(modeID) then return nil end
   return region .. "-" .. modeID
 end
 

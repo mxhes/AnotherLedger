@@ -41,6 +41,16 @@ local function reportError(err)
   if handler then handler(err) end
 end
 
+-- Reports each distinct error message once, so a failure that repeats every
+-- tick does not flood the error handler.
+local reported = {}
+local function reportOnce(err)
+  local key = tostring(err)
+  if reported[key] then return end
+  reported[key] = true
+  reportError(err)
+end
+
 function Ledger.buildView(now)
   local session = ns.session
   if not session then return nil end
@@ -61,7 +71,11 @@ end
 function Ledger.refresh()
   if not list or not ns.session then return end
   local now = time()
-  local view = Ledger.buildView(now)
+  local ok, view = pcall(Ledger.buildView, now)
+  if not ok then
+    reportOnce(view)
+    return
+  end
   if not view then return end
   Ledger.view = view
   for _, part in ipairs(parts) do
@@ -93,9 +107,18 @@ function Ledger.init()
   Ledger.list = list
   table.insert(parts, 1, rowsPart)
 
-  if ns.UI.Summary then ns.UI.Summary.attach(frame.topBox, frame.footer) end
+  -- One failing part must not stop the others, the ticker or the first refresh.
+  local function attach(part, fn)
+    if not part then return end
+    local ok, err = pcall(fn)
+    if not ok then reportError(err) end
+  end
 
-  if ns.UI.Header then
+  attach(ns.UI.Summary, function()
+    ns.UI.Summary.attach(frame.topBox, frame.footer)
+  end)
+
+  attach(ns.UI.Header, function()
     local Core = ns.Core
     ns.UI.Header.attach(frame.header.row1, {
       start = Core.startSession,
@@ -103,11 +126,11 @@ function Ledger.init()
       reset = Core.resetSession,
       hide = ns.UI.Window.hide,
     })
-  end
+  end)
 
-  if ns.UI.FilterBar then
+  attach(ns.UI.FilterBar, function()
     ns.UI.FilterBar.attach(frame.header.row2, ns.db, Ledger.refresh)
-  end
+  end)
 
   -- OnUpdate only runs while the frame is shown.
   local acc = 0
