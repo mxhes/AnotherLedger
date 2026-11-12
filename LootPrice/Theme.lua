@@ -4,7 +4,7 @@ local ADDON, ns = ...
 local Theme = {}
 
 Theme.textures = {
-  -- No certain retail parchment path; a flat tile tinted with colors.panelTint.
+  -- No certain retail leather path; a flat tile tinted with colors.panelTint.
   parchment = "Interface\\Buttons\\WHITE8X8",
   frameBorder = "Interface\\DialogFrame\\UI-DialogBox-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
@@ -27,26 +27,33 @@ Theme.fonts = {
   file = "Fonts\\FRIZQT__.TTF",
 }
 
+-- Dark leather look: a dark warm brown panel with light text and the real,
+-- bright game coin / quality colors. tests/test_theme.lua pins the contrast.
 Theme.colors = {
-  ink = { 0.10, 0.06, 0.02, 1 },
-  stale = { 0.46, 0.12, 0.00, 1 },
-  gold = { 0.36, 0.23, 0.00, 1 },
+  -- Body text: light cream.
+  ink = { 0.93, 0.87, 0.72, 1 },
+  -- Age tag of stale prices: bright orange (ff8a4a).
+  stale = { 1.00, 0.54, 0.29, 1 },
+  -- "Top finds" header: the in-game gold (ffd100).
+  gold = { 1.00, 0.82, 0.00, 1 },
   -- Bright gold for lines (divider, edge, filter underline); not for text.
-  goldLine = { 1.00, 0.80, 0.20, 1 },
+  goldLine = { 1.00, 0.82, 0.20, 1 },
   -- Divider between Top finds and the list (goldLine at partial alpha).
-  divider = { 1.00, 0.80, 0.20, 0.85 },
-  flashNormal = { 1.00, 0.85, 0.30, 0.35 },
-  flashStrong = { 1.00, 0.60, 0.10, 0.60 },
-  -- Old tint was 0.86 / 0.76 / 0.54; now 72 % of it (about 28 % darker).
-  panelTint = { 0.62, 0.55, 0.39, 0.97 },
-  -- Coin colors (game gold / silver / copper, darkened to stay readable on the
-  -- darker parchment; contrast >= 3 against panelTint).
-  moneyGold = { 0.36, 0.23, 0.00, 1 },
-  moneySilver = { 0.20, 0.20, 0.27, 1 },
-  moneyCopper = { 0.42, 0.12, 0.02, 1 },
-  hint = { 0.28, 0.22, 0.15, 1 },
-  scrollTrack = { 0.10, 0.06, 0.02, 0.20 },
-  scrollThumb = { 0.10, 0.06, 0.02, 0.6 },
+  divider = { 1.00, 0.82, 0.20, 0.85 },
+  -- Row flash: soft warm glow, strong one brighter (alpha highlight on dark).
+  flashNormal = { 1.00, 0.90, 0.60, 0.22 },
+  flashStrong = { 1.00, 0.80, 0.35, 0.45 },
+  -- Dark warm leather brown.
+  panelTint = { 0.15, 0.10, 0.06, 0.97 },
+  -- Border tint (a shade lighter and warmer than the panel so the frame reads).
+  panelBorder = { 0.55, 0.42, 0.24, 1 },
+  -- Real game coin colors.
+  moneyGold = { 1.00, 0.82, 0.00, 1 },   -- ffd100
+  moneySilver = { 0.780, 0.780, 0.812, 1 }, -- c7c7cf
+  moneyCopper = { 0.929, 0.647, 0.373, 1 }, -- eda55f
+  hint = { 0.68, 0.63, 0.55, 1 },
+  scrollTrack = { 0.93, 0.87, 0.72, 0.10 },
+  scrollThumb = { 0.93, 0.87, 0.72, 0.45 },
 }
 
 -- Seconds a looted row's flash takes to fade.
@@ -96,35 +103,39 @@ Theme.widths = {
   filter = { quality = 70, min = 44, sort = 78 },
 }
 
--- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom.
-local BRIGHT = {
-  [0] = { 0.62, 0.62, 0.62 },
-  [1] = { 1.00, 1.00, 1.00 },
-  [2] = { 0.12, 1.00, 0.00 },
-  [3] = { 0.00, 0.44, 0.87 },
-  [4] = { 0.64, 0.21, 0.93 },
-  [5] = { 1.00, 0.50, 0.00 },
-  [6] = { 0.90, 0.80, 0.50 },
-  [7] = { 0.00, 0.80, 1.00 },
-}
--- Darker variants readable on the parchment tint (WCAG contrast against
--- colors.panelTint is at least 3 for every tier; tests/test_theme.lua checks).
--- The tint is mid-tone, so bright colors cannot reach 3: all text is dark.
-local DARK = {
-  [0] = { 0.25, 0.25, 0.25 },
-  [1] = { 0.10, 0.06, 0.02 },
-  [2] = { 0.00, 0.26, 0.00 },
-  [3] = { 0.00, 0.10, 0.42 },
-  [4] = { 0.28, 0.04, 0.46 },
-  [5] = { 0.45, 0.14, 0.00 },
-  [6] = { 0.34, 0.22, 0.02 },
-  [7] = { 0.00, 0.24, 0.36 },
+-- WCAG 2 contrast ratio (1..21) between two sRGB colors (components 0..1).
+local function linear(c)
+  if c <= 0.03928 then return c / 12.92 end
+  return ((c + 0.055) / 1.055) ^ 2.4
+end
+local function luminance(r, g, b)
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+end
+function Theme.contrast(r1, g1, b1, r2, g2, b2)
+  local x, y = luminance(r1, g1, b1), luminance(r2, g2, b2)
+  if x < y then x, y = y, x end
+  return (x + 0.05) / (y + 0.05)
+end
+
+-- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom: the familiar
+-- game colors (rare and epic brightened because the in-game ones are too dark
+-- on the dark panel).
+local QUALITY = {
+  [0] = { 0.62, 0.62, 0.62 }, -- 9d9d9d
+  [1] = { 1.00, 1.00, 1.00 }, -- ffffff
+  [2] = { 0.12, 1.00, 0.00 }, -- 1eff00
+  [3] = { 0.29, 0.61, 1.00 }, -- 4a9bff
+  [4] = { 0.76, 0.36, 1.00 }, -- c25bff
+  [5] = { 1.00, 0.50, 0.00 }, -- ff8000
+  [6] = { 0.90, 0.80, 0.50 }, -- e6cc80
+  [7] = { 0.00, 0.80, 1.00 }, -- 00ccff
 }
 
+-- onParchment is accepted for old callers and ignored: the panel is dark, so
+-- one bright set serves everywhere.
 function Theme.qualityColor(quality, onParchment)
-  local set = onParchment and DARK or BRIGHT
-  local c = set[quality]
-  if type(quality) ~= "number" or not c then c = set[1] end
+  local c = QUALITY[quality]
+  if type(quality) ~= "number" or not c then c = QUALITY[1] end
   return c[1], c[2], c[3]
 end
 

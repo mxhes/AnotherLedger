@@ -46,7 +46,7 @@ h.test("Theme has required keys", function()
   h.eq(T.sizes.minHeight, 240)
 end)
 
-for _, onParchment in ipairs({ true, false }) do
+for _, onParchment in ipairs({ true, false }) do -- the second argument is ignored now
   h.test("qualityColor in range, parchment=" .. tostring(onParchment), function()
     for q = 0, 7 do
       local r, g, b = T.qualityColor(q, onParchment)
@@ -67,45 +67,55 @@ h.test("qualityColor out of range falls back to quality 1", function()
   end
 end)
 
--- WCAG relative luminance / contrast ratio against the parchment tint.
-local function lin(c)
-  if c <= 0.03928 then return c / 12.92 end
-  return ((c + 0.055) / 1.055) ^ 2.4
-end
-local function lum(c) return 0.2126 * lin(c[1]) + 0.7152 * lin(c[2]) + 0.0722 * lin(c[3]) end
 local function contrast(a, b)
-  local x, y = lum(a), lum(b)
-  if x < y then x, y = y, x end
-  return (x + 0.05) / (y + 0.05)
+  return T.contrast(a[1], a[2], a[3], b[1], b[2], b[3])
 end
 
-h.test("panelTint is a darkened warm parchment brown", function()
-  local t = T.colors.panelTint
-  -- At least 25 % darker than the old 0.86 / 0.76 / 0.54 tint, still warm and not black.
-  h.eq(t[1] <= 0.86 * 0.75 + 1e-9 and t[2] <= 0.76 * 0.75 + 1e-9 and t[3] <= 0.54 * 0.75 + 1e-9, true)
-  h.eq(t[1] > t[2] and t[2] > t[3], true)
-  h.eq(t[1] >= 0.4, true)
-  h.eq(t[4] > 0.9 and t[4] <= 1, true)
+h.test("Theme.contrast is the WCAG ratio", function()
+  local function near(a, b) return math.abs(a - b) < 0.01 end
+  h.eq(near(T.contrast(0, 0, 0, 1, 1, 1), 21), true)
+  h.eq(near(T.contrast(1, 1, 1, 0, 0, 0), 21), true)
+  h.eq(near(T.contrast(0.5, 0.5, 0.5, 0.5, 0.5, 0.5), 1), true)
+  -- #777 on white is the well-known 4.48.
+  h.eq(near(T.contrast(0x77 / 255, 0x77 / 255, 0x77 / 255, 1, 1, 1), 4.48), true)
 end)
 
-h.test("text colors stay readable on the parchment tint", function()
+h.test("panelTint is a dark warm leather brown", function()
+  local t = T.colors.panelTint
+  h.eq(t[1] >= 0.13 and t[1] <= 0.18, true)
+  h.eq(t[2] >= 0.09 and t[2] <= 0.13, true)
+  h.eq(t[3] >= 0.05 and t[3] <= 0.08, true)
+  h.eq(t[1] > t[2] and t[2] > t[3], true)
+  h.eq(t[4] > 0.9 and t[4] <= 1, true)
+  local b = T.colors.panelBorder
+  h.eq(b[1] > t[1] and b[2] > t[2] and b[3] > t[3], true)
+  h.eq(b[1] > b[2] and b[2] > b[3], true)
+end)
+
+h.test("text, coin and quality colors are readable on the dark panel", function()
   local tint = T.colors.panelTint
-  h.eq(contrast(T.colors.ink, tint) >= 5, true, "ink")
-  for _, k in ipairs({ "gold", "stale", "hint", "moneyGold", "moneySilver", "moneyCopper" }) do
-    h.eq(contrast(T.colors[k], tint) >= 2.8, true, k)
+  h.eq(contrast(T.colors.ink, tint) >= 7, true, "ink")
+  for _, k in ipairs({ "hint", "stale", "gold", "moneyGold", "moneySilver", "moneyCopper" }) do
+    h.eq(contrast(T.colors[k], tint) >= 4.5, true, k)
   end
   for q = 0, 7 do
     local r, g, b = T.qualityColor(q, true)
     h.eq(contrast({ r, g, b }, tint) >= 3, true, "quality " .. q)
   end
-  -- Lines (divider, edge) only need to stand out, not to be read.
-  h.eq(contrast(T.colors.goldLine, tint) >= 2, true, "goldLine")
+  h.eq(contrast(T.colors.goldLine, tint) >= 3, true, "goldLine")
+  -- The divider is goldLine at partial alpha: blend over the panel first.
+  local d = T.colors.divider
+  local mix = {}
+  for i = 1, 3 do mix[i] = d[i] * d[4] + tint[i] * (1 - d[4]) end
+  h.eq(contrast(mix, tint) >= 3, true, "divider")
 end)
 
-h.test("coin colors are distinct", function()
-  local g, s, c = T.colors.moneyGold, T.colors.moneySilver, T.colors.moneyCopper
-  h.eq(g[1] ~= s[1] or g[2] ~= s[2], true)
-  h.eq(s[1] ~= c[1] or s[2] ~= c[2], true)
-  h.eq(g[3] < s[3], true) -- gold is the yellow one
-  h.eq(c[1] > c[2] and c[1] > c[3], true) -- copper is red-brown
+h.test("coin colors are the game's", function()
+  local function hex(c)
+    return string.format("%02x%02x%02x", math.floor(c[1] * 255 + 0.5),
+      math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
+  end
+  h.eq(hex(T.colors.moneyGold), "ffd100")
+  h.eq(hex(T.colors.moneySilver), "c7c7cf")
+  h.eq(hex(T.colors.moneyCopper), "eda55f")
 end)

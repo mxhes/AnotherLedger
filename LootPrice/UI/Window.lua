@@ -143,6 +143,8 @@ local function build(db)
   })
   local c = T.colors.panelTint
   frame:SetBackdropColor(c[1], c[2], c[3], c[4])
+  local bc = T.colors.panelBorder
+  frame:SetBackdropBorderColor(bc[1], bc[2], bc[3], bc[4])
 
   -- Header: two 28 px rows. Dragging the header moves the window.
   local header = CreateFrame("Frame", nil, frame)
