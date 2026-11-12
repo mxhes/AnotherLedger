@@ -69,7 +69,8 @@ Core.DEMO_ITEMS = {
 }
 
 -- Originals of the cache entries demo overwrote (NOT persisted):
--- demoBackup[key] = { created = bool, items = { [itemID] = entry or false } }
+-- demoBackup[key] = { created = bool, items = { [itemID] = entry or false },
+--                     seeded = { [itemID] = the fake entry demo wrote } }
 Core.demoBackup = nil
 
 local function copyEntry(e)
@@ -85,7 +86,7 @@ function Core.seedDemoCache(db, key, now)
   local bucket = db.cache[key]
   local backup = Core.demoBackup[key]
   if not backup then
-    backup = { created = type(bucket) ~= "table", items = {} }
+    backup = { created = type(bucket) ~= "table", items = {}, seeded = {} }
     Core.demoBackup[key] = backup
   end
   if type(bucket) ~= "table" then
@@ -97,7 +98,9 @@ function Core.seedDemoCache(db, key, now)
       if backup.items[d[1]] == nil then
         backup.items[d[1]] = bucket[d[1]] ~= nil and copyEntry(bucket[d[1]]) or false
       end
-      bucket[d[1]] = { price = d[5], seenAt = d[6] and now - 14 * 3600 or now }
+      local fake = { price = d[5], seenAt = d[6] and now - 14 * 3600 or now }
+      bucket[d[1]] = fake
+      backup.seeded[d[1]] = copyEntry(fake)
     end
   end
 end
@@ -111,7 +114,12 @@ function Core.restoreDemoCache(db)
     local bucket = db.cache[key]
     if type(bucket) == "table" then
       for id, orig in pairs(backup.items) do
-        if orig == false then bucket[id] = nil else bucket[id] = orig end
+        local cur, fake = bucket[id], backup.seeded[id]
+        -- Only revert entries that still are the demo's fake; a real write wins.
+        if type(cur) == "table" and type(fake) == "table"
+            and cur.price == fake.price and cur.seenAt == fake.seenAt then
+          if orig == false then bucket[id] = nil else bucket[id] = orig end
+        end
       end
       if backup.created and next(bucket) == nil then db.cache[key] = nil end
     end

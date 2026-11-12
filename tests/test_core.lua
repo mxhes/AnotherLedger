@@ -112,3 +112,32 @@ h.test("Core.resetSession restores the demo cache", function()
   _G.time = nil
   h.eq(db.cache, demoDb().cache)
 end)
+
+h.test("restoreDemoCache keeps a real price written after the demo seed", function()
+  Core.demoBackup = nil
+  local db = demoDb()
+  Core.seedDemoCache(db, "EU-1", 100000)
+  db.cache["EU-1"][2589] = { price = 777, seenAt = 150000 }
+  Core.restoreDemoCache(db)
+  h.eq(db.cache["EU-1"][2589], { price = 777, seenAt = 150000 })
+  h.eq(db.cache["EU-1"][2592], nil)
+  h.eq(db.cache["EU-1"][999], { price = 1, seenAt = 1 })
+end)
+
+h.test("restoreDemoCache keeps a real price when the original was absent", function()
+  Core.demoBackup = nil
+  local db = { cache = {} }
+  Core.seedDemoCache(db, "EU-3", 100000)
+  db.cache["EU-3"][2592] = { price = 777, seenAt = 150000 }
+  Core.restoreDemoCache(db)
+  h.eq(db.cache, { ["EU-3"] = { [2592] = { price = 777, seenAt = 150000 } } })
+end)
+
+h.test("second demo updates the seeded record, original backup stays", function()
+  Core.demoBackup = nil
+  local db = demoDb()
+  Core.seedDemoCache(db, "EU-1", 100000)
+  Core.seedDemoCache(db, "EU-1", 200000)
+  Core.restoreDemoCache(db)
+  h.eq(db.cache, demoDb().cache)
+end)
