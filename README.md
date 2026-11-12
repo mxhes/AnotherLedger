@@ -12,8 +12,8 @@ The Session Ledger is a draggable, resizable, scrollable window:
 - **Top finds**: the most valuable finds of the session.
 - **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows.
 - **Filter marker**: a small "filtered" marker while a filter is active.
-- **Unpriced count**: how many items have no price.
-- **Age tag**: an AH price older than 12 hours is shown in orange with its age, for example `(14h)`.
+- **Unpriced count**: how many items have no AH price.
+- **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than 12 hours.
 
 ## Requirements
 
@@ -21,18 +21,18 @@ Vendor prices need nothing. AH prices need [TradeSkillMaster](https://www.trades
 
 ## Commands
 
-- `/lp` - toggle the window
+- `/lp` (or `/lootprice`) - toggle the window
 - `/lp show` | `/lp hide` - show or hide the window
 - `/lp start` | `/lp stop` - start or stop the session clock
-- `/lp reset` - clear the session
+- `/lp reset` - clear the session (asks for confirmation once the session holds 25 or more distinct items)
 - `/lp keep on|off` - keep the session across logins
-- `/lp tsm <source>` - TSM price source (e.g. `DBMarket`)
-- `/lp demo` - adds fake sample loot and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI.
+- `/lp tsm <source>` - TSM price source (e.g. `DBMarket`); prices cached under the old source stay in the cache until they refresh
+- `/lp demo` - adds fake sample loot and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI (needs a running session).
 - `/lp help` - list the commands
 
 ## Settings
 
-- **Keep session across relogs** (`/lp keep on|off`, default off): a new login starts a fresh session by default; with `/lp keep on` the running session (loot, timer) survives logout.
+- **Keep session across relogs** (`/lp keep on|off`, default off): a real login starts a fresh session by default; with `/lp keep on` the running session (loot, timer) survives logout. A `/reload` is not a new login: it always keeps the session.
 - **TSM price source** (`/lp tsm <source>`, default `DBMarket`): the TSM price source string used for AH values.
 - Window position, size, visibility, filter and sort are remembered automatically.
 
@@ -43,7 +43,7 @@ Vendor prices need nothing. AH prices need [TradeSkillMaster](https://www.trades
 
 ## Known limit: age tags
 
-TSM and Auctionator return a number without a scan time. The age is the time since the source last returned a price for that item. If the source returns nothing, the last known price is shown with its age. A source that silently serves old scan data looks fresh.
+TSM and Auctionator return a number without a scan time. The age is the time since the source last returned a price for that item. If the source returns nothing, the last known price is shown with its age. A source that silently serves old scan data looks fresh (also noted in `/lp help`).
 
 ## Tests
 
@@ -57,7 +57,7 @@ Copy or symlink the `LootPrice/` folder into `World of Warcraft/<client>/Interfa
 
 - [ ] Confirm the `## Interface:` number in `LootPrice/LootPrice.toc` (currently 110207, a placeholder): `/dump select(4, GetBuildInfo())` in the Forever client.
 - [ ] Verify the packager config (`.pkgmeta`) with a dry run: the zip must contain exactly one `LootPrice/` folder with the `.toc` inside. The first packager dry run decides whether `.pkgmeta` must move into `LootPrice/` (then drop `package-as` and the ignore list).
-- [ ] Re-verify the price API signatures in the client (spec risk 1): `TSM_API.GetCustomPriceValue("DBMarket", "i:<itemID>")` and `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)`; flagged in code comments until confirmed.
+- [ ] Re-verify the price API signatures in the client (spec risk 1): `TSM_API.GetCustomPriceValue("DBMarket", "i:<itemID>")` and `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)`; flagged in code as `UNVERIFIED (check in client)` comments until confirmed.
 - [ ] Run the in-client checks below on a fresh `LootPriceDB` / `LootPriceCharDB` (delete the saved-variable files for one launch).
 
 ### In-client verification checklist
@@ -69,7 +69,7 @@ Core and loot
 - [ ] Loot a vendor item, then `/dump LootPriceCharDB.session.items`
 - [ ] `GetCurrentRegionName` and `C_GameRules.GetCurrentGameModeRecordID` return values (cache key non-nil)
 - [ ] `CHAT_MSG_LOOT` parsing against the real `LOOT_ITEM_*` globals
-- [ ] Logout / relogin with keep on; with keep off a new login starts fresh
+- [ ] Logout / relogin with keep on keeps the session; with keep off a real relog starts fresh, while `/reload` keeps the session
 - [ ] `GET_ITEM_INFO_RECEIVED` throttle; `C_Timer.After` exists
 
 Window

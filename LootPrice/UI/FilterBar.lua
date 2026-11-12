@@ -104,6 +104,7 @@ local function isQualityOn(filter, q)
 end
 
 local function openMenuModern(anchor, getFilter, changed)
+  -- UNVERIFIED (check in client): MenuUtil.CreateContextMenu and MenuResponse.Refresh.
   MenuUtil.CreateContextMenu(anchor, function(_, root)
     for q = 0, 7 do
       root:CreateCheckbox(qualityLabel(q),

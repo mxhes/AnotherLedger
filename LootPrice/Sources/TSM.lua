@@ -13,6 +13,7 @@ function TSM.new(env, getSource)
     if type(api) ~= "table" or type(api.GetCustomPriceValue) ~= "function" then return nil end
     local okS, source = pcall(getSource)
     if not okS or source == nil then return nil end
+    -- UNVERIFIED (check in client): GetCustomPriceValue(source, "i:<itemID>") signature.
     local ok, value = pcall(api.GetCustomPriceValue, source, "i:" .. tostring(itemID))
     if ok and type(value) == "number" then return value end
     return nil

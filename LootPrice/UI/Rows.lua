@@ -70,6 +70,7 @@ local function theme() return ns.Theme end
 
 local function itemIcon(itemID)
   local icon
+  -- UNVERIFIED (check in client): C_Item.GetItemIconByID exists on Forever.
   if C_Item and C_Item.GetItemIconByID then icon = C_Item.GetItemIconByID(itemID) end
   return icon or QUESTION_MARK
 end
@@ -172,6 +173,7 @@ function Rows.attach(area)
   bar:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -1, 1)
   bar:SetMinMaxValues(0, 0)
   bar:SetValueStep(1)
+  -- UNVERIFIED (check in client): Slider SetObeyStepOnDrag / GetThumbTexture exist.
   if bar.SetObeyStepOnDrag then bar:SetObeyStepOnDrag(true) end
   local track = bar:CreateTexture(nil, "BACKGROUND")
   track:SetAllPoints(bar)
