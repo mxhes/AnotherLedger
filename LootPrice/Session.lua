@@ -19,7 +19,7 @@ function Session.new(now)
     runningSince = now,
     elapsedBase = 0,
     items = {},
-    gold = { looted = 0, quest = 0 },
+    gold = 0,
   }
 end
 
@@ -45,24 +45,16 @@ function Session.add(session, itemID, link, qty, now)
   return true
 end
 
--- Raw gold income in copper. kind = "looted" (CHAT_MSG_MONEY) | "quest" (turn-in).
-function Session.addGold(session, kind, copper, now)
+-- Raw gold income in copper (looted and quest money, one total).
+function Session.addGold(session, copper, now)
   if not session.running then return false end
-  if kind ~= "looted" and kind ~= "quest" then return false end
   if not posInt(copper) then return false end
-  local gold = session.gold
-  if type(gold) ~= "table" then
-    gold = { looted = 0, quest = 0 }
-    session.gold = gold
-  end
-  gold[kind] = (num(gold[kind]) and gold[kind] or 0) + copper
+  session.gold = (num(session.gold) and session.gold or 0) + copper
   return true
 end
 
 function Session.goldTotal(session)
-  local gold = session.gold
-  if type(gold) ~= "table" then return 0 end
-  return (num(gold.looted) and gold.looted or 0) + (num(gold.quest) and gold.quest or 0)
+  return num(session.gold) and session.gold or 0
 end
 
 function Session.start(session, now)
@@ -80,7 +72,7 @@ end
 
 function Session.reset(session, now)
   session.items = {}
-  session.gold = { looted = 0, quest = 0 }
+  session.gold = 0
   session.startedAt = now
   session.elapsedBase = 0
   session.runningSince = session.running and now or nil
@@ -118,16 +110,18 @@ local function validSession(s)
   return true
 end
 
-local function validGoldField(v)
-  return num(v) and v >= 0
-end
-
--- Old records have no gold: add zeros. A malformed gold table is replaced by
--- zeros (the items and the clock of the record stay valid).
+-- Missing gold (old records) -> 0. The old { looted, quest } table -> the sum of
+-- its valid parts. Anything else malformed -> 0.
 local function normalizeGold(s)
   local g = s.gold
-  if type(g) ~= "table" or not validGoldField(g.looted) or not validGoldField(g.quest) then
-    s.gold = { looted = 0, quest = 0 }
+  if type(g) == "table" then
+    local sum = 0
+    for _, k in ipairs({ "looted", "quest" }) do
+      if num(g[k]) and g[k] > 0 then sum = sum + g[k] end
+    end
+    s.gold = sum
+  elseif not (num(g) and g >= 0) then
+    s.gold = 0
   end
 end
 

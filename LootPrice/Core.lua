@@ -161,17 +161,17 @@ function Core.recordLoot(link, qty)
   end
 end
 
--- Raw gold: kind = "looted" | "quest", copper > 0. Refreshes the UI on success.
-function Core.recordGold(kind, copper)
+-- Raw gold (looted or quest money), copper > 0. Refreshes the UI on success.
+function Core.recordGold(copper)
   if not ns.session then return end
-  if not ns.Session.addGold(ns.session, kind, copper, time()) then return end
+  if not ns.Session.addGold(ns.session, copper, time()) then return end
   refreshUI()
 end
 
 local function onMoneyMessage(text)
   if not compiledMoney then compiledMoney = ns.LootParse.compileMoney(_G) end
   local copper = ns.LootParse.parseMoney(compiledMoney, text)
-  if copper then Core.recordGold("looted", copper) end
+  if copper then Core.recordGold(copper) end
 end
 
 local function onLootMessage(text)
@@ -219,8 +219,7 @@ local function demo()
   for _, d in ipairs(Core.DEMO_ITEMS) do
     Core.recordLoot(Core.makeLink(d[1], d[2], d[3]), d[4])
   end
-  Core.recordGold("looted", 840)
-  Core.recordGold("quest", 400)
+  Core.recordGold(1240) -- 12s 40c (8s 40c looted + 4s quest)
   say("added demo loot.")
 end
 
@@ -341,7 +340,7 @@ end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
 function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
-  if ns.session then Core.recordGold("quest", moneyReward) end
+  if ns.session then Core.recordGold(moneyReward) end
 end
 
 -- Only items in the ledger matter; the event fires for every item query.

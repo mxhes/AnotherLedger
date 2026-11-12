@@ -213,14 +213,14 @@ h.test("Core.recordGold adds, refreshes once and ignores bad input", function()
   ns.session = ns.Session.new(0)
   ns.UI = { refresh = function() refreshes = refreshes + 1 end }
   _G.time = function() return 10 end
-  Core.recordGold("looted", 250)
-  Core.recordGold("quest", 0)
-  Core.recordGold("quest", nil)
-  Core.recordGold("bogus", 5)
-  h.eq(ns.session.gold, { looted = 250, quest = 0 })
+  Core.recordGold(250)
+  Core.recordGold(0)
+  Core.recordGold(nil)
+  Core.recordGold("5")
+  h.eq(ns.session.gold, 250)
   h.eq(refreshes, 1)
   ns.session = nil
-  Core.recordGold("looted", 5)
+  Core.recordGold(5)
   _G.time = nil
   h.eq(refreshes, 1)
 end)

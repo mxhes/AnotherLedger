@@ -116,11 +116,9 @@ function View.build(session, opts)
 
   -- Raw gold is income of its own: never filtered, counted equally on both
   -- sides of the combined totals.
-  local sg = type(session.gold) == "table" and session.gold or {}
-  local looted = num(sg.looted) and sg.looted > 0 and sg.looted or 0
-  local quest = num(sg.quest) and sg.quest > 0 and sg.quest or 0
-  local goldTotal = looted + quest
-  local gold = { looted = looted, quest = quest, total = goldTotal }
+  local goldTotal = ns.Session.goldTotal(session)
+  if goldTotal < 0 then goldTotal = 0 end
+  local gold = { total = goldTotal }
   local combined = { vendor = totals.vendor + goldTotal, ah = totals.ah + goldTotal }
   if num(elapsed) and elapsed >= View.MIN_RATE_SECONDS then
     gold.perHour = goldTotal * 3600 / elapsed
