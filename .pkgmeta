@@ -5,6 +5,8 @@
 # (`release.sh -t LootPrice`, or `args: -t LootPrice` in the GitHub Action), so
 # LootPrice/LootPrice.toc is found and the zip contains a single LootPrice/ folder.
 # `package-as` fixes the folder name inside the zip.
+# First packager dry run decides whether .pkgmeta must move into LootPrice/
+# (then drop package-as and the ignore list).
 # UNVERIFIED: whether the packager reads this .pkgmeta from the repo root or from
 # the -t directory. Check on the first real packager run (-d dry run). If it only
 # reads it from LootPrice/, move this file there (the ignore list then shrinks

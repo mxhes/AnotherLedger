@@ -27,12 +27,12 @@ Vendor prices need nothing. AH prices need [TradeSkillMaster](https://www.trades
 - `/lp reset` - clear the session
 - `/lp keep on|off` - keep the session across logins
 - `/lp tsm <source>` - TSM price source (e.g. `DBMarket`)
-- `/lp demo` - add sample loot (UI check)
+- `/lp demo` - adds fake sample loot and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI.
 - `/lp help` - list the commands
 
 ## Settings
 
-- **Keep session across relogs** (`/lp keep on|off`, default off): the running session (loot, timer) survives logout.
+- **Keep session across relogs** (`/lp keep on|off`, default off): a new login starts a fresh session by default; with `/lp keep on` the running session (loot, timer) survives logout.
 - **TSM price source** (`/lp tsm <source>`, default `DBMarket`): the TSM price source string used for AH values.
 - Window position, size, visibility, filter and sort are remembered automatically.
 
@@ -56,7 +56,7 @@ Copy or symlink the `LootPrice/` folder into `World of Warcraft/<client>/Interfa
 ## Before release
 
 - [ ] Confirm the `## Interface:` number in `LootPrice/LootPrice.toc` (currently 110207, a placeholder): `/dump select(4, GetBuildInfo())` in the Forever client.
-- [ ] Verify the packager config (`.pkgmeta`) with a dry run: the zip must contain exactly one `LootPrice/` folder with the `.toc` inside.
+- [ ] Verify the packager config (`.pkgmeta`) with a dry run: the zip must contain exactly one `LootPrice/` folder with the `.toc` inside. The first packager dry run decides whether `.pkgmeta` must move into `LootPrice/` (then drop `package-as` and the ignore list).
 - [ ] Re-verify the price API signatures in the client (spec risk 1): `TSM_API.GetCustomPriceValue("DBMarket", "i:<itemID>")` and `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)`; flagged in code comments until confirmed.
 - [ ] Run the in-client checks below on a fresh `LootPriceDB` / `LootPriceCharDB` (delete the saved-variable files for one launch).
 
@@ -65,11 +65,11 @@ Copy or symlink the `LootPrice/` folder into `World of Warcraft/<client>/Interfa
 Core and loot
 - [ ] `/reload`: no Lua errors, also on login with the window hidden
 - [ ] `/lp help`; `/lp`, `show`, `hide`, `start`, `stop`, `reset`, `keep`, `tsm`
-- [ ] `/lp demo`: six rows, quality colors, `n/a` for Light Leather, orange `(14h)` tag on Kingsblood, stale / no-AH rows
+- [ ] `/lp demo` (adds fake loot and temporarily seeds fake AH prices for a few real item IDs; removed again by `/lp reset`, the Reset button and logout, so use it only to check the UI): six rows, quality colors, `n/a` for Light Leather, orange `(14h)` tag on Kingsblood, stale / no-AH rows
 - [ ] Loot a vendor item, then `/dump LootPriceCharDB.session.items`
 - [ ] `GetCurrentRegionName` and `C_GameRules.GetCurrentGameModeRecordID` return values (cache key non-nil)
 - [ ] `CHAT_MSG_LOOT` parsing against the real `LOOT_ITEM_*` globals
-- [ ] Logout / relogin with keep on
+- [ ] Logout / relogin with keep on; with keep off a new login starts fresh
 - [ ] `GET_ITEM_INFO_RECEIVED` throttle; `C_Timer.After` exists
 
 Window

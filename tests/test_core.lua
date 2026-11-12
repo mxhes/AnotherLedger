@@ -71,3 +71,44 @@ h.test("Core.recordLoot adds to the session and flashes", function()
   h.eq(ns.session.items[2589].qty, 3)
   h.eq(flashed, nil)
 end)
+
+local function demoDb()
+  return { cache = { ["EU-1"] = { [2589] = { price = 77, seenAt = 5 }, [999] = { price = 1, seenAt = 1 } } } }
+end
+
+h.test("Core.restoreDemoCache returns the cache to its original", function()
+  Core.demoBackup = nil
+  local db = demoDb()
+  Core.seedDemoCache(db, "EU-1", 100000)
+  h.eq(db.cache["EU-1"][2589].price, 55)
+  Core.restoreDemoCache(db)
+  h.eq(db.cache, demoDb().cache)
+  h.eq(next(Core.demoBackup or {}), nil)
+  -- bucket that did not exist at all
+  local db2 = { cache = {} }
+  Core.seedDemoCache(db2, "EU-2", 100000)
+  Core.restoreDemoCache(db2)
+  h.eq(db2.cache, {})
+end)
+
+h.test("a second demo seed keeps the original backup", function()
+  Core.demoBackup = nil
+  local db = demoDb()
+  Core.seedDemoCache(db, "EU-1", 100000)
+  Core.seedDemoCache(db, "EU-1", 200000)
+  Core.restoreDemoCache(db)
+  h.eq(db.cache, demoDb().cache)
+end)
+
+h.test("Core.resetSession restores the demo cache", function()
+  Core.demoBackup = nil
+  local db = demoDb()
+  ns.db = db
+  ns.session = ns.Session.new(0)
+  ns.UI = { refresh = function() end }
+  Core.seedDemoCache(db, "EU-1", 100000)
+  _G.time = function() return 10 end
+  Core.resetSession()
+  _G.time = nil
+  h.eq(db.cache, demoDb().cache)
+end)

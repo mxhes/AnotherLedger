@@ -68,16 +68,52 @@ Core.DEMO_ITEMS = {
   { 7910, "Star Ruby", "1eff00", 2, 38000, false },
 }
 
+-- Originals of the cache entries demo overwrote (NOT persisted):
+-- demoBackup[key] = { created = bool, items = { [itemID] = entry or false } }
+Core.demoBackup = nil
+
+local function copyEntry(e)
+  if type(e) ~= "table" then return e end
+  local c = {}
+  for k, v in pairs(e) do c[k] = v end
+  return c
+end
+
 function Core.seedDemoCache(db, key, now)
   if not key then return end
+  Core.demoBackup = Core.demoBackup or {}
   local bucket = db.cache[key]
+  local backup = Core.demoBackup[key]
+  if not backup then
+    backup = { created = type(bucket) ~= "table", items = {} }
+    Core.demoBackup[key] = backup
+  end
   if type(bucket) ~= "table" then
     bucket = {}
     db.cache[key] = bucket
   end
   for _, d in ipairs(Core.DEMO_ITEMS) do
     if d[5] then
+      if backup.items[d[1]] == nil then
+        backup.items[d[1]] = bucket[d[1]] ~= nil and copyEntry(bucket[d[1]]) or false
+      end
       bucket[d[1]] = { price = d[5], seenAt = d[6] and now - 14 * 3600 or now }
+    end
+  end
+end
+
+-- Puts back the cache entries demo replaced and drops the fake ones.
+function Core.restoreDemoCache(db)
+  local all = Core.demoBackup
+  Core.demoBackup = nil
+  if not all or not db or type(db.cache) ~= "table" then return end
+  for key, backup in pairs(all) do
+    local bucket = db.cache[key]
+    if type(bucket) == "table" then
+      for id, orig in pairs(backup.items) do
+        if orig == false then bucket[id] = nil else bucket[id] = orig end
+      end
+      if backup.created and next(bucket) == nil then db.cache[key] = nil end
     end
   end
 end
@@ -125,7 +161,7 @@ local HELP = {
   "/lp reset - clear the session",
   "/lp keep on|off - keep the session across logins",
   "/lp tsm <source> - TSM price source (e.g. DBMarket)",
-  "/lp demo - add sample loot (UI check)",
+  "/lp demo - add fake sample loot and temporary fake AH prices (UI check only)",
 }
 
 local function windowCall(name)
@@ -159,6 +195,7 @@ function Core.stopSession()
 end
 
 function Core.resetSession()
+  Core.restoreDemoCache(ns.db)
   if not ns.session then return end
   ns.Session.reset(ns.session, time())
   say("session reset.")
@@ -252,6 +289,7 @@ function events.GET_ITEM_INFO_RECEIVED()
 end
 
 function events.PLAYER_LOGOUT()
+  Core.restoreDemoCache(ns.db)
   if ns.session then
     ns.Session.suspend(ns.session, time())
     ns.chardb.session = ns.session
