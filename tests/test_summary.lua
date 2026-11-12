@@ -157,3 +157,11 @@ h.test("Summary.footerHeightFor: session full, inventory items block plus note",
   h.eq(S.footerHeightFor({ kind = "inventory", note = "x" }),
     sz.footerLabelHeight + sz.footerItemsHeight + sz.footerNoteHeight)
 end)
+
+h.test("topLines carries a tooltip link when Rows is loaded", function()
+  local rows = { { name = "A", quantity = 1, value = 5, quality = 1, id = 7, link = "L" } }
+  h.eq(S.topLines(rows)[1].tooltipLink, nil) -- test namespace has no Rows
+  ns.UI.Rows = { tooltipLink = function(r) return r.link end }
+  h.eq(S.topLines(rows)[1].tooltipLink, "L")
+  ns.UI.Rows = nil
+end)

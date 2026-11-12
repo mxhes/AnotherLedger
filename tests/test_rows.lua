@@ -198,3 +198,12 @@ h.test("requiredRowWidth adds the text inset and window chrome", function()
   h.eq(R.requiredRowWidth(WIDE), S.rowNameMin + S.rowNameGap + c.blockW + S.rowTextLeft + S.rowRightInset + S.rowChrome)
   h.eq(R.requiredRowWidth(WIDE) > R.requiredRowWidth(nil), true)
 end)
+
+h.test("Rows.tooltipLink: the row link, else an item string, else nil", function()
+  local link = "|cffffffff|Hitem:2589::::::::60:::::::::|h[Linen Cloth]|h|r"
+  h.eq(ns.UI.Rows.tooltipLink({ id = 2589, link = link }), link)
+  h.eq(ns.UI.Rows.tooltipLink({ id = 2589 }), "item:2589")
+  h.eq(ns.UI.Rows.tooltipLink({ id = 2589, link = "" }), "item:2589")
+  h.eq(ns.UI.Rows.tooltipLink({}), nil)
+  h.eq(ns.UI.Rows.tooltipLink(nil), nil)
+end)

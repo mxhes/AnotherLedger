@@ -185,6 +185,23 @@ end
 
 local function theme() return ns.Theme end
 
+-- Pure. What the item tooltip shows: the row's real item link, or an item
+-- string built from the id when no link is known; nil for an unusable row.
+function Rows.tooltipLink(row)
+  if type(row) ~= "table" then return nil end
+  if type(row.link) == "string" and row.link ~= "" then return row.link end
+  if type(row.id) == "number" and row.id > 0 then return "item:" .. row.id end
+  return nil
+end
+
+local function showTooltip(f)
+  local link = f.tooltipLink
+  if not link or not GameTooltip then return end
+  GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
+  GameTooltip:SetHyperlink(link)
+  GameTooltip:Show()
+end
+
 local function itemIcon(itemID)
   local icon
   -- UNVERIFIED (check in client): C_Item.GetItemIconByID exists on Forever.
@@ -288,6 +305,13 @@ local function createRow(parent, owner)
 
   f.name, f.qty, f.vendor, f.ah, f.tag = name, qty, vendor, ah, tag
   f:SetScript("OnSizeChanged", layoutRow)
+
+  -- Item tooltip while the mouse is over the row.
+  f:EnableMouse(true)
+  f:SetScript("OnEnter", showTooltip)
+  f:SetScript("OnLeave", function()
+    if GameTooltip then GameTooltip:Hide() end
+  end)
   return f
 end
 
@@ -312,6 +336,11 @@ local function fillRow(f, row)
   local br, bg, bb = T.qualityColor(row.quality, false)
   f.iconBorder:SetColorTexture(br, bg, bb, 1)
   f.icon:SetTexture(itemIcon(row.id))
+  f.tooltipLink = Rows.tooltipLink(row)
+  -- A hovered row that now shows another item (or fresh data) updates its tooltip.
+  if GameTooltip and GameTooltip:IsOwned(f) then
+    if f.tooltipLink then showTooltip(f) else GameTooltip:Hide() end
+  end
 end
 
 -- Attaches the scrolling list to `area`. Returns the list object.

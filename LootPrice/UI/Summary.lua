@@ -136,6 +136,7 @@ function Summary.topLines(top)
       valueText = ns.Money.format(r.value),
       valueColored = ns.Money.formatColored(r.value),
       quality = r.quality,
+      tooltipLink = ns.UI.Rows and ns.UI.Rows.tooltipLink(r) or nil,
     }
   end
   return out
@@ -215,7 +216,20 @@ function Summary.attach(topBox, footer)
     name:SetPoint("LEFT", row, "LEFT", 6, 0)
     name:SetPoint("RIGHT", qty, "LEFT", -6, 0)
     row:Hide()
-    summary.rows[i] = { frame = row, name = name, qty = qty, value = value }
+    local entry = { frame = row, name = name, qty = qty, value = value }
+    -- Item tooltip while the mouse is over the find.
+    row:EnableMouse(true)
+    row:SetScript("OnEnter", function()
+      local link = entry.tooltipLink
+      if not link or not GameTooltip then return end
+      GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+      GameTooltip:SetHyperlink(link)
+      GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function()
+      if GameTooltip then GameTooltip:Hide() end
+    end)
+    summary.rows[i] = entry
   end
 
   -- Divider between the summaries and the Top finds block: the top edge of the
@@ -343,6 +357,7 @@ function Summary.attach(topBox, footer)
         w.name:SetText(l.name)
         w.qty:SetText(l.qty)
         w.value:SetText(l.valueColored)
+        w.tooltipLink = l.tooltipLink
         w.frame:Show()
       else
         w.frame:Hide()

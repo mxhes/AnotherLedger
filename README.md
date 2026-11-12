@@ -8,9 +8,9 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 
 The Session Ledger is a draggable, resizable, scrollable window:
 
-- **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block that is right-aligned and adaptive (each amount directly after its label, amounts and labels lined up; the block hugs the right edge and shifts left only as far as the longest amount currently shown needs; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). A thin quiet separator line runs between rows. Newly looted rows flash.
+- **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block that is right-aligned and adaptive (each amount directly after its label, amounts and labels lined up; the block hugs the right edge and shifts left only as far as the longest amount currently shown needs; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). Hovering a row shows the item's tooltip. A thin quiet separator line runs between rows. Newly looted rows flash.
 - **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (the real game coin colors, bright on the dark panel); `n/a` stays plain.
-- **Top finds**: the most valuable finds of the session, at the bottom of the window under the three summaries, with a gold divider line above it (hidden together with the block when there are no finds).
+- **Top finds**: the most valuable finds of the session (hovering one shows its item tooltip), at the bottom of the window under the three summaries, with a gold divider line above it (hidden together with the block when there are no finds).
 - **Footer**: three stacked blocks, each under a small muted label and a thin separator line:
   - **Items**: vendor total and AH total with a per-hour rate for each, following the visible (filtered) rows; a small "filtered" marker while a filter is active and the count of items without an AH price.
   - **Raw gold**: gold looted from creatures and containers (including group splits) plus gold from quest turn-ins, as one total with gold per hour. Raw gold is never touched by the item filters; it shows `0c` until the first gold arrives.
@@ -98,6 +98,7 @@ Window
 - [ ] `SetClipsChildren` / `SetResizeBounds` exist on 11.x (`SetMinResize` fallback is included)
 
 Rows and list
+- [ ] Hovering a row shows the item tooltip (all three tabs) and it hides on leaving; wheel scrolling still works over rows; a hovered row whose data refreshes keeps a correct tooltip (`GameTooltip:SetHyperlink` with a stored link or `item:<id>`)
 - [ ] Mouse wheel and scrollbar scroll; resizing re-lays out rows
 - [ ] Vendor/AH block on the right (Vendor upper line, AH lower line), the amount directly after its label, labels and amounts line up down the list, the quantity after the name, long names clipped with an ellipsis (quantity stays), the window minimum width adapts to the measured font (also at the minimum width with a long amount like `123456g 78s 90c`); two text lines fit the 28 px row without touching
 - [ ] Right block hugs the right edge and shifts left for longer amounts; separators visible but quiet
@@ -136,7 +137,7 @@ Summary footer
 - [ ] Top finds sits at the bottom under the summaries; its gold divider line (above it) is visible, disappears with the block when there are no finds, and the list and summaries reflow; the last Top finds value stays clear of the resize grip
 - [ ] Dark leather look: ink, quality colors, the orange age tag and the `Top finds` header are readable, the gold divider is visible (colors in `Theme.lua` were tuned by computed contrast only)
 - [ ] Colored money: bright gold / silver / copper letters read well on the dark panel in rows, Top finds, totals and the per-hour rates
-- [ ] Top finds shows / hides and the list reflows
+- [ ] Top finds shows / hides and the list reflows; hovering a find shows its item tooltip; the block is gone on the Bags and Bank tabs
 - [ ] Em dash renders in FRIZQT; rates show an em dash in the first minute
 - [ ] `/lp demo` totals match the rows
 
