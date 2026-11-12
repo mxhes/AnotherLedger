@@ -9,7 +9,7 @@ The screen should feel like a **game feature**, not a stats overlay on a flat ba
 
 ## Goals
 - One always-visible **Session Ledger** window showing the session's loot with vendor and AH prices side by side.
-- Session totals and gold/hour for vendor and AH separately.
+- Session totals and gold/hour for vendor and AH separately, plus raw gold (looted and quest money) and an items + gold total.
 - A "Top finds" block of the most valuable stacks.
 - Player control over the session (start / stop / reset / keep across relogs), the view (filter, sort, size, position) and visibility.
 - Everything the player customizes survives relogs.
@@ -32,7 +32,7 @@ A parchment-style panel in a stone/wood frame ("quest log" look), titled "Sessio
 1. **Header:** session timer, buttons **Start**, **Stop**, **Reset**, **Hide**, a filter control.
 2. **Top finds:** highlighted block with the 2-3 most valuable stacks (gold-edged rows). Ranked by AH value, falling back to vendor value when an item has no AH price (builder: pick the exact count and tie-breaking).
 3. **Ledger:** scrollable list, one row per item: quality-colored icon frame, item name in quality color, quantity, `Vendor: <money> | AH: <money>`. Rows aggregate by item ID (a stack of the same item is one row with a summed quantity).
-4. **Totals bar:** Vendor total, AH total, gold/hour for each. Shows a small "filtered" marker while a filter is active.
+4. **Footer:** three stacked blocks, each under a small muted label and a thin separator: **Items** (Vendor total, AH total, gold/hour for each; a small "filtered" marker while a filter is active, "N unpriced"), **Raw gold** (see below) and **Items + gold** (combined Vendor and AH totals with their own gold/hour).
 
 Mock reference: the "A" direction with "Top finds" from "C" (browser mockup, 2026-11-12). Example row: `[Heavy Leather] x24  Vendor: 1g 20s | AH: 4g 50s`.
 
@@ -51,6 +51,14 @@ Mock reference: the "A" direction with "Top finds" from "C" (browser mockup, 202
 - Default sort: AH value, highest first.
 - **Totals and gold/hour follow the visible (filtered) rows.** The totals bar shows a "filtered" marker when a filter is active.
 - Filter settings persist across relogs.
+
+## Raw gold
+Money is income of its own, next to the item list.
+- **Sources:** gold looted from creatures and containers, including group splits and the guild-bank form (`CHAT_MSG_MONEY`, parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), and gold from quest turn-ins (`QUEST_TURNED_IN`, `moneyReward` in copper; 0, nil and non-numbers are ignored). Other players' loot is out of scope.
+- **Quest reward items need no special handling:** they arrive through `CHAT_MSG_LOOT` like any item and sit in the normal list.
+- **Session data:** the session record gains `gold = { looted, quest }` (copper). Stop ignores gold like loot, Reset clears it. A saved record without `gold` (older versions) is migrated with zeros; a malformed `gold` table is replaced by zeros.
+- **Filters do not touch raw gold.** The Items block follows the visible rows as before.
+- **Footer blocks:** the Raw gold block shows the total with gold/hour and the `looted` / `quest` breakdown (`0c` until the first gold arrives). The Items + gold block combines the item totals (visible rows) with the raw gold on both sides: combined Vendor = item vendor total + raw gold, combined AH = item AH total + raw gold (unpriced items still count 0), each with its own gold/hour (same running-time rule and 60 s minimum as the item rates). The "filtered" marker stays on the Items block only.
 
 ## Sessions
 - Buttons: **Start**, **Stop**, **Reset**.
@@ -114,8 +122,8 @@ Decided: no toasts; always-visible ledger with hide + slash command; draggable/r
 2. **Age tag semantics:** TSM/Auctionator return a number with no scan time. Age = time since the source last returned a non-nil price for that item (cache stores `price` and `seenAt`). If the source returns nil, the cached price is shown with its age. Known limit: a source that silently returns old scan data looks fresh. Document this limit in the settings/help text.
 3. **Cache use:** every lookup reads the source first; a non-nil result is written to the cache (throttled); nil falls back to the cache; no cache means `n/a`. Prices are looked up when an item is looted and when the ledger redraws (throttled).
 4. **Unpriced marker:** the totals bar shows "N unpriced" next to the AH total when rows have no AH price, supporting the anti-goal on hidden missing data.
-5. **Loot scope:** the player's own loot (`LOOT_ITEM_SELF`, `_MULTIPLE`), roll wins / pushed loot (`LOOT_ITEM_PUSHED_SELF`, `_MULTIPLE`), and crafted items (`LOOT_ITEM_CREATED_SELF`, `_MULTIPLE`). Out of scope: other players' loot, mail, quest rewards, auction purchases, currencies.
-6. **Gold/hour** = total / total running time of the session (no rolling window).
+5. **Loot scope:** the player's own loot (`LOOT_ITEM_SELF`, `_MULTIPLE`), roll wins / pushed loot (`LOOT_ITEM_PUSHED_SELF`, `_MULTIPLE`), and crafted items (`LOOT_ITEM_CREATED_SELF`, `_MULTIPLE`). Out of scope: other players' loot, mail, auction purchases, currencies. Quest reward items are covered by these same messages; quest and looted money is tracked as raw gold (see Raw gold).
+6. **Gold/hour** = total / total running time of the session (no rolling window); the same rule applies to the raw gold and combined rates.
 7. **Timer across relogs:** only played (running) time counts; time spent logged out does not.
 8. **Saved variables:** one account-wide `LootPriceDB` (price cache, window/filter/sort settings) and per-character session data (`LootPriceCharDB`). The `## Interface:` number is read from the Forever client at implementation time.
 9. **Game mode nil at load:** retry on `PLAYER_ENTERING_WORLD`; until the key is known, read prices live and do not write the cache.

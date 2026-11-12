@@ -11,10 +11,16 @@ The Session Ledger is a draggable, resizable, scrollable window:
 - **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block that is right-aligned and adaptive (each amount directly after its label, amounts and labels lined up; the block hugs the right edge and shifts left only as far as the longest amount currently shown needs; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). A thin quiet separator line runs between rows. Newly looted rows flash.
 - **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (the real game coin colors, bright on the dark panel); `n/a` stays plain.
 - **Top finds**: the most valuable finds of the session, with a gold divider line between them and the list (hidden together with the block when there are no finds).
-- **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows, in a larger font than the old small one.
-- **Filter marker**: a small "filtered" marker while a filter is active.
-- **Unpriced count**: how many items have no AH price.
+- **Footer**: three stacked blocks, each under a small muted label and a thin separator line:
+  - **Items**: vendor total and AH total with a per-hour rate for each, following the visible (filtered) rows; a small "filtered" marker while a filter is active and the count of items without an AH price.
+  - **Raw gold**: gold looted from creatures and containers (including group splits) plus gold from quest turn-ins, with the `looted` / `quest` breakdown and gold per hour. Raw gold is never touched by the item filters; it shows `0c` until the first gold arrives.
+  - **Items + gold**: combined Vendor and AH totals with a rate each (raw gold counts equally on both sides; the item part follows the visible rows).
+- **Quest rewards**: reward items are ordinary looted items (the client announces them like any other item) and appear in the list; only the money of a quest is tracked as raw gold.
 - **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than 12 hours.
+
+## Events used
+
+`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`.
 
 ## Requirements
 
@@ -28,7 +34,7 @@ Vendor prices need nothing. AH prices need [TradeSkillMaster](https://www.trades
 - `/lp reset` - clear the session (asks for confirmation once the session holds 25 or more distinct items)
 - `/lp keep on|off` - keep the session across logins
 - `/lp tsm <source>` - TSM price source (e.g. `DBMarket`); prices cached under the old source stay in the cache until they refresh
-- `/lp demo` - adds fake sample loot and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI (needs a running session).
+- `/lp demo` - adds fake sample loot, a little gold (looted 8s 40c, quest 4s) and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI (needs a running session).
 - `/lp help` - list the commands
 
 ## Settings
@@ -66,7 +72,7 @@ Copy or symlink the `LootPrice/` folder into `World of Warcraft/<client>/Interfa
 Core and loot
 - [ ] `/reload`: no Lua errors, also on login with the window hidden
 - [ ] `/lp help`; `/lp`, `show`, `hide`, `start`, `stop`, `reset`, `keep`, `tsm`
-- [ ] `/lp demo` (adds fake loot and temporarily seeds fake AH prices for a few real item IDs; removed again by `/lp reset`, the Reset button and logout, so use it only to check the UI): six rows, quality colors, `n/a` for Light Leather, orange `(14h)` tag on Kingsblood, stale / no-AH rows
+- [ ] `/lp demo` (adds fake loot and temporarily seeds fake AH prices for a few real item IDs; removed again by `/lp reset`, the Reset button and logout, so use it only to check the UI): six rows, 12s 40c of raw gold (looted 8s 40c, quest 4s), quality colors, `n/a` for Light Leather, orange `(14h)` tag on Kingsblood, stale / no-AH rows
 - [ ] Loot a vendor item, then `/dump LootPriceCharDB.session.items`
 - [ ] `GetCurrentRegionName` and `C_GameRules.GetCurrentGameModeRecordID` return values (cache key non-nil)
 - [ ] `CHAT_MSG_LOOT` parsing against the real `LOOT_ITEM_*` globals
@@ -75,7 +81,7 @@ Core and loot
 
 Window
 - [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below the minimum (240 px high; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
+- [ ] Drag by header; resize with the grip, never below the minimum (416 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
 - [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
@@ -95,8 +101,18 @@ Header
 - [ ] Reset popup appears and OnAccept resets
 - [ ] The X button persists the hidden state across `/reload`
 
+Raw gold and quest rewards
+- [ ] Gold looted from a creature, and from a container, appears under `looted` in the Raw gold block and in the combined totals
+- [ ] A group split (`Your share of the loot is ...`) is counted once under `looted`; with a guild bank cut only the first amount counts
+- [ ] Turning in a quest with a gold reward adds that gold under `quest`; a quest without gold changes nothing
+- [ ] A quest reward item shows up as a normal row in the item list
+- [ ] Raw gold ignores the item filters and the `filtered` marker stays on the Items block only; Stop ignores gold, Reset clears it, a kept session keeps it across relogs
+- [ ] `CHAT_MSG_MONEY` texts match the real `YOU_LOOT_MONEY` / `LOOT_MONEY_SPLIT` / `GOLD_AMOUNT` globals (`/dump YOU_LOOT_MONEY, GOLD_AMOUNT`; the ", " unit separator is assumed)
+
 Summary footer
-- [ ] Two-line footer fits at 350 px and 38 px height with the 12 pt font; worst case `Vendor: 999g 59s 59c` over `999g 59s 59c/h` plus the `N unpriced` / `filtered` marker does not clip (width estimate in `Theme.sizes.summaryCharPx`; raise `minWidth` if it does)
+- [ ] The three footer blocks (140 px: Items 38, Raw gold 28, Items + gold 38, plus a 12 px label row each) fit at 350 px wide and 416 px high with the 12 pt font; no line clips: the Raw gold line 1 (`Gold <total>` left, rate right) and line 2 (small font, `looted ... · quest ...`) stay inside the 326 px content width for amounts up to 999g 59s 59c
+- [ ] Labels `Items`, `Raw gold`, `Items + gold` are readable (muted) and the thin separator runs to the right of each label
+- [ ] Item block worst case `Vendor: 999g 59s 59c` over `999g 59s 59c/h` plus the `N unpriced` / `filtered` marker does not clip (width estimate in `Theme.sizes.summaryCharPx`; raise `minWidth` if it does)
 - [ ] No overlap of filtered / unpriced with the rates at long values
 - [ ] Gold edge texture visible on the dark panel
 - [ ] Gold divider line between Top finds and the list is visible, disappears with the block when there are no finds, and does not shift the list rows
