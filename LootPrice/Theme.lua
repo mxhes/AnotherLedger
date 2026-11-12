@@ -69,8 +69,8 @@ Theme.durations = {
 Theme.sizes = {
   minWidth = 350,
   -- Window chrome 2 * 12 + header 56 + Top finds (3 rows) 84 + 4 list rows (4 * 28)
-  -- + footer 140 = 416 (tests/test_summary.lua recomputes it).
-  minHeight = 416,
+  -- + footer 128 = 404 (tests/test_summary.lua recomputes it).
+  minHeight = 404,
   minListRows = 4,
   rowHeight = 28,
   iconSize = 24,
@@ -80,14 +80,14 @@ Theme.sizes = {
   headerHeight = 56,
   headerRowHeight = 28,
   -- Footer = three stacked blocks, each a label row (muted label + thin separator)
-  -- above its content: items 38 (two lines), gold 28 (total/rate line plus the
-  -- small looted/quest line), total 38 (two lines). footerHeight is their sum.
+  -- above its content: items 38 (two lines), gold 16 (one line), total 38
+  -- (two lines). footerHeight is their sum.
   footerLabelHeight = 12,
   footerLabelGap = 4,
   footerItemsHeight = 38,
-  footerGoldHeight = 28,
+  footerGoldHeight = 16,
   footerTotalHeight = 38,
-  footerHeight = 140,
+  footerHeight = 128,
   buttonHeight = 20,
   buttonGap = 2,
   timerWidth = 54,

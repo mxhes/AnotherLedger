@@ -6,7 +6,7 @@ DB.defaults = {
   version = 1,
   cache = {},
   settings = { keepSession = false, tsmSource = "DBMarket" },
-  window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false },
+  window = { point = "CENTER", x = 0, y = 0, width = 420, height = 420, hidden = false },
   filter = {
     qualities = { [0] = true, true, true, true, true, true, true, true },
     minValue = 0,

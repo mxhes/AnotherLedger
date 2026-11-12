@@ -81,8 +81,8 @@ h.test("footer blocks stack and add up to footerHeight", function()
   h.eq(L.items.contentTop, T.footerLabelHeight)
   h.eq(L.items.contentHeight, 38) -- the item block keeps its height
   h.eq(L.height, T.footerHeight)
-  h.eq(L.height, 3 * T.footerLabelHeight + 38 + 28 + 38)
-  h.eq(T.footerHeight, 140)
+  h.eq(L.height, 3 * T.footerLabelHeight + 38 + 16 + 38)
+  h.eq(T.footerHeight, 128)
 end)
 
 h.test("two-line blocks fit their lines", function()
@@ -90,45 +90,39 @@ h.test("two-line blocks fit their lines", function()
   -- two 12 pt lines (about 14 px each) plus the 1 px insets
   h.eq(T.footerItemsHeight >= 2 * 14 + 2, true)
   h.eq(T.footerTotalHeight >= 2 * 14 + 2, true)
-  -- gold: one 12 pt line (14) + one 10 pt line (12) + insets
-  h.eq(T.footerGoldHeight >= 14 + 12 + 2, true)
+  -- gold: one 12 pt line (14) + insets
+  h.eq(T.footerGoldHeight >= 14 + 2, true)
   h.eq(T.footerLabelHeight >= 12, true)
 end)
 
-h.test("gold block lines fit the content width at the minimum window width", function()
+h.test("gold line fits the content width at the minimum window width", function()
   local T = ns.Theme.sizes
   local content = T.minWidth - 2 * (T.padding + 4)
-  local worstMoney = 12 -- "999g 59s 59c"
-  -- line 1: "Gold " + total left, rate right (14 chars) with a 6 px gap
-  h.eq((5 + worstMoney) * T.summaryCharPx + 6 + 14 * T.summaryCharPx <= content, true)
-  -- line 2 (marker font): "looted 999g 59s 59c · quest 999g 59s 59c"
-  h.eq((7 + worstMoney + 3 + 6 + worstMoney) * T.markerCharPx <= content, true)
+  -- "Gold " + "999g 59s 59c" left, "999g 59s 59c/h" right, 6 px gap
+  h.eq((5 + 12) * T.summaryCharPx + 6 + 14 * T.summaryCharPx <= content, true)
 end)
 
 h.test("minHeight leaves the list at least four rows beside a full Top finds block", function()
   local T = ns.Theme.sizes
   h.eq(T.minListRows, 4)
-  h.eq(S.requiredWindowHeight(), 24 + 56 + 84 + 4 * 28 + 140)
+  h.eq(S.requiredWindowHeight(), 24 + 56 + 84 + 4 * 28 + 128)
   h.eq(T.minHeight >= S.requiredWindowHeight(), true)
-  h.eq(T.minHeight, 416)
+  h.eq(T.minHeight, 404)
 end)
 
-h.test("goldText formats total, breakdown and rate", function()
-  local t = S.goldText({ looted = 12304, quest = 25000, total = 37304, perHour = 1000 })
+h.test("goldText formats total and rate", function()
+  local t = S.goldText({ total = 37304, perHour = 1000 })
   h.eq(t.total, "Gold " .. M.format(37304))
-  h.eq(t.breakdown, "looted " .. M.format(12304) .. " \194\183 quest " .. M.format(25000))
   h.eq(t.rate, M.format(1000) .. "/h")
   local c = ns.Theme.colors
   h.eq(t.totalColored, "Gold " .. M.formatColored(37304, c))
-  h.eq(t.breakdownColored,
-    "looted " .. M.formatColored(12304, c) .. " \194\183 quest " .. M.formatColored(25000, c))
   h.eq(t.rateColored, M.formatColored(1000, c) .. "/h")
+  h.eq(t.breakdown, nil)
 end)
 
 h.test("goldText shows 0c when empty, em dash for nil rate, never n/a", function()
-  local t = S.goldText({ looted = 0, quest = 0, total = 0 })
+  local t = S.goldText({ total = 0 })
   h.eq(t.total, "Gold 0c")
-  h.eq(t.breakdown, "looted 0c \194\183 quest 0c")
   h.eq(t.rate, "\226\128\148")
   h.eq(t.rateColored, "\226\128\148")
   local n = S.goldText(nil)

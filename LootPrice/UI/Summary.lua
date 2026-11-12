@@ -15,12 +15,9 @@ local L_PER_HOUR = "/h"
 local L_UNPRICED = " unpriced"
 local L_FILTERED = "filtered"
 local L_GOLD = "Gold "
-local L_LOOTED = "looted "
-local L_QUEST = "quest "
 local L_LABEL_ITEMS = "Items"
 local L_LABEL_GOLD = "Raw gold"
 local L_LABEL_TOTAL = "Items + gold"
-local DOT = " \194\183 " -- middle dot (UTF-8) between looted and quest
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_TOP = 3
 
@@ -63,18 +60,15 @@ function Summary.totalsText(totals)
   }
 end
 
--- Raw gold block: `gold` = View gold {looted, quest, total, perHour}. Line 1 is
--- total + rate, line 2 the looted/quest breakdown (small font). A nil rate is an
--- em dash.
+-- Raw gold block: `gold` = View gold {total, perHour}; one line, total left and
+-- rate right (an em dash while the rate is nil).
 function Summary.goldText(gold)
   gold = gold or {}
   return {
     total = L_GOLD .. money(gold.total),
     rate = rate(gold.perHour),
-    breakdown = L_LOOTED .. money(gold.looted) .. DOT .. L_QUEST .. money(gold.quest),
     totalColored = L_GOLD .. moneyColored(gold.total),
     rateColored = rateColored(gold.perHour),
-    breakdownColored = L_LOOTED .. moneyColored(gold.looted) .. DOT .. L_QUEST .. moneyColored(gold.quest),
   }
 end
 
@@ -170,9 +164,8 @@ end
 
 -- Footer layout at the 326 px content minimum (350 px window): three blocks,
 -- each under a label row. Items and Total: a stacked pair per half (total
--- above, rate below), ~159 px per line (Summary.footerHalfWidth). Gold: total
--- left / rate right on the first line, the looted/quest breakdown (small font)
--- on the second, so no line outgrows the 326 px.
+-- above, rate below), ~159 px per line (Summary.footerHalfWidth). Gold: one
+-- line, total left / rate right.
 function Summary.attach(topBox, footer)
   if Summary.instance then return Summary.instance end
   local T = ns.Theme
@@ -277,9 +270,6 @@ function Summary.attach(topBox, footer)
   local goldRate = makeText(goldBox, T.fonts.summary, ink, "RIGHT")
   goldRate:SetPoint("TOPRIGHT", goldBox, "TOPRIGHT", 0, -1)
   goldTotal:SetPoint("TOPRIGHT", goldBox, "TOP", 0, -1)
-  local goldBreakdown = makeText(goldBox, T.fonts.summaryMarker, ink, "LEFT")
-  goldBreakdown:SetPoint("BOTTOMLEFT", goldBox, "BOTTOMLEFT", 0, 1)
-  goldBreakdown:SetPoint("BOTTOMRIGHT", goldBox, "BOTTOMRIGHT", 0, 1)
 
   local totalBox = block(layout.total, L_LABEL_TOTAL)
   local total = pair(totalBox)
@@ -287,7 +277,7 @@ function Summary.attach(topBox, footer)
   summary.items, summary.vendor, summary.vendorRate = items, items.vendor, items.vendorRate
   summary.ah, summary.ahRate = items.ah, items.ahRate
   summary.filtered, summary.unpriced = filtered, unpriced
-  summary.goldTotal, summary.goldRate, summary.goldBreakdown = goldTotal, goldRate, goldBreakdown
+  summary.goldTotal, summary.goldRate = goldTotal, goldRate
   summary.total = total
 
   function summary:Set(view)
@@ -330,7 +320,6 @@ function Summary.attach(topBox, footer)
     local g = Summary.goldText(view.gold)
     self.goldTotal:SetText(g.totalColored)
     self.goldRate:SetText(g.rateColored)
-    self.goldBreakdown:SetText(g.breakdownColored)
 
     local c = Summary.combinedText(view.combined)
     self.total.vendor:SetText(c.vendorColored)
