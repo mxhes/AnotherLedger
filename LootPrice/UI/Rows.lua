@@ -51,13 +51,14 @@ end
 -- are not drawn, so they do not count toward the width).
 local SAMPLE_AMOUNT = "123456g 78s 90c"
 local SAMPLE_TAG = "(999d)"
+local SAMPLE_QTY = "x9999"
 
 local function positive(v)
   return type(v) == "number" and v == v and v > 0
 end
 
--- Resolves the column widths: a measured value (+ padding) when valid, else the
--- fixed Theme fallback. Returns widths and whether any fallback was used.
+-- Resolves the widths: a measured value (+ padding) when valid, else the fixed
+-- Theme fallback. Returns widths and whether any fallback was used.
 local function resolveWidths(measured)
   local S = ns.Theme.sizes
   local m = type(measured) == "table" and measured or {}
@@ -73,56 +74,61 @@ local function resolveWidths(measured)
     ahLabel = pick(m.ahLabel, S.rowAhLabelW),
     tag = pick(m.tag, S.rowTagW),
     amount = pick(m.amount, S.rowVendorColW),
+    qty = pick(m.qtyWorst, S.rowQtyW),
   }
   return widths, fb
 end
 
--- Column positions (px, relative to the left of the row's text area) of line 2
--- for a text area `contentWidth` wide. `measured` = {vendorLabel, ahLabel, tag,
--- amount} real string widths (nil/0 fields fall back to the Theme widths).
--- Labels get exactly their width (+ padding); amount columns at least the
--- measured worst case. The AH column's right edge and the quantity's right
--- edge are both contentWidth. Extra width goes to the amount columns (capped)
--- and the middle gap, never to labels. Below `required` the gaps shrink to
--- rowGapFloor before anything is clipped.
+-- Geometry (px, relative to the left of the row's text area) of a row whose
+-- text area is `contentWidth` wide. `measured` = {vendorLabel, ahLabel, tag,
+-- amount, qtyWorst} real string widths (nil/0 fields use the Theme fallbacks).
+--   Left part : name column [nameX, nameX + nameW) holding the name and, right
+--               after it, the quantity (qtyW = widest quantity text).
+--   Right block (blockW wide, flush with the right edge, constant for every
+--   row): labels at labelX (one shared x), amounts at amountX (one shared x =
+--   labelX + widest label + labelGap), the age tag directly after the AH amount
+--   (tagGap): the client code anchors the tag to the amount's right end, blockW
+--   only reserves room for the worst-case amount plus the tag.
+-- Extra width goes to the name column only.
 function Rows.columnLayout(contentWidth, measured)
   local S = ns.Theme.sizes
   local wd, fallback = resolveWidths(measured)
-  local labelGap, midGap = S.rowLabelGap, S.rowGapMid
-  local required = wd.vendorLabel + labelGap + wd.amount + midGap
-    + wd.ahLabel + wd.tag + wd.amount
+  local labelW = math.max(wd.vendorLabel, wd.ahLabel)
+  local amountOff = labelW + S.rowLabelGap
+  local blockW = amountOff + wd.amount + S.rowTagGap + wd.tag
+  local gap = S.rowNameGap
+  local required = S.rowNameMin + gap + blockW
   local w = positive(contentWidth) and contentWidth or required
-  if w < required then
-    local deficit = required - w
-    local take = math.min(deficit, math.max(0, midGap - S.rowGapFloor))
-    midGap = midGap - take
-    deficit = deficit - take
-    take = math.min(deficit, math.max(0, labelGap - S.rowGapFloor))
-    labelGap = labelGap - take
-  end
-  local extra = math.max(0, w - required)
-  local colExtra = math.min(S.rowColExtraMax, math.floor(extra / 2))
-  local amountW = wd.amount + colExtra
-  local L2 = {}
-  L2.required = required
-  L2.fallback = fallback
-  L2.vendorLabelX = 0
-  L2.vendorLabelW = wd.vendorLabel
-  L2.vendorColX = wd.vendorLabel + labelGap
-  L2.vendorColW = amountW
-  -- Right-anchored part: AH column, tag and AH label.
-  L2.ahColW = amountW
-  L2.ahColX = w - amountW
-  L2.tagW = wd.tag
-  L2.tagX = L2.ahColX - wd.tag
-  L2.ahLabelW = wd.ahLabel
-  L2.ahLabelX = L2.tagX - wd.ahLabel
-  L2.qtyW = S.rowQtyW
-  L2.rightEdge = L2.ahColX + amountW
-  return L2
+  local c = {
+    required = required,
+    fallback = fallback,
+    rightEdge = w,
+    blockW = blockW,
+    blockX = w - blockW,
+    nameX = 0,
+    nameGap = gap,
+    labelW = labelW,
+    amountW = wd.amount,
+    tagW = wd.tag,
+    tagGap = S.rowTagGap,
+    qtyW = wd.qty,
+  }
+  c.nameW = math.max(0, c.blockX - gap)
+  c.labelX = c.blockX
+  c.amountX = c.blockX + amountOff
+  return c
 end
 
--- Window width needed so line 2 fits with the measured widths: row content
+-- Width of the name FontString: its natural width, but at most what is left
+-- of the name column once the quantity (and its gap) is reserved, so a long
+-- name is clipped (ellipsis) and the quantity stays visible.
+function Rows.nameFit(nameColW, qtyW, natural)
+  local avail = math.max(1, (nameColW or 0) - (qtyW or 0) - ns.Theme.sizes.rowQtyGap)
+  if positive(natural) then return math.min(natural + 1, avail) end
+  return avail
+end
+
+-- Window width needed so the row fits with the measured font: row content
 -- width + text inset + right inset + window chrome.
 function Rows.requiredRowWidth(measured)
   local S = ns.Theme.sizes
@@ -172,22 +178,30 @@ local function setColor(fs, c)
   fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
 end
 
--- Places the line-2 FontStrings from Rows.columnLayout for the row's width.
+-- Places the row's FontStrings from Rows.columnLayout for the row's width.
 local function layoutRow(f)
   local S = theme().sizes
   local w = f:GetWidth()
   if type(w) ~= "number" or w <= 0 then return end
   local c = Rows.columnLayout(w - S.rowTextLeft - S.rowRightInset, f.owner and f.owner.measured)
-  local function put(fs, x, width)
+  local x0, inset = S.rowTextLeft, S.rowLineInset
+  local function put(fs, point, x)
     fs:ClearAllPoints()
-    fs:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", S.rowTextLeft + x, 3)
-    fs:SetWidth(width)
+    fs:SetPoint(point, f, point, x0 + x, point == "TOPLEFT" and -inset or inset)
   end
-  put(f.vendorLabel, c.vendorLabelX, c.vendorLabelW)
-  put(f.vendor, c.vendorColX, c.vendorColW)
-  put(f.ahLabel, c.ahLabelX, c.ahLabelW)
-  put(f.tag, c.tagX, c.tagW)
-  put(f.ah, c.ahColX, c.ahColW)
+  put(f.name, "TOPLEFT", c.nameX)
+  f.name:SetWidth(0) -- auto width, to read the natural text width
+  local qtyW = f.qty:GetStringWidth()
+  if not positive(qtyW) then qtyW = c.qtyW end
+  f.name:SetWidth(Rows.nameFit(c.nameW, qtyW, f.name:GetStringWidth()))
+  f.qty:ClearAllPoints()
+  f.qty:SetPoint("LEFT", f.name, "RIGHT", S.rowQtyGap, 0)
+  put(f.vendorLabel, "TOPLEFT", c.labelX)
+  put(f.vendor, "TOPLEFT", c.amountX)
+  put(f.ahLabel, "BOTTOMLEFT", c.labelX)
+  put(f.ah, "BOTTOMLEFT", c.amountX)
+  f.tag:ClearAllPoints()
+  f.tag:SetPoint("LEFT", f.ah, "RIGHT", c.tagGap, 0)
 end
 
 local function createRow(parent, owner)
@@ -218,31 +232,25 @@ local function createRow(parent, owner)
   icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
   f.iconBorder, f.icon = border, icon
 
-  local qty = f:CreateFontString(nil, "OVERLAY", T.fonts.number)
-  qty:SetPoint("TOPRIGHT", f, "TOPRIGHT", -T.sizes.rowRightInset, -3)
-  qty:SetWidth(T.sizes.rowQtyW)
-  qty:SetJustifyH("RIGHT")
-  qty:SetWordWrap(false)
-  setColor(qty, T.colors.ink)
-
   local name = f:CreateFontString(nil, "OVERLAY", T.fonts.body)
-  name:SetPoint("TOPLEFT", border, "TOPRIGHT", 5, 0)
-  name:SetPoint("RIGHT", qty, "LEFT", -4, 0)
   name:SetJustifyH("LEFT")
   name:SetWordWrap(false)
 
-  local function line2(justify, color)
+  local qty = f:CreateFontString(nil, "OVERLAY", T.fonts.body)
+  qty:SetJustifyH("LEFT")
+  qty:SetWordWrap(false)
+  setColor(qty, T.colors.ink)
+
+  -- Auto-width, left-justified (the tag anchors to the AH amount's right end).
+  local function line2()
     local fs = f:CreateFontString(nil, "OVERLAY", T.fonts.small)
-    fs:SetJustifyH(justify)
+    fs:SetJustifyH("LEFT")
     fs:SetWordWrap(false)
-    if color then setColor(fs, color) end
+    setColor(fs, T.colors.ink)
     return fs
   end
-  local vendorLabel = line2("LEFT", T.colors.ink)
-  local vendor = line2("RIGHT", T.colors.ink)
-  local ahLabel = line2("LEFT", T.colors.ink)
-  local tag = line2("RIGHT", T.colors.ink)
-  local ah = line2("RIGHT", T.colors.ink)
+  local vendorLabel, vendor = line2(), line2()
+  local ahLabel, ah, tag = line2(), line2(), line2()
   f.vendorLabel, f.ahLabel = vendorLabel, ahLabel
 
   f.name, f.qty, f.vendor, f.ah, f.tag = name, qty, vendor, ah, tag
@@ -280,13 +288,17 @@ function Rows.attach(area, onMeasure)
   local T = theme()
   local list = { area = area, data = {}, offset = 0, pool = {}, shown = 0 }
 
-  -- Offscreen probe with the same font object as line 2 of a row.
+  -- Offscreen probes with the same font objects as the row's texts.
   local probe = area:CreateFontString(nil, "OVERLAY", T.fonts.small)
   probe:SetAlpha(0)
   probe:SetWordWrap(false)
-  local function width(text)
-    probe:SetText(text)
-    local w = probe:GetStringWidth()
+  local qtyProbe = area:CreateFontString(nil, "OVERLAY", T.fonts.body)
+  qtyProbe:SetAlpha(0)
+  qtyProbe:SetWordWrap(false)
+  local function width(text, p)
+    p = p or probe
+    p:SetText(text)
+    local w = p:GetStringWidth()
     if positive(w) then return w end
     return nil
   end
@@ -299,12 +311,13 @@ function Rows.attach(area, onMeasure)
       ahLabel = width(L.AH),
       tag = width(SAMPLE_TAG),
       amount = width(SAMPLE_AMOUNT),
+      qtyWorst = width(SAMPLE_QTY, qtyProbe),
     }
     local old = self.measured
     self.measured = m
-    self.measureFallback = not (m.vendorLabel and m.ahLabel and m.tag and m.amount)
+    self.measureFallback = not (m.vendorLabel and m.ahLabel and m.tag and m.amount and m.qtyWorst)
     local changed = old and (old.vendorLabel ~= m.vendorLabel or old.ahLabel ~= m.ahLabel
-      or old.tag ~= m.tag or old.amount ~= m.amount)
+      or old.tag ~= m.tag or old.amount ~= m.amount or old.qtyWorst ~= m.qtyWorst)
     if changed and onMeasure then onMeasure(m) end
     return m
   end

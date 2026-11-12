@@ -8,7 +8,7 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 
 The Session Ledger is a draggable, resizable, scrollable window:
 
-- **Rows**: one per looted item (icon, quality-colored name, quantity) with the vendor value and the auction house (AH) value on a second line in aligned columns (the quantity shares the AH column's right edge). Newly looted rows flash.
+- **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block on the right (each amount directly after its label, amounts and labels lined up; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). Newly looted rows flash.
 - **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (the real game coin colors, bright on the dark panel); `n/a` stays plain.
 - **Top finds**: the most valuable finds of the session, with a gold divider line between them and the list (hidden together with the block when there are no finds).
 - **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows, in a larger font than the old small one.
@@ -75,7 +75,7 @@ Core and loot
 
 Window
 - [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below the minimum (240 px high; at least 350 px wide, wider if the font needs it for the row columns); position unchanged after resize ends
+- [ ] Drag by header; resize with the grip, never below the minimum (240 px high; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
 - [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
@@ -83,8 +83,7 @@ Window
 
 Rows and list
 - [ ] Mouse wheel and scrollbar scroll; resizing re-lays out rows
-- [ ] Rows' Vendor/AH columns line up down the list and the quantity shares the AH right edge (also at the minimum width with a long amount like `123456g 78s 90c`)
-- [ ] Labels `Vendor:`/`AH:` fully visible (no `Vend...`), the window minimum width adapts to the measured font (growing the window on first open if needed)
+- [ ] Vendor/AH block on the right (Vendor upper line, AH lower line), the amount directly after its label, labels and amounts line up down the list, the quantity after the name, long names clipped with an ellipsis (quantity stays), the window minimum width adapts to the measured font (also at the minimum width with a long amount like `123456g 78s 90c`); two text lines fit the 28 px row without touching
 - [ ] Looting flashes the row, a hidden row scrolls into view, a stack increase re-flashes
 - [ ] An uncached item shows the link name, then corrects on `GET_ITEM_INFO_RECEIVED`
 - [ ] The ticker updates only while the session runs

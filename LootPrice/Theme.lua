@@ -85,28 +85,30 @@ Theme.sizes = {
   markerCharPx = 5.5,
   gripSize = 16,
   -- Ledger row geometry (Rows.columnLayout). textLeft = icon inset 2 + icon 24
-  -- + gap 5; rowRightInset is the shared right edge of quantity and AH column.
+  -- + gap 5; rowRightInset is the right edge of the Vendor/AH block.
   rowTextLeft = 31,
   rowRightInset = 4,
   -- Window chrome around the row area: 2 * (padding 8 + 4) + scrollbar 10 + 2.
   rowChrome = 36,
-  rowQtyW = 36,
+  -- Space between the top/bottom row edge and the two text lines.
+  rowLineInset = 2,
+  -- Minimum width of the name column (name + quantity).
+  rowNameMin = 90,
+  -- Gap between the name column and the Vendor/AH block; between the name and
+  -- the quantity; between the AH amount and its age tag.
+  rowNameGap = 6,
+  rowQtyGap = 4,
+  rowTagGap = 3,
   -- Fixed FALLBACK widths, used only while the runtime font measurement
   -- (Rows.attach) returns nothing; measured widths + rowMeasurePad replace them.
+  rowQtyW = 36,
   rowVendorLabelW = 40,
   rowLabelGap = 2,
   rowVendorColW = 84,
-  rowGapMid = 6,
   rowAhLabelW = 20,
   rowTagW = 36,
-  rowAhColW = 84,
   -- Padding added around each measured string width.
   rowMeasurePad = 2,
-  -- Gaps shrink down to this before anything is clipped.
-  rowGapFloor = 2,
-  -- Extra width goes to each amount column up to this much, the rest to the
-  -- gap between the vendor column and the AH label (never to the labels).
-  rowColExtraMax = 20,
   gripInset = 4,
   backdropTile = 16,
   backdropEdge = 24,
