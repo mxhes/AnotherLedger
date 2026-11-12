@@ -9,7 +9,7 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 The Session Ledger is a draggable, resizable, scrollable window:
 
 - **Rows**: one per looted item (icon, quality-colored name, quantity) with the vendor value and the auction house (AH) value side by side. Newly looted rows flash.
-- **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (darkened to read on the parchment); `n/a` stays plain.
+- **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (the real game coin colors, bright on the dark panel); `n/a` stays plain.
 - **Top finds**: the most valuable finds of the session, with a gold divider line between them and the list (hidden together with the block when there are no finds).
 - **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows, in a larger font than the old small one.
 - **Filter marker**: a small "filtered" marker while a filter is active.
@@ -74,7 +74,7 @@ Core and loot
 - [ ] `GET_ITEM_INFO_RECEIVED` throttle; `C_Timer.After` exists
 
 Window
-- [ ] Appears dark tan tinted (about 28 % darker than the first version), border looks right (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
+- [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
 - [ ] Drag by header; resize with the grip, never below 350x240; position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
@@ -96,10 +96,10 @@ Header
 Summary footer
 - [ ] Two-line footer fits at 350 px and 38 px height with the 12 pt font; worst case `Vendor: 999g 59s 59c` over `999g 59s 59c/h` plus the `N unpriced` / `filtered` marker does not clip (width estimate in `Theme.sizes.summaryCharPx`; raise `minWidth` if it does)
 - [ ] No overlap of filtered / unpriced with the rates at long values
-- [ ] Gold edge texture visible on the parchment
+- [ ] Gold edge texture visible on the dark panel
 - [ ] Gold divider line between Top finds and the list is visible, disappears with the block when there are no finds, and does not shift the list rows
-- [ ] Darker parchment: ink, quality colors, the orange age tag and the `Top finds` header are readable (the tint and text colors in `Theme.lua` were tuned by computed contrast only)
-- [ ] Colored money: gold / silver / copper letters read well on the parchment in rows, Top finds, totals and the per-hour rates
+- [ ] Dark leather look: ink, quality colors, the orange age tag and the `Top finds` header are readable, the gold divider is visible (colors in `Theme.lua` were tuned by computed contrast only)
+- [ ] Colored money: bright gold / silver / copper letters read well on the dark panel in rows, Top finds, totals and the per-hour rates
 - [ ] Top finds shows / hides and the list reflows
 - [ ] Em dash renders in FRIZQT; rates show an em dash in the first minute
 - [ ] `/lp demo` totals match the rows
