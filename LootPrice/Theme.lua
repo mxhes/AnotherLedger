@@ -29,6 +29,11 @@ Theme.colors = {
   flashNormal = { 1.00, 0.85, 0.30, 0.35 },
   flashStrong = { 1.00, 0.60, 0.10, 0.60 },
   panelTint = { 0.86, 0.76, 0.54, 0.97 },
+  -- Coin colors (game gold / silver / copper, darkened to stay readable on the
+  -- parchment: see the contrast notes below the qualities).
+  moneyGold = { 0.36, 0.23, 0.00, 1 },
+  moneySilver = { 0.20, 0.20, 0.27, 1 },
+  moneyCopper = { 0.42, 0.12, 0.02, 1 },
   hint = { 0.5, 0.5, 0.5, 1 },
   scrollTrack = { 0.20, 0.12, 0.05, 0.15 },
   scrollThumb = { 0.20, 0.12, 0.05, 0.6 },

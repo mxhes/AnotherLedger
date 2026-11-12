@@ -24,9 +24,18 @@ local function money(v)
   return ns.Money.format(tonumber(v) or 0)
 end
 
+local function moneyColored(v)
+  return ns.Money.formatColored(tonumber(v) or 0)
+end
+
 local function rate(v)
   if v == nil then return DASH end
   return ns.Money.format(v) .. L_PER_HOUR
+end
+
+local function rateColored(v)
+  if v == nil then return DASH end
+  return ns.Money.formatColored(v) .. L_PER_HOUR
 end
 
 function Summary.totalsText(totals)
@@ -37,6 +46,11 @@ function Summary.totalsText(totals)
     vendorRate = rate(totals.vendorPerHour),
     ah = L_AH .. money(totals.ah),
     ahRate = rate(totals.ahPerHour),
+    -- Same texts with colored coin amounts (color escapes), used by the UI.
+    vendorColored = L_VENDOR .. moneyColored(totals.vendor),
+    vendorRateColored = rateColored(totals.vendorPerHour),
+    ahColored = L_AH .. moneyColored(totals.ah),
+    ahRateColored = rateColored(totals.ahPerHour),
     unpriced = unpriced > 0 and (unpriced .. L_UNPRICED) or nil,
     filtered = totals.filtered and true or false,
   }
@@ -51,6 +65,7 @@ function Summary.topLines(top)
       name = r.name or "?",
       qty = "x" .. (tonumber(r.quantity) or 0),
       valueText = ns.Money.format(r.value),
+      valueColored = ns.Money.formatColored(r.value),
       quality = r.quality,
     }
   end
@@ -102,7 +117,7 @@ function Summary.attach(topBox, footer)
     edge:SetWidth(2)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     edge:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
-    local value = makeText(row, T.fonts.small, gold, "RIGHT")
+    local value = makeText(row, T.fonts.small, ink, "RIGHT")
     value:SetPoint("RIGHT", row, "RIGHT", -2, 0)
     local qty = makeText(row, T.fonts.small, ink, "RIGHT")
     qty:SetPoint("RIGHT", value, "LEFT", -6, 0)
@@ -144,7 +159,7 @@ function Summary.attach(topBox, footer)
         w.name:SetTextColor(r, g, b, 1)
         w.name:SetText(l.name)
         w.qty:SetText(l.qty)
-        w.value:SetText(l.valueText)
+        w.value:SetText(l.valueColored)
         w.frame:Show()
       else
         w.frame:Hide()
@@ -159,10 +174,10 @@ function Summary.attach(topBox, footer)
     end
 
     local t = Summary.totalsText(view.totals)
-    self.vendor:SetText(t.vendor)
-    self.vendorRate:SetText(t.vendorRate)
-    self.ah:SetText(t.ah)
-    self.ahRate:SetText(t.ahRate)
+    self.vendor:SetText(t.vendorColored)
+    self.vendorRate:SetText(t.vendorRateColored)
+    self.ah:SetText(t.ahColored)
+    self.ahRate:SetText(t.ahRateColored)
     if t.unpriced then
       self.unpriced:SetText(t.unpriced)
       self.unpriced:Show()

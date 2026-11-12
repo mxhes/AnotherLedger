@@ -32,6 +32,9 @@ function Rows.rowText(row)
     qty = L.QTY .. tostring(row.quantity or 0),
     vendorText = L.VENDOR .. ns.Money.format(row.vendorTotal),
     ahText = L.AH .. ns.Money.format(row.ahTotal),
+    -- Same texts with colored coin amounts (color escapes), used by the UI.
+    vendorColored = L.VENDOR .. ns.Money.formatColored(row.vendorTotal),
+    ahColored = L.AH .. ns.Money.formatColored(row.ahTotal),
     tag = tag,
     tagStale = tagStale,
   }
@@ -147,8 +150,8 @@ local function fillRow(f, row)
   f.name:SetText(t.name)
   f.name:SetTextColor(r, g, b)
   f.qty:SetText(t.qty)
-  f.vendor:SetText(t.vendorText)
-  f.ah:SetText(t.ahText)
+  f.vendor:SetText(t.vendorColored)
+  f.ah:SetText(t.ahColored)
   f.tag:SetText(t.tag or "")
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
   local br, bg, bb = T.qualityColor(row.quality, false)

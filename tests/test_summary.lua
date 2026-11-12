@@ -12,12 +12,19 @@ h.test("totalsText formats money and rates", function()
   h.eq(t.ahRate, M.format(10000) .. "/h")
   h.eq(t.unpriced, nil)
   h.eq(t.filtered, false)
+  local c = ns.Theme.colors
+  h.eq(t.vendorColored, "Vendor: " .. M.formatColored(12345, c))
+  h.eq(t.ahColored, "AH: " .. M.formatColored(67890, c))
+  h.eq(t.vendorRateColored, M.formatColored(5000, c) .. "/h")
+  h.eq(t.ahRateColored, M.formatColored(10000, c) .. "/h")
 end)
 
 h.test("totalsText uses em dash for nil rates, never n/a", function()
   local t = S.totalsText({ vendor = 0, ah = 0, unpriced = 0, filtered = false })
   h.eq(t.vendorRate, "\226\128\148")
   h.eq(t.ahRate, "\226\128\148")
+  h.eq(t.vendorRateColored, "\226\128\148")
+  h.eq(t.ahRateColored, "\226\128\148")
   for _, v in pairs(t) do
     if type(v) == "string" then h.eq(v:find("n/a", 1, true), nil) end
   end
@@ -44,6 +51,7 @@ h.test("topLines", function()
   h.eq(l[1].name, "Ore")
   h.eq(l[1].qty, "x4")
   h.eq(l[1].valueText, M.format(500))
+  h.eq(l[1].valueColored, M.formatColored(500, ns.Theme.colors))
   h.eq(l[1].quality, 2)
 end)
 

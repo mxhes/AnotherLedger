@@ -10,12 +10,17 @@ h.test("rowText priced live", function()
   h.eq(t.ahText, "AH: 1g 26s 50c")
   h.eq(t.tag, nil)
   h.eq(t.tagStale, false)
+  local g = ns.Theme.colors
+  h.eq(t.vendorColored, "Vendor: " .. ns.Money.formatColored(230, g))
+  h.eq(t.ahColored, "AH: " .. ns.Money.formatColored(12650, g))
+  h.eq((t.ahColored:find("|cff", 1, true)) ~= nil, true)
 end)
 
 h.test("rowText unpriced AH shows n/a", function()
   local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil, ahFromCache = false, stale = false })
   h.eq(t.ahText, "AH: n/a")
   h.eq(R.rowText({ name = "X", quantity = 1 }).vendorText, "Vendor: n/a")
+  h.eq(t.ahColored, "AH: n/a")
 end)
 
 h.test("rowText age tag only for cached prices", function()
