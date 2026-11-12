@@ -215,3 +215,87 @@ h.test("View indexOf and flashLevel", function()
   h.eq(V.flashLevel(100000, 1), "strong")
   h.eq(V.STRONG_FLASH_VALUE, 100000); h.eq(V.MIN_RATE_SECONDS, 60)
 end)
+
+local function withGold(s, looted, quest)
+  s.gold = { looted = looted, quest = quest }
+  return s
+end
+
+h.test("View gold-only session", function()
+  reset()
+  local v = V.build(withGold(session({}, 3600), 10000, 5000), opts())
+  h.eq(v.gold.looted, 10000); h.eq(v.gold.quest, 5000); h.eq(v.gold.total, 15000)
+  h.eq(v.gold.perHour, 15000)
+  h.eq(v.combined.vendor, 15000); h.eq(v.combined.ah, 15000)
+  h.eq(v.combined.vendorPerHour, 15000); h.eq(v.combined.ahPerHour, 15000)
+  h.eq(v.totals.vendor, 0)
+end)
+
+h.test("View items-only session has zero gold", function()
+  reset()
+  local v = V.build(three(3600), opts())
+  h.eq(v.gold.total, 0); h.eq(v.gold.perHour, 0)
+  h.eq(v.combined.vendor, v.totals.vendor); h.eq(v.combined.ah, v.totals.ah)
+  h.eq(v.combined.ahPerHour, v.totals.ahPerHour)
+  -- sessions without a gold field (old records, tests) behave the same
+  local s = three(3600)
+  s.gold = nil
+  h.eq(V.build(s, opts()).gold, { looted = 0, quest = 0, total = 0, perHour = 0 })
+end)
+
+h.test("View combined = items + gold on both sides", function()
+  reset()
+  local v = V.build(withGold(three(7200), 1000, 200), opts())
+  h.eq(v.totals.vendor, 740); h.eq(v.totals.ah, 2600)
+  h.eq(v.combined.vendor, 740 + 1200); h.eq(v.combined.ah, 2600 + 1200)
+  h.near(v.combined.vendorPerHour, (740 + 1200) / 2)
+  h.near(v.combined.ahPerHour, (2600 + 1200) / 2)
+  h.near(v.gold.perHour, 600)
+end)
+
+h.test("View unpriced items still count 0 on the AH side of the combined total", function()
+  reset()
+  PRICES = { [3] = { vendor = 500 } }
+  local v = V.build(withGold(session({ { 3, "Zinc Bar", 2 } }, 3600), 100, 0), opts())
+  h.eq(v.combined.ah, 100)
+  h.eq(v.combined.vendor, 1100)
+  h.eq(v.totals.unpriced, 1)
+end)
+
+h.test("View combined item part follows the filter, gold does not", function()
+  reset()
+  local s = withGold(three(3600), 1000, 0)
+  local f = V.build(s, opts({ filter = { qualities = { [1] = true, [3] = true } } }))
+  h.eq(f.totals.vendor, 240); h.eq(f.totals.ah, 2600)
+  h.eq(f.combined.vendor, 1240); h.eq(f.combined.ah, 3600)
+  h.eq(f.gold.total, 1000)
+  h.eq(f.totals.filtered, true)
+  local none = V.build(s, opts({ filter = { search = "zzzz" } }))
+  h.eq(#none.rows, 0)
+  h.eq(none.combined.vendor, 1000); h.eq(none.combined.ah, 1000)
+  h.eq(none.gold.total, 1000)
+end)
+
+h.test("View gold rates: stopped time excluded, nil under 60 s", function()
+  reset()
+  local s = withGold({ running = true, runningSince = 9000, elapsedBase = 1800, items = {} }, 3600, 0)
+  local v = V.build(s, opts({ now = 10800 })) -- 1800 + 1800 running
+  h.eq(v.gold.perHour, 3600)
+  s.running, s.runningSince = false, nil
+  h.eq(V.build(s, opts({ now = 999999 })).gold.perHour, 7200)
+  local young = V.build(withGold(session({}, 59), 5000, 5000), opts())
+  h.eq(young.gold.perHour, nil)
+  h.eq(young.combined.vendorPerHour, nil); h.eq(young.combined.ahPerHour, nil)
+  h.eq(young.gold.total, 10000)
+  h.eq(V.build(withGold(session({}, 60), 5000, 0), opts()).gold.perHour, 300000)
+end)
+
+h.test("View ignores malformed gold fields", function()
+  reset()
+  local s = three(3600)
+  s.gold = { looted = -5, quest = 0 / 0 }
+  local v = V.build(s, opts())
+  h.eq(v.gold.total, 0)
+  s.gold = "oops"
+  h.eq(V.build(s, opts()).gold.total, 0)
+end)

@@ -142,3 +142,66 @@ h.test("Session.needsResetConfirm", function()
   h.eq(S.needsResetConfirm(s), true)
   h.eq(S.LARGE_SESSION_ITEMS, 25)
 end)
+
+h.test("Session.new has zero gold", function()
+  local s = S.new(0)
+  h.eq(s.gold, { looted = 0, quest = 0 })
+  h.eq(S.goldTotal(s), 0)
+end)
+
+h.test("Session.addGold accumulates per kind", function()
+  local s = S.new(0)
+  h.eq(S.addGold(s, "looted", 150, 1), true)
+  h.eq(S.addGold(s, "looted", 50, 2), true)
+  h.eq(S.addGold(s, "quest", 1000, 3), true)
+  h.eq(s.gold, { looted = 200, quest = 1000 })
+  h.eq(S.goldTotal(s), 1200)
+end)
+
+h.test("Session.addGold rejects stopped, unknown kind and bad amounts", function()
+  local s = S.new(0)
+  for _, bad in ipairs({ 0, -5, 1.5, "10", 0 / 0, math.huge, -math.huge }) do
+    h.eq(S.addGold(s, "looted", bad, 1), false)
+  end
+  h.eq(S.addGold(s, "looted", nil, 1), false)
+  h.eq(S.addGold(s, "other", 10, 1), false)
+  h.eq(S.addGold(s, nil, 10, 1), false)
+  S.stop(s, 5)
+  h.eq(S.addGold(s, "quest", 10, 6), false)
+  h.eq(s.gold, { looted = 0, quest = 0 })
+  S.start(s, 7)
+  h.eq(S.addGold(s, "quest", 10, 8), true)
+end)
+
+h.test("Session.reset zeroes gold", function()
+  local s = S.new(0)
+  S.addGold(s, "looted", 10, 1)
+  S.addGold(s, "quest", 20, 1)
+  S.reset(s, 5)
+  h.eq(s.gold, { looted = 0, quest = 0 })
+  h.eq(S.goldTotal(s), 0)
+end)
+
+h.test("Session.login migrates a record without gold", function()
+  local old = { startedAt = 0, running = true, elapsedBase = 50, items = {} }
+  local s = S.login(old, true, 100)
+  h.eq(s == old, true)
+  h.eq(s.gold, { looted = 0, quest = 0 })
+  h.eq(S.elapsed(s, 100), 50)
+end)
+
+h.test("Session.login keeps valid gold and resets malformed gold only", function()
+  local function rec(gold)
+    return { startedAt = 0, running = true, elapsedBase = 50,
+      items = { [5] = { id = 5, qty = 2, lastSeen = 1 } }, gold = gold }
+  end
+  h.eq(S.login(rec({ looted = 70, quest = 30 }), true, 9).gold, { looted = 70, quest = 30 })
+  local bad = { 5, "x", { looted = -1, quest = 0 }, { looted = 0 / 0, quest = 0 },
+    { looted = math.huge, quest = 0 }, { looted = 1 }, { looted = "1", quest = 2 } }
+  for i, g in ipairs(bad) do
+    local s = S.login(rec(g), true, 9)
+    h.eq(s.gold, { looted = 0, quest = 0 }, "case " .. i)
+    h.eq(s.items[5].qty, 2, "case " .. i)
+    h.eq(S.elapsed(s, 9), 50, "case " .. i)
+  end
+end)

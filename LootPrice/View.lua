@@ -114,6 +114,20 @@ function View.build(session, opts)
     totals.ahPerHour = totals.ah * 3600 / elapsed
   end
 
+  -- Raw gold is income of its own: never filtered, counted equally on both
+  -- sides of the combined totals.
+  local sg = type(session.gold) == "table" and session.gold or {}
+  local looted = num(sg.looted) and sg.looted > 0 and sg.looted or 0
+  local quest = num(sg.quest) and sg.quest > 0 and sg.quest or 0
+  local goldTotal = looted + quest
+  local gold = { looted = looted, quest = quest, total = goldTotal }
+  local combined = { vendor = totals.vendor + goldTotal, ah = totals.ah + goldTotal }
+  if num(elapsed) and elapsed >= View.MIN_RATE_SECONDS then
+    gold.perHour = goldTotal * 3600 / elapsed
+    combined.vendorPerHour = combined.vendor * 3600 / elapsed
+    combined.ahPerHour = combined.ah * 3600 / elapsed
+  end
+
   local ranked = {}
   for _, r in ipairs(rows) do
     if r.value > 0 then ranked[#ranked + 1] = r end
@@ -122,7 +136,7 @@ function View.build(session, opts)
   local top = {}
   for i = 1, math.min(View.TOP_COUNT, #ranked) do top[i] = ranked[i] end
 
-  return { rows = rows, top = top, totals = totals }
+  return { rows = rows, top = top, totals = totals, gold = gold, combined = combined }
 end
 
 function View.indexOf(rows, itemID)

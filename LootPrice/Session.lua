@@ -19,6 +19,7 @@ function Session.new(now)
     runningSince = now,
     elapsedBase = 0,
     items = {},
+    gold = { looted = 0, quest = 0 },
   }
 end
 
@@ -44,6 +45,26 @@ function Session.add(session, itemID, link, qty, now)
   return true
 end
 
+-- Raw gold income in copper. kind = "looted" (CHAT_MSG_MONEY) | "quest" (turn-in).
+function Session.addGold(session, kind, copper, now)
+  if not session.running then return false end
+  if kind ~= "looted" and kind ~= "quest" then return false end
+  if not posInt(copper) then return false end
+  local gold = session.gold
+  if type(gold) ~= "table" then
+    gold = { looted = 0, quest = 0 }
+    session.gold = gold
+  end
+  gold[kind] = (num(gold[kind]) and gold[kind] or 0) + copper
+  return true
+end
+
+function Session.goldTotal(session)
+  local gold = session.gold
+  if type(gold) ~= "table" then return 0 end
+  return (num(gold.looted) and gold.looted or 0) + (num(gold.quest) and gold.quest or 0)
+end
+
 function Session.start(session, now)
   if session.running then return end
   session.running = true
@@ -59,6 +80,7 @@ end
 
 function Session.reset(session, now)
   session.items = {}
+  session.gold = { looted = 0, quest = 0 }
   session.startedAt = now
   session.elapsedBase = 0
   session.runningSince = session.running and now or nil
@@ -96,8 +118,22 @@ local function validSession(s)
   return true
 end
 
+local function validGoldField(v)
+  return num(v) and v >= 0
+end
+
+-- Old records have no gold: add zeros. A malformed gold table is replaced by
+-- zeros (the items and the clock of the record stay valid).
+local function normalizeGold(s)
+  local g = s.gold
+  if type(g) ~= "table" or not validGoldField(g.looted) or not validGoldField(g.quest) then
+    s.gold = { looted = 0, quest = 0 }
+  end
+end
+
 function Session.login(saved, keep, now)
   if keep and validSession(saved) then
+    normalizeGold(saved)
     Session.resume(saved, now)
     return saved
   end
