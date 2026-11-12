@@ -8,6 +8,7 @@ local REFRESH_THROTTLE = 0.2
 local KEY_RETRY_SECONDS = 10
 
 local keyState = { key = nil }
+local setupDone = false -- session/prices/UI are created once per Lua session
 local compiled -- LootParse patterns, built once from the real globals
 local refreshPending = false
 
@@ -26,10 +27,12 @@ end
 -- Both engine calls may be missing on the Forever client, hence pcall.
 function Core.evalKey(env)
   local region, modeID
+  -- UNVERIFIED (check in client): GetCurrentRegionName exists and returns a region string.
   if type(env.GetCurrentRegionName) == "function" then
     local ok, v = pcall(env.GetCurrentRegionName)
     if ok then region = v end
   end
+  -- UNVERIFIED (check in client): C_GameRules.GetCurrentGameModeRecordID exists on Forever.
   local rules = env.C_GameRules
   if type(rules) == "table" and type(rules.GetCurrentGameModeRecordID) == "function" then
     local ok, v = pcall(rules.GetCurrentGameModeRecordID)
@@ -183,6 +186,7 @@ local HELP = {
   "/lp keep on|off - keep the session across logins",
   "/lp tsm <source> - TSM price source (e.g. DBMarket)",
   "/lp demo - add fake sample loot and temporary fake AH prices (UI check only)",
+  "Note: an AH age tag can look fresh when the price source serves old scan data.",
 }
 
 local function windowCall(name)
@@ -292,19 +296,23 @@ function events.ADDON_LOADED(name)
   ns.chardb = LootPriceCharDB
 end
 
-function events.PLAYER_LOGIN()
-  ns.session = ns.Session.login(ns.chardb.session, ns.db.settings.keepSession, time())
-  ns.chardb.session = ns.session
+-- The session is created on the first PLAYER_ENTERING_WORLD of the Lua
+-- session: a real login starts fresh (unless "keep" is on), a /reload
+-- (isReloadingUi) always keeps it. Later firings (zone changes, instances)
+-- only re-evaluate the cache key.
+function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   keyState.key = Core.evalKey(_G)
+  keyState.tried = time()
+  if setupDone or not ns.db then return end
+  setupDone = true
+  local keep = ns.db.settings.keepSession or isReloadingUi
+  ns.session = ns.Session.login(ns.chardb.session, keep, time())
+  ns.chardb.session = ns.session
   ns.prices = Core.buildPrices(_G, ns.db, time, function()
     return Core.keyFromState(keyState, _G, time())
   end)
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   refreshUI()
-end
-
-function events.PLAYER_ENTERING_WORLD()
-  keyState.key = Core.evalKey(_G)
 end
 
 function events.CHAT_MSG_LOOT(text)
