@@ -183,7 +183,8 @@ function Summary.attach(topBox, footer)
   if Summary.instance then return Summary.instance end
   local T = ns.Theme
   local S = T.sizes
-  local ink, gold, stale = T.colors.ink, T.colors.gold, T.colors.stale
+  local ink, stale = T.colors.ink, T.colors.stale
+  local titleColor = T.colors.sectionTitle
   local line = T.colors.goldLine
 
   local summary = { topBox = topBox, footer = footer, rows = {}, height = nil }
@@ -191,7 +192,7 @@ function Summary.attach(topBox, footer)
   -- Top finds (bottom of the window, under the summaries). The divider is the
   -- top edge of the topBox; the content starts below it.
   local off = S.dividerHeight + S.padding / 2
-  local header = makeText(topBox, T.fonts.topHeader, gold)
+  local header = makeText(topBox, T.fonts.topHeader, titleColor)
   header:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -off)
   header:SetText(L_TOP)
   summary.header = header
@@ -246,7 +247,6 @@ function Summary.attach(topBox, footer)
   -- Footer: three stacked blocks (items, raw gold, items + gold). Each starts
   -- with a title row (gold title, thin separator line to its right).
   local layout = Summary.footerLayout()
-  local titleColor = T.colors.gold
   local sep = T.colors.rowSeparator
 
   local function block(b, labelText)

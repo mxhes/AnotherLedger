@@ -112,7 +112,7 @@ Core and loot
 
 Window
 - [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below the minimum (450 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
+- [ ] Drag by header; resize with the grip, never below the minimum (466 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
 - [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
@@ -156,7 +156,7 @@ Raw gold and quest rewards
 - [ ] `CHAT_MSG_MONEY` texts match the real `YOU_LOOT_MONEY` / `LOOT_MONEY_SPLIT` / `GOLD_AMOUNT` globals (`/dump YOU_LOOT_MONEY, GOLD_AMOUNT`; the ", " unit separator is assumed)
 
 Summary footer
-- [ ] The three footer blocks (146 px: Items 38, Raw gold 16, Items + gold 38, plus an 18 px gold title row each) fit at 350 px wide and 450 px high with the 12 pt font; no line clips: the Raw gold line (`Gold <total>` left, rate right) stays inside the 326 px content width for amounts up to 999g 59s 59c
+- [ ] The three footer blocks (158 px: Items 38, Raw gold 16, Items + gold 38, plus a 22 px title row each) fit at 350 px wide and 466 px high with the 12 pt font; no line clips: the Raw gold line (`Gold <total>` left, rate right) stays inside the 326 px content width for amounts up to 999g 59s 59c
 - [ ] Labels `Items`, `Raw gold`, `Items + gold` are readable (muted) and the thin separator runs to the right of each label
 - [ ] Item block worst case `Vendor: 999g 59s 59c` over `999g 59s 59c/h` plus the `N unpriced` / `filtered` marker does not clip (width estimate in `Theme.sizes.summaryCharPx`; raise `minWidth` if it does)
 - [ ] No overlap of filtered / unpriced with the rates at long values

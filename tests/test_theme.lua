@@ -9,7 +9,7 @@ h.test("Theme has required keys", function()
   for _, k in ipairs({ "title", "body", "number" }) do
     h.eq(type(T.fonts[k]), "string", "fonts." .. k)
   end
-  for _, k in ipairs({ "ink", "stale", "gold", "flashNormal", "flashStrong", "panelTint" }) do
+  for _, k in ipairs({ "ink", "stale", "gold", "sectionTitle", "flashNormal", "flashStrong", "panelTint" }) do
     h.eq(type(T.colors[k]), "table", "colors." .. k)
   end
   for _, k in ipairs({ "title", "body", "number", "small", "button", "buttonHighlight",
@@ -38,13 +38,13 @@ h.test("Theme has required keys", function()
   for _, k in ipairs({ "quality", "min", "sort" }) do
     h.eq(type(T.widths.filter[k]), "number", "widths.filter." .. k)
   end
-  h.eq(T.sizes.footerHeight, 146)
-  h.eq(T.sizes.topHeaderHeight, 18)
+  h.eq(T.sizes.footerHeight, 158)
+  h.eq(T.sizes.topHeaderHeight, 22)
   h.eq(T.sizes.topRowHeight, 20)
   h.eq(T.sizes.rowHeight, 28)
   h.eq(T.sizes.headerHeight, 3 * T.sizes.headerRowHeight)
   h.eq(T.sizes.minWidth, 350)
-  h.eq(T.sizes.minHeight, 450)
+  h.eq(T.sizes.minHeight, 466)
 end)
 
 for _, onParchment in ipairs({ true, false }) do -- the second argument is ignored now
@@ -138,4 +138,11 @@ h.test("scaleColor multiplies rgb, clamps and keeps alpha", function()
   h.eq(T.scaleColor({ 0.5, 0.5, 0.5 }, 3), { 1, 1, 1, 1 })
   h.eq(T.scaleColor({ 0.5, 0.5, 0.5 }, -1), { 0, 0, 0, 1 })
   h.eq(T.scaleColor({ 0.5, 0.5, 0.5, 1 }, "x"), { 0.5, 0.5, 0.5, 1 })
+end)
+
+h.test("button text and section titles are white", function()
+  h.eq(T.colors.sectionTitle, { 1, 1, 1, 1 })
+  h.eq(T.fonts.button, "GameFontHighlightSmall")
+  h.eq(T.fonts.blockLabel, "GameFontHighlightLarge")
+  h.eq(T.fonts.topHeader, "GameFontHighlightLarge")
 end)

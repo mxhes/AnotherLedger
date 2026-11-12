@@ -23,10 +23,10 @@ Theme.fonts = {
   summary = "GameFontHighlight",
   summaryMarker = "GameFontHighlightSmall",
   -- Section title of a footer block (Items / Raw gold / Items + gold): gold, like "Top finds".
-  blockLabel = "GameFontNormal",
-  topHeader = "GameFontNormal",
+  blockLabel = "GameFontHighlightLarge",
+  topHeader = "GameFontHighlightLarge",
   topRow = "GameFontHighlight",
-  button = "GameFontNormalSmall",
+  button = "GameFontHighlightSmall", -- white; the disabled state stays gray
   buttonHighlight = "GameFontHighlightSmall",
   buttonDisabled = "GameFontDisableSmall",
   file = "Fonts\\FRIZQT__.TTF",
@@ -39,7 +39,9 @@ Theme.colors = {
   ink = { 0.93, 0.87, 0.72, 1 },
   -- Age tag of stale prices: bright orange (ff8a4a).
   stale = { 1.00, 0.54, 0.29, 1 },
-  -- "Top finds" header: the in-game gold (ffd100).
+  -- Section titles (Top finds, footer blocks): white.
+  sectionTitle = { 1, 1, 1, 1 },
+  -- The in-game gold (ffd100).
   gold = { 1.00, 0.82, 0.00, 1 },
   -- Bright gold for lines (divider, edge, filter underline); not for text.
   goldLine = { 1.00, 0.82, 0.20, 1 },
@@ -71,9 +73,9 @@ Theme.durations = {
 
 Theme.sizes = {
   minWidth = 350,
-  -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 84
-  -- + 4 list rows (4 * 28) + footer 146 = 450 (tests/test_summary.lua recomputes it).
-  minHeight = 450,
+  -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 88
+  -- + 4 list rows (4 * 28) + footer 158 = 466 (tests/test_summary.lua recomputes it).
+  minHeight = 466,
   minListRows = 4,
   rowHeight = 28,
   iconSize = 24,
@@ -85,19 +87,19 @@ Theme.sizes = {
   -- Footer = three stacked blocks, each a title row (gold title + thin separator)
   -- above its content: items 38 (two lines), gold 16 (one line), total 38
   -- (two lines). footerHeight is their sum.
-  footerLabelHeight = 18,
+  footerLabelHeight = 22, -- section title row (16 pt font)
   footerLabelGap = 4,
   footerItemsHeight = 38,
   footerGoldHeight = 16,
   footerTotalHeight = 38,
-  footerHeight = 146,
+  footerHeight = 158,
   -- Inventory tabs: the footer is the items block only, plus a one-line note
   -- (bank scan age) when shown.
   footerNoteHeight = 16,
   buttonHeight = 20,
   buttonGap = 2,
   timerWidth = 54,
-  topHeaderHeight = 18,
+  topHeaderHeight = 22,
   topRowHeight = 20,
   dividerHeight = 2,
   -- Estimated average glyph widths in FRIZQT (px) of the 12 pt summary font and
