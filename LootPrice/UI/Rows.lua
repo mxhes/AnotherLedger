@@ -15,12 +15,8 @@ local L = {
   QTY = "x",
 }
 
-Rows.ROW_HEIGHT = 28
-local ICON_SIZE = 24
-local SCROLLBAR_WIDTH = 10
 local WHEEL_STEP = 2
 local QUESTION_MARK = 134400 -- INV_Misc_QuestionMark
-local FLASH_SECONDS = { normal = 1.0, strong = 2.2 }
 
 -- ---------------------------------------------------------------------------
 -- Pure helpers
@@ -85,7 +81,7 @@ end
 local function createRow(parent)
   local T = theme()
   local f = CreateFrame("Frame", nil, parent)
-  f:SetHeight(Rows.ROW_HEIGHT)
+  f:SetHeight(T.sizes.rowHeight)
 
   local flash = f:CreateTexture(nil, "BACKGROUND")
   flash:SetAllPoints(f)
@@ -100,7 +96,7 @@ local function createRow(parent)
   f.flash, f.flashGroup, f.flashFade = flash, ag, fade
 
   local border = f:CreateTexture(nil, "ARTWORK")
-  border:SetSize(ICON_SIZE, ICON_SIZE)
+  border:SetSize(T.sizes.iconSize, T.sizes.iconSize)
   border:SetPoint("LEFT", f, "LEFT", 2, 0)
   border:SetColorTexture(1, 1, 1, 1)
   local icon = f:CreateTexture(nil, "OVERLAY")
@@ -166,12 +162,12 @@ function Rows.attach(area)
 
   local content = CreateFrame("Frame", nil, area)
   content:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
-  content:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -SCROLLBAR_WIDTH - 2, 0)
+  content:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -T.sizes.scrollbarWidth - 2, 0)
   list.content = content
 
   local bar = CreateFrame("Slider", nil, area)
   bar:SetOrientation("VERTICAL")
-  bar:SetWidth(SCROLLBAR_WIDTH)
+  bar:SetWidth(T.sizes.scrollbarWidth)
   bar:SetPoint("TOPRIGHT", area, "TOPRIGHT", -1, -1)
   bar:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -1, 1)
   bar:SetMinMaxValues(0, 0)
@@ -179,15 +175,17 @@ function Rows.attach(area)
   if bar.SetObeyStepOnDrag then bar:SetObeyStepOnDrag(true) end
   local track = bar:CreateTexture(nil, "BACKGROUND")
   track:SetAllPoints(bar)
-  track:SetColorTexture(T.colors.ink[1], T.colors.ink[2], T.colors.ink[3], 0.15)
+  local tc = T.colors.scrollTrack
+  track:SetColorTexture(tc[1], tc[2], tc[3], tc[4])
   bar:SetThumbTexture(T.textures.rowHighlight)
   local thumb = bar:GetThumbTexture()
-  thumb:SetSize(SCROLLBAR_WIDTH, 24)
-  thumb:SetVertexColor(T.colors.ink[1], T.colors.ink[2], T.colors.ink[3], 0.6)
+  thumb:SetSize(T.sizes.scrollbarWidth, T.sizes.scrollThumbHeight)
+  local thc = T.colors.scrollThumb
+  thumb:SetVertexColor(thc[1], thc[2], thc[3], thc[4])
   bar:Hide()
   list.bar = bar
 
-  local function visible() return Rows.visibleCount(area:GetHeight(), Rows.ROW_HEIGHT) end
+  local function visible() return Rows.visibleCount(area:GetHeight(), T.sizes.rowHeight) end
 
   function list:Render()
     local n = visible()
@@ -197,8 +195,8 @@ function Rows.attach(area)
       local f = self.pool[i]
       if not f then
         f = createRow(content)
-        f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(i - 1) * Rows.ROW_HEIGHT)
-        f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -(i - 1) * Rows.ROW_HEIGHT)
+        f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(i - 1) * T.sizes.rowHeight)
+        f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -(i - 1) * T.sizes.rowHeight)
         self.pool[i] = f
       end
       local row = self.data[self.offset + i]
@@ -254,7 +252,7 @@ function Rows.attach(area)
       if f and f:IsShown() and f.itemID == itemID then
         f.flashGroup:Stop()
         f.flash:SetColorTexture(c[1], c[2], c[3], c[4])
-        f.flashFade:SetDuration(FLASH_SECONDS[level] or FLASH_SECONDS.normal)
+        f.flashFade:SetDuration(level == "strong" and T.durations.flashStrong or T.durations.flashNormal)
         f.flash:Show()
         f.flashGroup:Play()
       end

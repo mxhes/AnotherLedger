@@ -23,10 +23,8 @@ FilterBar.SORTS = { "ah", "vendor", "name", "recent" }
 local COPPER_PER_GOLD = 10000
 local MAX_GOLD = 10000000
 
--- Width budget: row 2 at the 320 px minimum is 296 px wide. Quality 70 +
--- min 44 + sort 70 + three 2 px gaps (plus ~8 px of inset) = ~198, leaving
--- ~98 px for the flexible search box.
-local WIDTHS = { quality = 70, min = 44, sort = 70 }
+-- Widths live in Theme.widths.filter (width budget there).
+local function widths() return ns.Theme.widths.filter end
 
 -- ---------------------------------------------------------------------------
 -- Pure helpers
@@ -157,8 +155,10 @@ local function makeButton(parent, label, width)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   b:SetSize(width, T.sizes.buttonHeight)
   b:SetText(label)
-  local fs = b:GetFontString()
-  if fs and fs.SetFontObject then fs:SetFontObject(T.fonts.button) end
+  -- Per-state font objects: a FontString font would be reset on state changes.
+  b:SetNormalFontObject(T.fonts.button)
+  b:SetHighlightFontObject(T.fonts.buttonHighlight)
+  b:SetDisabledFontObject(T.fonts.buttonDisabled)
   return b
 end
 
@@ -173,7 +173,8 @@ local function makeEdit(parent, hint, width)
   e:SetMaxLetters(40)
   local label = e:CreateFontString(nil, "OVERLAY", T.fonts.small)
   label:SetPoint("LEFT", e, "LEFT", 4, 0)
-  label:SetTextColor(0.5, 0.5, 0.5, 1)
+  local hc = T.colors.hint
+  label:SetTextColor(hc[1], hc[2], hc[3], hc[4])
   label:SetText(hint)
   e.hint = label
   function e:RefreshHint()
@@ -212,16 +213,16 @@ function FilterBar.attach(row, db, onChange)
   underline:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
   underline:Hide()
 
-  local quality = makeButton(row, L_QUALITY, WIDTHS.quality)
+  local quality = makeButton(row, L_QUALITY, widths().quality)
   quality:SetPoint("LEFT", row, "LEFT", 0, 0)
   quality:SetScript("OnClick", function(self)
     openQualityMenu(self, getFilter, changed)
   end)
 
-  local minBox = makeEdit(row, L_MIN_HINT, WIDTHS.min)
+  local minBox = makeEdit(row, L_MIN_HINT, widths().min)
   minBox:SetPoint("LEFT", quality, "RIGHT", gap + 4, 0)
 
-  local sort = makeButton(row, L_SORT_PREFIX .. FilterBar.sortLabel(db.sort), WIDTHS.sort)
+  local sort = makeButton(row, L_SORT_PREFIX .. FilterBar.sortLabel(db.sort), widths().sort)
   sort:SetPoint("RIGHT", row, "RIGHT", 0, 0)
   sort:SetScript("OnClick", function()
     db.sort = FilterBar.nextSort(db.sort)
@@ -245,11 +246,13 @@ function FilterBar.attach(row, db, onChange)
     local was = f.minValue
     f.minValue = copper
     self:SetText(FilterBar.formatMinGold(copper)) -- normalize what the user typed
+    self:RefreshHint() -- SetScript replaced the hint hook above
     if copper ~= was then changed() end
   end)
 
   -- Search: applied as the user types; SetText from Update has userInput=false.
   search:SetScript("OnTextChanged", function(self, userInput)
+    self:RefreshHint() -- SetScript replaced the hint hook above
     if not userInput then return end
     getFilter().search = self:GetText()
     changed()

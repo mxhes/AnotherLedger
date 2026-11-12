@@ -16,10 +16,8 @@ local L_RESET_CONFIRM = "Reset the session? All logged loot and the timer will b
 local L_YES = "Reset"
 local L_NO = "Cancel"
 
--- Compact button widths. Row 1 at the 320 px minimum is 296 px wide
--- (320 - 2 * (padding 8 + 4)): buttons 38 + 34 + 40 + 20 = 132 plus three
--- 2 px gaps = 138, timer 54, leaving ~104 px for the title (~95 px).
-local WIDTHS = { start = 38, stop = 34, reset = 40, hide = 20 }
+-- Compact button widths live in Theme.widths.header (width budget there).
+local function widths() return ns.Theme.widths.header end
 
 -- ---------------------------------------------------------------------------
 -- Pure helpers
@@ -81,8 +79,10 @@ local function makeButton(parent, label, width)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   b:SetSize(width, T.sizes.buttonHeight)
   b:SetText(label)
-  local fs = b:GetFontString()
-  if fs and fs.SetFontObject then fs:SetFontObject(T.fonts.button) end
+  -- Per-state font objects: a FontString font would be reset on state changes.
+  b:SetNormalFontObject(T.fonts.button)
+  b:SetHighlightFontObject(T.fonts.buttonHighlight)
+  b:SetDisabledFontObject(T.fonts.buttonDisabled)
   return b
 end
 
@@ -96,24 +96,24 @@ function Header.attach(row, handlers)
   local header = { row = row }
 
   -- Buttons are laid out right to left: Hide, Reset, Stop, Start.
-  local hide = makeButton(row, L_HIDE, WIDTHS.hide)
+  local hide = makeButton(row, L_HIDE, widths().hide)
   hide:SetPoint("RIGHT", row, "RIGHT", 0, 0)
   hide:SetScript("OnClick", function()
     -- Window.hide persists the hidden flag; never frame:Hide() directly.
     if handlers.hide then handlers.hide() end
   end)
 
-  local reset = makeButton(row, L_RESET, WIDTHS.reset)
+  local reset = makeButton(row, L_RESET, widths().reset)
   reset:SetPoint("RIGHT", hide, "LEFT", -gap, 0)
   reset:SetScript("OnClick", function() Header.requestReset() end)
 
-  local stop = makeButton(row, L_STOP, WIDTHS.stop)
+  local stop = makeButton(row, L_STOP, widths().stop)
   stop:SetPoint("RIGHT", reset, "LEFT", -gap, 0)
   stop:SetScript("OnClick", function()
     if handlers.stop then handlers.stop() end
   end)
 
-  local start = makeButton(row, L_START, WIDTHS.start)
+  local start = makeButton(row, L_START, widths().start)
   start:SetPoint("RIGHT", stop, "LEFT", -gap, 0)
   start:SetScript("OnClick", function()
     if handlers.start then handlers.start() end

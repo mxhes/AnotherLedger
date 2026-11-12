@@ -12,9 +12,30 @@ h.test("Theme has required keys", function()
   for _, k in ipairs({ "ink", "stale", "gold", "flashNormal", "flashStrong", "panelTint" }) do
     h.eq(type(T.colors[k]), "table", "colors." .. k)
   end
-  for _, k in ipairs({ "minWidth", "minHeight", "rowHeight", "padding" }) do
+  for _, k in ipairs({ "title", "body", "number", "small", "button", "buttonHighlight",
+    "buttonDisabled", "file" }) do
+    h.eq(type(T.fonts[k]), "string", "fonts." .. k)
+  end
+  for _, k in ipairs({ "hint", "scrollTrack", "scrollThumb" }) do
+    h.eq(type(T.colors[k]), "table", "colors." .. k)
+  end
+  for _, k in ipairs({ "minWidth", "minHeight", "rowHeight", "iconSize", "scrollbarWidth",
+    "scrollThumbHeight", "padding", "headerHeight", "headerRowHeight", "footerHeight",
+    "buttonHeight", "buttonGap", "timerWidth", "topHeaderHeight", "topRowHeight", "gripSize",
+    "gripInset", "backdropTile", "backdropEdge", "backdropInset" }) do
     h.eq(type(T.sizes[k]), "number", "sizes." .. k)
   end
+  for _, k in ipairs({ "flashNormal", "flashStrong" }) do
+    h.eq(type(T.durations[k]), "number", "durations." .. k)
+  end
+  for _, k in ipairs({ "start", "stop", "reset", "hide" }) do
+    h.eq(type(T.widths.header[k]), "number", "widths.header." .. k)
+  end
+  for _, k in ipairs({ "quality", "min", "sort" }) do
+    h.eq(type(T.widths.filter[k]), "number", "widths.filter." .. k)
+  end
+  h.eq(T.sizes.rowHeight, 28)
+  h.eq(T.sizes.headerHeight, 2 * T.sizes.headerRowHeight)
   h.eq(T.sizes.minWidth, 320)
   h.eq(T.sizes.minHeight, 240)
 end)
