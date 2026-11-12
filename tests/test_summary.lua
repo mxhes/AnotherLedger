@@ -59,6 +59,21 @@ h.test("topBoxHeight", function()
   h.eq(S.topBoxHeight(0), 0)
   h.eq(S.topBoxHeight(nil), 0)
   local T = ns.Theme.sizes
-  h.eq(S.topBoxHeight(3), T.topHeaderHeight + 3 * T.topRowHeight + T.padding / 2)
+  h.eq(S.topBoxHeight(1), T.topHeaderHeight + T.topRowHeight + T.padding / 2 + T.dividerHeight)
+  h.eq(S.topBoxHeight(3), T.topHeaderHeight + 3 * T.topRowHeight + T.padding / 2 + T.dividerHeight)
+  h.eq(S.topBoxHeight(3), 18 + 3 * 20 + 4 + 2)
   h.eq(S.topBoxHeight(5), S.topBoxHeight(3))
+end)
+
+h.test("footer worst case fits at the minimum window width", function()
+  local T = ns.Theme.sizes
+  h.eq(S.footerHalfWidth(T.minWidth) >= S.footerWorstWidth(), true)
+  -- One step narrower would clip: the minimum is the smallest 10 px multiple that fits.
+  h.eq(S.footerHalfWidth(T.minWidth - 10) < S.footerWorstWidth(), true)
+end)
+
+h.test("footer fits its two stacked lines", function()
+  local T = ns.Theme.sizes
+  -- two 12 pt lines (about 14 px each) plus the 1 px insets
+  h.eq(T.footerHeight >= 2 * 14 + 2, true)
 end)

@@ -16,6 +16,11 @@ Theme.fonts = {
   body = "GameFontHighlight",
   number = "GameFontHighlight",
   small = "GameFontHighlightSmall",
+  -- Summary (totals bar, Top finds): about 12 pt; markers stay small.
+  summary = "GameFontHighlight",
+  summaryMarker = "GameFontHighlightSmall",
+  topHeader = "GameFontNormal",
+  topRow = "GameFontHighlight",
   button = "GameFontNormalSmall",
   buttonHighlight = "GameFontHighlightSmall",
   buttonDisabled = "GameFontDisableSmall",
@@ -28,6 +33,8 @@ Theme.colors = {
   gold = { 0.36, 0.23, 0.00, 1 },
   -- Bright gold for lines (divider, edge, filter underline); not for text.
   goldLine = { 1.00, 0.80, 0.20, 1 },
+  -- Divider between Top finds and the list (goldLine at partial alpha).
+  divider = { 1.00, 0.80, 0.20, 0.85 },
   flashNormal = { 1.00, 0.85, 0.30, 0.35 },
   flashStrong = { 1.00, 0.60, 0.10, 0.60 },
   -- Old tint was 0.86 / 0.76 / 0.54; now 72 % of it (about 28 % darker).
@@ -49,7 +56,7 @@ Theme.durations = {
 }
 
 Theme.sizes = {
-  minWidth = 320,
+  minWidth = 350,
   minHeight = 240,
   rowHeight = 28,
   iconSize = 24,
@@ -58,12 +65,17 @@ Theme.sizes = {
   padding = 8,
   headerHeight = 56,
   headerRowHeight = 28,
-  footerHeight = 24,
+  footerHeight = 38,
   buttonHeight = 20,
   buttonGap = 2,
   timerWidth = 54,
-  topHeaderHeight = 14,
-  topRowHeight = 16,
+  topHeaderHeight = 18,
+  topRowHeight = 20,
+  dividerHeight = 2,
+  -- Estimated average glyph widths in FRIZQT (px) of the 12 pt summary font and
+  -- the 10 pt marker font; Summary.footerWorstWidth() budgets with them.
+  summaryCharPx = 6.6,
+  markerCharPx = 5.5,
   gripSize = 16,
   gripInset = 4,
   backdropTile = 16,
@@ -71,11 +83,14 @@ Theme.sizes = {
   backdropInset = 6,
 }
 
--- Button / box widths of the two header rows. Row 1 at the 320 px minimum is
--- 296 px wide (320 - 2 * (padding 8 + 4)): buttons 38 + 34 + 40 + 20 = 132
--- plus three 2 px gaps = 138, timer 54, leaving ~104 px for the title (~95 px).
+-- Button / box widths of the two header rows. Row 1 at the 350 px minimum is
+-- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 + 34 + 40 + 20 = 132
+-- plus three 2 px gaps = 138, timer 54, leaving ~134 px for the title (~95 px).
 -- Row 2: quality 70 + min 44 + sort 78 + three 2 px gaps (plus ~8 px of
--- inset) = ~206, leaving ~90 px for the flexible search box.
+-- inset) = ~206, leaving ~120 px for the flexible search box.
+-- minWidth 350 comes from the footer (see Summary.footerWorstWidth): the
+-- 12 pt totals bar needs 157 px per half, so 2 * 157 + 8 px center gap + 24 px
+-- window inset = 346, rounded up.
 Theme.widths = {
   header = { start = 38, stop = 34, reset = 40, hide = 20 },
   filter = { quality = 70, min = 44, sort = 78 },

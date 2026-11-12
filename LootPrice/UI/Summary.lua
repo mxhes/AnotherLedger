@@ -76,7 +76,22 @@ function Summary.topBoxHeight(count)
   count = math.min(tonumber(count) or 0, MAX_TOP)
   if count <= 0 then return 0 end
   local s = ns.Theme.sizes
-  return s.topHeaderHeight + count * s.topRowHeight + s.padding / 2
+  return s.topHeaderHeight + count * s.topRowHeight + s.padding / 2 + s.dividerHeight
+end
+
+-- Width of one footer half at a window `width`: the content width minus the
+-- 4 px gap either side of the center line, split in two.
+function Summary.footerHalfWidth(width)
+  local s = ns.Theme.sizes
+  return (width - 2 * (s.padding + 4) - 8) / 2
+end
+
+-- Estimated width of the worst second line of a half: a rate with 14
+-- characters ("999g 59s 59c/h") in the summary font, a 6 px gap and a marker
+-- with 11 characters ("99 unpriced") in the marker font.
+function Summary.footerWorstWidth()
+  local s = ns.Theme.sizes
+  return 14 * s.summaryCharPx + 6 + 11 * s.markerCharPx
 end
 
 -- ---------------------------------------------------------------------------
@@ -90,8 +105,8 @@ local function makeText(parent, font, color, justify)
   return fs
 end
 
--- Footer layout at the 296 px content minimum: a stacked pair per half
--- (total above, rate below), so long money strings keep ~140 px per line.
+-- Footer layout at the 326 px content minimum (350 px window): a stacked pair
+-- per half (total above, rate below), ~159 px per line (Summary.footerHalfWidth).
 function Summary.attach(topBox, footer)
   if Summary.instance then return Summary.instance end
   local T = ns.Theme
@@ -102,7 +117,7 @@ function Summary.attach(topBox, footer)
   local summary = { topBox = topBox, footer = footer, rows = {}, height = nil }
 
   -- Top finds
-  local header = makeText(topBox, T.fonts.small, gold)
+  local header = makeText(topBox, T.fonts.topHeader, gold)
   header:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, 0)
   header:SetText(L_TOP)
   summary.header = header
@@ -118,33 +133,44 @@ function Summary.attach(topBox, footer)
     edge:SetWidth(2)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     edge:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
-    local value = makeText(row, T.fonts.small, ink, "RIGHT")
+    local value = makeText(row, T.fonts.topRow, ink, "RIGHT")
     value:SetPoint("RIGHT", row, "RIGHT", -2, 0)
-    local qty = makeText(row, T.fonts.small, ink, "RIGHT")
+    local qty = makeText(row, T.fonts.topRow, ink, "RIGHT")
     qty:SetPoint("RIGHT", value, "LEFT", -6, 0)
-    local name = makeText(row, T.fonts.small, ink, "LEFT")
+    local name = makeText(row, T.fonts.topRow, ink, "LEFT")
     name:SetPoint("LEFT", row, "LEFT", 6, 0)
     name:SetPoint("RIGHT", qty, "LEFT", -6, 0)
     row:Hide()
     summary.rows[i] = { frame = row, name = name, qty = qty, value = value }
   end
 
+  -- Divider between the Top finds block and the list: the bottom edge of the
+  -- topBox, so it disappears together with a collapsed topBox.
+  local divider = topBox:CreateTexture(nil, "ARTWORK")
+  divider:SetTexture(T.textures.rowHighlight)
+  local dc = T.colors.divider
+  divider:SetVertexColor(dc[1], dc[2], dc[3], dc[4])
+  divider:SetHeight(S.dividerHeight)
+  divider:SetPoint("BOTTOMLEFT", topBox, "BOTTOMLEFT", 0, 0)
+  divider:SetPoint("BOTTOMRIGHT", topBox, "BOTTOMRIGHT", 0, 0)
+  summary.divider = divider
+
   -- Totals bar
-  local vendor = makeText(footer, T.fonts.small, ink, "LEFT")
+  local vendor = makeText(footer, T.fonts.summary, ink, "LEFT")
   vendor:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -1)
   vendor:SetPoint("TOPRIGHT", footer, "TOP", -4, -1)
-  local vendorRate = makeText(footer, T.fonts.small, ink, "LEFT")
+  local vendorRate = makeText(footer, T.fonts.summary, ink, "LEFT")
   vendorRate:SetPoint("BOTTOMLEFT", footer, "BOTTOMLEFT", 0, 1)
-  local filtered = makeText(footer, T.fonts.small, stale, "LEFT")
+  local filtered = makeText(footer, T.fonts.summaryMarker, stale, "LEFT")
   filtered:SetPoint("LEFT", vendorRate, "RIGHT", 6, 0)
   filtered:SetText(L_FILTERED)
   filtered:Hide()
-  local ah = makeText(footer, T.fonts.small, ink, "RIGHT")
+  local ah = makeText(footer, T.fonts.summary, ink, "RIGHT")
   ah:SetPoint("TOPRIGHT", footer, "TOPRIGHT", 0, -1)
   ah:SetPoint("TOPLEFT", footer, "TOP", 4, -1)
-  local ahRate = makeText(footer, T.fonts.small, ink, "RIGHT")
+  local ahRate = makeText(footer, T.fonts.summary, ink, "RIGHT")
   ahRate:SetPoint("BOTTOMRIGHT", footer, "BOTTOMRIGHT", 0, 1)
-  local unpriced = makeText(footer, T.fonts.small, stale, "RIGHT")
+  local unpriced = makeText(footer, T.fonts.summaryMarker, stale, "RIGHT")
   unpriced:SetPoint("RIGHT", ahRate, "LEFT", -6, 0)
   unpriced:Hide()
   summary.vendor, summary.vendorRate, summary.filtered = vendor, vendorRate, filtered

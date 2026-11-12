@@ -9,8 +9,9 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 The Session Ledger is a draggable, resizable, scrollable window:
 
 - **Rows**: one per looted item (icon, quality-colored name, quantity) with the vendor value and the auction house (AH) value side by side. Newly looted rows flash.
-- **Top finds**: the most valuable finds of the session.
-- **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows.
+- **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (darkened to read on the parchment); `n/a` stays plain.
+- **Top finds**: the most valuable finds of the session, with a gold divider line between them and the list (hidden together with the block when there are no finds).
+- **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows, in a larger font than the old small one.
 - **Filter marker**: a small "filtered" marker while a filter is active.
 - **Unpriced count**: how many items have no AH price.
 - **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than 12 hours.
@@ -73,8 +74,8 @@ Core and loot
 - [ ] `GET_ITEM_INFO_RECEIVED` throttle; `C_Timer.After` exists
 
 Window
-- [ ] Appears tan tinted, border looks right (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below 320x240; position unchanged after resize ends
+- [ ] Appears dark tan tinted (about 28 % darker than the first version), border looks right (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
+- [ ] Drag by header; resize with the grip, never below 350x240; position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
 - [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
@@ -87,21 +88,24 @@ Rows and list
 - [ ] The ticker updates only while the session runs
 
 Header
-- [ ] Title is not overlapped by the timer at 320 px
+- [ ] Title is not overlapped by the timer at 350 px
 - [ ] Button look and font (`UIPanelButtonTemplate`); Start / Stop enabled states
 - [ ] Reset popup appears and OnAccept resets
 - [ ] The X button persists the hidden state across `/reload`
 
 Summary footer
-- [ ] Two-line footer fits at 320 px and 24 px height (small font height about 10)
+- [ ] Two-line footer fits at 350 px and 38 px height with the 12 pt font; worst case `Vendor: 999g 59s 59c` over `999g 59s 59c/h` plus the `N unpriced` / `filtered` marker does not clip (width estimate in `Theme.sizes.summaryCharPx`; raise `minWidth` if it does)
 - [ ] No overlap of filtered / unpriced with the rates at long values
 - [ ] Gold edge texture visible on the parchment
+- [ ] Gold divider line between Top finds and the list is visible, disappears with the block when there are no finds, and does not shift the list rows
+- [ ] Darker parchment: ink, quality colors, the orange age tag and the `Top finds` header are readable (the tint and text colors in `Theme.lua` were tuned by computed contrast only)
+- [ ] Colored money: gold / silver / copper letters read well on the parchment in rows, Top finds, totals and the per-hour rates
 - [ ] Top finds shows / hides and the list reflows
 - [ ] Em dash renders in FRIZQT; rates show an em dash in the first minute
 - [ ] `/lp demo` totals match the rows
 
 Filter bar
-- [ ] Row 2 layout at 320 px (`InputBoxTemplate` insets and hints)
+- [ ] Row 2 layout at 350 px (`InputBoxTemplate` insets and hints)
 - [ ] Quality menu stays open on toggle and colors render
 - [ ] Minimum gold applies on Enter / blur and reverts on Escape
 - [ ] Search narrows live; the sort cycle reorders; the filter underline appears and disappears
