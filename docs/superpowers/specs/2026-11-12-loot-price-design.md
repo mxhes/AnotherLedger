@@ -9,7 +9,7 @@ The screen should feel like a **game feature**, not a stats overlay on a flat ba
 
 ## Goals
 - One always-visible **Session Ledger** window showing the session's loot with vendor and AH prices side by side.
-- Session totals and gold/hour for vendor and AH separately, plus raw gold (looted and quest money) and an items + gold total.
+- Session totals and gold/hour for vendor and AH separately, plus raw gold (looted and quest money, one total) and an items + gold total.
 - A "Top finds" block of the most valuable stacks.
 - Player control over the session (start / stop / reset / keep across relogs), the view (filter, sort, size, position) and visibility.
 - Everything the player customizes survives relogs.
@@ -56,9 +56,9 @@ Mock reference: the "A" direction with "Top finds" from "C" (browser mockup, 202
 Money is income of its own, next to the item list.
 - **Sources:** gold looted from creatures and containers, including group splits and the guild-bank form (`CHAT_MSG_MONEY`, parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), and gold from quest turn-ins (`QUEST_TURNED_IN`, `moneyReward` in copper; 0, nil and non-numbers are ignored). Other players' loot is out of scope.
 - **Quest reward items need no special handling:** they arrive through `CHAT_MSG_LOOT` like any item and sit in the normal list.
-- **Session data:** the session record gains `gold = { looted, quest }` (copper). Stop ignores gold like loot, Reset clears it. A saved record without `gold` (older versions) is migrated with zeros; a malformed `gold` table is replaced by zeros.
+- **Session data:** the session record gains `gold` (one number, copper; looted and quest money are not told apart). Stop ignores gold like loot, Reset clears it. A saved record without `gold` is migrated with 0, the interim `{ looted, quest }` table becomes the sum of its valid parts, any other malformed value becomes 0.
 - **Filters do not touch raw gold.** The Items block follows the visible rows as before.
-- **Footer blocks:** the Raw gold block shows the total with gold/hour and the `looted` / `quest` breakdown (`0c` until the first gold arrives). The Items + gold block combines the item totals (visible rows) with the raw gold on both sides: combined Vendor = item vendor total + raw gold, combined AH = item AH total + raw gold (unpriced items still count 0), each with its own gold/hour (same running-time rule and 60 s minimum as the item rates). The "filtered" marker stays on the Items block only.
+- **Footer blocks:** the Raw gold block is one line, the total left and gold/hour right (`0c` until the first gold arrives). The Items + gold block combines the item totals (visible rows) with the raw gold on both sides: combined Vendor = item vendor total + raw gold, combined AH = item AH total + raw gold (unpriced items still count 0), each with its own gold/hour (same running-time rule and 60 s minimum as the item rates). The "filtered" marker stays on the Items block only.
 
 ## Sessions
 - Buttons: **Start**, **Stop**, **Reset**.
