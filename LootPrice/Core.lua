@@ -1,0 +1,258 @@
+local ADDON, ns = ...
+
+local Core = {}
+ns.Core = Core
+
+local PREFIX = "|cff33ff99LootPrice|r: "
+local REFRESH_THROTTLE = 0.2
+
+local keyState = { key = nil }
+local compiled -- LootParse patterns, built once from the real globals
+local refreshPending = false
+
+local function say(msg)
+  print(PREFIX .. msg)
+end
+
+local function refreshUI()
+  if ns.UI and ns.UI.refresh then ns.UI.refresh() end
+end
+
+-- ---------------------------------------------------------------------------
+-- Pure-ish helpers (take the global environment as a parameter, testable)
+
+-- Region/game-mode cache key, or nil while either part is unavailable.
+-- Both engine calls may be missing on the Forever client, hence pcall.
+function Core.evalKey(env)
+  local region, modeID
+  if type(env.GetCurrentRegionName) == "function" then
+    local ok, v = pcall(env.GetCurrentRegionName)
+    if ok then region = v end
+  end
+  local rules = env.C_GameRules
+  if type(rules) == "table" and type(rules.GetCurrentGameModeRecordID) == "function" then
+    local ok, v = pcall(rules.GetCurrentGameModeRecordID)
+    if ok then modeID = v end
+  end
+  return ns.Prices.cacheKey(region, modeID)
+end
+
+-- Builds the Prices object over `env` (_G in the client). `getKey` returns the
+-- current cache key; the TSM source string is read live from db.settings.
+function Core.buildPrices(env, db, now, getKey)
+  local Sources = ns.Sources
+  return ns.Prices.new({
+    sources = {
+      Sources.TSM.new(env, function() return db.settings.tsmSource end),
+      Sources.Auctionator.new(env),
+    },
+    vendor = function(itemID) return Sources.Vendor.get(env, itemID) end,
+    cache = db.cache,
+    key = getKey,
+    now = now,
+  })
+end
+
+-- Real-format item link for fake/demo items.
+function Core.makeLink(itemID, name, colorHex)
+  return string.format("|cff%s|Hitem:%d::::::::60:::::::::|h[%s]|h|r", colorHex, itemID, name)
+end
+
+-- Demo loot: { id, name, color, qty, ahPrice (copper or nil), stale (bool) }
+Core.DEMO_ITEMS = {
+  { 2589, "Linen Cloth", "ffffff", 23, 55, false },
+  { 2592, "Wool Cloth", "ffffff", 14, 130, false },
+  { 3356, "Kingsblood", "ffffff", 6, 1500, true },
+  { 2318, "Light Leather", "ffffff", 9, nil, false },
+  { 4306, "Silk Cloth", "ffffff", 11, 900, false },
+  { 7910, "Star Ruby", "1eff00", 2, 38000, false },
+}
+
+function Core.seedDemoCache(db, key, now)
+  if not key then return end
+  local bucket = db.cache[key]
+  if type(bucket) ~= "table" then
+    bucket = {}
+    db.cache[key] = bucket
+  end
+  for _, d in ipairs(Core.DEMO_ITEMS) do
+    if d[5] then
+      bucket[d[1]] = { price = d[5], seenAt = d[6] and now - 14 * 3600 or now }
+    end
+  end
+end
+
+-- ---------------------------------------------------------------------------
+-- Loot capture
+
+function Core.recordLoot(link, qty)
+  local itemID = ns.LootParse.itemID(link)
+  if not itemID or not ns.session then return end
+  if not ns.Session.add(ns.session, itemID, link, qty, time()) then return end
+  local unitValue
+  if ns.prices then
+    local info = ns.prices:lookup(itemID)
+    unitValue = info.ah or info.vendor
+  end
+  if ns.UI and ns.UI.flash then
+    ns.UI.flash(itemID, ns.View.flashLevel(unitValue, qty))
+  end
+  refreshUI()
+end
+
+local function onLootMessage(text)
+  if not compiled then compiled = ns.LootParse.compile(_G) end
+  local link, qty = ns.LootParse.parse(compiled, text)
+  if link then Core.recordLoot(link, qty) end
+end
+
+local function requestRefresh()
+  if refreshPending then return end
+  refreshPending = true
+  C_Timer.After(REFRESH_THROTTLE, function()
+    refreshPending = false
+    refreshUI()
+  end)
+end
+
+-- ---------------------------------------------------------------------------
+-- Slash commands
+
+local HELP = {
+  "/lp - toggle the window",
+  "/lp show | hide - show or hide the window",
+  "/lp start | stop - start or stop the session clock",
+  "/lp reset - clear the session",
+  "/lp keep on|off - keep the session across logins",
+  "/lp tsm <source> - TSM price source (e.g. DBMarket)",
+  "/lp demo - add sample loot (UI check)",
+}
+
+local function windowCall(name)
+  local w = ns.UI and ns.UI.Window
+  if w and type(w[name]) == "function" then w[name]() end
+end
+
+local function demo()
+  if not ns.session then return end
+  local now = time()
+  Core.seedDemoCache(ns.db, keyState.key, now)
+  for _, d in ipairs(Core.DEMO_ITEMS) do
+    Core.recordLoot(Core.makeLink(d[1], d[2], d[3]), d[4])
+  end
+  say("added demo loot.")
+end
+
+local handlers = {
+  toggle = function() windowCall("toggle") end,
+  show = function() windowCall("show") end,
+  hide = function() windowCall("hide") end,
+  start = function()
+    ns.Session.start(ns.session, time())
+    say("session started.")
+    refreshUI()
+  end,
+  stop = function()
+    ns.Session.stop(ns.session, time())
+    say("session stopped.")
+    refreshUI()
+  end,
+  reset = function()
+    -- Task 11 puts a confirmation popup in front of this.
+    ns.Session.reset(ns.session, time())
+    say("session reset.")
+    refreshUI()
+  end,
+  keep = function(arg)
+    local v = arg and arg:lower()
+    if v ~= "on" and v ~= "off" then
+      say("usage: /lp keep on|off (currently " .. (ns.db.settings.keepSession and "on" or "off") .. ")")
+      return
+    end
+    ns.db.settings.keepSession = (v == "on")
+    say("keep session across logins: " .. v)
+  end,
+  tsm = function(arg)
+    if not arg then
+      say("TSM source: " .. tostring(ns.db.settings.tsmSource))
+      return
+    end
+    ns.db.settings.tsmSource = arg
+    say("TSM source: " .. arg)
+    refreshUI()
+  end,
+  demo = demo,
+  help = function()
+    for _, line in ipairs(HELP) do say(line) end
+  end,
+}
+
+local function onSlash(msg)
+  local cmd, arg = ns.Slash.parse(msg)
+  local fn = handlers[cmd]
+  if not fn then
+    handlers.help()
+    return
+  end
+  if not ns.session and cmd ~= "help" then
+    say("not ready yet.")
+    return
+  end
+  fn(arg)
+end
+
+-- ---------------------------------------------------------------------------
+-- Events
+
+local events = {}
+
+function events.ADDON_LOADED(name)
+  if name ~= ADDON then return end
+  LootPriceDB = ns.DB.applyDefaults(LootPriceDB, ns.DB.defaults)
+  LootPriceCharDB = ns.DB.applyDefaults(LootPriceCharDB, {})
+  ns.db = LootPriceDB
+  ns.chardb = LootPriceCharDB
+end
+
+function events.PLAYER_LOGIN()
+  ns.session = ns.Session.login(ns.chardb.session, ns.db.settings.keepSession, time())
+  ns.chardb.session = ns.session
+  keyState.key = Core.evalKey(_G)
+  ns.prices = Core.buildPrices(_G, ns.db, time, function() return keyState.key end)
+  refreshUI()
+end
+
+function events.PLAYER_ENTERING_WORLD()
+  keyState.key = Core.evalKey(_G)
+end
+
+function events.CHAT_MSG_LOOT(text)
+  if ns.session then onLootMessage(text) end
+end
+
+function events.GET_ITEM_INFO_RECEIVED()
+  requestRefresh()
+end
+
+function events.PLAYER_LOGOUT()
+  if ns.session then
+    ns.Session.suspend(ns.session, time())
+    ns.chardb.session = ns.session
+  end
+end
+
+function Core.init()
+  local frame = CreateFrame("Frame")
+  for event in pairs(events) do frame:RegisterEvent(event) end
+  frame:SetScript("OnEvent", function(_, event, ...)
+    local fn = events[event]
+    if fn then fn(...) end
+  end)
+  Core.frame = frame
+
+  SLASH_LOOTPRICE1 = "/lp"
+  SLASH_LOOTPRICE2 = "/lootprice"
+  SlashCmdList["LOOTPRICE"] = onSlash
+end
+
+if type(_G.CreateFrame) == "function" then Core.init() end
