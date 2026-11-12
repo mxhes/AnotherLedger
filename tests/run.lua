@@ -2,7 +2,7 @@
 local h = dofile("tests/harness.lua")
 
 local isWindows = package.config:sub(1, 1) == "\\"
-local cmd = isWindows and "dir /b tests\test_*.lua 2>nul" or "ls tests/test_*.lua"
+local cmd = isWindows and "dir /b tests\\test_*.lua 2>nul" or "ls tests/test_*.lua"
 local pipe = assert(io.popen(cmd))
 local files = {}
 for line in pipe:lines() do
