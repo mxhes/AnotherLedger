@@ -2,8 +2,8 @@ local ADDON, ns = ...
 
 ns.UI = ns.UI or {}
 
--- Tab buttons hanging below the window's bottom edge: Session (loot), Bags
--- (live bag contents) and Bank (last saved scan). valid, title and label are
+-- Tab buttons in header row 3, between the filters and the list: Session
+-- (loot), Bags (live bag contents) and Bank (last saved scan). valid, title and label are
 -- pure; attach is client-only (every WoW global is touched inside functions).
 local Tabs = {}
 ns.UI.Tabs = Tabs
@@ -25,15 +25,16 @@ function Tabs.title(key)
   return TITLES[key] or TITLES.session
 end
 
--- `onSelect(key)` is called when a tab button is clicked. Returns an object
--- with SetSelected(key): the selected tab's button is disabled (disabled font).
-function Tabs.attach(frame, onSelect)
+-- `row` is the header row to put the buttons in; `onSelect(key)` is called when
+-- a tab button is clicked. Returns an object with SetSelected(key): the
+-- selected tab's button is disabled (disabled font).
+function Tabs.attach(row, onSelect)
   local T = ns.Theme
   local width = T.widths.tab
   local tabs = { buttons = {} }
   local previous
   for _, key in ipairs(Tabs.KEYS) do
-    local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    local b = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     b:SetSize(width, T.sizes.buttonHeight)
     b:SetText(Tabs.label(key))
     b:SetNormalFontObject(T.fonts.button)
@@ -42,7 +43,7 @@ function Tabs.attach(frame, onSelect)
     if previous then
       b:SetPoint("LEFT", previous, "RIGHT", T.sizes.buttonGap, 0)
     else
-      b:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", T.sizes.padding + 4, 4)
+      b:SetPoint("LEFT", row, "LEFT", 0, 0)
     end
     b:SetScript("OnClick", function()
       if onSelect then onSelect(key) end

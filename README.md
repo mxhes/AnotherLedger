@@ -20,7 +20,7 @@ The Session Ledger is a draggable, resizable, scrollable window:
 
 ## Tabs
 
-Three tabs hang below the window's bottom edge; the window, rows, filters and sorts are the same on all of them (the filter bar and sort apply to every tab and are shared):
+Three tabs sit in the header between the filters and the list; the window, rows, filters and sorts are the same on all of them (the filter bar and sort apply to every tab and are shared):
 
 - **Session**: the loot ledger described above (default).
 - **Bags**: every item in your bags (backpack, carried bags, reagent bag), identical stacks merged into one row, valued like loot rows (vendor, AH, age tag). The footer is the single Items block (vendor and AH totals, unpriced count, `filtered` marker); no clock, rates, raw gold or Top finds. The list refreshes when your bags change.
@@ -91,7 +91,7 @@ Core and loot
 
 Window
 - [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below the minimum (422 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
+- [ ] Drag by header; resize with the grip, never below the minimum (450 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
 - [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
@@ -107,7 +107,7 @@ Rows and list
 - [ ] The ticker updates only while the session runs
 
 Tabs (Bags / Bank)
-- [ ] Three tab buttons hang under the window's bottom edge (Session, Bags, Bank); the selected one is disabled; the window title changes to Bag Ledger / Bank Ledger; Start / Stop / Reset and the timer hide on Bags and Bank, the X stays
+- [ ] Three tab buttons (Session, Bags, Bank) in the third header row under the filters, above the list; the selected one is disabled; the window title changes to Bag Ledger / Bank Ledger; Start / Stop / Reset and the timer hide on Bags and Bank, the X stays
 - [ ] Bags: every bag item appears once with its summed stack count; moving, looting, selling and splitting stacks update the list; opening the window on the Bags tab shows current contents
 - [ ] Bags footer shows only the Items block (no Raw gold, no Items + gold, no Top finds) and the list uses the freed space; switching back to Session restores all blocks
 - [ ] Bank: before any visit the list is empty with "Open your bank once to scan it."; opening the bank fills it; closing the bank and walking away keeps the list with "Scanned ... ago" (orange after 12 h); the scan survives `/reload` and relog
@@ -129,7 +129,7 @@ Raw gold and quest rewards
 - [ ] `CHAT_MSG_MONEY` texts match the real `YOU_LOOT_MONEY` / `LOOT_MONEY_SPLIT` / `GOLD_AMOUNT` globals (`/dump YOU_LOOT_MONEY, GOLD_AMOUNT`; the ", " unit separator is assumed)
 
 Summary footer
-- [ ] The three footer blocks (146 px: Items 38, Raw gold 16, Items + gold 38, plus an 18 px gold title row each) fit at 350 px wide and 422 px high with the 12 pt font; no line clips: the Raw gold line (`Gold <total>` left, rate right) stays inside the 326 px content width for amounts up to 999g 59s 59c
+- [ ] The three footer blocks (146 px: Items 38, Raw gold 16, Items + gold 38, plus an 18 px gold title row each) fit at 350 px wide and 450 px high with the 12 pt font; no line clips: the Raw gold line (`Gold <total>` left, rate right) stays inside the 326 px content width for amounts up to 999g 59s 59c
 - [ ] Labels `Items`, `Raw gold`, `Items + gold` are readable (muted) and the thin separator runs to the right of each label
 - [ ] Item block worst case `Vendor: 999g 59s 59c` over `999g 59s 59c/h` plus the `N unpriced` / `filtered` marker does not clip (width estimate in `Theme.sizes.summaryCharPx`; raise `minWidth` if it does)
 - [ ] No overlap of filtered / unpriced with the rates at long values

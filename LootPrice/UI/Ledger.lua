@@ -209,7 +209,7 @@ function Ledger.init()
   end)
 
   attach(ns.UI.Tabs, function()
-    Ledger.tabs = ns.UI.Tabs.attach(frame, Ledger.setTab)
+    Ledger.tabs = ns.UI.Tabs.attach(frame.header.row3, Ledger.setTab)
   end)
   local saved = ns.db and ns.db.tab
   if ns.UI.Tabs.valid(saved) then Ledger.tab = saved end

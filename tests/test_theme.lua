@@ -42,9 +42,9 @@ h.test("Theme has required keys", function()
   h.eq(T.sizes.topHeaderHeight, 18)
   h.eq(T.sizes.topRowHeight, 20)
   h.eq(T.sizes.rowHeight, 28)
-  h.eq(T.sizes.headerHeight, 2 * T.sizes.headerRowHeight)
+  h.eq(T.sizes.headerHeight, 3 * T.sizes.headerRowHeight)
   h.eq(T.sizes.minWidth, 350)
-  h.eq(T.sizes.minHeight, 422)
+  h.eq(T.sizes.minHeight, 450)
 end)
 
 for _, onParchment in ipairs({ true, false }) do -- the second argument is ignored now

@@ -164,7 +164,8 @@ local function build(db)
   local bc = T.colors.panelBorder
   frame:SetBackdropBorderColor(bc[1], bc[2], bc[3], bc[4])
 
-  -- Header: two 28 px rows. Dragging the header moves the window.
+  -- Header: three 28 px rows (title and buttons, filters, tabs). Dragging the
+  -- header moves the window.
   local header = CreateFrame("Frame", nil, frame)
   header:SetHeight(T.sizes.headerHeight)
   header:SetPoint("TOPLEFT", frame, "TOPLEFT", inset, -inset)
@@ -179,6 +180,7 @@ local function build(db)
   end)
   header.row1 = makeRow(header, nil, true)
   header.row2 = makeRow(header, header.row1, false)
+  header.row3 = makeRow(header, header.row2, false)
 
   local title = header.row1:CreateFontString(nil, "OVERLAY", T.fonts.title)
   title:SetPoint("LEFT", header.row1, "LEFT", 0, 0)

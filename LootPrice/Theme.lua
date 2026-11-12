@@ -68,16 +68,16 @@ Theme.durations = {
 
 Theme.sizes = {
   minWidth = 350,
-  -- Window chrome 2 * 12 + header 56 + Top finds (3 rows) 84 + 4 list rows (4 * 28)
-  -- + footer 146 = 422 (tests/test_summary.lua recomputes it).
-  minHeight = 422,
+  -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 84
+  -- + 4 list rows (4 * 28) + footer 146 = 450 (tests/test_summary.lua recomputes it).
+  minHeight = 450,
   minListRows = 4,
   rowHeight = 28,
   iconSize = 24,
   scrollbarWidth = 10,
   scrollThumbHeight = 24,
   padding = 8,
-  headerHeight = 56,
+  headerHeight = 84, -- three header rows: title/buttons, filters, tabs
   headerRowHeight = 28,
   -- Footer = three stacked blocks, each a title row (gold title + thin separator)
   -- above its content: items 38 (two lines), gold 16 (one line), total 38
