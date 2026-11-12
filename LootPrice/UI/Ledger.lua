@@ -103,8 +103,13 @@ function Ledger.init()
   if not frame then return nil end
   Ledger.frame = frame
 
-  list = ns.UI.Rows.attach(frame.listArea)
+  local Rows = ns.UI.Rows
+  local function applyMinWidth(measured)
+    ns.UI.Window.setMinWidth(Rows.requiredRowWidth(measured))
+  end
+  list = Rows.attach(frame.listArea, applyMinWidth)
   Ledger.list = list
+  applyMinWidth(list.measured)
   table.insert(parts, 1, rowsPart)
 
   -- One failing part must not stop the others, the ticker or the first refresh.

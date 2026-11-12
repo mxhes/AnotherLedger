@@ -91,6 +91,8 @@ Theme.sizes = {
   -- Window chrome around the row area: 2 * (padding 8 + 4) + scrollbar 10 + 2.
   rowChrome = 36,
   rowQtyW = 36,
+  -- Fixed FALLBACK widths, used only while the runtime font measurement
+  -- (Rows.attach) returns nothing; measured widths + rowMeasurePad replace them.
   rowVendorLabelW = 40,
   rowLabelGap = 2,
   rowVendorColW = 84,
@@ -98,15 +100,13 @@ Theme.sizes = {
   rowAhLabelW = 20,
   rowTagW = 36,
   rowAhColW = 84,
+  -- Padding added around each measured string width.
+  rowMeasurePad = 2,
+  -- Gaps shrink down to this before anything is clipped.
+  rowGapFloor = 2,
   -- Extra width goes to each amount column up to this much, the rest to the
   -- gap between the vendor column and the AH label (never to the labels).
   rowColExtraMax = 20,
-  -- Line 2 uses fonts.small (10 pt, ~5.5 px per glyph = markerCharPx).
-  -- Worst-case budget at minWidth 350 (content width 350 - 36 - 31 - 4 = 279):
-  -- amount "123456g 78s 90c" = 15 chars * 5.5 = 82.5 -> column 84;
-  -- "Vendor:" 7 * 5.5 = 38.5 -> 40; "AH:" 3 * 5.5 = 16.5 -> 20;
-  -- tag "(999d)" 6 * 5.5 = 33 -> 36.
-  -- Sum 40 + 2 + 84 + 6 + 20 + 36 + 84 = 272 <= 279 (7 px spare).
   gripInset = 4,
   backdropTile = 16,
   backdropEdge = 24,

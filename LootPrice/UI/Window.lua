@@ -37,6 +37,28 @@ local function centerOffset(frame)
   return (fx * fs - ux * us) / fs, (fy * fs - uy * us) / fs
 end
 
+-- Pure. Resize minimum width: the Theme minimum, raised (never lowered) to the
+-- width the rows need with the measured font.
+function Window.effectiveMinWidth(themeMin, required)
+  if type(required) == "number" and required == required and required > themeMin then
+    return required
+  end
+  return themeMin
+end
+
+local function minWidth()
+  return Window.effectiveMinWidth(theme().sizes.minWidth, Window.requiredWidth)
+end
+
+local function applyBounds(frame)
+  local T = theme()
+  if frame.SetResizeBounds then
+    frame:SetResizeBounds(minWidth(), T.sizes.minHeight)
+  elseif frame.SetMinResize then
+    frame:SetMinResize(minWidth(), T.sizes.minHeight)
+  end
+end
+
 local function clamp(v, lo, hi)
   if hi < lo then hi = lo end
   if v < lo then return lo end
@@ -91,7 +113,7 @@ local function restore(frame)
   local T = theme()
   local w = winDB() or {}
   local sw, sh = screenSize(frame)
-  local width = clamp(tonumber(w.width) or 420, T.sizes.minWidth, sw)
+  local width = clamp(tonumber(w.width) or 420, minWidth(), sw)
   local height = clamp(tonumber(w.height) or 360, T.sizes.minHeight, sh)
   frame:SetSize(width, height)
   frame:ClearAllPoints()
@@ -124,11 +146,7 @@ local function build(db)
   frame:SetUserPlaced(false)
   frame:SetResizable(true)
   frame:EnableMouse(true)
-  if frame.SetResizeBounds then
-    frame:SetResizeBounds(T.sizes.minWidth, T.sizes.minHeight)
-  elseif frame.SetMinResize then
-    frame:SetMinResize(T.sizes.minWidth, T.sizes.minHeight)
-  end
+  applyBounds(frame)
 
   frame:SetBackdrop({
     bgFile = T.textures.parchment,
@@ -232,6 +250,21 @@ function Window.create(db)
   if not Window.db then return nil end
   Window.frame = build(Window.db)
   return Window.frame
+end
+
+-- Raises the resize minimum to what the measured rows need (never below the
+-- Theme minimum) and widens the window when it is currently narrower.
+function Window.setMinWidth(required)
+  Window.requiredWidth = required
+  local frame = Window.frame
+  if not frame then return end
+  applyBounds(frame)
+  local min = minWidth()
+  if frame:GetWidth() < min then
+    frame:SetWidth(min)
+    ensureOnScreen(frame)
+    save()
+  end
 end
 
 -- Resizes the Top finds box; 0 collapses it. listArea reflows by anchoring.

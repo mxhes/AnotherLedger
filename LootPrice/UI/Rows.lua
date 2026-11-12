@@ -47,34 +47,87 @@ function Rows.rowText(row)
   }
 end
 
--- Column positions (px, relative to the left of the row's text area) of line 2
--- for a text area `contentWidth` wide. The AH column's right edge and the
--- quantity's right edge are both contentWidth. Extra width beyond the minimum
--- goes to the amount columns (capped) and the middle gap, never to labels.
-function Rows.columnLayout(contentWidth)
+-- Worst-case sample strings measured at runtime (plain text: color escapes
+-- are not drawn, so they do not count toward the width).
+local SAMPLE_AMOUNT = "123456g 78s 90c"
+local SAMPLE_TAG = "(999d)"
+
+local function positive(v)
+  return type(v) == "number" and v == v and v > 0
+end
+
+-- Resolves the column widths: a measured value (+ padding) when valid, else the
+-- fixed Theme fallback. Returns widths and whether any fallback was used.
+local function resolveWidths(measured)
   local S = ns.Theme.sizes
-  local minTotal = S.rowVendorLabelW + S.rowLabelGap + S.rowVendorColW + S.rowGapMid
-    + S.rowAhLabelW + S.rowTagW + S.rowAhColW
-  local w = type(contentWidth) == "number" and contentWidth == contentWidth and contentWidth or minTotal
-  local extra = math.max(0, w - minTotal)
+  local m = type(measured) == "table" and measured or {}
+  local pad = S.rowMeasurePad
+  local fb = false
+  local function pick(v, fallback)
+    if positive(v) then return v + pad end
+    fb = true
+    return fallback
+  end
+  local widths = {
+    vendorLabel = pick(m.vendorLabel, S.rowVendorLabelW),
+    ahLabel = pick(m.ahLabel, S.rowAhLabelW),
+    tag = pick(m.tag, S.rowTagW),
+    amount = pick(m.amount, S.rowVendorColW),
+  }
+  return widths, fb
+end
+
+-- Column positions (px, relative to the left of the row's text area) of line 2
+-- for a text area `contentWidth` wide. `measured` = {vendorLabel, ahLabel, tag,
+-- amount} real string widths (nil/0 fields fall back to the Theme widths).
+-- Labels get exactly their width (+ padding); amount columns at least the
+-- measured worst case. The AH column's right edge and the quantity's right
+-- edge are both contentWidth. Extra width goes to the amount columns (capped)
+-- and the middle gap, never to labels. Below `required` the gaps shrink to
+-- rowGapFloor before anything is clipped.
+function Rows.columnLayout(contentWidth, measured)
+  local S = ns.Theme.sizes
+  local wd, fallback = resolveWidths(measured)
+  local labelGap, midGap = S.rowLabelGap, S.rowGapMid
+  local required = wd.vendorLabel + labelGap + wd.amount + midGap
+    + wd.ahLabel + wd.tag + wd.amount
+  local w = positive(contentWidth) and contentWidth or required
+  if w < required then
+    local deficit = required - w
+    local take = math.min(deficit, math.max(0, midGap - S.rowGapFloor))
+    midGap = midGap - take
+    deficit = deficit - take
+    take = math.min(deficit, math.max(0, labelGap - S.rowGapFloor))
+    labelGap = labelGap - take
+  end
+  local extra = math.max(0, w - required)
   local colExtra = math.min(S.rowColExtraMax, math.floor(extra / 2))
-  local vendorColW = S.rowVendorColW + colExtra
-  local ahColW = S.rowAhColW + colExtra
+  local amountW = wd.amount + colExtra
   local L2 = {}
+  L2.required = required
+  L2.fallback = fallback
   L2.vendorLabelX = 0
-  L2.vendorLabelW = S.rowVendorLabelW
-  L2.vendorColX = S.rowVendorLabelW + S.rowLabelGap
-  L2.vendorColW = vendorColW
+  L2.vendorLabelW = wd.vendorLabel
+  L2.vendorColX = wd.vendorLabel + labelGap
+  L2.vendorColW = amountW
   -- Right-anchored part: AH column, tag and AH label.
-  L2.ahColW = ahColW
-  L2.ahColX = math.max(w, minTotal) - ahColW
-  L2.tagW = S.rowTagW
-  L2.tagX = L2.ahColX - S.rowTagW
-  L2.ahLabelW = S.rowAhLabelW
-  L2.ahLabelX = L2.tagX - S.rowAhLabelW
+  L2.ahColW = amountW
+  L2.ahColX = w - amountW
+  L2.tagW = wd.tag
+  L2.tagX = L2.ahColX - wd.tag
+  L2.ahLabelW = wd.ahLabel
+  L2.ahLabelX = L2.tagX - wd.ahLabel
   L2.qtyW = S.rowQtyW
-  L2.rightEdge = L2.ahColX + ahColW
+  L2.rightEdge = L2.ahColX + amountW
   return L2
+end
+
+-- Window width needed so line 2 fits with the measured widths: row content
+-- width + text inset + right inset + window chrome.
+function Rows.requiredRowWidth(measured)
+  local S = ns.Theme.sizes
+  local c = Rows.columnLayout(nil, measured)
+  return c.required + S.rowTextLeft + S.rowRightInset + S.rowChrome
 end
 
 -- How many whole rows fit in `height` (at least 1).
@@ -124,7 +177,7 @@ local function layoutRow(f)
   local S = theme().sizes
   local w = f:GetWidth()
   if type(w) ~= "number" or w <= 0 then return end
-  local c = Rows.columnLayout(w - S.rowTextLeft - S.rowRightInset)
+  local c = Rows.columnLayout(w - S.rowTextLeft - S.rowRightInset, f.owner and f.owner.measured)
   local function put(fs, x, width)
     fs:ClearAllPoints()
     fs:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", S.rowTextLeft + x, 3)
@@ -137,9 +190,10 @@ local function layoutRow(f)
   put(f.ah, c.ahColX, c.ahColW)
 end
 
-local function createRow(parent)
+local function createRow(parent, owner)
   local T = theme()
   local f = CreateFrame("Frame", nil, parent)
+  f.owner = owner
   f:SetHeight(T.sizes.rowHeight)
 
   local flash = f:CreateTexture(nil, "BACKGROUND")
@@ -221,9 +275,40 @@ local function fillRow(f, row)
 end
 
 -- Attaches the scrolling list to `area`. Returns the list object.
-function Rows.attach(area)
+-- `onMeasure(measured)` is called whenever a re-measure changes the widths.
+function Rows.attach(area, onMeasure)
   local T = theme()
   local list = { area = area, data = {}, offset = 0, pool = {}, shown = 0 }
+
+  -- Offscreen probe with the same font object as line 2 of a row.
+  local probe = area:CreateFontString(nil, "OVERLAY", T.fonts.small)
+  probe:SetAlpha(0)
+  probe:SetWordWrap(false)
+  local function width(text)
+    probe:SetText(text)
+    local w = probe:GetStringWidth()
+    if positive(w) then return w end
+    return nil
+  end
+
+  -- Measures the real string widths; fields stay nil while the font is not
+  -- ready (the layout then uses the Theme fallbacks and Render retries).
+  function list:Measure()
+    local m = {
+      vendorLabel = width(L.VENDOR),
+      ahLabel = width(L.AH),
+      tag = width(SAMPLE_TAG),
+      amount = width(SAMPLE_AMOUNT),
+    }
+    local old = self.measured
+    self.measured = m
+    self.measureFallback = not (m.vendorLabel and m.ahLabel and m.tag and m.amount)
+    local changed = old and (old.vendorLabel ~= m.vendorLabel or old.ahLabel ~= m.ahLabel
+      or old.tag ~= m.tag or old.amount ~= m.amount)
+    if changed and onMeasure then onMeasure(m) end
+    return m
+  end
+  list:Measure()
 
   local content = CreateFrame("Frame", nil, area)
   content:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
@@ -254,13 +339,14 @@ function Rows.attach(area)
   local function visible() return Rows.visibleCount(area:GetHeight(), T.sizes.rowHeight) end
 
   function list:Render()
+    if self.measureFallback then self:Measure() end
     local n = visible()
     local total = #self.data
     self.offset = Rows.clampOffset(self.offset, total, n)
     for i = 1, n do
       local f = self.pool[i]
       if not f then
-        f = createRow(content)
+        f = createRow(content, self)
         f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(i - 1) * T.sizes.rowHeight)
         f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -(i - 1) * T.sizes.rowHeight)
         self.pool[i] = f

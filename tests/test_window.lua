@@ -29,3 +29,37 @@ h.test("clampToScreen default tolerance is 1 px", function()
   h.eq({ clamp(301, 0, 400, 300, 1000, 800) }, { 301, 0, 400, 300 })
   h.eq({ clamp(302, 0, 400, 300, 1000, 800) }, { 300, 0, 400, 300 })
 end)
+
+h.test("effectiveMinWidth raises, never lowers", function()
+  local e = ns.UI.Window.effectiveMinWidth
+  h.eq(e(350, 400), 400)
+  h.eq(e(350, 300), 350)
+  h.eq(e(350, 350), 350)
+  h.eq(e(350, nil), 350)
+  h.eq(e(350, 0 / 0), 350)
+end)
+
+h.test("setMinWidth raises bounds and widens a too-narrow frame", function()
+  local W = ns.UI.Window
+  local bounds, width = nil, 360
+  W.frame = {
+    SetResizeBounds = function(_, w, ht) bounds = { w, ht } end,
+    GetWidth = function() return width end,
+    SetWidth = function(_, w) width = w end,
+    GetCenter = function() return nil end,
+    GetEffectiveScale = function() return 1 end,
+    GetHeight = function() return 300 end,
+    IsShown = function() return true end,
+  }
+  W.db = nil
+  local saved = _G.UIParent
+  _G.UIParent = { GetEffectiveScale = function() return 1 end, GetWidth = function() return 1920 end,
+    GetHeight = function() return 1080 end, GetCenter = function() return 960, 540 end }
+  W.setMinWidth(420)
+  _G.UIParent = saved
+  h.eq(bounds, { 420, ns.Theme.sizes.minHeight })
+  h.eq(width, 420)
+  W.setMinWidth(300) -- never below the Theme minimum
+  h.eq(bounds[1], ns.Theme.sizes.minWidth)
+  W.frame, W.requiredWidth = nil, nil
+end)

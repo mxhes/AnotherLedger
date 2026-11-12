@@ -75,7 +75,7 @@ Core and loot
 
 Window
 - [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below 350x240; position unchanged after resize ends
+- [ ] Drag by header; resize with the grip, never below the minimum (240 px high; at least 350 px wide, wider if the font needs it for the row columns); position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen
 - [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
@@ -83,7 +83,8 @@ Window
 
 Rows and list
 - [ ] Mouse wheel and scrollbar scroll; resizing re-lays out rows
-- [ ] Rows' Vendor/AH columns line up down the list and the quantity shares the AH right edge (also at 350 px with a long amount like `123456g 78s 90c`)
+- [ ] Rows' Vendor/AH columns line up down the list and the quantity shares the AH right edge (also at the minimum width with a long amount like `123456g 78s 90c`)
+- [ ] Labels `Vendor:`/`AH:` fully visible (no `Vend...`), the window minimum width adapts to the measured font (growing the window on first open if needed)
 - [ ] Looting flashes the row, a hidden row scrolls into view, a stack increase re-flashes
 - [ ] An uncached item shows the link name, then corrects on `GET_ITEM_INFO_RECEIVED`
 - [ ] The ticker updates only while the session runs

@@ -110,3 +110,82 @@ h.test("columnLayout: extra width grows columns and gap, not labels", function()
   h.eq(b.ahLabelW, a.ahLabelW)
   h.eq(b.ahLabelX - (b.vendorColX + b.vendorColW) > a.ahLabelX - (a.vendorColX + a.vendorColW), true)
 end)
+
+-- A WIDER font than the one the old fixed widths assumed.
+local WIDE = { vendorLabel = 50, ahLabel = 26, tag = 40, amount = 98 }
+
+local function noOverlap(h, c, w)
+  h.eq(c.vendorLabelX >= 0, true)
+  h.eq(c.vendorColX >= c.vendorLabelX + c.vendorLabelW, true)
+  h.eq(c.ahLabelX >= c.vendorColX + c.vendorColW, true)
+  h.eq(c.tagX >= c.ahLabelX + c.ahLabelW, true)
+  h.eq(c.ahColX >= c.tagX + c.tagW, true)
+  h.eq(c.ahColX + c.ahColW, w)
+  h.eq(c.rightEdge, w)
+end
+
+h.test("columnLayout measured: wide font, required is the sum plus gaps", function()
+  local S = ns.Theme.sizes
+  local p = S.rowMeasurePad
+  local expect = (50 + p) + S.rowLabelGap + (98 + p) + S.rowGapMid + (26 + p) + (40 + p) + (98 + p)
+  local c = R.columnLayout(nil, WIDE)
+  h.eq(c.required, expect)
+  h.eq(c.fallback, false)
+  for _, w in ipairs({ expect, expect + 1, 400, 700 }) do
+    local l = R.columnLayout(w, WIDE)
+    noOverlap(h, l, w)
+    h.eq(l.vendorLabelW, 50 + p)
+    h.eq(l.ahLabelW, 26 + p)
+    h.eq(l.tagW, 40 + p)
+    h.eq(l.vendorColW >= 98 + p, true)
+    h.eq(l.ahColW >= 98 + p, true)
+    h.eq(l.ahColX + l.ahColW <= w, true)
+    h.eq(l.required, expect)
+  end
+end)
+
+h.test("columnLayout measured: extra width goes to amounts and gap, labels fixed", function()
+  local a, b = R.columnLayout(R.columnLayout(nil, WIDE).required, WIDE), R.columnLayout(700, WIDE)
+  h.eq(b.vendorColW > a.vendorColW, true)
+  h.eq(b.ahColW > a.ahColW, true)
+  h.eq(b.vendorLabelW, a.vendorLabelW)
+  h.eq(b.ahLabelW, a.ahLabelW)
+  h.eq(b.ahLabelX - (b.vendorColX + b.vendorColW) > a.ahLabelX - (a.vendorColX + a.vendorColW), true)
+end)
+
+h.test("columnLayout measured: gaps shrink to the floor before clipping", function()
+  local S = ns.Theme.sizes
+  local req = R.columnLayout(nil, WIDE).required
+  local c = R.columnLayout(req - 3, WIDE)
+  local midGap = c.ahLabelX - (c.vendorColX + c.vendorColW)
+  h.eq(midGap, S.rowGapMid - 3)
+  noOverlap(h, c, req - 3)
+  h.eq(c.vendorColX, c.vendorLabelW + S.rowLabelGap)
+  -- Gap floor reached: the gap stays at the floor, no overlap of the right part.
+  local f = R.columnLayout(req - (S.rowGapMid - S.rowGapFloor), WIDE)
+  h.eq(f.ahLabelX - (f.vendorColX + f.vendorColW), S.rowGapFloor)
+  local tight = R.columnLayout(req - 100, WIDE)
+  h.eq(tight.ahLabelX - (tight.vendorColX + tight.vendorColW) <= S.rowGapFloor, true)
+  h.eq(tight.vendorColX >= tight.vendorLabelW + S.rowGapFloor, true)
+  h.eq(tight.ahColX + tight.ahColW, req - 100)
+end)
+
+h.test("columnLayout: nil / zero measured fields use the Theme fallbacks", function()
+  local S = ns.Theme.sizes
+  local c = R.columnLayout(279, nil)
+  h.eq(c.fallback, true)
+  h.eq(c.vendorLabelW, S.rowVendorLabelW)
+  h.eq(c.ahLabelW, S.rowAhLabelW)
+  h.eq(c.tagW, S.rowTagW)
+  local part = R.columnLayout(300, { vendorLabel = 50, ahLabel = 0, tag = nil, amount = 98 })
+  h.eq(part.fallback, true)
+  h.eq(part.vendorLabelW, 50 + S.rowMeasurePad)
+  h.eq(part.ahLabelW, S.rowAhLabelW)
+  h.eq(part.tagW, S.rowTagW)
+end)
+
+h.test("requiredRowWidth adds the text inset and window chrome", function()
+  local S = ns.Theme.sizes
+  h.eq(R.requiredRowWidth(WIDE), R.columnLayout(nil, WIDE).required + S.rowTextLeft + S.rowRightInset + S.rowChrome)
+  h.eq(R.requiredRowWidth(WIDE) > R.requiredRowWidth(nil), true)
+end)
