@@ -30,7 +30,7 @@ The screen should feel like a **game feature**, not a stats overlay on a flat ba
 ### Layout
 A parchment-style panel in a stone/wood frame ("quest log" look), titled "Session Ledger".
 1. **Header:** session timer, buttons **Start**, **Stop**, **Reset**, **Hide**, a filter control.
-2. **Top finds:** highlighted block with the 2-3 most valuable stacks (gold-edged rows). Ranked by AH value, falling back to vendor value when an item has no AH price (builder: pick the exact count and tie-breaking).
+2. **Top finds:** at the bottom of the window, under the summaries: highlighted block with the 2-3 most valuable stacks (gold-edged rows). Ranked by AH value, falling back to vendor value when an item has no AH price (builder: pick the exact count and tie-breaking).
 3. **Ledger:** scrollable list, one row per item: quality-colored icon frame, item name in quality color, quantity, `Vendor: <money> | AH: <money>`. Rows aggregate by item ID (a stack of the same item is one row with a summed quantity).
 4. **Footer:** three stacked blocks, each under a small muted label and a thin separator: **Items** (Vendor total, AH total, gold/hour for each; a small "filtered" marker while a filter is active, "N unpriced"), **Raw gold** (see below) and **Items + gold** (combined Vendor and AH totals with their own gold/hour).
 

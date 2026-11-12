@@ -186,20 +186,22 @@ local function build(db)
   title:SetTextColor(T.colors.ink[1], T.colors.ink[2], T.colors.ink[3], T.colors.ink[4])
   header.title = title
 
-  -- Optional top box (Top finds); collapsed until a later task sizes it.
+  -- Top finds box at the very bottom, under the summaries; collapsed (hidden,
+  -- ~0 high) until Summary sizes it. Stack from the bottom: topBox, footer
+  -- (the three summaries), list area, header.
   local topBox = CreateFrame("Frame", nil, frame)
   topBox:SetHeight(TOPBOX_EMPTY)
-  topBox:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
-  topBox:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, 0)
+  topBox:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", inset, inset)
+  topBox:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -inset, inset)
   topBox:Hide()
 
   local footer = CreateFrame("Frame", nil, frame)
   footer:SetHeight(T.sizes.footerHeight)
-  footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", inset, inset)
-  footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -inset, inset)
+  footer:SetPoint("BOTTOMLEFT", topBox, "TOPLEFT", 0, 0)
+  footer:SetPoint("BOTTOMRIGHT", topBox, "TOPRIGHT", 0, 0)
 
   local listArea = CreateFrame("Frame", nil, frame)
-  listArea:SetPoint("TOPLEFT", topBox, "BOTTOMLEFT", 0, 0)
+  listArea:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
   listArea:SetPoint("BOTTOMRIGHT", footer, "TOPRIGHT", 0, 0)
   listArea:SetClipsChildren(true)
 

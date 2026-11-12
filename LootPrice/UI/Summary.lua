@@ -2,7 +2,8 @@ local ADDON, ns = ...
 
 ns.UI = ns.UI or {}
 
--- Top finds block (topBox) and totals bar (footer). Client-only widgets;
+-- Top finds block (topBox, at the bottom of the window under the summaries) and
+-- the summaries (footer). Client-only widgets;
 -- every WoW global is touched inside functions only. totalsText, topLines and
 -- topBoxHeight are pure.
 local Summary = {}
@@ -175,17 +176,19 @@ function Summary.attach(topBox, footer)
 
   local summary = { topBox = topBox, footer = footer, rows = {}, height = nil }
 
-  -- Top finds
+  -- Top finds (bottom of the window, under the summaries). The divider is the
+  -- top edge of the topBox; the content starts below it.
+  local off = S.dividerHeight + S.padding / 2
   local header = makeText(topBox, T.fonts.topHeader, gold)
-  header:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, 0)
+  header:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -off)
   header:SetText(L_TOP)
   summary.header = header
 
   for i = 1, MAX_TOP do
     local row = CreateFrame("Frame", nil, topBox)
     row:SetHeight(S.topRowHeight)
-    row:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -(S.topHeaderHeight + (i - 1) * S.topRowHeight))
-    row:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, -(S.topHeaderHeight + (i - 1) * S.topRowHeight))
+    row:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight))
+    row:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight))
     local edge = row:CreateTexture(nil, "ARTWORK")
     edge:SetTexture(T.textures.rowHighlight)
     edge:SetVertexColor(line[1], line[2], line[3], 0.9)
@@ -193,7 +196,8 @@ function Summary.attach(topBox, footer)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     edge:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
     local value = makeText(row, T.fonts.topRow, ink, "RIGHT")
-    value:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+    -- Keep clear of the resize grip in the window's bottom-right corner.
+    value:SetPoint("RIGHT", row, "RIGHT", -(2 + S.gripSize), 0)
     local qty = makeText(row, T.fonts.topRow, ink, "RIGHT")
     qty:SetPoint("RIGHT", value, "LEFT", -6, 0)
     local name = makeText(row, T.fonts.topRow, ink, "LEFT")
@@ -203,15 +207,15 @@ function Summary.attach(topBox, footer)
     summary.rows[i] = { frame = row, name = name, qty = qty, value = value }
   end
 
-  -- Divider between the Top finds block and the list: the bottom edge of the
+  -- Divider between the summaries and the Top finds block: the top edge of the
   -- topBox, so it disappears together with a collapsed topBox.
   local divider = topBox:CreateTexture(nil, "ARTWORK")
   divider:SetTexture(T.textures.rowHighlight)
   local dc = T.colors.divider
   divider:SetVertexColor(dc[1], dc[2], dc[3], dc[4])
   divider:SetHeight(S.dividerHeight)
-  divider:SetPoint("BOTTOMLEFT", topBox, "BOTTOMLEFT", 0, 0)
-  divider:SetPoint("BOTTOMRIGHT", topBox, "BOTTOMRIGHT", 0, 0)
+  divider:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, 0)
+  divider:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, 0)
   summary.divider = divider
 
   -- Footer: three stacked blocks (items, raw gold, items + gold). Each starts
