@@ -72,8 +72,84 @@ h.test("footer worst case fits at the minimum window width", function()
   h.eq(S.footerHalfWidth(T.minWidth - 10) < S.footerWorstWidth(), true)
 end)
 
-h.test("footer fits its two stacked lines", function()
+h.test("footer blocks stack and add up to footerHeight", function()
+  local T = ns.Theme.sizes
+  local L = S.footerLayout()
+  h.eq(L.items.top, 0)
+  h.eq(L.gold.top, L.items.height)
+  h.eq(L.total.top, L.items.height + L.gold.height)
+  h.eq(L.items.contentTop, T.footerLabelHeight)
+  h.eq(L.items.contentHeight, 38) -- the item block keeps its height
+  h.eq(L.height, T.footerHeight)
+  h.eq(L.height, 3 * T.footerLabelHeight + 38 + 28 + 38)
+  h.eq(T.footerHeight, 140)
+end)
+
+h.test("two-line blocks fit their lines", function()
   local T = ns.Theme.sizes
   -- two 12 pt lines (about 14 px each) plus the 1 px insets
-  h.eq(T.footerHeight >= 2 * 14 + 2, true)
+  h.eq(T.footerItemsHeight >= 2 * 14 + 2, true)
+  h.eq(T.footerTotalHeight >= 2 * 14 + 2, true)
+  -- gold: one 12 pt line (14) + one 10 pt line (12) + insets
+  h.eq(T.footerGoldHeight >= 14 + 12 + 2, true)
+  h.eq(T.footerLabelHeight >= 12, true)
+end)
+
+h.test("gold block lines fit the content width at the minimum window width", function()
+  local T = ns.Theme.sizes
+  local content = T.minWidth - 2 * (T.padding + 4)
+  local worstMoney = 12 -- "999g 59s 59c"
+  -- line 1: "Gold " + total left, rate right (14 chars) with a 6 px gap
+  h.eq((5 + worstMoney) * T.summaryCharPx + 6 + 14 * T.summaryCharPx <= content, true)
+  -- line 2 (marker font): "looted 999g 59s 59c · quest 999g 59s 59c"
+  h.eq((7 + worstMoney + 3 + 6 + worstMoney) * T.markerCharPx <= content, true)
+end)
+
+h.test("minHeight leaves the list at least four rows beside a full Top finds block", function()
+  local T = ns.Theme.sizes
+  h.eq(T.minListRows, 4)
+  h.eq(S.requiredWindowHeight(), 24 + 56 + 84 + 4 * 28 + 140)
+  h.eq(T.minHeight >= S.requiredWindowHeight(), true)
+  h.eq(T.minHeight, 416)
+end)
+
+h.test("goldText formats total, breakdown and rate", function()
+  local t = S.goldText({ looted = 12304, quest = 25000, total = 37304, perHour = 1000 })
+  h.eq(t.total, "Gold " .. M.format(37304))
+  h.eq(t.breakdown, "looted " .. M.format(12304) .. " \194\183 quest " .. M.format(25000))
+  h.eq(t.rate, M.format(1000) .. "/h")
+  local c = ns.Theme.colors
+  h.eq(t.totalColored, "Gold " .. M.formatColored(37304, c))
+  h.eq(t.breakdownColored,
+    "looted " .. M.formatColored(12304, c) .. " \194\183 quest " .. M.formatColored(25000, c))
+  h.eq(t.rateColored, M.formatColored(1000, c) .. "/h")
+end)
+
+h.test("goldText shows 0c when empty, em dash for nil rate, never n/a", function()
+  local t = S.goldText({ looted = 0, quest = 0, total = 0 })
+  h.eq(t.total, "Gold 0c")
+  h.eq(t.breakdown, "looted 0c \194\183 quest 0c")
+  h.eq(t.rate, "\226\128\148")
+  h.eq(t.rateColored, "\226\128\148")
+  local n = S.goldText(nil)
+  h.eq(n.total, "Gold 0c")
+  for _, v in pairs(t) do h.eq(v:find("n/a", 1, true), nil) end
+  for _, v in pairs(n) do h.eq(v:find("n/a", 1, true), nil) end
+end)
+
+h.test("combinedText formats like the item totals without markers", function()
+  local t = S.combinedText({ vendor = 5000, ah = 9000, vendorPerHour = 100, ahPerHour = 200 })
+  h.eq(t.vendor, "Vendor: " .. M.format(5000))
+  h.eq(t.ah, "AH: " .. M.format(9000))
+  h.eq(t.vendorRate, M.format(100) .. "/h")
+  h.eq(t.ahRate, M.format(200) .. "/h")
+  local c = ns.Theme.colors
+  h.eq(t.vendorColored, "Vendor: " .. M.formatColored(5000, c))
+  h.eq(t.ahRateColored, M.formatColored(200, c) .. "/h")
+  h.eq(t.unpriced, nil)
+  h.eq(t.filtered, nil)
+  local e = S.combinedText({ vendor = 0, ah = 0 })
+  h.eq(e.vendorRate, "\226\128\148")
+  h.eq(e.ahRateColored, "\226\128\148")
+  h.eq(S.combinedText(nil).vendor, "Vendor: 0c")
 end)

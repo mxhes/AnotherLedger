@@ -19,6 +19,8 @@ Theme.fonts = {
   -- Summary (totals bar, Top finds): about 12 pt; markers stay small.
   summary = "GameFontHighlight",
   summaryMarker = "GameFontHighlightSmall",
+  -- Small muted label that names a footer block (Items / Raw gold / Items + gold).
+  blockLabel = "GameFontHighlightSmall",
   topHeader = "GameFontNormal",
   topRow = "GameFontHighlight",
   button = "GameFontNormalSmall",
@@ -66,7 +68,10 @@ Theme.durations = {
 
 Theme.sizes = {
   minWidth = 350,
-  minHeight = 240,
+  -- Window chrome 2 * 12 + header 56 + Top finds (3 rows) 84 + 4 list rows (4 * 28)
+  -- + footer 140 = 416 (tests/test_summary.lua recomputes it).
+  minHeight = 416,
+  minListRows = 4,
   rowHeight = 28,
   iconSize = 24,
   scrollbarWidth = 10,
@@ -74,7 +79,15 @@ Theme.sizes = {
   padding = 8,
   headerHeight = 56,
   headerRowHeight = 28,
-  footerHeight = 38,
+  -- Footer = three stacked blocks, each a label row (muted label + thin separator)
+  -- above its content: items 38 (two lines), gold 28 (total/rate line plus the
+  -- small looted/quest line), total 38 (two lines). footerHeight is their sum.
+  footerLabelHeight = 12,
+  footerLabelGap = 4,
+  footerItemsHeight = 38,
+  footerGoldHeight = 28,
+  footerTotalHeight = 38,
+  footerHeight = 140,
   buttonHeight = 20,
   buttonGap = 2,
   timerWidth = 54,

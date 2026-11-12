@@ -14,6 +14,13 @@ local L_AH = "AH: "
 local L_PER_HOUR = "/h"
 local L_UNPRICED = " unpriced"
 local L_FILTERED = "filtered"
+local L_GOLD = "Gold "
+local L_LOOTED = "looted "
+local L_QUEST = "quest "
+local L_LABEL_ITEMS = "Items"
+local L_LABEL_GOLD = "Raw gold"
+local L_LABEL_TOTAL = "Items + gold"
+local DOT = " \194\183 " -- middle dot (UTF-8) between looted and quest
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_TOP = 3
 
@@ -54,6 +61,62 @@ function Summary.totalsText(totals)
     unpriced = unpriced > 0 and (unpriced .. L_UNPRICED) or nil,
     filtered = totals.filtered and true or false,
   }
+end
+
+-- Raw gold block: `gold` = View gold {looted, quest, total, perHour}. Line 1 is
+-- total + rate, line 2 the looted/quest breakdown (small font). A nil rate is an
+-- em dash.
+function Summary.goldText(gold)
+  gold = gold or {}
+  return {
+    total = L_GOLD .. money(gold.total),
+    rate = rate(gold.perHour),
+    breakdown = L_LOOTED .. money(gold.looted) .. DOT .. L_QUEST .. money(gold.quest),
+    totalColored = L_GOLD .. moneyColored(gold.total),
+    rateColored = rateColored(gold.perHour),
+    breakdownColored = L_LOOTED .. moneyColored(gold.looted) .. DOT .. L_QUEST .. moneyColored(gold.quest),
+  }
+end
+
+-- Combined items + gold block: `combined` = View combined {vendor, ah,
+-- vendorPerHour, ahPerHour}. Same texts as the item totals, without the
+-- unpriced / filtered markers (those belong to the item block only).
+function Summary.combinedText(combined)
+  local t = Summary.totalsText(combined)
+  return {
+    vendor = t.vendor, vendorRate = t.vendorRate, ah = t.ah, ahRate = t.ahRate,
+    vendorColored = t.vendorColored, vendorRateColored = t.vendorRateColored,
+    ahColored = t.ahColored, ahRateColored = t.ahRateColored,
+  }
+end
+
+-- Vertical layout of the footer blocks from the top: label row then content.
+-- Returns { items = {top, labelTop, contentTop, height}, gold = ..., total = ...,
+-- height = total footer height }.
+function Summary.footerLayout()
+  local s = ns.Theme.sizes
+  local y = 0
+  local function block(contentHeight)
+    local b = { top = y, labelHeight = s.footerLabelHeight, contentTop = y + s.footerLabelHeight,
+      contentHeight = contentHeight, height = s.footerLabelHeight + contentHeight }
+    y = y + b.height
+    return b
+  end
+  local layout = {
+    items = block(s.footerItemsHeight),
+    gold = block(s.footerGoldHeight),
+    total = block(s.footerTotalHeight),
+  }
+  layout.height = y
+  return layout
+end
+
+-- Window height the list needs: chrome around the content, header, a full Top
+-- finds block, `minListRows` rows and the footer.
+function Summary.requiredWindowHeight()
+  local s = ns.Theme.sizes
+  return 2 * (s.padding + 4) + s.headerHeight + Summary.topBoxHeight(MAX_TOP)
+    + s.minListRows * s.rowHeight + Summary.footerLayout().height
 end
 
 function Summary.topLines(top)
@@ -105,8 +168,11 @@ local function makeText(parent, font, color, justify)
   return fs
 end
 
--- Footer layout at the 326 px content minimum (350 px window): a stacked pair
--- per half (total above, rate below), ~159 px per line (Summary.footerHalfWidth).
+-- Footer layout at the 326 px content minimum (350 px window): three blocks,
+-- each under a label row. Items and Total: a stacked pair per half (total
+-- above, rate below), ~159 px per line (Summary.footerHalfWidth). Gold: total
+-- left / rate right on the first line, the looted/quest breakdown (small font)
+-- on the second, so no line outgrows the 326 px.
 function Summary.attach(topBox, footer)
   if Summary.instance then return Summary.instance end
   local T = ns.Theme
@@ -155,26 +221,74 @@ function Summary.attach(topBox, footer)
   divider:SetPoint("BOTTOMRIGHT", topBox, "BOTTOMRIGHT", 0, 0)
   summary.divider = divider
 
-  -- Totals bar
-  local vendor = makeText(footer, T.fonts.summary, ink, "LEFT")
-  vendor:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -1)
-  vendor:SetPoint("TOPRIGHT", footer, "TOP", -4, -1)
-  local vendorRate = makeText(footer, T.fonts.summary, ink, "LEFT")
-  vendorRate:SetPoint("BOTTOMLEFT", footer, "BOTTOMLEFT", 0, 1)
-  local filtered = makeText(footer, T.fonts.summaryMarker, stale, "LEFT")
-  filtered:SetPoint("LEFT", vendorRate, "RIGHT", 6, 0)
+  -- Footer: three stacked blocks (items, raw gold, items + gold). Each starts
+  -- with a label row (small muted label, thin separator line to its right).
+  local layout = Summary.footerLayout()
+  local muted = T.colors.hint
+  local sep = T.colors.rowSeparator
+
+  local function block(b, labelText)
+    local frame = CreateFrame("Frame", nil, footer)
+    frame:SetHeight(b.contentHeight)
+    frame:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -b.contentTop)
+    frame:SetPoint("TOPRIGHT", footer, "TOPRIGHT", 0, -b.contentTop)
+    local label = makeText(footer, T.fonts.blockLabel, muted, "LEFT")
+    label:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -b.top)
+    label:SetHeight(b.labelHeight)
+    label:SetText(labelText)
+    local rule = footer:CreateTexture(nil, "ARTWORK")
+    rule:SetTexture(T.textures.rowHighlight)
+    rule:SetVertexColor(sep[1], sep[2], sep[3], sep[4])
+    rule:SetHeight(S.rowSeparator)
+    rule:SetPoint("LEFT", label, "RIGHT", S.footerLabelGap, 0)
+    rule:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
+    return frame
+  end
+
+  -- A stacked vendor/AH pair: totals line over rate line, left and right half.
+  local function pair(parent)
+    local p = {}
+    p.vendor = makeText(parent, T.fonts.summary, ink, "LEFT")
+    p.vendor:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -1)
+    p.vendor:SetPoint("TOPRIGHT", parent, "TOP", -4, -1)
+    p.vendorRate = makeText(parent, T.fonts.summary, ink, "LEFT")
+    p.vendorRate:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 1)
+    p.ah = makeText(parent, T.fonts.summary, ink, "RIGHT")
+    p.ah:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -1)
+    p.ah:SetPoint("TOPLEFT", parent, "TOP", 4, -1)
+    p.ahRate = makeText(parent, T.fonts.summary, ink, "RIGHT")
+    p.ahRate:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 1)
+    return p
+  end
+
+  local itemsBox = block(layout.items, L_LABEL_ITEMS)
+  local items = pair(itemsBox)
+  local filtered = makeText(itemsBox, T.fonts.summaryMarker, stale, "LEFT")
+  filtered:SetPoint("LEFT", items.vendorRate, "RIGHT", 6, 0)
   filtered:SetText(L_FILTERED)
   filtered:Hide()
-  local ah = makeText(footer, T.fonts.summary, ink, "RIGHT")
-  ah:SetPoint("TOPRIGHT", footer, "TOPRIGHT", 0, -1)
-  ah:SetPoint("TOPLEFT", footer, "TOP", 4, -1)
-  local ahRate = makeText(footer, T.fonts.summary, ink, "RIGHT")
-  ahRate:SetPoint("BOTTOMRIGHT", footer, "BOTTOMRIGHT", 0, 1)
-  local unpriced = makeText(footer, T.fonts.summaryMarker, stale, "RIGHT")
-  unpriced:SetPoint("RIGHT", ahRate, "LEFT", -6, 0)
+  local unpriced = makeText(itemsBox, T.fonts.summaryMarker, stale, "RIGHT")
+  unpriced:SetPoint("RIGHT", items.ahRate, "LEFT", -6, 0)
   unpriced:Hide()
-  summary.vendor, summary.vendorRate, summary.filtered = vendor, vendorRate, filtered
-  summary.ah, summary.ahRate, summary.unpriced = ah, ahRate, unpriced
+
+  local goldBox = block(layout.gold, L_LABEL_GOLD)
+  local goldTotal = makeText(goldBox, T.fonts.summary, ink, "LEFT")
+  goldTotal:SetPoint("TOPLEFT", goldBox, "TOPLEFT", 0, -1)
+  local goldRate = makeText(goldBox, T.fonts.summary, ink, "RIGHT")
+  goldRate:SetPoint("TOPRIGHT", goldBox, "TOPRIGHT", 0, -1)
+  goldTotal:SetPoint("TOPRIGHT", goldBox, "TOP", 0, -1)
+  local goldBreakdown = makeText(goldBox, T.fonts.summaryMarker, ink, "LEFT")
+  goldBreakdown:SetPoint("BOTTOMLEFT", goldBox, "BOTTOMLEFT", 0, 1)
+  goldBreakdown:SetPoint("BOTTOMRIGHT", goldBox, "BOTTOMRIGHT", 0, 1)
+
+  local totalBox = block(layout.total, L_LABEL_TOTAL)
+  local total = pair(totalBox)
+
+  summary.items, summary.vendor, summary.vendorRate = items, items.vendor, items.vendorRate
+  summary.ah, summary.ahRate = items.ah, items.ahRate
+  summary.filtered, summary.unpriced = filtered, unpriced
+  summary.goldTotal, summary.goldRate, summary.goldBreakdown = goldTotal, goldRate, goldBreakdown
+  summary.total = total
 
   function summary:Set(view)
     view = view or {}
@@ -212,6 +326,17 @@ function Summary.attach(topBox, footer)
       self.unpriced:Hide()
     end
     self.filtered:SetShown(t.filtered)
+
+    local g = Summary.goldText(view.gold)
+    self.goldTotal:SetText(g.totalColored)
+    self.goldRate:SetText(g.rateColored)
+    self.goldBreakdown:SetText(g.breakdownColored)
+
+    local c = Summary.combinedText(view.combined)
+    self.total.vendor:SetText(c.vendorColored)
+    self.total.vendorRate:SetText(c.vendorRateColored)
+    self.total.ah:SetText(c.ahColored)
+    self.total.ahRate:SetText(c.ahRateColored)
   end
 
   -- Ledger part: refreshed with every tick / loot event.
