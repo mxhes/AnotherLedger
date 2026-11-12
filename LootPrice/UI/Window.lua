@@ -8,7 +8,6 @@ ns.UI.Window = Window
 
 local TITLE = "Session Ledger" -- single place to localize later
 local TOPBOX_EMPTY = 0.001     -- zero-height frames anchor badly; keep a hair
-local ROW_HEIGHT = 28
 
 local function theme() return ns.Theme end
 
@@ -59,15 +58,32 @@ local function save()
   w.hidden = not frame:IsShown()
 end
 
--- Re-centers the frame when any part of it lies outside the screen.
+-- Pure. (x, y) = CENTER offset of a w x h window from the screen center on a
+-- sw x sh screen. Returns the offset and size moved the shortest way back onto
+-- the screen: a window that is only `tol` (default 1) px outside stays where it
+-- is, and one larger than the screen shrinks to the screen size.
+function Window.clampToScreen(x, y, w, h, sw, sh, tol)
+  tol = tol or 1
+  if w > sw then w = sw end
+  if h > sh then h = sh end
+  local maxX, maxY = (sw - w) / 2, (sh - h) / 2
+  if x > maxX + tol then x = maxX elseif x < -maxX - tol then x = -maxX end
+  if y > maxY + tol then y = maxY elseif y < -maxY - tol then y = -maxY end
+  return x, y, w, h
+end
+
+-- Moves the frame back onto the screen (nearest valid position) when any part
+-- of it lies outside; flush against an edge is fine.
 local function ensureOnScreen(frame)
   local sw, sh = screenSize(frame)
   local x, y = centerOffset(frame)
   if not x then return end
-  local halfW, halfH = frame:GetWidth() / 2, frame:GetHeight() / 2
-  if x - halfW < -sw / 2 or x + halfW > sw / 2 or y - halfH < -sh / 2 or y + halfH > sh / 2 then
+  local w, h = frame:GetWidth(), frame:GetHeight()
+  local nx, ny, nw, nh = Window.clampToScreen(x, y, w, h, sw, sh, 1)
+  if nx ~= x or ny ~= y or nw ~= w or nh ~= h then
     frame:ClearAllPoints()
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    frame:SetSize(nw, nh)
+    frame:SetPoint("CENTER", UIParent, "CENTER", nx, ny)
   end
 end
 
@@ -85,7 +101,7 @@ end
 
 local function makeRow(parent, anchorTo, firstRow)
   local row = CreateFrame("Frame", nil, parent)
-  row:SetHeight(ROW_HEIGHT)
+  row:SetHeight(theme().sizes.headerRowHeight)
   if firstRow then
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
     row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
@@ -105,6 +121,7 @@ local function build(db)
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)
   frame:SetMovable(true)
+  frame:SetUserPlaced(false)
   frame:SetResizable(true)
   frame:EnableMouse(true)
   if frame.SetResizeBounds then
@@ -117,9 +134,12 @@ local function build(db)
     bgFile = T.textures.parchment,
     edgeFile = T.textures.frameBorder,
     tile = true,
-    tileSize = 16,
-    edgeSize = 24,
-    insets = { left = 6, right = 6, top = 6, bottom = 6 },
+    tileSize = T.sizes.backdropTile,
+    edgeSize = T.sizes.backdropEdge,
+    insets = {
+      left = T.sizes.backdropInset, right = T.sizes.backdropInset,
+      top = T.sizes.backdropInset, bottom = T.sizes.backdropInset,
+    },
   })
   local c = T.colors.panelTint
   frame:SetBackdropColor(c[1], c[2], c[3], c[4])
@@ -134,6 +154,7 @@ local function build(db)
   header:SetScript("OnDragStart", function() frame:StartMoving() end)
   header:SetScript("OnDragStop", function()
     frame:StopMovingOrSizing()
+    frame:SetUserPlaced(false) -- db.window is the only position store
     save()
   end)
   header.row1 = makeRow(header, nil, true)
@@ -164,8 +185,8 @@ local function build(db)
 
   -- Resize grip, bottom right.
   local grip = CreateFrame("Button", nil, frame)
-  grip:SetSize(16, 16)
-  grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -4, 4)
+  grip:SetSize(T.sizes.gripSize, T.sizes.gripSize)
+  grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -T.sizes.gripInset, T.sizes.gripInset)
   grip:SetFrameLevel(frame:GetFrameLevel() + 10)
   grip:SetNormalTexture(T.textures.resizeGrip)
   grip:SetScript("OnMouseDown", function(_, button)
@@ -173,6 +194,7 @@ local function build(db)
   end)
   grip:SetScript("OnMouseUp", function()
     frame:StopMovingOrSizing()
+    frame:SetUserPlaced(false)
     -- StartSizing leaves the frame anchored on a corner; normalize to CENTER.
     local x, y = centerOffset(frame)
     if x then
