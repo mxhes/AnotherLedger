@@ -344,10 +344,6 @@ function Summary.attach(topBox, footer)
     else
       self.note:Hide()
     end
-    if inventory then
-      self:SetTotals(view)
-      return
-    end
     local lines = Summary.topLines(view.top)
     for i = 1, MAX_TOP do
       local w, l = self.rows[i], lines[i]
@@ -372,6 +368,7 @@ function Summary.attach(topBox, footer)
     end
 
     self:SetTotals(view)
+    if inventory then return end
 
     local g = Summary.goldText(view.gold)
     self.goldTotal:SetText(g.totalColored)

@@ -406,3 +406,18 @@ h.test("wiring: the last tab survives a reload", function()
   h.eq(reload.errors, {})
   h.eq(reload.ns.UI.Ledger.tab, "bags")
 end)
+
+h.test("wiring: top finds collapse on the inventory tabs and come back on Session", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 1, { 2589, 5 } } })
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local W = ctx.ns.UI.Window
+  local topBox = W.frame.topBox
+  h.eq(topBox._h > 1, true)
+  ctx.ns.UI.Ledger.setTab("bags")
+  h.eq(topBox._shown, false)
+  ctx.ns.UI.Ledger.setTab("session")
+  h.eq(topBox._shown, true)
+  h.eq(ctx.errors, {})
+end)
