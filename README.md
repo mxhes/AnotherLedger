@@ -28,9 +28,30 @@ Three tabs sit in the header between the filters and the list; the window, rows,
 
 The last tab is remembered.
 
+## Options
+
+The gear button at the top right of the header (left of the X) opens the options panel next to the window (Esc or the gear closes it):
+
+- **Window opacity** (0-100 %): fades the window background and border; text and rows stay fully opaque. Default 100 %.
+- **Window brightness** (0-200 %): multiplies the background and border color; 100 % is the theme color, above that the dark panel gets lighter, 0 % is black. Default 100 %.
+- **AH price source**: `Auto (TSM, then Auctionator)` (default, the old behavior), `TSM` or `Auctionator`. With one chosen, the other is not asked. A price cached from the other source shows with its age tag until it is refreshed (same as after `/lp tsm`).
+- **Hide in combat, show again afterwards**: hides the window when combat starts and shows it again when combat ends, but only if it was visible before; a window you hid yourself stays hidden. The remembered hidden state is not changed. Default off.
+
+Settings are stored in `LootPriceDB.settings` and applied at login (invalid saved values are repaired).
+
+### Adding an option
+
+The panel is built from a registry, it never names an option. To add one:
+
+1. Put its default in `DB.defaults.settings` (`LootPrice/DB.lua`).
+2. Register it in `LootPrice/Options.lua` with one `Options.define({ key, type, label, ... , apply = function(value) ... end })`. Types: `slider` (`min`, `max`, `step`), `dropdown` (`choices = { { value, label }, ... }`), `checkbox`. Values are validated by type and fall back to the default; `apply` makes the value take effect (and also runs for the saved value at login).
+3. Read it where it is needed with `Options.get(ns.db, key)`.
+
+A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPanel.lua`) plus its block height in `Options.HEIGHTS`. The panel grows to fit.
+
 ## Events used
 
-`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan).
+`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan), `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` (combat auto hide).
 
 ## Requirements
 
@@ -113,6 +134,12 @@ Tabs (Bags / Bank)
 - [ ] Bank: before any visit the list is empty with "Open your bank once to scan it."; opening the bank fills it; closing the bank and walking away keeps the list with "Scanned ... ago" (orange after 12 h); the scan survives `/reload` and relog
 - [ ] `C_Container.GetContainerItemInfo` returns `{ itemID, stackCount, hyperlink }`, and `BANK_CONTAINER`, `NUM_BAG_SLOTS`, `NUM_REAGENTBAG_SLOTS`, `NUM_BANKBAGSLOTS` match the real bag / bank container ids on Forever (`/dump BANK_CONTAINER, NUM_BAG_SLOTS, NUM_REAGENTBAG_SLOTS, NUM_BANKBAGSLOTS`); items in bank bags and the reagent bank/warband bank (if the client has them) are included or deliberately skipped
 - [ ] The last tab is restored after `/reload`
+
+Options
+- [ ] Gear button sits left of the X, shows the icon (`Interface\Icons\Trade_Engineering`) with a tooltip "Options"; the title is not overlapped at 350 px; the panel opens to the right of the window, Esc and the gear close it
+- [ ] Window opacity slider (0-100 %): the window background and border fade live down to fully transparent (text stays solid); Window brightness slider (0-200 %) darkens / lightens the background and border; the values show in the slider titles and survive `/reload`; `OptionsSliderTemplate` exists and its own texts are hidden
+- [ ] Price source dropdown lists Auto / TSM / Auctionator (menu works with `MenuUtil` or the legacy dropdown), the choice changes the AH prices live and survives `/reload`
+- [ ] Combat checkbox: with it on the window hides on entering combat and returns after; a window hidden by hand stays hidden; turning the option off mid-combat brings it back
 
 Header
 - [ ] Title is not overlapped by the timer at 350 px

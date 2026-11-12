@@ -63,3 +63,12 @@ h.test("setMinWidth raises bounds and widens a too-narrow frame", function()
   h.eq(bounds[1], ns.Theme.sizes.minWidth)
   W.frame, W.requiredWidth = nil, nil
 end)
+
+h.test("Window.scaledColor scales only the alpha and clamps the scale", function()
+  local W = ns.UI.Window
+  h.eq(W.scaledColor({ 0.1, 0.2, 0.3, 0.8 }, 0.5), { 0.1, 0.2, 0.3, 0.4 })
+  h.eq(W.scaledColor({ 0.1, 0.2, 0.3 }, 0.5), { 0.1, 0.2, 0.3, 0.5 })
+  h.eq(W.scaledColor({ 1, 1, 1, 1 }, 2), { 1, 1, 1, 1 })
+  h.eq(W.scaledColor({ 1, 1, 1, 1 }, -1), { 1, 1, 1, 0 })
+  h.eq(W.scaledColor({ 1, 1, 1, 1 }, "x"), { 1, 1, 1, 1 })
+end)

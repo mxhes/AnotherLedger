@@ -32,7 +32,7 @@ h.test("Theme has required keys", function()
   for _, k in ipairs({ "flashNormal", "flashStrong" }) do
     h.eq(type(T.durations[k]), "number", "durations." .. k)
   end
-  for _, k in ipairs({ "start", "stop", "reset", "hide" }) do
+  for _, k in ipairs({ "start", "stop", "reset", "hide", "options" }) do
     h.eq(type(T.widths.header[k]), "number", "widths.header." .. k)
   end
   for _, k in ipairs({ "quality", "min", "sort" }) do
@@ -131,4 +131,11 @@ h.test("row separator: 1 px, subtle but visible on the panel", function()
   local mix = {}
   for i = 1, 3 do mix[i] = s[i] * a + tint[i] * (1 - a) end
   h.eq(contrast(mix, tint) >= 1.3, true, "contrast")
+end)
+
+h.test("scaleColor multiplies rgb, clamps and keeps alpha", function()
+  h.eq(T.scaleColor({ 0.5, 0.25, 1, 0.8 }, 0.5), { 0.25, 0.125, 0.5, 0.8 })
+  h.eq(T.scaleColor({ 0.5, 0.5, 0.5 }, 3), { 1, 1, 1, 1 })
+  h.eq(T.scaleColor({ 0.5, 0.5, 0.5 }, -1), { 0, 0, 0, 1 })
+  h.eq(T.scaleColor({ 0.5, 0.5, 0.5, 1 }, "x"), { 0.5, 0.5, 0.5, 1 })
 end)

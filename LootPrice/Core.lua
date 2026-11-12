@@ -52,14 +52,35 @@ function Core.keyFromState(state, env, now)
   return state.key
 end
 
+-- Pure. Whether the source `which` ("tsm" / "auctionator") may answer under the
+-- selected price source option ("auto" asks all, in order).
+function Core.sourceAllowed(selected, which)
+  return selected == "auto" or selected == which or (selected ~= "tsm" and selected ~= "auctionator")
+end
+
+-- Wraps a price source so it only answers while the option allows it. The
+-- selection is read live, so changing the option needs no rebuild.
+function Core.gateSource(source, which, getSelected)
+  return {
+    name = source.name,
+    get = function(itemID)
+      local ok, selected = pcall(getSelected)
+      if not ok or not Core.sourceAllowed(selected, which) then return nil end
+      return source.get(itemID)
+    end,
+  }
+end
+
 -- Builds the Prices object over `env` (_G in the client). `getKey` returns the
 -- current cache key; the TSM source string is read live from db.settings.
 function Core.buildPrices(env, db, now, getKey)
   local Sources = ns.Sources
   return ns.Prices.new({
     sources = {
-      Sources.TSM.new(env, function() return db.settings.tsmSource end),
-      Sources.Auctionator.new(env),
+      Core.gateSource(Sources.TSM.new(env, function() return db.settings.tsmSource end),
+        "tsm", function() return db.settings.priceSource end),
+      Core.gateSource(Sources.Auctionator.new(env), "auctionator",
+        function() return db.settings.priceSource end),
     },
     vendor = function(itemID) return Sources.Vendor.get(env, itemID) end,
     cache = db.cache,
@@ -327,7 +348,20 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
     return Core.keyFromState(keyState, _G, time())
   end)
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
+  ns.Options.applyAll(ns.db)
   refreshUI()
+end
+
+-- Combat auto hide / show (option "combatHide"): hides the window when combat
+-- starts and shows it again when combat ends, but only if it was shown before.
+function events.PLAYER_REGEN_DISABLED()
+  local w = ns.UI and ns.UI.Window
+  if w and ns.db and ns.db.settings.combatHide then w.combatHide() end
+end
+
+function events.PLAYER_REGEN_ENABLED()
+  local w = ns.UI and ns.UI.Window
+  if w then w.combatShow() end
 end
 
 function events.CHAT_MSG_LOOT(text)

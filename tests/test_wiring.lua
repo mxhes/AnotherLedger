@@ -421,3 +421,86 @@ h.test("wiring: top finds collapse on the inventory tabs and come back on Sessio
   h.eq(topBox._shown, true)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: opacity, price source and combat hide options take effect", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  h.eq(ctx.errors, {})
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  local frame = W.frame
+  -- price source: Auctionator only, TSM silent
+  ctx.env.TSM_API = { GetCustomPriceValue = function() return 111 end }
+  ctx.env.Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 222 end } } }
+  ns.Options.set(ns.db, "priceSource", "tsm")
+  h.eq(ns.prices:lookup(2589).ah, 111)
+  ns.Options.set(ns.db, "priceSource", "auctionator")
+  h.eq(ns.prices:lookup(2589).ah, 222)
+  ns.Options.set(ns.db, "priceSource", "auto")
+  h.eq(ns.prices:lookup(2589).ah, 111)
+  -- opacity
+  ns.Options.set(ns.db, "alpha", 0.5)
+  h.eq(ns.db.settings.alpha, 0.5)
+  -- combat: off by default
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  h.eq(frame:IsShown(), true)
+  ns.Options.set(ns.db, "combatHide", true)
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  h.eq(frame:IsShown(), false)
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(frame:IsShown(), true)
+  -- a window the user hid stays hidden after combat
+  W.hide()
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(frame:IsShown(), false)
+  W.show()
+  -- turning the option off during combat brings the window back
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  h.eq(frame:IsShown(), false)
+  ns.Options.set(ns.db, "combatHide", false)
+  h.eq(frame:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the options panel builds a widget for every registered option", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local P = ctx.ns.UI.OptionsPanel
+  P.toggle()
+  h.eq(ctx.errors, {})
+  h.eq(P.frame ~= nil, true)
+  for _, spec in ipairs(ctx.ns.Options.list()) do
+    h.eq(P.frame.widgets[spec.key] ~= nil, true, spec.key)
+  end
+  P.toggle() -- closes
+  h.eq(ctx.errors, {})
+  h.eq(ctx.ns.UI.Ledger.frame.header ~= nil, true)
+end)
+
+h.test("wiring: saved option values are applied at login", function()
+  local ctx = boot({ db = { settings = { alpha = 7, priceSource = "zzz" } } })
+  startWorld(ctx, false)
+  h.eq(ctx.errors, {})
+  h.eq(ctx.env.LootPriceDB.settings.alpha, 1)
+  h.eq(ctx.env.LootPriceDB.settings.priceSource, "auto")
+end)
+
+h.test("wiring: the window look options apply to the background and border", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local frame = ns.UI.Window.frame
+  local bg, border
+  frame.SetBackdropColor = function(_, r, g, b, a) bg = { r, g, b, a } end
+  frame.SetBackdropBorderColor = function(_, r, g, b, a) border = { r, g, b, a } end
+  ns.Options.set(ns.db, "alpha", 0)
+  h.eq(bg[4], 0)
+  h.eq(border[4], 0)
+  ns.Options.set(ns.db, "alpha", 0.5)
+  ns.Options.set(ns.db, "brightness", 2)
+  local tint, bd = ns.Theme.colors.panelTint, ns.Theme.colors.panelBorder
+  h.near(bg[1], math.min(1, tint[1] * 2))
+  h.near(bg[4], tint[4] * 0.5)
+  h.near(border[1], math.min(1, bd[1] * 2))
+  h.eq(ctx.errors, {})
+end)

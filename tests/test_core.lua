@@ -224,3 +224,19 @@ h.test("Core.recordGold adds, refreshes once and ignores bad input", function()
   _G.time = nil
   h.eq(refreshes, 1)
 end)
+
+h.test("Core.sourceAllowed / gateSource follow the price source option", function()
+  h.eq(Core.sourceAllowed("auto", "tsm"), true)
+  h.eq(Core.sourceAllowed("auto", "auctionator"), true)
+  h.eq(Core.sourceAllowed("tsm", "tsm"), true)
+  h.eq(Core.sourceAllowed("tsm", "auctionator"), false)
+  h.eq(Core.sourceAllowed("auctionator", "tsm"), false)
+  h.eq(Core.sourceAllowed(nil, "tsm"), true) -- unknown value behaves like auto
+  local selected = "tsm"
+  local src = Core.gateSource({ name = "TSM", get = function() return 99 end }, "tsm", function() return selected end)
+  h.eq(src.name, "TSM")
+  h.eq(src.get(1), 99)
+  selected = "auctionator"
+  h.eq(src.get(1), nil)
+  h.eq(Core.gateSource({ name = "x", get = function() return 1 end }, "tsm", function() error("boom") end).get(1), nil)
+end)

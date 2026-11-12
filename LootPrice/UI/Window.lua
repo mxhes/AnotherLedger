@@ -50,6 +50,31 @@ local function minWidth()
   return Window.effectiveMinWidth(theme().sizes.minWidth, Window.requiredWidth)
 end
 
+-- Pure. A theme color with its alpha scaled by `scale` (0..1).
+function Window.scaledColor(c, scale)
+  local a = c[4] or 1
+  if type(scale) ~= "number" or scale ~= scale then scale = 1 end
+  scale = math.min(1, math.max(0, scale))
+  return { c[1], c[2], c[3], a * scale }
+end
+
+-- Opacity and brightness of the window background and border (options
+-- "alpha" / "brightness"); text and rows are not touched.
+function Window.applyLook()
+  local frame = Window.frame
+  if not frame then return end
+  local T = theme()
+  local alpha, k = 1, 1
+  if ns.Options and ns.db then
+    alpha = ns.Options.get(ns.db, "alpha") or 1
+    k = ns.Options.get(ns.db, "brightness") or 1
+  end
+  local bg = Window.scaledColor(T.scaleColor(T.colors.panelTint, k), alpha)
+  frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
+  local bd = Window.scaledColor(T.scaleColor(T.colors.panelBorder, k), alpha)
+  frame:SetBackdropBorderColor(bd[1], bd[2], bd[3], bd[4])
+end
+
 local function applyBounds(frame)
   local T = theme()
   if frame.SetResizeBounds then
@@ -301,9 +326,26 @@ local function ensure()
   return Window.frame or Window.create(Window.db or ns.db)
 end
 
+-- Combat auto hide: remembers that the window was hidden by combat, so only
+-- that case is shown again afterwards. The saved hidden flag is not touched.
+function Window.combatHide()
+  local frame = Window.frame
+  if not frame or not frame:IsShown() then return end
+  Window.hiddenByCombat = true
+  frame:Hide()
+end
+
+function Window.combatShow()
+  local frame = Window.frame
+  if not Window.hiddenByCombat then return end
+  Window.hiddenByCombat = false
+  if frame then frame:Show() end
+end
+
 function Window.show()
   local frame = ensure()
   if not frame then return end
+  Window.hiddenByCombat = false
   frame:Show()
   save()
 end
@@ -311,6 +353,7 @@ end
 function Window.hide()
   local frame = ensure()
   if not frame then return end
+  Window.hiddenByCombat = false
   frame:Hide()
   save()
 end

@@ -9,6 +9,9 @@ Theme.textures = {
   frameBorder = "Interface\\DialogFrame\\UI-DialogBox-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
   resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
+  -- Options button: a gear-like trade icon, present in every client.
+  optionsIcon = "Interface\\Icons\\Trade_Engineering",
+  buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
 }
 
 Theme.fonts = {
@@ -137,19 +140,26 @@ Theme.sizes = {
   backdropInset = 6,
 }
 
--- Button / box widths of the two header rows. Row 1 at the 350 px minimum is
--- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 + 34 + 40 + 20 = 132
--- plus three 2 px gaps = 138, timer 54, leaving ~134 px for the title (~95 px).
+-- Button / box widths of the header rows. Row 1 at the 350 px minimum is
+-- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 + 34 + 40 + 20 + 20 (options) = 152
+-- plus four 2 px gaps = 160, timer 54, leaving ~112 px for the title (~95 px).
 -- Row 2: quality 70 + min 44 + sort 78 + three 2 px gaps (plus ~8 px of
 -- inset) = ~206, leaving ~120 px for the flexible search box.
 -- minWidth 350 comes from the footer (see Summary.footerWorstWidth): the
 -- 12 pt totals bar needs 157 px per half, so 2 * 157 + 8 px center gap + 24 px
 -- window inset = 346, rounded up.
 Theme.widths = {
-  header = { start = 38, stop = 34, reset = 40, hide = 20 },
+  header = { start = 38, stop = 34, reset = 40, hide = 20, options = 20 },
   filter = { quality = 70, min = 44, sort = 78 },
   tab = 72, -- tab buttons hanging below the window
 }
+
+-- Pure. A color with r, g, b multiplied by `k` (clamped to 0..1); alpha kept.
+function Theme.scaleColor(c, k)
+  if type(k) ~= "number" or k ~= k then k = 1 end
+  local function ch(v) return math.min(1, math.max(0, (v or 0) * k)) end
+  return { ch(c[1]), ch(c[2]), ch(c[3]), c[4] or 1 }
+end
 
 -- WCAG 2 contrast ratio (1..21) between two sRGB colors (components 0..1).
 local function linear(c)

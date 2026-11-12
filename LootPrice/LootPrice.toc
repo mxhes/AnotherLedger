@@ -17,6 +17,7 @@ Sources\TSM.lua
 Sources\Auctionator.lua
 Session.lua
 Inventory.lua
+Options.lua
 View.lua
 Slash.lua
 UI\Window.lua
@@ -25,5 +26,6 @@ UI\Header.lua
 UI\Summary.lua
 UI\FilterBar.lua
 UI\Tabs.lua
+UI\OptionsPanel.lua
 UI\Ledger.lua
 Core.lua

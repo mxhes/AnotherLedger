@@ -183,6 +183,7 @@ function Ledger.init()
       stop = Core.stopSession,
       reset = Core.resetSession,
       hide = ns.UI.Window.hide,
+      options = ns.UI.OptionsPanel and ns.UI.OptionsPanel.toggle,
     })
   end)
 

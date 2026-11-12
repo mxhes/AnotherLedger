@@ -1,0 +1,107 @@
+local h = ...
+local ns = h.load({ "DB.lua", "Options.lua" })
+local O = ns.Options
+
+local function db(settings)
+  return { settings = settings or {} }
+end
+
+h.test("Options: the built-in options are registered in panel order", function()
+  local keys = {}
+  for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
+  h.eq(keys, { "alpha", "brightness", "priceSource", "combatHide" })
+  -- every option has its default in DB.defaults.settings
+  for _, s in ipairs(O.list()) do
+    h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key)
+    h.eq(O.HEIGHTS[s.type] ~= nil, true, s.key)
+  end
+end)
+
+h.test("Options.normalize: slider clamps and snaps, falls back to the default", function()
+  local a = O.spec("alpha")
+  h.eq(O.normalize(a, 0.5), 0.5)
+  h.eq(O.normalize(a, 5), 1)
+  h.eq(O.normalize(a, -1), 0)
+  h.eq(O.normalize(a, 0.52), 0.5)
+  h.eq(O.normalize(a, 0.3), 0.3)
+  h.eq(O.normalize(a, "x"), 1)
+  h.eq(O.normalize(a, 0 / 0), 1)
+end)
+
+h.test("Options.normalize: dropdown only takes a listed choice, checkbox a boolean", function()
+  local p, c = O.spec("priceSource"), O.spec("combatHide")
+  h.eq(O.normalize(p, "tsm"), "tsm")
+  h.eq(O.normalize(p, "auctionator"), "auctionator")
+  h.eq(O.normalize(p, "nope"), "auto")
+  h.eq(O.normalize(p, nil), "auto")
+  h.eq(O.normalize(c, true), true)
+  h.eq(O.normalize(c, "yes"), false)
+end)
+
+h.test("Options.get / set store in db.settings and call apply", function()
+  local applied
+  local spec = O.spec("alpha")
+  local old = spec.apply
+  spec.apply = function(v) applied = v end
+  local d = db({ alpha = 0.7 })
+  h.eq(O.get(d, "alpha"), 0.7)
+  h.eq(O.get(db(), "alpha"), 1) -- missing -> default
+  h.eq(O.set(d, "alpha", 0.42), 0.4)
+  h.eq(d.settings.alpha, 0.4)
+  h.eq(applied, 0.4)
+  h.eq(O.set(d, "nope", 1), nil)
+  spec.apply = old
+end)
+
+h.test("Options.applyAll repairs invalid saved values", function()
+  local d = db({ alpha = "bad", priceSource = "x", combatHide = 3 })
+  O.applyAll(d)
+  h.eq(d.settings.alpha, 1)
+  h.eq(d.settings.priceSource, "auto")
+  h.eq(d.settings.combatHide, false)
+end)
+
+h.test("Options.define: a new option is picked up and listed, redefining replaces", function()
+  local n = #O.list()
+  O.define({ key = "demoFlag", type = "checkbox", label = "Demo" })
+  h.eq(#O.list(), n + 1)
+  h.eq(O.spec("demoFlag").label, "Demo")
+  O.define({ key = "demoFlag", type = "checkbox", label = "Demo 2" })
+  h.eq(#O.list(), n + 1)
+  h.eq(O.spec("demoFlag").label, "Demo 2")
+  -- unknown types are rejected
+  h.eq(pcall(O.define, { key = "bad", type = "knob", label = "x" }), false)
+  -- remove the demo again
+  table.remove(O.specs, #O.specs)
+  O.byKey.demoFlag = nil
+end)
+
+h.test("Options.layout stacks the blocks with a gap", function()
+  local specs = O.list()
+  local L = O.layout(specs)
+  local y = 0
+  for _, spec in ipairs(specs) do
+    h.eq(L.tops[spec.key], y, spec.key)
+    y = y + O.HEIGHTS[spec.type] + O.GAP
+  end
+  h.eq(L.height, y - O.GAP)
+  h.eq(O.layout({}).height, 0)
+end)
+
+h.test("Options: the window sliders cover 0..100 % (brightness 0..200 %)", function()
+  local function range(key)
+    local s = O.spec(key)
+    return { s.min, s.max, s.type }
+  end
+  h.eq(range("alpha"), { 0, 1, "slider" })
+  h.eq(range("brightness"), { 0, 2, "slider" })
+  h.eq(O.normalize(O.spec("brightness"), 1.5), 1.5)
+  h.eq(O.normalize(O.spec("alpha"), 0), 0)
+  h.eq(O.valueText(O.spec("brightness"), 1.5), "150%")
+end)
+
+h.test("Options.valueText: formatter, choice label, plain value", function()
+  h.eq(O.valueText(O.spec("alpha"), 0.35), "35%")
+  h.eq(O.valueText(O.spec("priceSource"), "tsm"), "TSM")
+  h.eq(O.valueText({ type = "checkbox" }, true), "true")
+end)

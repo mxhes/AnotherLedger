@@ -5,7 +5,17 @@ local DB = {}
 DB.defaults = {
   version = 1,
   cache = {},
-  settings = { keepSession = false, tsmSource = "DBMarket" },
+  settings = {
+    keepSession = false,
+    tsmSource = "DBMarket",
+    -- Options panel (see Options.lua): opacity 0..1 and brightness (1 = the
+    -- theme color) of the window background / border, price source
+    -- auto / tsm / auctionator, hide the window in combat.
+    alpha = 1,
+    brightness = 1,
+    priceSource = "auto",
+    combatHide = false,
+  },
   window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false },
   filter = {
     qualities = { [0] = true, true, true, true, true, true, true, true },
