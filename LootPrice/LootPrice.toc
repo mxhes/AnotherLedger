@@ -1,0 +1,25 @@
+## Interface: 110207
+## Title: LootPrice
+## Notes: Live loot ledger with vendor and auction house values.
+## SavedVariables: LootPriceDB
+## SavedVariablesPerCharacter: LootPriceCharDB
+## OptionalDeps: TradeSkillMaster, Auctionator
+
+Money.lua
+Theme.lua
+DB.lua
+LootParse.lua
+Prices.lua
+Sources\Vendor.lua
+Sources\TSM.lua
+Sources\Auctionator.lua
+Session.lua
+View.lua
+Slash.lua
+UI\Window.lua
+UI\Rows.lua
+UI\Header.lua
+UI\Summary.lua
+UI\FilterBar.lua
+UI\Ledger.lua
+Core.lua
