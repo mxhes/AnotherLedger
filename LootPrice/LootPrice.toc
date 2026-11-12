@@ -1,6 +1,8 @@
 ## Interface: 110207
 ## Title: LootPrice
-## Notes: Live loot ledger with vendor and auction house values.
+## Version: @project-version@
+## Notes: Session ledger showing vendor and auction house value of everything you loot.
+## Author: Maximilian Henjes
 ## SavedVariables: LootPriceDB
 ## SavedVariablesPerCharacter: LootPriceCharDB
 ## OptionalDeps: TradeSkillMaster, Auctionator

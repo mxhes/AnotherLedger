@@ -1,0 +1,21 @@
+# BigWigs packager config (https://github.com/BigWigsMods/packager).
+#
+# Layout: the repo root is NOT the addon folder; the addon lives in LootPrice/.
+# Approach: run the packager with the addon folder as its top directory
+# (`release.sh -t LootPrice`, or `args: -t LootPrice` in the GitHub Action), so
+# LootPrice/LootPrice.toc is found and the zip contains a single LootPrice/ folder.
+# `package-as` fixes the folder name inside the zip.
+# UNVERIFIED: whether the packager reads this .pkgmeta from the repo root or from
+# the -t directory. Check on the first real packager run (-d dry run). If it only
+# reads it from LootPrice/, move this file there (the ignore list then shrinks
+# to nothing, since only the addon folder is packaged).
+# The ignore list below is a safety net in case the whole repo root gets packaged.
+package-as: LootPrice
+
+ignore:
+  - tests
+  - docs
+  - .superpowers
+  - .pkgmeta
+  - .gitignore
+  - README.md
