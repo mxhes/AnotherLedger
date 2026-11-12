@@ -90,3 +90,56 @@ h.test("Prices formatAge/isStale", function()
   h.eq(P.formatAge(14 * 3600), "14h"); h.eq(P.formatAge(3 * 86400), "3d")
   h.eq(P.isStale(43200), false); h.eq(P.isStale(43201), true)
 end)
+
+local function one(cache, price, t, key)
+  local clock = { t = t }
+  local p = make({ src("A", price) }, function() end, cache, key, clock)
+  return p:lookup(5)
+end
+
+h.test("Prices malformed entries are overwritten", function()
+  for _, bad in ipairs({ 5, true, { price = 100 }, { price = 100, seenAt = "x" }, { price = 100, seenAt = 0 / 0 } }) do
+    local cache = { ["EU-1"] = { [5] = bad } }
+    local r = one(cache, 100, 1000)
+    h.eq(r.ah, 100)
+    h.eq(cache["EU-1"][5].seenAt, 1000)
+  end
+end)
+
+h.test("Prices malformed entries ignored on fallback", function()
+  for _, bad in ipairs({ 5, true, { price = 100 }, { price = 100, seenAt = "x" }, { price = 100, seenAt = 0 / 0 } }) do
+    local r = one({ ["EU-1"] = { [5] = bad } }, nil, 1000)
+    h.eq(r.ah, nil); h.eq(r.ahAge, nil)
+  end
+end)
+
+h.test("Prices non-table bucket", function()
+  for _, bad in ipairs({ 7, "str", true }) do
+    local cache = { ["EU-1"] = bad }
+    local r = one(cache, 100, 1000)
+    h.eq(r.ah, 100)
+    h.eq(cache["EU-1"][5].price, 100)
+    h.eq(one({ ["EU-1"] = bad }, nil, 1000).ah, nil)
+  end
+end)
+
+h.test("Prices throttle boundary and backwards clock", function()
+  local cache = { ["EU-1"] = { [5] = { price = 100, seenAt = 1000 } } }
+  one(cache, 100, 1059); h.eq(cache["EU-1"][5].seenAt, 1000)
+  one(cache, 100, 1060); h.eq(cache["EU-1"][5].seenAt, 1060)
+  one(cache, 100, 900); h.eq(cache["EU-1"][5].seenAt, 900)
+  local c2 = { ["EU-1"] = { [5] = { price = 100, seenAt = 2000 } } }
+  local r = one(c2, nil, 1000)
+  h.eq(r.ahAge, 0)
+end)
+
+h.test("Prices throwing key keeps live price", function()
+  local cache = {}
+  local r = one(cache, 100, 1, function() error("x") end)
+  h.eq(r.ah, 100); h.eq(next(cache), nil)
+end)
+
+h.test("Prices formatAge boundaries", function()
+  h.eq(P.formatAge(59), "1m"); h.eq(P.formatAge(60), "1m"); h.eq(P.formatAge(3599), "59m")
+  h.eq(P.formatAge(3600), "1h"); h.eq(P.formatAge(86399), "23h"); h.eq(P.formatAge(86400), "1d")
+end)

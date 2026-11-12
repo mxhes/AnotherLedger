@@ -9,6 +9,11 @@ local function valid(v)
   return type(v) == "number" and v == v and v > 0 and v ~= math.huge
 end
 
+local function validEntry(e)
+  return type(e) == "table" and type(e.seenAt) == "number" and e.seenAt == e.seenAt
+    and e.seenAt ~= math.huge and e.seenAt ~= -math.huge
+end
+
 function Prices.cacheKey(region, modeID)
   if region == nil or modeID == nil then return nil end
   return region .. "-" .. modeID
@@ -56,15 +61,23 @@ function Instance:lookup(itemID)
   local okKey, key = pcall(self.key)
   if not okKey then key = nil end
   local bucket = key and self.cache and self.cache[key] or nil
+  if type(bucket) ~= "table" then bucket = nil end
 
   local price, name = self:_live(itemID)
   if price then
     result.ah, result.ahSource, result.ahAge = price, name, 0
     if key and self.cache then
-      bucket = bucket or {}
-      self.cache[key] = bucket
+      if not bucket then
+        bucket = {}
+        self.cache[key] = bucket
+      end
       local entry = bucket[itemID]
-      if not entry or entry.price ~= price or now - entry.seenAt >= Prices.WRITE_INTERVAL then
+      local fresh = false
+      if validEntry(entry) and entry.price == price then
+        local diff = now - entry.seenAt
+        fresh = diff >= 0 and diff < Prices.WRITE_INTERVAL
+      end
+      if not fresh then
         bucket[itemID] = { price = price, seenAt = now }
       end
     end
@@ -72,8 +85,8 @@ function Instance:lookup(itemID)
   end
 
   local entry = bucket and bucket[itemID]
-  if entry and valid(entry.price) and type(entry.seenAt) == "number" then
-    result.ah, result.ahSource, result.ahAge = entry.price, "cache", now - entry.seenAt
+  if validEntry(entry) and valid(entry.price) then
+    result.ah, result.ahSource, result.ahAge = entry.price, "cache", math.max(0, now - entry.seenAt)
   end
   return result
 end
