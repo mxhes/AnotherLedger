@@ -93,6 +93,8 @@ function Ledger.init()
   Ledger.list = list
   table.insert(parts, 1, rowsPart)
 
+  if ns.UI.Summary then ns.UI.Summary.attach(frame.topBox, frame.footer) end
+
   if ns.UI.Header then
     local Core = ns.Core
     ns.UI.Header.attach(frame.header.row1, {

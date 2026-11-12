@@ -38,6 +38,8 @@ Theme.sizes = {
   buttonHeight = 20,
   buttonGap = 2,
   timerWidth = 54,
+  topHeaderHeight = 14,
+  topRowHeight = 16,
 }
 
 -- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom.
