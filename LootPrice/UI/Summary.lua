@@ -215,9 +215,9 @@ function Summary.attach(topBox, footer)
   summary.divider = divider
 
   -- Footer: three stacked blocks (items, raw gold, items + gold). Each starts
-  -- with a label row (small muted label, thin separator line to its right).
+  -- with a title row (gold title, thin separator line to its right).
   local layout = Summary.footerLayout()
-  local muted = T.colors.hint
+  local titleColor = T.colors.gold
   local sep = T.colors.rowSeparator
 
   local function block(b, labelText)
@@ -225,7 +225,7 @@ function Summary.attach(topBox, footer)
     frame:SetHeight(b.contentHeight)
     frame:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -b.contentTop)
     frame:SetPoint("TOPRIGHT", footer, "TOPRIGHT", 0, -b.contentTop)
-    local label = makeText(footer, T.fonts.blockLabel, muted, "LEFT")
+    local label = makeText(footer, T.fonts.blockLabel, titleColor, "LEFT")
     label:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -b.top)
     label:SetHeight(b.labelHeight)
     label:SetText(labelText)

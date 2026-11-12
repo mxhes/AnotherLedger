@@ -82,7 +82,7 @@ h.test("footer blocks stack and add up to footerHeight", function()
   h.eq(L.items.contentHeight, 38) -- the item block keeps its height
   h.eq(L.height, T.footerHeight)
   h.eq(L.height, 3 * T.footerLabelHeight + 38 + 16 + 38)
-  h.eq(T.footerHeight, 128)
+  h.eq(T.footerHeight, 146)
 end)
 
 h.test("two-line blocks fit their lines", function()
@@ -92,7 +92,7 @@ h.test("two-line blocks fit their lines", function()
   h.eq(T.footerTotalHeight >= 2 * 14 + 2, true)
   -- gold: one 12 pt line (14) + insets
   h.eq(T.footerGoldHeight >= 14 + 2, true)
-  h.eq(T.footerLabelHeight >= 12, true)
+  h.eq(T.footerLabelHeight >= 18, true)
 end)
 
 h.test("gold line fits the content width at the minimum window width", function()
@@ -105,9 +105,9 @@ end)
 h.test("minHeight leaves the list at least four rows beside a full Top finds block", function()
   local T = ns.Theme.sizes
   h.eq(T.minListRows, 4)
-  h.eq(S.requiredWindowHeight(), 24 + 56 + 84 + 4 * 28 + 128)
+  h.eq(S.requiredWindowHeight(), 24 + 56 + 84 + 4 * 28 + 146)
   h.eq(T.minHeight >= S.requiredWindowHeight(), true)
-  h.eq(T.minHeight, 404)
+  h.eq(T.minHeight, 422)
 end)
 
 h.test("goldText formats total and rate", function()

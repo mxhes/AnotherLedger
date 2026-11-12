@@ -114,7 +114,7 @@ local function restore(frame)
   local w = winDB() or {}
   local sw, sh = screenSize(frame)
   local width = clamp(tonumber(w.width) or 420, minWidth(), sw)
-  local height = clamp(tonumber(w.height) or 420, T.sizes.minHeight, sh)
+  local height = clamp(tonumber(w.height) or 440, T.sizes.minHeight, sh)
   frame:SetSize(width, height)
   frame:ClearAllPoints()
   frame:SetPoint("CENTER", UIParent, "CENTER", tonumber(w.x) or 0, tonumber(w.y) or 0)
