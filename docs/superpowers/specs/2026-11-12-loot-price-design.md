@@ -110,6 +110,7 @@ Decided: no toasts; always-visible ledger with hide + slash command; draggable/r
 
 ## Calls made by the designer (not decided by the player; check these)
 1. **Unverifiable APIs:** the price sources sit behind one thin interface (`GetPrice(itemID)`), so a wrong TSM/Auctionator call is a one-file fix. The first in-client test is to verify each call; unverified calls are flagged in code comments until then.
+1a. **Vendor price lookup:** the vendor price is looked up by item ID (`C_Item.GetItemInfo(itemID)`, `Sources/Vendor.lua`) rather than by `GetItemInfo(link)`, because rows aggregate by item ID; scaled gear whose sell price differs per link is an accepted inaccuracy.
 2. **Age tag semantics:** TSM/Auctionator return a number with no scan time. Age = time since the source last returned a non-nil price for that item (cache stores `price` and `seenAt`). If the source returns nil, the cached price is shown with its age. Known limit: a source that silently returns old scan data looks fresh. Document this limit in the settings/help text.
 3. **Cache use:** every lookup reads the source first; a non-nil result is written to the cache (throttled); nil falls back to the cache; no cache means `n/a`. Prices are looked up when an item is looted and when the ledger redraws (throttled).
 4. **Unpriced marker:** the totals bar shows "N unpriced" next to the AH total when rows have no AH price, supporting the anti-goal on hidden missing data.

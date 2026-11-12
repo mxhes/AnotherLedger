@@ -1,0 +1,3 @@
+local addonName, ns = ...
+ns.probe = true
+ns.addonName = addonName
