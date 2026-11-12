@@ -41,6 +41,8 @@ Theme.colors = {
   -- Divider between Top finds and the list (goldLine at partial alpha).
   divider = { 1.00, 0.82, 0.20, 0.85 },
   -- Row flash: soft warm glow, strong one brighter (alpha highlight on dark).
+  -- Thin line between ledger rows: goldLine at low alpha (quiet but visible).
+  rowSeparator = { 1.00, 0.82, 0.20, 0.20 },
   flashNormal = { 1.00, 0.90, 0.60, 0.22 },
   flashStrong = { 1.00, 0.80, 0.35, 0.45 },
   -- Dark warm leather brown.
@@ -84,7 +86,7 @@ Theme.sizes = {
   summaryCharPx = 6.6,
   markerCharPx = 5.5,
   gripSize = 16,
-  -- Ledger row geometry (Rows.columnLayout). textLeft = icon inset 2 + icon 24
+  -- Ledger row geometry (Rows.worstCase / Rows.blockLayout). textLeft = icon inset 2 + icon 24
   -- + gap 5; rowRightInset is the right edge of the Vendor/AH block.
   rowTextLeft = 31,
   rowRightInset = 4,
@@ -92,6 +94,10 @@ Theme.sizes = {
   rowChrome = 36,
   -- Space between the top/bottom row edge and the two text lines.
   rowLineInset = 2,
+  -- Separator at the bottom edge of a row (inside the row height): thickness and
+  -- left inset (= the icon's left edge).
+  rowSeparator = 1,
+  rowSeparatorInset = 2,
   -- Minimum width of the name column (name + quantity).
   rowNameMin = 90,
   -- Gap between the name column and the Vendor/AH block; between the name and

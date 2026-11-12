@@ -8,7 +8,7 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 
 The Session Ledger is a draggable, resizable, scrollable window:
 
-- **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block on the right (each amount directly after its label, amounts and labels lined up; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). Newly looted rows flash.
+- **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block that is right-aligned and adaptive (each amount directly after its label, amounts and labels lined up; the block hugs the right edge and shifts left only as far as the longest amount currently shown needs; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). A thin quiet separator line runs between rows. Newly looted rows flash.
 - **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (the real game coin colors, bright on the dark panel); `n/a` stays plain.
 - **Top finds**: the most valuable finds of the session, with a gold divider line between them and the list (hidden together with the block when there are no finds).
 - **Totals**: vendor total, AH total and gold per hour for each, following the visible (filtered) rows, in a larger font than the old small one.
@@ -84,6 +84,7 @@ Window
 Rows and list
 - [ ] Mouse wheel and scrollbar scroll; resizing re-lays out rows
 - [ ] Vendor/AH block on the right (Vendor upper line, AH lower line), the amount directly after its label, labels and amounts line up down the list, the quantity after the name, long names clipped with an ellipsis (quantity stays), the window minimum width adapts to the measured font (also at the minimum width with a long amount like `123456g 78s 90c`); two text lines fit the 28 px row without touching
+- [ ] Right block hugs the right edge and shifts left for longer amounts; separators visible but quiet
 - [ ] Looting flashes the row, a hidden row scrolls into view, a stack increase re-flashes
 - [ ] An uncached item shows the link name, then corrects on `GET_ITEM_INFO_RECEIVED`
 - [ ] The ticker updates only while the session runs

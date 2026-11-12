@@ -119,3 +119,15 @@ h.test("coin colors are the game's", function()
   h.eq(hex(T.colors.moneySilver), "c7c7cf")
   h.eq(hex(T.colors.moneyCopper), "eda55f")
 end)
+
+h.test("row separator: 1 px, subtle but visible on the panel", function()
+  local s, tint = T.colors.rowSeparator, T.colors.panelTint
+  h.eq(type(s), "table")
+  h.eq(T.sizes.rowSeparator, 1)
+  h.eq(T.sizes.rowSeparator < T.sizes.rowHeight, true)
+  h.eq(s[4] >= 0.15 and s[4] <= 0.30, true, "alpha")
+  local a = s[4]
+  local mix = {}
+  for i = 1, 3 do mix[i] = s[i] * a + tint[i] * (1 - a) end
+  h.eq(contrast(mix, tint) >= 1.3, true, "contrast")
+end)

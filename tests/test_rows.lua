@@ -74,87 +74,111 @@ local function checkBlock(c, w)
   h.eq(c.blockX + c.blockW, w)
   h.eq(c.rightEdge, w)
   h.eq(c.nameX + c.nameW + S.rowNameGap <= c.blockX, true)
-  -- Labels share one x; amounts share one x after the wider label + gap.
   h.eq(c.labelX, c.blockX)
-  h.eq(c.amountX, c.labelX + c.labelW + S.rowLabelGap)
-  -- Block holds label column, amount and tag with gaps.
-  h.eq(c.blockW, c.labelW + S.rowLabelGap + c.amountW + S.rowTagGap + c.tagW)
 end
 
-h.test("columnLayout: block flush right, no overlap, shared x (fallback widths)", function()
-  local S = ns.Theme.sizes
-  local req = R.columnLayout(nil, nil).required
-  for _, w in ipairs({ req, req + 1, 400, 700 }) do
-    local c = R.columnLayout(w)
-    checkBlock(c, w)
-    h.eq(c.labelW, math.max(S.rowVendorLabelW, S.rowAhLabelW))
-    h.eq(c.amountW, S.rowVendorColW)
-    h.eq(c.tagW, S.rowTagW)
-    h.eq(c.nameW >= S.rowNameMin, true)
-  end
-end)
+local P = ns.Theme.sizes.rowMeasurePad
 
-h.test("columnLayout measured: labels/amounts line up after the wider label", function()
+h.test("blockLayout: right edge flush, narrow amounts give a narrow block", function()
   local S = ns.Theme.sizes
-  local p = S.rowMeasurePad
-  local c = R.columnLayout(500, WIDE)
+  local c = R.blockLayout(500, 50, 40, nil)
   checkBlock(c, 500)
+  h.eq(c.amountX, c.labelX + 50 + P + S.rowLabelGap)
+  h.eq(c.blockW, 50 + P + S.rowLabelGap + 40 + P)
+  h.eq(c.tagGap, 0)
+  h.eq(c.tagW, 0)
+  local wide = R.blockLayout(500, 50, 98, nil)
+  checkBlock(wide, 500)
+  h.eq(wide.blockW > c.blockW, true)
+  h.eq(wide.amountX - wide.labelX, c.amountX - c.labelX)
+end)
+
+h.test("blockLayout: a longer amount moves blockX left by exactly the growth", function()
+  local a = R.blockLayout(500, 50, 60, 30)
+  local b = R.blockLayout(500, 50, 85, 30)
+  checkBlock(a, 500)
+  checkBlock(b, 500)
+  h.eq(a.blockX - b.blockX, 25)
+  h.eq(a.amountX - b.amountX, 25)
+  h.eq(b.nameW, a.nameW - 25)
+  -- Width of the content does not change the block, only shifts it.
+  local c = R.blockLayout(620, 50, 60, 30)
+  h.eq(c.blockW, a.blockW)
+  h.eq(c.blockX - a.blockX, 120)
+end)
+
+h.test("blockLayout: tag gap and width only when a rendered row has a tag", function()
+  local S = ns.Theme.sizes
+  local none = R.blockLayout(500, 50, 60, nil)
+  local zero = R.blockLayout(500, 50, 60, 0)
+  local tag = R.blockLayout(500, 50, 60, 36)
+  h.eq(none.blockW, zero.blockW)
+  h.eq(none.tagGap, 0)
+  h.eq(tag.tagGap, S.rowTagGap)
+  h.eq(tag.tagW, 36 + P)
+  h.eq(tag.blockW, none.blockW + S.rowTagGap + 36 + P)
+  -- The amount column x depends on the label column only.
+  h.eq(tag.amountX - tag.labelX, none.amountX - none.labelX)
+  checkBlock(tag, 500)
+end)
+
+h.test("blockLayout: nil / 0 measurements use the Theme fallbacks", function()
+  local S = ns.Theme.sizes
+  local c = R.blockLayout(500, nil, 0, nil)
+  checkBlock(c, 500)
+  h.eq(c.amountX - c.labelX, math.max(S.rowVendorLabelW, S.rowAhLabelW) + S.rowLabelGap)
+  h.eq(c.blockW, math.max(S.rowVendorLabelW, S.rowAhLabelW) + S.rowLabelGap + S.rowVendorColW)
+  h.eq(R.blockLayout(500, 0 / 0, nil, nil).blockW, c.blockW)
+end)
+
+h.test("blockLayout: block never takes the name column below rowNameMin", function()
+  local S = ns.Theme.sizes
+  local c = R.blockLayout(200, 50, 400, 40)
+  checkBlock(c, 200)
+  h.eq(c.blockW, 200 - S.rowNameMin - S.rowNameGap)
+  h.eq(c.nameW, S.rowNameMin)
+  -- Unknown content width: the natural block plus the minimum name column.
+  local u = R.blockLayout(nil, 50, 60, 30)
+  checkBlock(u, u.rightEdge)
+  h.eq(u.nameW, S.rowNameMin)
+end)
+
+h.test("blockLayout: worst case fits at the window's required width", function()
+  local S = ns.Theme.sizes
+  local wc = R.worstCase(WIDE)
+  local c = R.blockLayout(wc.required, WIDE.vendorLabel, WIDE.amount, WIDE.tag)
+  h.eq(c.blockW, wc.blockW)
+  h.eq(c.nameW, S.rowNameMin)
+  checkBlock(c, wc.required)
+end)
+
+h.test("worstCase: required = rowNameMin + gap + blockW", function()
+  local S = ns.Theme.sizes
+  local c = R.worstCase(WIDE)
   h.eq(c.fallback, false)
-  h.eq(c.labelW, 50 + p)
-  h.eq(c.amountX - c.labelX, 50 + p + S.rowLabelGap)
-  h.eq(c.amountW, 98 + p)
-  h.eq(c.tagW, 40 + p)
-  h.eq(c.tagGap, S.rowTagGap)
-  h.eq(c.qtyW, 30 + p)
-  -- The AH label may be the wider one.
-  local d = R.columnLayout(500, { vendorLabel = 20, ahLabel = 44, tag = 40, amount = 98 })
-  h.eq(d.labelW, 44 + p)
-  h.eq(d.amountX, d.labelX + 44 + p + S.rowLabelGap)
-end)
-
-h.test("columnLayout: extra width goes only to the name column", function()
-  local a = R.columnLayout(R.columnLayout(nil, WIDE).required, WIDE)
-  local b = R.columnLayout(R.columnLayout(nil, WIDE).required + 150, WIDE)
-  h.eq(b.nameW, a.nameW + 150)
-  h.eq(b.blockW, a.blockW)
-  h.eq(b.labelW, a.labelW)
-  h.eq(b.amountW, a.amountW)
-  h.eq(b.tagW, a.tagW)
-  h.eq(b.labelX - a.labelX, 150)
-  h.eq(b.amountX - b.labelX, a.amountX - a.labelX)
-end)
-
-h.test("columnLayout: required = rowNameMin + gap + blockW; name column hits rowNameMin", function()
-  local S = ns.Theme.sizes
-  local c = R.columnLayout(nil, WIDE)
+  h.eq(c.labelW, 50 + P)
+  h.eq(c.amountW, 98 + P)
+  h.eq(c.tagW, 40 + P)
+  h.eq(c.qtyW, 30 + P)
+  h.eq(c.blockW, 50 + P + S.rowLabelGap + 98 + P + S.rowTagGap + 40 + P)
   h.eq(c.required, S.rowNameMin + S.rowNameGap + c.blockW)
-  h.eq(c.blockW, 50 + S.rowMeasurePad + S.rowLabelGap + 98 + S.rowMeasurePad + S.rowTagGap + 40 + S.rowMeasurePad)
-  local m = R.columnLayout(c.required, WIDE)
-  h.eq(m.nameW, S.rowNameMin)
-  checkBlock(m, c.required)
+  -- The AH label may be the wider one.
+  h.eq(R.worstCase({ vendorLabel = 20, ahLabel = 44, tag = 40, amount = 98 }).labelW, 44 + P)
 end)
 
-h.test("columnLayout: block width covers the worst-case amount and tag", function()
-  local c = R.columnLayout(600, WIDE)
-  h.eq(c.blockW >= c.labelW + c.amountW + c.tagW, true)
-  h.eq(c.amountX + c.amountW + c.tagGap + c.tagW, c.blockX + c.blockW)
-end)
-
-h.test("columnLayout: nil / zero measured fields use the Theme fallbacks", function()
+h.test("worstCase: nil / zero measured fields use the Theme fallbacks", function()
   local S = ns.Theme.sizes
-  local c = R.columnLayout(400, nil)
+  local c = R.worstCase(nil)
   h.eq(c.fallback, true)
   h.eq(c.labelW, math.max(S.rowVendorLabelW, S.rowAhLabelW))
   h.eq(c.amountW, S.rowVendorColW)
   h.eq(c.tagW, S.rowTagW)
   h.eq(c.qtyW, S.rowQtyW)
-  local part = R.columnLayout(400, { vendorLabel = 50, ahLabel = 0, tag = nil, amount = 98, qtyWorst = 30 })
+  local part = R.worstCase({ vendorLabel = 50, ahLabel = 0, tag = nil, amount = 98, qtyWorst = 30 })
   h.eq(part.fallback, true)
-  h.eq(part.labelW, 50 + S.rowMeasurePad)
-  h.eq(part.amountW, 98 + S.rowMeasurePad)
+  h.eq(part.labelW, 50 + P)
   h.eq(part.tagW, S.rowTagW)
-  -- A missing quantity measurement alone also counts as a fallback.
-  h.eq(R.columnLayout(400, { vendorLabel = 50, ahLabel = 26, tag = 40, amount = 98 }).fallback, true)
+  h.eq(R.worstCase({ vendorLabel = 50, ahLabel = 26, tag = 40, amount = 98 }).fallback, true)
 end)
 
 h.test("nameFit clips long names, keeps the quantity visible", function()
@@ -170,7 +194,7 @@ end)
 
 h.test("requiredRowWidth adds the text inset and window chrome", function()
   local S = ns.Theme.sizes
-  local c = R.columnLayout(nil, WIDE)
+  local c = R.worstCase(WIDE)
   h.eq(R.requiredRowWidth(WIDE), S.rowNameMin + S.rowNameGap + c.blockW + S.rowTextLeft + S.rowRightInset + S.rowChrome)
   h.eq(R.requiredRowWidth(WIDE) > R.requiredRowWidth(nil), true)
 end)

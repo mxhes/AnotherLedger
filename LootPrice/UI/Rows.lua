@@ -79,44 +79,62 @@ local function resolveWidths(measured)
   return widths, fb
 end
 
--- Geometry (px, relative to the left of the row's text area) of a row whose
--- text area is `contentWidth` wide. `measured` = {vendorLabel, ahLabel, tag,
--- amount, qtyWorst} real string widths (nil/0 fields use the Theme fallbacks).
---   Left part : name column [nameX, nameX + nameW) holding the name and, right
---               after it, the quantity (qtyW = widest quantity text).
---   Right block (blockW wide, flush with the right edge, constant for every
---   row): labels at labelX (one shared x), amounts at amountX (one shared x =
---   labelX + widest label + labelGap), the age tag directly after the AH amount
---   (tagGap): the client code anchors the tag to the amount's right end, blockW
---   only reserves room for the worst-case amount plus the tag.
--- Extra width goes to the name column only.
-function Rows.columnLayout(contentWidth, measured)
+-- WORST-CASE geometry, used only for the window's minimum width: `measured` =
+-- {vendorLabel, ahLabel, tag, amount, qtyWorst} real string widths of the worst
+-- case strings (nil/0 fields use the Theme fallbacks). The worst-case block is
+-- labels + gap + widest amount + tag gap + tag; `required` = rowNameMin + gap +
+-- blockW (the width of the row content that always fits). The rows themselves
+-- are laid out with the adaptive Rows.blockLayout.
+function Rows.worstCase(measured)
   local S = ns.Theme.sizes
   local wd, fallback = resolveWidths(measured)
   local labelW = math.max(wd.vendorLabel, wd.ahLabel)
-  local amountOff = labelW + S.rowLabelGap
-  local blockW = amountOff + wd.amount + S.rowTagGap + wd.tag
-  local gap = S.rowNameGap
-  local required = S.rowNameMin + gap + blockW
-  local w = positive(contentWidth) and contentWidth or required
-  local c = {
-    required = required,
+  local blockW = labelW + S.rowLabelGap + wd.amount + S.rowTagGap + wd.tag
+  return {
+    required = S.rowNameMin + S.rowNameGap + blockW,
     fallback = fallback,
-    rightEdge = w,
     blockW = blockW,
-    blockX = w - blockW,
-    nameX = 0,
-    nameGap = gap,
     labelW = labelW,
     amountW = wd.amount,
     tagW = wd.tag,
-    tagGap = S.rowTagGap,
     qtyW = wd.qty,
   }
-  c.nameW = math.max(0, c.blockX - gap)
-  c.labelX = c.blockX
-  c.amountX = c.blockX + amountOff
-  return c
+end
+
+-- Adaptive right block for the rows currently rendered. Inputs are RAW measured
+-- widths (no padding): labelsW = widest label, amountMaxW = widest vendor/AH
+-- amount among the rendered rows, tagMaxW = widest age tag (nil/0 = no rendered
+-- row shows a tag: no tag width and no tag gap). nil/0 labels or amounts use the
+-- Theme fallbacks. The block's right edge is always contentWidth (flush right);
+-- it grows leftwards with longer amounts, but never so far that the name column
+-- drops below rowNameMin (then the amount clips on the right).
+-- Returns {blockW, blockX, labelX, amountX, nameX, nameW, tagGap, tagW, rightEdge}.
+function Rows.blockLayout(contentWidth, labelsW, amountMaxW, tagMaxW)
+  local S = ns.Theme.sizes
+  local pad = S.rowMeasurePad
+  local labelW = positive(labelsW) and labelsW + pad or math.max(S.rowVendorLabelW, S.rowAhLabelW)
+  local amountW = positive(amountMaxW) and amountMaxW + pad or S.rowVendorColW
+  local hasTag = positive(tagMaxW)
+  local tagW = hasTag and tagMaxW + pad or 0
+  local tagGap = hasTag and S.rowTagGap or 0
+  local amountOff = labelW + S.rowLabelGap
+  local blockW = amountOff + amountW + tagGap + tagW
+  local gap = S.rowNameGap
+  local w = contentWidth
+  if not positive(w) then w = S.rowNameMin + gap + blockW end
+  blockW = math.min(blockW, math.max(0, w - S.rowNameMin - gap))
+  local blockX = w - blockW
+  return {
+    rightEdge = w,
+    blockW = blockW,
+    blockX = blockX,
+    labelX = blockX,
+    amountX = blockX + amountOff,
+    nameX = 0,
+    nameW = math.max(0, blockX - gap),
+    tagGap = tagGap,
+    tagW = tagW,
+  }
 end
 
 -- Width of the name FontString: its natural width, but at most what is left
@@ -132,7 +150,7 @@ end
 -- width + text inset + right inset + window chrome.
 function Rows.requiredRowWidth(measured)
   local S = ns.Theme.sizes
-  local c = Rows.columnLayout(nil, measured)
+  local c = Rows.worstCase(measured)
   return c.required + S.rowTextLeft + S.rowRightInset + S.rowChrome
 end
 
@@ -178,12 +196,17 @@ local function setColor(fs, c)
   fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
 end
 
--- Places the row's FontStrings from Rows.columnLayout for the row's width.
+-- Places the row's FontStrings: Rows.blockLayout from the owner's current
+-- block measurement (widest amount/tag of the rendered rows) for the row's width.
 local function layoutRow(f)
   local S = theme().sizes
   local w = f:GetWidth()
   if type(w) ~= "number" or w <= 0 then return end
-  local c = Rows.columnLayout(w - S.rowTextLeft - S.rowRightInset, f.owner and f.owner.measured)
+  local owner = f.owner or {}
+  local m = owner.measured or {}
+  local bm = owner.blockMeasure or {}
+  local c = Rows.blockLayout(w - S.rowTextLeft - S.rowRightInset,
+    math.max(m.vendorLabel or 0, m.ahLabel or 0), bm.amount, bm.tag)
   local x0, inset = S.rowTextLeft, S.rowLineInset
   local function put(fs, point, x)
     fs:ClearAllPoints()
@@ -192,7 +215,7 @@ local function layoutRow(f)
   put(f.name, "TOPLEFT", c.nameX)
   f.name:SetWidth(0) -- auto width, to read the natural text width
   local qtyW = f.qty:GetStringWidth()
-  if not positive(qtyW) then qtyW = c.qtyW end
+  if not positive(qtyW) then qtyW = m.qtyWorst and m.qtyWorst + S.rowMeasurePad or S.rowQtyW end
   f.name:SetWidth(Rows.nameFit(c.nameW, qtyW, f.name:GetStringWidth()))
   f.qty:ClearAllPoints()
   f.qty:SetPoint("LEFT", f.name, "RIGHT", S.rowQtyGap, 0)
@@ -221,6 +244,16 @@ local function createRow(parent, owner)
   fade:SetSmoothing("OUT")
   ag:SetScript("OnFinished", function() flash:Hide() end)
   f.flash, f.flashGroup, f.flashFade = flash, ag, fade
+
+  -- Separator inside the bottom pixel row (no extra height); hidden on the last row.
+  local sep = f:CreateTexture(nil, "BORDER")
+  sep:SetTexture(T.textures.rowHighlight)
+  local sc = T.colors.rowSeparator
+  sep:SetVertexColor(sc[1], sc[2], sc[3], sc[4])
+  sep:SetHeight(T.sizes.rowSeparator)
+  sep:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", T.sizes.rowSeparatorInset, 0)
+  sep:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
+  f.separator = sep
 
   local border = f:CreateTexture(nil, "ARTWORK")
   border:SetSize(T.sizes.iconSize, T.sizes.iconSize)
@@ -274,7 +307,6 @@ local function fillRow(f, row)
   f.ahLabel:SetText(t.ahLabel)
   f.vendor:SetText(t.vendorAmountColored)
   f.ah:SetText(t.ahAmountColored)
-  layoutRow(f)
   f.tag:SetText(t.tag or "")
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
   local br, bg, bb = T.qualityColor(row.quality, false)
@@ -356,6 +388,7 @@ function Rows.attach(area, onMeasure)
     local n = visible()
     local total = #self.data
     self.offset = Rows.clampOffset(self.offset, total, n)
+    local amountMax, tagMax, shownRows = 0, 0, {}
     for i = 1, n do
       local f = self.pool[i]
       if not f then
@@ -369,13 +402,26 @@ function Rows.attach(area, onMeasure)
         if f.itemID ~= row.id then stopFlash(f) end
         f.itemID = row.id
         fillRow(f, row)
+        f.separator:SetShown(self.offset + i < total)
         f:Show()
+        -- Pass 1: widest amount / tag among the rendered rows.
+        local aw = math.max(f.vendor:GetStringWidth() or 0, f.ah:GetStringWidth() or 0)
+        if aw > amountMax then amountMax = aw end
+        if f.tag:GetText() ~= "" then
+          local tw = f.tag:GetStringWidth() or 0
+          if tw <= 0 then tw = theme().sizes.rowTagW end
+          if tw > tagMax then tagMax = tw end
+        end
+        shownRows[#shownRows + 1] = f
       else
         f.itemID = nil
         stopFlash(f)
         f:Hide()
       end
     end
+    -- Pass 2: one shared block layout for every rendered row.
+    self.blockMeasure = { amount = amountMax, tag = tagMax }
+    for _, f in ipairs(shownRows) do layoutRow(f) end
     for i = n + 1, #self.pool do
       local f = self.pool[i]
       f.itemID = nil
