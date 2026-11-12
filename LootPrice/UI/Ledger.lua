@@ -105,6 +105,10 @@ function Ledger.init()
     })
   end
 
+  if ns.UI.FilterBar then
+    ns.UI.FilterBar.attach(frame.header.row2, ns.db, Ledger.refresh)
+  end
+
   -- OnUpdate only runs while the frame is shown.
   local acc = 0
   frame:SetScript("OnUpdate", function(_, dt)
