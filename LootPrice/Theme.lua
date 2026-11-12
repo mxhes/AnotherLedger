@@ -84,6 +84,29 @@ Theme.sizes = {
   summaryCharPx = 6.6,
   markerCharPx = 5.5,
   gripSize = 16,
+  -- Ledger row geometry (Rows.columnLayout). textLeft = icon inset 2 + icon 24
+  -- + gap 5; rowRightInset is the shared right edge of quantity and AH column.
+  rowTextLeft = 31,
+  rowRightInset = 4,
+  -- Window chrome around the row area: 2 * (padding 8 + 4) + scrollbar 10 + 2.
+  rowChrome = 36,
+  rowQtyW = 36,
+  rowVendorLabelW = 40,
+  rowLabelGap = 2,
+  rowVendorColW = 84,
+  rowGapMid = 6,
+  rowAhLabelW = 20,
+  rowTagW = 36,
+  rowAhColW = 84,
+  -- Extra width goes to each amount column up to this much, the rest to the
+  -- gap between the vendor column and the AH label (never to the labels).
+  rowColExtraMax = 20,
+  -- Line 2 uses fonts.small (10 pt, ~5.5 px per glyph = markerCharPx).
+  -- Worst-case budget at minWidth 350 (content width 350 - 36 - 31 - 4 = 279):
+  -- amount "123456g 78s 90c" = 15 chars * 5.5 = 82.5 -> column 84;
+  -- "Vendor:" 7 * 5.5 = 38.5 -> 40; "AH:" 3 * 5.5 = 16.5 -> 20;
+  -- tag "(999d)" 6 * 5.5 = 33 -> 36.
+  -- Sum 40 + 2 + 84 + 6 + 20 + 36 + 84 = 272 <= 279 (7 px spare).
   gripInset = 4,
   backdropTile = 16,
   backdropEdge = 24,

@@ -37,7 +37,44 @@ function Rows.rowText(row)
     ahColored = L.AH .. ns.Money.formatColored(row.ahTotal),
     tag = tag,
     tagStale = tagStale,
+    -- Separate pieces for the aligned columns.
+    vendorLabel = L.VENDOR,
+    ahLabel = L.AH,
+    vendorAmount = ns.Money.format(row.vendorTotal),
+    ahAmount = ns.Money.format(row.ahTotal),
+    vendorAmountColored = ns.Money.formatColored(row.vendorTotal),
+    ahAmountColored = ns.Money.formatColored(row.ahTotal),
   }
+end
+
+-- Column positions (px, relative to the left of the row's text area) of line 2
+-- for a text area `contentWidth` wide. The AH column's right edge and the
+-- quantity's right edge are both contentWidth. Extra width beyond the minimum
+-- goes to the amount columns (capped) and the middle gap, never to labels.
+function Rows.columnLayout(contentWidth)
+  local S = ns.Theme.sizes
+  local minTotal = S.rowVendorLabelW + S.rowLabelGap + S.rowVendorColW + S.rowGapMid
+    + S.rowAhLabelW + S.rowTagW + S.rowAhColW
+  local w = type(contentWidth) == "number" and contentWidth == contentWidth and contentWidth or minTotal
+  local extra = math.max(0, w - minTotal)
+  local colExtra = math.min(S.rowColExtraMax, math.floor(extra / 2))
+  local vendorColW = S.rowVendorColW + colExtra
+  local ahColW = S.rowAhColW + colExtra
+  local L2 = {}
+  L2.vendorLabelX = 0
+  L2.vendorLabelW = S.rowVendorLabelW
+  L2.vendorColX = S.rowVendorLabelW + S.rowLabelGap
+  L2.vendorColW = vendorColW
+  -- Right-anchored part: AH column, tag and AH label.
+  L2.ahColW = ahColW
+  L2.ahColX = math.max(w, minTotal) - ahColW
+  L2.tagW = S.rowTagW
+  L2.tagX = L2.ahColX - S.rowTagW
+  L2.ahLabelW = S.rowAhLabelW
+  L2.ahLabelX = L2.tagX - S.rowAhLabelW
+  L2.qtyW = S.rowQtyW
+  L2.rightEdge = L2.ahColX + ahColW
+  return L2
 end
 
 -- How many whole rows fit in `height` (at least 1).
@@ -82,6 +119,24 @@ local function setColor(fs, c)
   fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
 end
 
+-- Places the line-2 FontStrings from Rows.columnLayout for the row's width.
+local function layoutRow(f)
+  local S = theme().sizes
+  local w = f:GetWidth()
+  if type(w) ~= "number" or w <= 0 then return end
+  local c = Rows.columnLayout(w - S.rowTextLeft - S.rowRightInset)
+  local function put(fs, x, width)
+    fs:ClearAllPoints()
+    fs:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", S.rowTextLeft + x, 3)
+    fs:SetWidth(width)
+  end
+  put(f.vendorLabel, c.vendorLabelX, c.vendorLabelW)
+  put(f.vendor, c.vendorColX, c.vendorColW)
+  put(f.ahLabel, c.ahLabelX, c.ahLabelW)
+  put(f.tag, c.tagX, c.tagW)
+  put(f.ah, c.ahColX, c.ahColW)
+end
+
 local function createRow(parent)
   local T = theme()
   local f = CreateFrame("Frame", nil, parent)
@@ -110,8 +165,10 @@ local function createRow(parent)
   f.iconBorder, f.icon = border, icon
 
   local qty = f:CreateFontString(nil, "OVERLAY", T.fonts.number)
-  qty:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -3)
+  qty:SetPoint("TOPRIGHT", f, "TOPRIGHT", -T.sizes.rowRightInset, -3)
+  qty:SetWidth(T.sizes.rowQtyW)
   qty:SetJustifyH("RIGHT")
+  qty:SetWordWrap(false)
   setColor(qty, T.colors.ink)
 
   local name = f:CreateFontString(nil, "OVERLAY", T.fonts.body)
@@ -120,21 +177,22 @@ local function createRow(parent)
   name:SetJustifyH("LEFT")
   name:SetWordWrap(false)
 
-  local tag = f:CreateFontString(nil, "OVERLAY", T.fonts.body)
-  tag:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4, 3)
-  tag:SetJustifyH("RIGHT")
-
-  local ah = f:CreateFontString(nil, "OVERLAY", T.fonts.body)
-  ah:SetPoint("BOTTOMRIGHT", tag, "BOTTOMLEFT", -3, 0)
-  ah:SetJustifyH("RIGHT")
-  setColor(ah, T.colors.ink)
-
-  local vendor = f:CreateFontString(nil, "OVERLAY", T.fonts.body)
-  vendor:SetPoint("BOTTOMLEFT", border, "BOTTOMRIGHT", 5, 0)
-  vendor:SetJustifyH("LEFT")
-  setColor(vendor, T.colors.ink)
+  local function line2(justify, color)
+    local fs = f:CreateFontString(nil, "OVERLAY", T.fonts.small)
+    fs:SetJustifyH(justify)
+    fs:SetWordWrap(false)
+    if color then setColor(fs, color) end
+    return fs
+  end
+  local vendorLabel = line2("LEFT", T.colors.ink)
+  local vendor = line2("RIGHT", T.colors.ink)
+  local ahLabel = line2("LEFT", T.colors.ink)
+  local tag = line2("RIGHT", T.colors.ink)
+  local ah = line2("RIGHT", T.colors.ink)
+  f.vendorLabel, f.ahLabel = vendorLabel, ahLabel
 
   f.name, f.qty, f.vendor, f.ah, f.tag = name, qty, vendor, ah, tag
+  f:SetScript("OnSizeChanged", layoutRow)
   return f
 end
 
@@ -150,8 +208,11 @@ local function fillRow(f, row)
   f.name:SetText(t.name)
   f.name:SetTextColor(r, g, b)
   f.qty:SetText(t.qty)
-  f.vendor:SetText(t.vendorColored)
-  f.ah:SetText(t.ahColored)
+  f.vendorLabel:SetText(t.vendorLabel)
+  f.ahLabel:SetText(t.ahLabel)
+  f.vendor:SetText(t.vendorAmountColored)
+  f.ah:SetText(t.ahAmountColored)
+  layoutRow(f)
   f.tag:SetText(t.tag or "")
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
   local br, bg, bb = T.qualityColor(row.quality, false)

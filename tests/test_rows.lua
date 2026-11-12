@@ -57,3 +57,56 @@ h.test("offsetFor scrolls minimally", function()
   h.eq(R.offsetFor(7, 5, 4, 10), 5)
   h.eq(R.offsetFor(nil, 5, 4, 10), 5)
 end)
+
+h.test("rowText separate columns", function()
+  local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil })
+  h.eq(t.vendorLabel, "Vendor: ")
+  h.eq(t.ahLabel, "AH: ")
+  h.eq(t.ahAmount, "n/a")
+  h.eq(t.vendorAmount, "5c")
+end)
+
+h.test("columnLayout: no overlap, minimums, shared right edge", function()
+  local S = ns.Theme.sizes
+  local minContent = S.minWidth - S.rowChrome - S.rowTextLeft - S.rowRightInset
+  for _, w in ipairs({ minContent, 400, 700 }) do
+    local c = R.columnLayout(w)
+    h.eq(c.vendorLabelX >= 0, true)
+    h.eq(c.vendorColX >= c.vendorLabelX + c.vendorLabelW, true)
+    h.eq(c.ahLabelX >= c.vendorColX + c.vendorColW, true)
+    h.eq(c.tagX >= c.ahLabelX + c.ahLabelW, true)
+    h.eq(c.ahColX >= c.tagX + c.tagW, true)
+    h.eq(c.ahColX + c.ahColW, w)
+    h.eq(c.rightEdge, w)
+    h.eq(c.vendorColW >= S.rowVendorColW, true)
+    h.eq(c.ahColW >= S.rowAhColW, true)
+    h.eq(c.tagW >= S.rowTagW, true)
+    h.eq(c.qtyW >= S.rowQtyW, true)
+    h.eq(c.vendorLabelW, S.rowVendorLabelW)
+    h.eq(c.ahLabelW, S.rowAhLabelW)
+  end
+end)
+
+h.test("columnLayout: worst-case budget at minWidth", function()
+  local S = ns.Theme.sizes
+  local minContent = S.minWidth - S.rowChrome - S.rowTextLeft - S.rowRightInset
+  h.eq(minContent, 279)
+  -- 15 chars ("123456g 78s 90c") at 5.5 px; "Vendor:" 7, "AH:" 3, "(999d)" 6.
+  h.eq(S.rowVendorColW >= 15 * S.markerCharPx, true)
+  h.eq(S.rowAhColW >= 15 * S.markerCharPx, true)
+  h.eq(S.rowVendorLabelW >= 7 * S.markerCharPx, true)
+  h.eq(S.rowAhLabelW >= 3 * S.markerCharPx, true)
+  h.eq(S.rowTagW >= 6 * S.markerCharPx, true)
+  local c = R.columnLayout(minContent)
+  h.eq(c.ahLabelX - (c.vendorColX + c.vendorColW) >= S.rowGapMid, true)
+  h.eq(c.ahColX + c.ahColW <= minContent, true)
+end)
+
+h.test("columnLayout: extra width grows columns and gap, not labels", function()
+  local a, b = R.columnLayout(279), R.columnLayout(700)
+  h.eq(b.vendorColW > a.vendorColW, true)
+  h.eq(b.ahColW > a.ahColW, true)
+  h.eq(b.vendorLabelW, a.vendorLabelW)
+  h.eq(b.ahLabelW, a.ahLabelW)
+  h.eq(b.ahLabelX - (b.vendorColX + b.vendorColW) > a.ahLabelX - (a.vendorColX + a.vendorColW), true)
+end)
