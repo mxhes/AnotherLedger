@@ -93,6 +93,16 @@ function Ledger.init()
   Ledger.list = list
   table.insert(parts, 1, rowsPart)
 
+  if ns.UI.Header then
+    local Core = ns.Core
+    ns.UI.Header.attach(frame.header.row1, {
+      start = Core.startSession,
+      stop = Core.stopSession,
+      reset = Core.resetSession,
+      hide = ns.UI.Window.hide,
+    })
+  end
+
   -- OnUpdate only runs while the frame is shown.
   local acc = 0
   frame:SetScript("OnUpdate", function(_, dt)

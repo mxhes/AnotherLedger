@@ -143,25 +143,41 @@ local function demo()
   say("added demo loot.")
 end
 
+-- Session actions shared by the slash commands and the header buttons.
+function Core.startSession()
+  if not ns.session then return end
+  ns.Session.start(ns.session, time())
+  say("session started.")
+  refreshUI()
+end
+
+function Core.stopSession()
+  if not ns.session then return end
+  ns.Session.stop(ns.session, time())
+  say("session stopped.")
+  refreshUI()
+end
+
+function Core.resetSession()
+  if not ns.session then return end
+  ns.Session.reset(ns.session, time())
+  say("session reset.")
+  refreshUI()
+end
+
 local handlers = {
   toggle = function() windowCall("toggle") end,
   show = function() windowCall("show") end,
   hide = function() windowCall("hide") end,
-  start = function()
-    ns.Session.start(ns.session, time())
-    say("session started.")
-    refreshUI()
-  end,
-  stop = function()
-    ns.Session.stop(ns.session, time())
-    say("session stopped.")
-    refreshUI()
-  end,
+  start = Core.startSession,
+  stop = Core.stopSession,
   reset = function()
-    -- Task 11 puts a confirmation popup in front of this.
-    ns.Session.reset(ns.session, time())
-    say("session reset.")
-    refreshUI()
+    -- Same path as the Reset button: asks first when the session is large.
+    if ns.UI and ns.UI.Header then
+      ns.UI.Header.requestReset()
+    else
+      Core.resetSession()
+    end
   end,
   keep = function(arg)
     local v = arg and arg:lower()

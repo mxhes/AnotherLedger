@@ -15,6 +15,8 @@ Theme.fonts = {
   title = "GameFontNormal",
   body = "GameFontHighlight",
   number = "GameFontHighlight",
+  small = "GameFontHighlightSmall",
+  button = "GameFontNormalSmall",
   file = "Fonts\\FRIZQT__.TTF",}
 
 Theme.colors = {
@@ -33,6 +35,9 @@ Theme.sizes = {
   padding = 8,
   headerHeight = 56,
   footerHeight = 24,
+  buttonHeight = 20,
+  buttonGap = 2,
+  timerWidth = 54,
 }
 
 -- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom.
