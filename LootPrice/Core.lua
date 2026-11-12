@@ -219,6 +219,7 @@ function events.PLAYER_LOGIN()
   ns.chardb.session = ns.session
   keyState.key = Core.evalKey(_G)
   ns.prices = Core.buildPrices(_G, ns.db, time, function() return keyState.key end)
+  if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   refreshUI()
 end
 
