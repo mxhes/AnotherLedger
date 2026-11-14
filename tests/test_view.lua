@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Prices.lua", "Session.lua", "View.lua" })
+local ns = h.load({ "Money.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
 local V = ns.View
 
 local function link(name) return "|cff0070dd|Hitem:1::|h[" .. name .. "]|h|r" end
@@ -326,4 +326,31 @@ h.test("View rows carry the disenchant value times quantity", function()
   h.eq(v.rows[1].deEach, 40); h.eq(v.rows[1].deTotal, 120)
   v = ns.View.build(session, { now = 10, sort = "ah", lookup = function() return { ah = 100 } end })
   h.eq(v.rows[1].deTotal, nil)
+end)
+
+h.test("View.buildHistory: one row per archived session with totals", function()
+  local list = {
+    { startedAt = 200, elapsed = 3600, gold = 40, nItems = 3, vendor = 10, ah = 100, items = {} },
+    { startedAt = 100, elapsed = 60, gold = 0, nItems = 1, vendor = 5, ah = 20, items = {} },
+    "garbage",
+  }
+  ns.History = ns.History or nil
+  local v = ns.View.buildHistory(list, { formatDate = function(t) return "d" .. t end })
+  h.eq(#v.rows, 2)
+  h.eq(v.rows[1].name, "d200  1h 0m"); h.eq(v.rows[1].historyIndex, 1)
+  h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, 40); h.eq(v.rows[1].deLabel, "Gold: ")
+  h.eq(v.rows[2].historyIndex, 2)
+  h.eq(v.totals.vendor, 15); h.eq(v.totals.ah, 120)
+  h.eq(v.kind, "inventory")
+  h.eq(#ns.View.buildHistory(nil, {}).rows, 0)
+end)
+
+h.test("View.buildHistoryDetail lists the archived items with a note", function()
+  local entry = { startedAt = 200, elapsed = 120, gold = 12400, nItems = 1, vendor = 40, ah = 2000,
+    items = { [7] = { id = 7, link = "[A]", qty = 4, lastSeen = 1 } } }
+  local v = ns.View.buildHistoryDetail(entry, { formatDate = function() return "D" end,
+    lookup = function() return { vendor = 10, ah = 500 } end })
+  h.eq(#v.rows, 1); h.eq(v.rows[1].quantity, 4); h.eq(v.rows[1].ahTotal, 2000)
+  h.eq(v.note, "D - 2m - Gold 1g 24s")
+  h.eq(#ns.View.buildHistoryDetail(nil, {}).rows, 0)
 end)

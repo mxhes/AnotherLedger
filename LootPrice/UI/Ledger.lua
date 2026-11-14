@@ -90,6 +90,14 @@ function Ledger.buildView(now)
       bagsDirty = false
     end
     return ns.View.buildInventory(bagItems, viewOpts(now))
+  elseif tab == "history" then
+    local opts = viewOpts(now)
+    opts.formatDate = function(ts) return date("%d %b %H:%M", ts) end
+    local list = ns.chardb and ns.chardb.history or {}
+    local entry = Ledger.historyIndex and list[Ledger.historyIndex]
+    if entry then return ns.View.buildHistoryDetail(entry, opts) end
+    Ledger.historyIndex = nil
+    return ns.View.buildHistory(list, opts)
   elseif tab == "bank" then
     local bank = ns.chardb and ns.chardb.bank or {}
     local view = ns.View.buildInventory(bank.items or {}, viewOpts(now))
@@ -99,10 +107,28 @@ function Ledger.buildView(now)
   return ns.View.build(session, viewOpts(now))
 end
 
+-- Back button of the History detail (nil on every other view).
+local function syncBack()
+  local header = ns.UI.Header and ns.UI.Header.instance
+  if not header then return end
+  local detail = Ledger.tab == "history" and Ledger.historyIndex ~= nil
+  header:SetBack(detail and function() Ledger.setHistoryIndex(nil) end or nil)
+end
+
+-- Opens one archived session (index into ns.chardb.history), or the list (nil).
+function Ledger.setHistoryIndex(index)
+  Ledger.historyIndex = index
+  syncBack()
+  if list then list:SetOffset(0) end
+  Ledger.refresh()
+end
+
 -- Switches the tab, remembers it and redraws the whole window for it.
 function Ledger.setTab(key)
   if not ns.UI.Tabs.valid(key) then key = "session" end
   Ledger.tab = key
+  Ledger.historyIndex = nil
+  syncBack() -- before SetSessionControls, which owns the Reset button's visibility
   if ns.db then ns.db.tab = key end
   if ns.UI.Window and ns.UI.Window.setTitle then ns.UI.Window.setTitle(ns.UI.Tabs.title(key)) end
   if ns.UI.Header and ns.UI.Header.instance then
@@ -162,6 +188,9 @@ function Ledger.init()
   end
   list = Rows.attach(frame.listArea, applyMinWidth)
   Ledger.list = list
+  list.onRowClick = function(row)
+    if row.historyIndex then Ledger.setHistoryIndex(row.historyIndex) end
+  end
   applyMinWidth(list.measured)
   table.insert(parts, 1, rowsPart)
 

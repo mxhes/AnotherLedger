@@ -12,6 +12,7 @@ local L_START = "Start"
 local L_STOP = "Stop"
 local L_RESET = "Reset"
 local L_HIDE = "X"
+local L_BACK = "Back"
 local L_OPTIONS = "Options"
 local L_RESET_CONFIRM = "Reset the session? All logged loot and the timer will be cleared."
 local L_YES = "Reset"
@@ -127,7 +128,13 @@ function Header.attach(row, handlers)
 
   local reset = makeButton(row, L_RESET, widths().reset)
   reset:SetPoint("RIGHT", options, "LEFT", -gap, 0)
-  reset:SetScript("OnClick", function() Header.requestReset() end)
+  reset:SetScript("OnClick", function()
+    if Header.instance and Header.instance.backAction then
+      Header.instance.backAction()
+    else
+      Header.requestReset()
+    end
+  end)
 
   local stop = makeButton(row, L_STOP, widths().stop)
   stop:SetPoint("RIGHT", reset, "LEFT", -gap, 0)
@@ -159,6 +166,15 @@ function Header.attach(row, handlers)
     self.start:SetShown(shown)
     self.stop:SetShown(shown)
     self.reset:SetShown(shown)
+  end
+
+  -- History detail: the Reset button becomes "Back" (fn = what Back does);
+  -- nil restores Reset. Call after SetSessionControls, which owns the visibility.
+  function header:SetBack(fn)
+    local was = self.backAction ~= nil
+    self.backAction = fn
+    self.reset:SetText(fn and L_BACK or L_RESET)
+    if fn then self.reset:Show() elseif was then self.reset:Hide() end
   end
 
   function header:SetElapsed(seconds)

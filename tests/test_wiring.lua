@@ -77,6 +77,7 @@ local function boot(opts)
     ctx.printed[#ctx.printed + 1] = table.concat(parts, " ")
   end
   env.time = function() return ctx.now end
+  env.date = os.date
   env.geterrorhandler = function() return function(e) ctx.errors[#ctx.errors + 1] = tostring(e) end end
   env.C_Timer = { After = function(_, fn) fn() end }
   env.C_Item = {
@@ -502,5 +503,83 @@ h.test("wiring: the window look options apply to the background and border", fun
   h.near(bg[1], math.min(1, tint[1] * 2))
   h.near(bg[4], tint[4] * 0.5)
   h.near(border[1], math.min(1, bd[1] * 2))
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Reset archives the session to History, empty sessions are skipped", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  slash(ctx, "reset") -- empty: nothing archived
+  h.eq(#ctx.env.LootPriceCharDB.history, 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Copper")
+  slash(ctx, "reset")
+  local hist = ctx.env.LootPriceCharDB.history
+  h.eq(#hist, 1)
+  h.eq(hist[1].items[2589].qty, 3)
+  h.eq(hist[1].nItems, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a fresh login archives the discarded session, keep-session does not", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootPriceDB, ctx.env.LootPriceCharDB
+
+  local reload = boot({ db = db, chardb = chardb, now = 2000 })
+  startWorld(reload, true) -- /reload keeps the session
+  h.eq(#chardb.history, 0)
+
+  fire(reload, "PLAYER_LOGOUT")
+  local relog = boot({ db = db, chardb = chardb, now = 3000 })
+  startWorld(relog, false)
+  h.eq(#chardb.history, 1)
+  h.eq(chardb.history[1].items[2589].qty, 3)
+  h.eq(relog.errors, {})
+end)
+
+h.test("wiring: the History option limits and prunes the archive", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local function lootAndReset()
+    fire(ctx, "CHAT_MSG_LOOT", LOOT)
+    slash(ctx, "reset")
+  end
+  lootAndReset(); lootAndReset(); lootAndReset()
+  local hist = ctx.env.LootPriceCharDB.history
+  h.eq(#hist, 3)
+  ctx.ns.Options.set(ctx.ns.db, "historyLimit", 1)
+  h.eq(#hist, 1)
+  ctx.ns.Options.set(ctx.ns.db, "historyLimit", 0)
+  h.eq(#hist, 0)
+  lootAndReset()
+  h.eq(#hist, 0)
+  ctx.ns.Options.set(ctx.ns.db, "historyLimit", -1)
+  lootAndReset(); lootAndReset()
+  h.eq(#hist, 2)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the History tab lists sessions and opens one", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  local L = ctx.ns.UI.Ledger
+  L.setTab("history")
+  h.eq(#L.view.rows, 1)
+  h.eq(L.view.rows[1].historyIndex, 1)
+  L.list.onRowClick(L.view.rows[1])
+  h.eq(L.historyIndex, 1)
+  h.eq(#L.view.rows, 1)
+  h.eq(L.view.rows[1].quantity, 3)
+  h.eq(L.view.note ~= nil, true)
+  ctx.ns.UI.Header.instance.backAction()
+  h.eq(L.historyIndex, nil)
+  h.eq(L.view.rows[1].historyIndex, 1)
+  L.setTab("session")
+  h.eq(ctx.ns.UI.Header.instance.backAction, nil)
   h.eq(ctx.errors, {})
 end)

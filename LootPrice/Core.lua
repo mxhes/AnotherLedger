@@ -264,9 +264,29 @@ function Core.stopSession()
   refreshUI()
 end
 
+-- Saves a finished session to the History tab (per character). Empty sessions
+-- are skipped; the History option decides how many are kept.
+function Core.archiveSession(session)
+  if not ns.chardb or not ns.History or type(session) ~= "table" then return end
+  local limit = ns.Options and ns.db and ns.Options.get(ns.db, "historyLimit") or ns.History.DEFAULT_LIMIT
+  if limit == 0 then return end
+  local now = time()
+  local entry = ns.History.snapshot(session, function(id)
+    if not ns.prices then return nil end
+    local ok, info = pcall(ns.prices.lookup, ns.prices, id)
+    return ok and info or nil
+  end, now)
+  if not entry then return end
+  if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
+  ns.History.add(ns.chardb.history, entry, limit)
+end
+
 function Core.resetSession()
+  -- Demo loot is fake: it is not worth keeping in History.
+  local wasDemo = Core.demoBackup ~= nil
   Core.restoreDemoCache(ns.db)
   if not ns.session then return end
+  if not wasDemo then Core.archiveSession(ns.session) end
   ns.Session.reset(ns.session, time())
   say("session reset.")
   refreshUI()
@@ -347,11 +367,14 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if setupDone or not ns.db then return end
   setupDone = true
   local keep = ns.db.settings.keepSession or isReloadingUi
-  ns.session = ns.Session.login(ns.chardb.session, keep, time())
+  local previous = ns.chardb.session
+  ns.session = ns.Session.login(previous, keep, time())
   ns.chardb.session = ns.session
   ns.prices = Core.buildPrices(_G, ns.db, time, function()
     return Core.keyFromState(keyState, _G, time())
   end)
+  -- A session that was not kept goes to History (prices are available now).
+  if previous ~= ns.session then Core.archiveSession(previous) end
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   ns.Options.applyAll(ns.db)
   refreshUI()

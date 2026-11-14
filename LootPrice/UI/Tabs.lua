@@ -8,10 +8,10 @@ ns.UI = ns.UI or {}
 local Tabs = {}
 ns.UI.Tabs = Tabs
 
-Tabs.KEYS = { "session", "bags", "bank" }
+Tabs.KEYS = { "session", "bags", "bank", "history" }
 
-local LABELS = { session = "Session", bags = "Bags", bank = "Bank" }
-local TITLES = { session = "Session Ledger", bags = "Bag Ledger", bank = "Bank Ledger" }
+local LABELS = { session = "Session", bags = "Bags", bank = "Bank", history = "History" }
+local TITLES = { session = "Session Ledger", bags = "Bag Ledger", bank = "Bank Ledger", history = "Session History" }
 
 function Tabs.valid(key)
   return LABELS[key] ~= nil

@@ -15,6 +15,8 @@ DB.defaults = {
     brightness = 1,
     priceSource = "auto",
     combatHide = false,
+    -- Past sessions kept in History: 0 = none, -1 = unlimited.
+    historyLimit = 50,
   },
   window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false },
   filter = {
@@ -23,12 +25,13 @@ DB.defaults = {
     search = "",
   },
   sort = "ah",
-  tab = "session", -- last shown tab: session / bags / bank
+  tab = "session", -- last shown tab: session / bags / bank / history
 }
 
 -- Per-character defaults (LootPriceCharDB): the last bank scan for the Bank tab.
 DB.charDefaults = {
   bank = { scannedAt = 0, items = {} },
+  history = {}, -- finished sessions, newest first (see History.lua)
 }
 
 local function copy(v)

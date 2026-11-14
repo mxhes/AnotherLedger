@@ -6,10 +6,11 @@ local ADDON, ns = ...
 --
 --   Options.define({
 --     key     = "alpha",              -- db.settings[key] (default in DB.defaults.settings)
---     type    = "slider",             -- slider | dropdown | checkbox (see OptionsPanel.WIDGETS)
+--     type    = "slider",             -- slider | dropdown | checkbox | number (see OptionsPanel.WIDGETS)
 --     label   = "Window opacity",
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = "A" }, ... }, -- dropdown
+--     (number: whole number >= 0, or -1 = unlimited; typed into a text box)
 --     format  = function(v) ... end,  -- optional display text of the value
 --     apply   = function(value) ... end, -- optional: make the value take effect
 --   })
@@ -26,7 +27,7 @@ local function num(v)
 end
 
 -- Vertical size (px) of one option block in the panel, by type.
-Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28 }
+Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46 }
 Options.GAP = 8
 
 function Options.define(spec)
@@ -73,6 +74,10 @@ function Options.normalize(spec, value)
       v = tonumber(string.format("%.6g", v))
     end
     return v
+  elseif spec.type == "number" then
+    if not num(value) then return default end
+    if value < 0 then return -1 end
+    return math.floor(value)
   elseif spec.type == "dropdown" then
     for _, c in ipairs(spec.choices or {}) do
       if c.value == value then return value end
@@ -87,6 +92,16 @@ function Options.get(db, key)
   if not spec then return nil end
   local settings = type(db) == "table" and db.settings or nil
   return Options.normalize(spec, settings and settings[key])
+end
+
+-- Text typed into a number option -> value, or nil when it is not understood.
+-- Digits give that number; an empty box, "unlimited", "inf", "-1" give -1.
+function Options.parseNumber(text)
+  if type(text) ~= "string" then return nil end
+  local t = text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+  if t == "" or t == "-1" or t:match("^[ui]") or t:find("\226\136\158", 1, true) then return -1 end
+  if t:match("^%d+$") then return tonumber(t) end
+  return nil
 end
 
 -- Validates, stores and applies. Returns the stored value.
@@ -111,6 +126,7 @@ end
 -- plain value.
 function Options.valueText(spec, value)
   if spec.format then return spec.format(value) end
+  if spec.type == "number" and num(value) and value < 0 then return "Unlimited" end
   if spec.type == "dropdown" then
     for _, c in ipairs(spec.choices or {}) do
       if c.value == value then return c.label end
@@ -179,6 +195,19 @@ Options.define({
   label = "Hide in combat, show again afterwards",
   apply = function(v)
     if not v and ns.UI and ns.UI.Window and ns.UI.Window.combatShow then ns.UI.Window.combatShow() end
+  end,
+})
+
+-- How many finished sessions the History tab keeps. Lowering it prunes at once.
+Options.define({
+  key = "historyLimit",
+  type = "number",
+  label = "History sessions kept (empty = unlimited)",
+  apply = function(v)
+    if ns.History and ns.chardb and type(ns.chardb.history) == "table" then
+      ns.History.prune(ns.chardb.history, v)
+    end
+    if ns.UI and ns.UI.refresh then ns.UI.refresh() end
   end,
 })
 

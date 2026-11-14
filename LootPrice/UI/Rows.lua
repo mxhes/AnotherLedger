@@ -46,7 +46,7 @@ function Rows.rowText(row)
     vendorAmountColored = ns.Money.formatColored(row.vendorTotal),
     ahAmountColored = ns.Money.formatColored(row.ahTotal),
     -- Disenchant line: empty for items that cannot be disenchanted.
-    deLabel = row.deTotal and L.DE or "",
+    deLabel = row.deTotal and (row.deLabel or L.DE) or "",
     deAmount = row.deTotal and ns.Money.format(row.deTotal) or "",
     deAmountColored = row.deTotal and ns.Money.formatColored(row.deTotal) or "",
   }
@@ -201,7 +201,14 @@ end
 
 local function showTooltip(f)
   local link = f.tooltipLink
-  if not link or not GameTooltip then return end
+  if not GameTooltip then return end
+  if not link and f.tooltipText then
+    GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
+    GameTooltip:SetText(f.tooltipText)
+    GameTooltip:Show()
+    return
+  end
+  if not link then return end
   GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
   GameTooltip:SetHyperlink(link)
   GameTooltip:Show()
@@ -320,6 +327,11 @@ local function createRow(parent, owner)
   -- Item tooltip while the mouse is over the row.
   f:EnableMouse(true)
   f:SetScript("OnEnter", showTooltip)
+  -- History rows open their session (list.onRowClick is set by the controller).
+  f:SetScript("OnMouseUp", function(self)
+    local o = self.owner
+    if o and o.onRowClick and self.row then o.onRowClick(self.row) end
+  end)
   f:SetScript("OnLeave", function()
     if GameTooltip then GameTooltip:Hide() end
   end)
@@ -348,8 +360,10 @@ local function fillRow(f, row)
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
   local br, bg, bb = T.qualityColor(row.quality, false)
   f.iconBorder:SetColorTexture(br, bg, bb, 1)
-  f.icon:SetTexture(itemIcon(row.id))
+  f.icon:SetTexture(row.icon or itemIcon(row.id))
+  f.row = row
   f.tooltipLink = Rows.tooltipLink(row)
+  f.tooltipText = row.hint
   -- A hovered row that now shows another item (or fresh data) updates its tooltip.
   if GameTooltip and GameTooltip:IsOwned(f) then
     if f.tooltipLink then showTooltip(f) else GameTooltip:Hide() end

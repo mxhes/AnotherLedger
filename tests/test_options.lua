@@ -9,7 +9,7 @@ end
 h.test("Options: the built-in options are registered in panel order", function()
   local keys = {}
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
-  h.eq(keys, { "alpha", "brightness", "priceSource", "combatHide" })
+  h.eq(keys, { "alpha", "brightness", "priceSource", "combatHide", "historyLimit" })
   -- every option has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
     h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key)
@@ -104,4 +104,38 @@ h.test("Options.valueText: formatter, choice label, plain value", function()
   h.eq(O.valueText(O.spec("alpha"), 0.35), "35%")
   h.eq(O.valueText(O.spec("priceSource"), "tsm"), "TSM")
   h.eq(O.valueText({ type = "checkbox" }, true), "true")
+end)
+
+h.test("Options: number option normalizes to a whole number, negatives mean unlimited", function()
+  local s = O.spec("historyLimit")
+  h.eq(s.type, "number")
+  h.eq(O.normalize(s, 20), 20)
+  h.eq(O.normalize(s, 0), 0)
+  h.eq(O.normalize(s, 7.9), 7)
+  h.eq(O.normalize(s, -5), -1)
+  h.eq(O.normalize(s, "x"), 50)
+  h.eq(O.normalize(s, 0 / 0), 50)
+  h.eq(O.valueText(s, -1), "Unlimited")
+  h.eq(O.valueText(s, 12), "12")
+end)
+
+h.test("Options.parseNumber: digits, empty / unlimited words, garbage", function()
+  h.eq(O.parseNumber("25"), 25)
+  h.eq(O.parseNumber("  0 "), 0)
+  h.eq(O.parseNumber(""), -1)
+  h.eq(O.parseNumber("Unlimited"), -1)
+  h.eq(O.parseNumber("inf"), -1)
+  h.eq(O.parseNumber("-1"), -1)
+  h.eq(O.parseNumber("\226\136\158"), -1)
+  h.eq(O.parseNumber("12x"), nil)
+  h.eq(O.parseNumber("-4"), nil)
+  h.eq(O.parseNumber(nil), nil)
+end)
+
+h.test("Options: historyLimit apply prunes the saved history", function()
+  ns.History = { prune = function(list, v) list.pruned = v end }
+  ns.chardb = { history = {} }
+  O.set(db(), "historyLimit", 3)
+  h.eq(ns.chardb.history.pruned, 3)
+  ns.History, ns.chardb = nil, nil
 end)

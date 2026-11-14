@@ -20,11 +20,13 @@ The Session Ledger is a draggable, resizable, scrollable window:
 
 ## Tabs
 
-Three tabs sit in the header between the filters and the list; the window, rows, filters and sorts are the same on all of them (the filter bar and sort apply to every tab and are shared):
+Four tabs sit in the header between the filters and the list; the window, rows, filters and sorts are the same on all of them (the filter bar and sort apply to every tab and are shared):
 
 - **Session**: the loot ledger described above (default).
 - **Bags**: every item in your bags (backpack, carried bags, reagent bag), identical stacks merged into one row, valued like loot rows (vendor, AH, age tag). The footer is the single Items block (vendor and AH totals, unpriced count, `filtered` marker); no clock, rates, raw gold or Top finds. The list refreshes when your bags change.
 - **Bank**: the same for your bank. The client only lets addons read the bank while its window is open, so LootPrice scans it while you are at the banker and saves the scan per character; away from the bank the tab shows the last scan with a note (`Scanned 3h ago`, orange after 12 h). Before the first visit it says `Open your bank once to scan it.`
+
+- **History**: past sessions of this character, newest first. A session is saved when it would be thrown away: the Reset button or `/lp reset`, or a fresh login with keep-session off (empty sessions and `/lp demo` loot are skipped). Each row shows the start time and length, the number of different items, vendor and AH totals (prices at the time it was saved) and the raw gold. Click a row to see its items like the Bags tab (the footer note has the date, length and gold); the `Back` button (in place of Reset) returns to the list. The footer totals on the list add up all saved sessions. The option **History sessions kept** in the options panel sets how many are stored: a number (default 50), `0` for none, or an empty box for unlimited; lowering it deletes the oldest ones at once.
 
 The last tab is remembered.
 
@@ -129,7 +131,7 @@ Rows and list
 - [ ] An uncached item shows the link name, then corrects on `GET_ITEM_INFO_RECEIVED`
 - [ ] The ticker updates only while the session runs
 
-Tabs (Bags / Bank)
+Tabs (Bags / Bank / History)
 - [ ] Three tab buttons (Session, Bags, Bank) in the third header row under the filters, above the list; the selected one is disabled; the window title changes to Bag Ledger / Bank Ledger; Start / Stop / Reset and the timer hide on Bags and Bank, the X stays
 - [ ] Bags: every bag item appears once with its summed stack count; moving, looting, selling and splitting stacks update the list; opening the window on the Bags tab shows current contents
 - [ ] Bags footer shows only the Items block (no Raw gold, no Items + gold, no Top finds) and the list uses the freed space; switching back to Session restores all blocks
@@ -176,3 +178,8 @@ Filter bar
 - [ ] Minimum gold applies on Enter / blur and reverts on Escape
 - [ ] Search narrows live; the sort cycle reorders; the filter underline appears and disappears
 - [ ] The filter persists after `/reload`; no keyboard capture when unfocused
+
+History tab (unverified in the client)
+- [ ] Reset with loot adds a row to History; `/lp demo` then reset does not; relog (keep off) archives the old session; `/reload` does not
+- [ ] History rows show date (`date("%d %b %H:%M")`), length, item count, Vendor / AH / Gold lines; clicking opens the item list, `Back` returns; the tab title is Session History
+- [ ] Options: the `History sessions kept` box (`InputBoxTemplate`) accepts a number, empty = unlimited, Enter/focus loss saves, Esc reverts; lowering it prunes at once

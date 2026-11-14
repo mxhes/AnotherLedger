@@ -103,6 +103,41 @@ function Panel.WIDGETS.slider(block, spec)
   }
 end
 
+function Panel.WIDGETS.number(block, spec)
+  local T = theme()
+  local title = label(block, T.fonts.small, T.colors.ink)
+  title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
+  title:SetText(spec.label)
+
+  local box = CreateFrame("EditBox", nil, block, "InputBoxTemplate")
+  box:SetSize(80, 20)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -22)
+  box:SetAutoFocus(false)
+  box:SetMaxLetters(10)
+
+  -- Unlimited shows as an empty box.
+  local function show(value)
+    box:SetText(value < 0 and "" or tostring(value))
+  end
+  local function commit()
+    local parsed = ns.Options.parseNumber(box:GetText())
+    if parsed then show(set(spec, parsed)) else show(get(spec)) end
+  end
+  box:SetScript("OnEnterPressed", function(self)
+    commit()
+    self:ClearFocus()
+  end)
+  box:SetScript("OnEscapePressed", function(self)
+    show(get(spec))
+    self:ClearFocus()
+  end)
+  box:SetScript("OnEditFocusLost", function() commit() end)
+
+  return {
+    refresh = function() show(get(spec)) end,
+  }
+end
+
 function Panel.WIDGETS.checkbox(block, spec)
   local T = theme()
   local box = CreateFrame("CheckButton", nil, block, "UICheckButtonTemplate")
