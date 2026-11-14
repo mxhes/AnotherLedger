@@ -207,3 +207,10 @@ h.test("Rows.tooltipLink: the row link, else an item string, else nil", function
   h.eq(ns.UI.Rows.tooltipLink({}), nil)
   h.eq(ns.UI.Rows.tooltipLink(nil), nil)
 end)
+
+h.test("rowText disenchant line only for disenchantable items", function()
+  local t = R.rowText({ name = "X", quantity = 2, deTotal = 500 })
+  h.eq(t.deLabel, "DE: "); h.eq(t.deAmount, "5s")
+  local n = R.rowText({ name = "X", quantity = 2 })
+  h.eq(n.deLabel, ""); h.eq(n.deAmount, ""); h.eq(n.deAmountColored, "")
+end)

@@ -44,11 +44,14 @@ local function makeRow(item, opts)
   local ahAge = num(lookup.ahAge) and lookup.ahAge or nil
   local vendorTotal = vendorEach and vendorEach * qty or nil
   local ahTotal = ahEach and ahEach * qty or nil
+  local deEach = num(lookup.de) and lookup.de or nil
+  local deTotal = deEach and deEach * qty or nil
 
   return {
     id = item.id, link = item.link, name = name, quality = quality, quantity = qty,
     vendorEach = vendorEach, vendorTotal = vendorTotal,
     ahEach = ahEach, ahTotal = ahTotal,
+    deEach = deEach, deTotal = deTotal,
     ahFromCache = ahFromCache, ahAge = ahAge,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
     value = ahTotal or vendorTotal or 0,

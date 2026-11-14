@@ -147,3 +147,15 @@ h.test("Prices formatAge boundaries", function()
   h.eq(P.formatAge(59), "1m"); h.eq(P.formatAge(60), "1m"); h.eq(P.formatAge(3599), "59m")
   h.eq(P.formatAge(3600), "1h"); h.eq(P.formatAge(86399), "23h"); h.eq(P.formatAge(86400), "1d")
 end)
+
+h.test("Prices disenchant value is live and optional", function()
+  local function de(fn)
+    return P.new({ sources = {}, disenchant = fn, cache = {}, key = function() return "EU-1" end,
+      now = function() return 1 end }):lookup(5).de
+  end
+  h.eq(de(function() return 750 end), 750)
+  h.eq(de(function() return nil end), nil)
+  h.eq(de(function() return 0 end), nil)
+  h.eq(de(function() error("boom") end), nil)
+  h.eq(de(nil), nil)
+end)

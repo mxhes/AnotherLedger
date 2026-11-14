@@ -57,6 +57,8 @@ A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPa
 
 Vendor prices need nothing. AH prices need [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both optional). TSM is asked first, then Auctionator. Without either, the AH column shows `n/a`.
 
+Items that can be disenchanted get a third line, `DE:`, with the disenchant value (TSM's `Destroy` price source, times the quantity). It needs TSM and is hidden for items TSM has no disenchant value for. The check `TSM_API.GetCustomPriceValue("Destroy", "i:<itemID>")` is unverified in the client.
+
 ## Commands
 
 - `/lp` (or `/lootprice`) - toggle the window

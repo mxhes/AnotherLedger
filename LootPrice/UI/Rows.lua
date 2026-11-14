@@ -12,6 +12,7 @@ ns.UI.Rows = Rows
 local L = {
   VENDOR = "Vendor: ",
   AH = "AH: ",
+  DE = "DE: ",
   QTY = "x",
 }
 
@@ -44,6 +45,10 @@ function Rows.rowText(row)
     ahAmount = ns.Money.format(row.ahTotal),
     vendorAmountColored = ns.Money.formatColored(row.vendorTotal),
     ahAmountColored = ns.Money.formatColored(row.ahTotal),
+    -- Disenchant line: empty for items that cannot be disenchanted.
+    deLabel = row.deTotal and L.DE or "",
+    deAmount = row.deTotal and ns.Money.format(row.deTotal) or "",
+    deAmountColored = row.deTotal and ns.Money.formatColored(row.deTotal) or "",
   }
 end
 
@@ -240,6 +245,11 @@ local function layoutRow(f)
   put(f.vendor, "TOPLEFT", c.amountX)
   put(f.ahLabel, "BOTTOMLEFT", c.labelX)
   put(f.ah, "BOTTOMLEFT", c.amountX)
+  local midY = -f:GetHeight() / 2
+  f.deLabel:ClearAllPoints()
+  f.deLabel:SetPoint("LEFT", f, "TOPLEFT", x0 + c.labelX, midY)
+  f.de:ClearAllPoints()
+  f.de:SetPoint("LEFT", f, "TOPLEFT", x0 + c.amountX, midY)
   f.tag:ClearAllPoints()
   f.tag:SetPoint("LEFT", f.ah, "RIGHT", c.tagGap, 0)
 end
@@ -301,7 +311,8 @@ local function createRow(parent, owner)
   end
   local vendorLabel, vendor = line2(), line2()
   local ahLabel, ah, tag = line2(), line2(), line2()
-  f.vendorLabel, f.ahLabel = vendorLabel, ahLabel
+  local deLabel, de = line2(), line2()
+  f.vendorLabel, f.ahLabel, f.deLabel, f.de = vendorLabel, ahLabel, deLabel, de
 
   f.name, f.qty, f.vendor, f.ah, f.tag = name, qty, vendor, ah, tag
   f:SetScript("OnSizeChanged", layoutRow)
@@ -331,6 +342,8 @@ local function fillRow(f, row)
   f.ahLabel:SetText(t.ahLabel)
   f.vendor:SetText(t.vendorAmountColored)
   f.ah:SetText(t.ahAmountColored)
+  f.deLabel:SetText(t.deLabel)
+  f.de:SetText(t.deAmountColored)
   f.tag:SetText(t.tag or "")
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
   local br, bg, bb = T.qualityColor(row.quality, false)

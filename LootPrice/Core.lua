@@ -75,6 +75,10 @@ end
 -- current cache key; the TSM source string is read live from db.settings.
 function Core.buildPrices(env, db, now, getKey)
   local Sources = ns.Sources
+  -- Disenchant value: TSM's "Destroy" price source (nil for items that cannot
+  -- be disenchanted), asked only while the price source option allows TSM.
+  local destroy = Core.gateSource(Sources.TSM.new(env, function() return "Destroy" end),
+    "tsm", function() return db.settings.priceSource end)
   return ns.Prices.new({
     sources = {
       Core.gateSource(Sources.TSM.new(env, function() return db.settings.tsmSource end),
@@ -83,6 +87,7 @@ function Core.buildPrices(env, db, now, getKey)
         function() return db.settings.priceSource end),
     },
     vendor = function(itemID) return Sources.Vendor.get(env, itemID) end,
+    disenchant = destroy.get,
     cache = db.cache,
     key = getKey,
     now = now,

@@ -317,3 +317,13 @@ h.test("View.buildInventory: rows and totals like the session, no rates or gold"
   h.eq(ids(f.rows), { 3 })
   h.eq(f.totals.filtered, true)
 end)
+
+h.test("View rows carry the disenchant value times quantity", function()
+  local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 0,
+    items = { [7] = { id = 7, link = "[A]", qty = 3, lastSeen = 1 } } }
+  local v = ns.View.build(session, { now = 10, sort = "ah",
+    lookup = function() return { ah = 100, de = 40 } end })
+  h.eq(v.rows[1].deEach, 40); h.eq(v.rows[1].deTotal, 120)
+  v = ns.View.build(session, { now = 10, sort = "ah", lookup = function() return { ah = 100 } end })
+  h.eq(v.rows[1].deTotal, nil)
+end)

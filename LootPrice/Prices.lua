@@ -37,6 +37,7 @@ function Prices.new(opts)
   return setmetatable({
     sources = opts.sources or {},
     vendor = opts.vendor,
+    disenchant = opts.disenchant,
     cache = opts.cache,
     key = opts.key,
     now = opts.now,
@@ -56,6 +57,12 @@ function Instance:lookup(itemID)
   if self.vendor then
     local ok, v = pcall(self.vendor, itemID)
     if ok and type(v) == "number" and v == v then result.vendor = v end
+  end
+
+  -- Disenchant value (live only, nil when the item cannot be disenchanted).
+  if self.disenchant then
+    local ok, v = pcall(self.disenchant, itemID)
+    if ok and valid(v) then result.de = v end
   end
 
   local now = self.now()

@@ -105,9 +105,9 @@ end)
 h.test("minHeight leaves the list at least four rows beside a full Top finds block", function()
   local T = ns.Theme.sizes
   h.eq(T.minListRows, 4)
-  h.eq(S.requiredWindowHeight(), 24 + 84 + 88 + 4 * 28 + 158)
+  h.eq(S.requiredWindowHeight(), 24 + 84 + 88 + 4 * 40 + 158)
   h.eq(T.minHeight >= S.requiredWindowHeight(), true)
-  h.eq(T.minHeight, 466)
+  h.eq(T.minHeight, 514)
 end)
 
 h.test("goldText formats total and rate", function()

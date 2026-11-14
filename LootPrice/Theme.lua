@@ -74,10 +74,10 @@ Theme.durations = {
 Theme.sizes = {
   minWidth = 350,
   -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 88
-  -- + 4 list rows (4 * 28) + footer 158 = 466 (tests/test_summary.lua recomputes it).
-  minHeight = 466,
+  -- + 4 list rows (4 * 40) + footer 158 = 514 (tests/test_summary.lua recomputes it).
+  minHeight = 514,
   minListRows = 4,
-  rowHeight = 28,
+  rowHeight = 40, -- three text lines: Vendor, DE (disenchant), AH
   iconSize = 24,
   scrollbarWidth = 10,
   scrollThumbHeight = 24,
