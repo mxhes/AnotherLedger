@@ -16,7 +16,7 @@ The Session Ledger is a draggable, resizable, scrollable window:
   - **Raw gold**: gold looted from creatures and containers (including group splits) plus gold from quest turn-ins, as one total with gold per hour. Raw gold is never touched by the item filters; it shows `0c` until the first gold arrives.
   - **Items + gold**: combined Vendor and AH totals with a rate each (raw gold counts equally on both sides; the item part follows the visible rows).
 - **Quest rewards**: reward items are ordinary looted items (the client announces them like any other item) and appear in the list; only the money of a quest is tracked as raw gold.
-- **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than 12 hours.
+- **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than the limit set in the options (12 hours by default).
 
 ## Tabs
 
@@ -32,35 +32,47 @@ The last tab is remembered.
 
 ## Options
 
-The gear button at the top right of the header (left of the X) opens the options panel next to the window (Esc or the gear closes it). The same options are also on the page **LootPrice** in the game's own options window (Esc > Options > AddOns), and a **minimap button** gives quick access: left click shows / hides the window, right click opens the options panel, drag moves it around the minimap.
+Three ways in, all showing the same options:
 
-- **Show minimap button**: hides or shows the minimap button. Default on. **Reset minimap button position** puts it back at the bottom left.
-- **Window scale** (70-150 %, default 100 %), **Lock window** (no moving or resizing), **Start hidden at login**.
-- **Keep the session across logins** (same as `/lp keep`) and **TSM price source** (same as `/lp tsm`, default `DBMarket`).
-- **Price refresh interval** (10-120 s, default 30 s): how often prices and age tags are looked up again while the clock runs. **Mark cached prices as old after** (1-72 h, default 12 h): when the orange age tag appears.
+- the **gear button** at the top right of the header (left of the X) opens the options panel next to the window (Esc or the gear closes it);
+- the **minimap button**: left click shows / hides the window, right click opens the options panel, drag moves it around the minimap;
+- the page **LootPrice** in the game's own options window (Esc > Options > AddOns).
+
+The panel has two columns and four sections. Settings are stored in `LootPriceDB.settings` and applied at login (invalid saved values are repaired).
+
+**Window**
+- **Window opacity** (0-100 %, default 100 %): fades the background and border; text and rows stay opaque.
+- **Window brightness** (0-200 %, default 100 %): multiplies the background and border color; 100 % is the theme color, above that the dark panel gets lighter, 0 % is black.
+- **Window scale** (70-150 %, default 100 %): the window keeps its center on the screen.
+- **Lock window**: no moving or resizing.
+- **Start hidden at login**.
+- **Hide in combat, show again afterwards** (default off): hides the window when combat starts and shows it again when combat ends, but only if it was visible before; a window you hid yourself stays hidden.
+- **Show minimap button** (default on) and **Reset minimap button position** (back to the bottom left).
+
+**Prices**
+- **AH price source**: `Auto (TSM, then Auctionator)` (default), `TSM` or `Auctionator`. With one chosen, the other is not asked. A price cached from the other source shows with its age tag until it is refreshed.
+- **TSM price source** (default `DBMarket`): the TSM price string; same as `/lp tsm`.
+- **Price refresh interval** (10-120 s, default 30 s): how often prices and age tags are looked up again while the clock runs.
+- **Mark cached prices as old after** (1-72 h, default 12 h): when the orange age tag appears.
+
+**Display**
 - **Sort order (at login)**: AH value (default), vendor value, name or most recent. The sort button of the filter bar still changes it for the rest of the session.
-- **Amounts of 1 gold and more**: show gold, silver and copper (default), gold and silver, or gold only. Amounts under 1 gold always show in full.
-- **Add raw gold to the combined total**: with it off, the "Items + gold" block is left out of the footer. Default on.
-- **Alert for drops worth (gold)**: a chat line when one drop (price times quantity) is worth at least this much; 0 or empty = off (default). **Play a sound with the alert** adds a sound.
-
+- **Amounts of 1 gold and more**: gold, silver and copper (default), gold and silver, or gold only. Amounts under 1 gold always show in full.
+- **Add raw gold to the combined total** (default on): with it off, the "Items + gold" block is left out of the footer.
 - **Font**: the typeface of all addon text. `WoW default` (default) keeps the game's own font for your client's language; the list also offers the built-in fonts the client loads (Arial Narrow, Skurri, Morpheus) and every font registered with LibSharedMedia when another addon provides it. Changes at once. The addon uses its own copies of the game fonts, so other addons are not affected.
-- **List text size**, **Totals text size** (totals and Top finds) and **Section title size**: the size in px of the main font of that part (defaults 12, 12 and 16; the smaller fonts of that part keep their proportion). The matching row heights scale with it. The fonts are set before the window is built, so a change takes effect after `/reload` (the **Reload UI** button does it). The buttons, filter bar and header keep their size.
+- **List text size**, **Totals text size** (totals and Top finds) and **Section title size**: the size in px of the main font of that part (defaults 12, 12 and 16; the smaller fonts of that part keep their proportion). The matching row heights scale with it. The sizes are set before the window is built, so a change takes effect after `/reload` (the **Reload UI** button does it). The buttons, filter bar and header keep their size.
 
-The two-column panel groups the options into the sections **Window**, **Prices**, **Display** and **Session and alerts**; an option names its section with `category = "..."` in `Options.define` (the list is `Options.CATEGORIES`). The panel and the page in the game's options window (Esc > Options > AddOns > LootPrice) show the same list.
-
-- **Window opacity** (0-100 %): fades the window background and border; text and rows stay fully opaque. Default 100 %.
-- **Window brightness** (0-200 %): multiplies the background and border color; 100 % is the theme color, above that the dark panel gets lighter, 0 % is black. Default 100 %.
-- **AH price source**: `Auto (TSM, then Auctionator)` (default, the old behavior), `TSM` or `Auctionator`. With one chosen, the other is not asked. A price cached from the other source shows with its age tag until it is refreshed (same as after `/lp tsm`).
-- **Hide in combat, show again afterwards**: hides the window when combat starts and shows it again when combat ends, but only if it was visible before; a window you hid yourself stays hidden. The remembered hidden state is not changed. Default off.
-
-Settings are stored in `LootPriceDB.settings` and applied at login (invalid saved values are repaired).
+**Session and alerts**
+- **Keep the session across logins** (default off): same as `/lp keep`.
+- **Alert for drops worth (gold)**: a chat line when one drop (price times quantity) is worth at least this much; 0 or empty = off (default). **Play a sound with the alert** adds a sound.
+- **History sessions kept**: a number (default 50), `0` for none, or an empty box for unlimited; lowering it deletes the oldest ones at once.
 
 ### Adding an option
 
 The panel is built from a registry, it never names an option. To add one:
 
-1. Put its default in `DB.defaults.settings` (`LootPrice/DB.lua`).
-2. Register it in `LootPrice/Options.lua` with one `Options.define({ key, type, label, ... , apply = function(value) ... end })`. Types: `slider` (`min`, `max`, `step`), `dropdown` (`choices = { { value, label }, ... }`), `checkbox`. Values are validated by type and fall back to the default; `apply` makes the value take effect (and also runs for the saved value at login).
+1. Put its default in `DB.defaults.settings` (`LootPrice/DB.lua`). Buttons have no value and no default.
+2. Register it in `LootPrice/Options.lua` with one `Options.define({ key, category, type, label, ... , apply = function(value) ... end })`. `category` is a section id from `Options.CATEGORIES` (`window`, `prices`, `display`, `session`); without one the option lands in an "Other" section. Types: `slider` (`min`, `max`, `step`, optional `format`), `dropdown` (`choices = { { value, label }, ... }` or a function returning that list), `checkbox`, `number` (whole number, empty = unlimited), `text` (any non-empty text) and `button` (`action` runs on click). Values are validated by type and fall back to the default; `apply` makes the value take effect (and also runs for the saved value at login).
 3. Read it where it is needed with `Options.get(ns.db, key)`.
 
 A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPanel.lua`) plus its block height in `Options.HEIGHTS`. The panel grows to fit.
@@ -68,7 +80,7 @@ A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPa
 ## When the window updates
 
 - **Every second** (session tab, clock running): only the clock and the per-hour rates.
-- **Every 30 seconds** (session tab, clock running): prices and age tags are looked up again.
+- **Every 30 seconds by default** (option **Price refresh interval**; session tab, clock running): prices and age tags are looked up again.
 - **At once** when something changes: loot, raw gold, a bag or bank change on its tab, a filter, sort or option. Several loot messages of one frame (area loot) share one redraw.
 - **Never while the window is hidden** (also when hidden by the combat option). Loot is still recorded; the window catches up when it is shown.
 
@@ -88,8 +100,10 @@ Files load in the order of `LootPrice/LootPrice.toc`. Modules without `UI/` in t
 | `View.lua` | turns items and prices into the rows and totals a tab shows |
 | `Options.lua`, `Slash.lua`, `Demo.lua` | option registry, slash commands, `/lp demo` |
 | `UI/Widgets.lua` | shared buttons, texts, lines, tooltips, context menu |
-| `UI/Window.lua`, `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua`, `UI/OptionsPanel.lua` | the window and its parts |
+| `UI/Window.lua`, `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua`, `UI/OptionsPanel.lua` | the window and its parts; the options panel and the page in the game's options window |
 | `UI/Tabs.lua` | tab registry and tab buttons |
+| `UI/Fonts.lua` | the addon's own font objects: typeface option and px sizes |
+| `UI/Minimap.lua` | the minimap button |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests |
 
@@ -122,11 +136,9 @@ Items that can be disenchanted get a third line, `DE:`, with the disenchant valu
 - `/lp demo` - adds fake sample loot, a little gold (12s 40c) and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI (needs a running session).
 - `/lp help` - list the commands
 
-## Settings
+## Saved state
 
-- **Keep session across relogs** (`/lp keep on|off`, default off): a real login starts a fresh session by default; with `/lp keep on` the running session (loot, timer) survives logout. A `/reload` is not a new login: it always keeps the session.
-- **TSM price source** (`/lp tsm <source>`, default `DBMarket`): the TSM price source string used for AH values.
-- Window position, size, visibility, filter and sort are remembered automatically.
+Options are in `LootPriceDB.settings` (see Options). Window position, size, visibility, last tab, filter and sort are remembered automatically (`LootPriceDB`); the session, the bank scan and History are per character (`LootPriceCharDB`). A real login starts a fresh session unless **Keep the session across logins** is on; a `/reload` always keeps it.
 
 ## Filters and sorts
 
@@ -190,6 +202,12 @@ Tabs (Bags / Bank / History)
 - [ ] The last tab is restored after `/reload`
 
 Options
+- [ ] Minimap button: shows near the bottom left of the minimap, left click toggles the window, right click opens the options panel, dragging moves it around the rim and the place survives `/reload`; the option hides it and **Reset minimap button position** brings it back; the tooltip lists the clicks; `INV_Misc_Coin_01`, `MiniMap-TrackingBorder` and `UI-Minimap-ZoomButton-Highlight` textures exist
+- [ ] Options page: a **LootPrice** entry exists under Esc > Options > AddOns (`Settings.RegisterCanvasLayoutCategory`), shows the same sections and values as the panel (two columns fit the page width) and edits apply at once
+- [ ] Panel sections (Window, Prices, Display, Session and alerts) show a gold title with a line, no title sits alone at the bottom of a column, and the panel fits on the screen
+- [ ] Font dropdown lists WoW default and the fonts the client loads; picking one changes all addon text at once and **WoW default** restores it; other addons' fonts do not change; the text size sliders plus **Reload UI** resize the list, totals and titles without clipped text (also at 18 px / 24 px)
+- [ ] Window scale keeps the window in place; Lock window blocks dragging and resizing; Start hidden at login hides it after `/reload`
+- [ ] Alert: a drop worth more than the set gold prints a chat line (and plays `SOUNDKIT.UI_EPICLOOT_TOAST` with the sound option); Add raw gold to the combined total off hides the third footer block; Amounts of 1 gold and more changes every amount; Price refresh interval and the old-price age take effect
 - [ ] Gear button sits left of the X, shows the icon (`Interface\Icons\Trade_Engineering`) with a tooltip "Options"; the title is not overlapped at 350 px; the panel opens to the right of the window, Esc and the gear close it
 - [ ] Window opacity slider (0-100 %): the window background and border fade live down to fully transparent (text stays solid); Window brightness slider (0-200 %) darkens / lightens the background and border; the values show in the slider titles and survive `/reload`; `OptionsSliderTemplate` exists and its own texts are hidden
 - [ ] Price source dropdown lists Auto / TSM / Auctionator (menu works with `MenuUtil` or the legacy dropdown), the choice changes the AH prices live and survives `/reload`
