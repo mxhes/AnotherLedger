@@ -48,3 +48,16 @@ h.test("Money.formatColored reads ns.Theme colors lazily", function()
   h.eq(ns.Money.formatColored(100), S .. "1s|r")
   ns.Theme = nil
 end)
+
+h.test("Money.setStyle: gold-only and no-copper from 1 gold up, small amounts stay full", function()
+  local M = h.load({ "Util.lua", "Money.lua" }).Money
+  M.setStyle("gold")
+  h.eq(M.format(12345678), "1234g")
+  h.eq(M.format(-12345678), "-1234g")
+  h.eq(M.format(5025), "50s 25c")
+  M.setStyle("silver")
+  h.eq(M.format(12345678), "1234g 56s")
+  h.eq(M.format(5025), "50s 25c")
+  M.setStyle("bogus")
+  h.eq(M.format(12345678), "1234g 56s 78c")
+end)

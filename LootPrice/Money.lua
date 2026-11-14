@@ -4,6 +4,15 @@ local floor = math.floor
 
 local Money = {}
 
+-- How much of an amount is shown (option "goldDisplay"): "full" = every
+-- non-zero unit, "silver" = no copper from 1 gold up, "gold" = gold only from
+-- 1 gold up. Amounts under 1 gold always show in full.
+local style = "full"
+
+function Money.setStyle(value)
+  if value == "silver" or value == "gold" then style = value else style = "full" end
+end
+
 -- Splits a copper amount into sign, gold, silver, copper (non-negative ints).
 local function split(copper)
   local sign = ""
@@ -12,7 +21,11 @@ local function split(copper)
     copper = -copper
   end
   copper = floor(copper)
-  return sign, floor(copper / 10000), floor((copper % 10000) / 100), copper % 100
+  local g, sv, c = floor(copper / 10000), floor((copper % 10000) / 100), copper % 100
+  if g > 0 then
+    if style == "gold" then sv, c = 0, 0 elseif style == "silver" then c = 0 end
+  end
+  return sign, g, sv, c
 end
 
 -- Appends `piece` to `text` with a space between (text may be nil).

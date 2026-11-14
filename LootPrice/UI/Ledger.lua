@@ -17,7 +17,12 @@ local Ledger = {}
 ns.UI.Ledger = Ledger
 
 local TICK_SECONDS = 1
-local FULL_REFRESH_SECONDS = 30
+local FULL_REFRESH_SECONDS = 30 -- default of the option "refreshSeconds"
+
+local function refreshSeconds()
+  local seconds = ns.Options and ns.db and ns.Options.get(ns.db, "refreshSeconds")
+  return seconds or FULL_REFRESH_SECONDS
+end
 
 local parts = {}
 local list -- the Rows list, set by init
@@ -86,6 +91,7 @@ local function currentContext(now)
   viewOpts.now = now
   viewOpts.filter = db and db.filter
   viewOpts.sort = db and db.sort
+  viewOpts.includeGold = not (ns.Options and db) or ns.Options.get(db, "includeGold") ~= false
   context.now = now
   context.env = _G
   context.session = ns.session
@@ -135,7 +141,7 @@ function Ledger.tick()
   if not (list and session and session.running and ns.UI.Tabs.get(Ledger.tab).ticks) then return end
   local now = time()
   local view = Ledger.view
-  if not view or stale or now - lastRefresh >= FULL_REFRESH_SECONDS then
+  if not view or stale or now - lastRefresh >= refreshSeconds() then
     Ledger.refresh()
     return
   end

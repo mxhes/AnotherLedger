@@ -413,3 +413,21 @@ h.test("search and name sort ignore case", function()
   h.eq(#f.rows, 1)
   h.eq(f.rows[1].name, "Apple")
 end)
+
+h.test("View.build: includeGold = false leaves the gold out of the combined totals", function()
+  local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 5000,
+    items = { [7] = { id = 7, link = "[A]", qty = 1, lastSeen = 1 } } }
+  local function build(extra)
+    local o = { now = 10, sort = "ah", lookup = function() return { ah = 100, vendor = 10 } end }
+    for k, v in pairs(extra or {}) do o[k] = v end
+    return ns.View.build(session, o)
+  end
+  local on = build()
+  h.eq(on.combined.ah, 5100)
+  h.eq(on.noCombined, nil)
+  local off = build({ includeGold = false })
+  h.eq(off.combined.ah, 100)
+  h.eq(off.combined.vendor, 10)
+  h.eq(off.noCombined, true)
+  h.eq(off.gold.total, 5000)
+end)

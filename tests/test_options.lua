@@ -9,10 +9,13 @@ end
 h.test("Options: the built-in options are registered in panel order", function()
   local keys = {}
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
-  h.eq(keys, { "alpha", "brightness", "priceSource", "combatHide", "historyLimit" })
-  -- every option has its default in DB.defaults.settings
+  h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "startHidden", "combatHide",
+    "keepSession", "priceSource", "tsmSource", "refreshSeconds", "staleHours", "defaultSort",
+    "goldDisplay", "includeGold", "alertGold", "alertSound", "minimapButton", "minimapReset",
+    "historyLimit" })
+  -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
-    h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key)
+    if s.type ~= "button" then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end
     h.eq(O.HEIGHTS[s.type] ~= nil, true, s.key)
   end
 end)
@@ -86,6 +89,40 @@ h.test("Options.layout stacks the blocks with a gap", function()
   end
   h.eq(L.height, y - O.GAP)
   h.eq(O.layout({}).height, 0)
+end)
+
+h.test("Options.layout: columns split the blocks, each column stacks from the top", function()
+  local specs = O.list()
+  local L = O.layout(specs, 2)
+  local seen, last = { 0, 0 }, 1
+  for _, spec in ipairs(specs) do
+    local col = L.cols[spec.key]
+    h.eq(col >= last, true, spec.key) -- columns fill in order
+    last = col
+    if seen[col] == 0 then h.eq(L.tops[spec.key], 0, spec.key) end
+    seen[col] = seen[col] + 1
+  end
+  h.eq(seen[1] > 0 and seen[2] > 0, true)
+  h.eq(L.height < O.layout(specs, 1).height, true)
+end)
+
+h.test("Options.normalize: text is trimmed and falls back when empty, tsmSource and the new ranges", function()
+  local t = O.spec("tsmSource")
+  h.eq(O.normalize(t, "  DBMinBuyout "), "DBMinBuyout")
+  h.eq(O.normalize(t, "   "), "DBMarket")
+  h.eq(O.normalize(t, 5), "DBMarket")
+  h.eq(O.normalize(O.spec("windowScale"), 3), 1.5)
+  h.eq(O.normalize(O.spec("refreshSeconds"), 7), 10)
+  h.eq(O.normalize(O.spec("staleHours"), 100), 72)
+  h.eq(O.normalize(O.spec("defaultSort"), "zzz"), "ah")
+  h.eq(O.normalize(O.spec("goldDisplay"), "gold"), "gold")
+  h.eq(O.normalize(O.spec("alertGold"), -1), -1)
+end)
+
+h.test("Options.applyAll skips buttons", function()
+  local d = db({})
+  O.applyAll(d)
+  h.eq(d.settings.minimapReset, nil)
 end)
 
 h.test("Options: the window sliders cover 0..100 % (brightness 0..200 %)", function()

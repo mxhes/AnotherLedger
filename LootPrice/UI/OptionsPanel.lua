@@ -14,7 +14,9 @@ local Panel = {}
 ns.UI.OptionsPanel = Panel
 
 local TITLE = "Options"
-local WIDTH = 280
+local COLUMNS = 2
+local COLUMN_WIDTH = 250
+local COLUMN_GAP = 24
 local TITLE_HEIGHT = 24
 
 local function theme() return ns.Theme end
@@ -116,6 +118,46 @@ function Panel.WIDGETS.number(block, spec)
   }
 end
 
+function Panel.WIDGETS.text(block, spec)
+  local T = theme()
+  local title = label(block, T.fonts.small, T.colors.ink)
+  title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
+  title:SetText(spec.label)
+
+  local box = CreateFrame("EditBox", nil, block, "InputBoxTemplate")
+  box:SetHeight(20)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -22)
+  box:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -22)
+  box:SetAutoFocus(false)
+  box:SetMaxLetters(200)
+
+  local function show(value) box:SetText(tostring(value)) end
+  local function commit() show(set(spec, box:GetText())) end
+  box:SetScript("OnEnterPressed", function(self)
+    commit()
+    self:ClearFocus()
+  end)
+  box:SetScript("OnEscapePressed", function(self)
+    show(get(spec))
+    self:ClearFocus()
+  end)
+  box:SetScript("OnEditFocusLost", function() commit() end)
+
+  return {
+    refresh = function() show(get(spec)) end,
+  }
+end
+
+function Panel.WIDGETS.button(block, spec)
+  local button = ns.UI.Widgets.button(block, spec.label)
+  button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -2)
+  button:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, -2)
+  button:SetScript("OnClick", function()
+    if spec.action then spec.action() end
+  end)
+  return { refresh = function() end }
+end
+
 function Panel.WIDGETS.checkbox(block, spec)
   local T = theme()
   local box = CreateFrame("CheckButton", nil, block, "UICheckButtonTemplate")
@@ -157,18 +199,37 @@ end
 -- ---------------------------------------------------------------------------
 -- Panel
 
+-- Builds one widget per option into `parent`, `pad` from the left and `top`
+-- from the top, in the columns of `layout` (Options.layout). Returns
+-- { [key] = widget }.
+function Panel.populate(parent, pad, top, specs, layout, columnWidth)
+  local widgets = {}
+  for _, spec in ipairs(specs) do
+    local factory = Panel.WIDGETS[spec.type]
+    if factory then
+      local block = CreateFrame("Frame", nil, parent)
+      block:SetSize(columnWidth, ns.Options.HEIGHTS[spec.type])
+      local x = pad + ((layout.cols[spec.key] or 1) - 1) * (columnWidth + COLUMN_GAP)
+      block:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.tops[spec.key]))
+      widgets[spec.key] = factory(block, spec)
+    end
+  end
+  return widgets
+end
+
 local function build()
   local T = theme()
   local pad = T.sizes.padding + 4
   local specs = ns.Options.list()
-  local layout = ns.Options.layout(specs)
+  local layout = ns.Options.layout(specs, COLUMNS)
+  local width = 2 * pad + COLUMNS * COLUMN_WIDTH + (COLUMNS - 1) * COLUMN_GAP
 
   local frame = CreateFrame("Frame", "LootPriceOptions", UIParent, "BackdropTemplate")
   frame:SetFrameStrata("DIALOG")
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
-  frame:SetSize(WIDTH, 2 * pad + TITLE_HEIGHT + layout.height)
+  frame:SetSize(width, 2 * pad + TITLE_HEIGHT + layout.height)
   ns.UI.Widgets.applyBackdrop(frame)
   -- Always fully opaque: the opacity option is for the ledger window.
   local c = T.colors.panelTint
@@ -184,18 +245,7 @@ local function build()
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -pad, -pad + 2)
   close:SetScript("OnClick", function() frame:Hide() end)
 
-  frame.widgets = {}
-  for _, spec in ipairs(specs) do
-    local factory = Panel.WIDGETS[spec.type]
-    if factory then
-      local block = CreateFrame("Frame", nil, frame)
-      block:SetHeight(ns.Options.HEIGHTS[spec.type])
-      local top = pad + TITLE_HEIGHT + layout.tops[spec.key]
-      block:SetPoint("TOPLEFT", frame, "TOPLEFT", pad, -top)
-      block:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -pad, -top)
-      frame.widgets[spec.key] = factory(block, spec)
-    end
-  end
+  frame.widgets = Panel.populate(frame, pad, pad + TITLE_HEIGHT, specs, layout, COLUMN_WIDTH)
 
   function frame:RefreshAll()
     for _, w in pairs(self.widgets) do w.refresh() end
@@ -225,4 +275,50 @@ function Panel.toggle()
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   end
   frame:Show()
+end
+
+-- ---------------------------------------------------------------------------
+-- Page in the game's own options window (Esc > Options > AddOns > LootPrice):
+-- the same widgets as the floating panel, so both always show the same values.
+
+local PAGE_NAME = "LootPrice"
+
+local function buildPage()
+  local T = theme()
+  local pad = 16
+  local specs = ns.Options.list()
+  local layout = ns.Options.layout(specs, COLUMNS)
+
+  local page = CreateFrame("Frame", "LootPriceOptionsPage")
+  page.name = PAGE_NAME
+  local title = label(page, T.fonts.title, T.colors.gold)
+  title:SetPoint("TOPLEFT", page, "TOPLEFT", pad, -pad)
+  title:SetText(PAGE_NAME)
+
+  page.widgets = Panel.populate(page, pad, pad + TITLE_HEIGHT, specs, layout, COLUMN_WIDTH)
+  function page:RefreshAll()
+    for _, w in pairs(self.widgets) do w.refresh() end
+  end
+  page:SetScript("OnShow", function(self) self:RefreshAll() end)
+  -- Callbacks of the legacy interface options window; values save as they change.
+  page.refresh = function(self) self:RefreshAll() end
+  page.okay = function() end
+  page.cancel = function() end
+  page.default = function() end
+  return page
+end
+
+-- Registers the page once. Safe when neither options API exists.
+function Panel.registerPage()
+  if Panel.page or not ns.db then return Panel.page end
+  local page = buildPage()
+  if type(Settings) == "table" and Settings.RegisterCanvasLayoutCategory then
+    local category = Settings.RegisterCanvasLayoutCategory(page, PAGE_NAME)
+    Settings.RegisterAddOnCategory(category)
+    Panel.category = category
+  elseif InterfaceOptions_AddCategory then
+    InterfaceOptions_AddCategory(page)
+  end
+  Panel.page = page
+  return page
 end

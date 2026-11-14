@@ -247,6 +247,12 @@ function View.build(session, opts)
     gold = { total = goldTotal },
     combined = { vendor = totals.vendor + goldTotal, ah = totals.ah + goldTotal },
   }
+  -- Option "includeGold" off: the combined totals are only the items, and the
+  -- footer leaves the block out.
+  if opts.includeGold == false then
+    view.combined = { vendor = totals.vendor, ah = totals.ah }
+    view.noCombined = true
+  end
   return View.applyRates(view, ns.Session.elapsed(session, opts.now))
 end
 

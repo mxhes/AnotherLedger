@@ -125,13 +125,34 @@ function Core.recordLoot(link, qty)
   local itemID = ns.LootParse.itemID(link)
   if not itemID or not ns.session then return end
   if not ns.Session.add(ns.session, itemID, link, qty, time()) then return end
+  local info = Core.lookupPrice(itemID)
+  local unitValue = info and (info.ah or info.vendor)
   if ns.UI and ns.UI.flash then
     -- flash refreshes the ledger itself (once per frame, however much dropped)
-    local info = Core.lookupPrice(itemID)
-    local unitValue = info and (info.ah or info.vendor)
     ns.UI.flash(itemID, ns.View.flashLevel(unitValue, qty))
   else
     refreshUI()
+  end
+  Core.alertIfValuable(link, qty, unitValue)
+end
+
+-- Pure. Is a drop of `unitValue` x `qty` copper worth an alert at `gold` (the
+-- option "alertGold"; 0 or less = off)?
+function Core.alertWorthy(unitValue, qty, gold)
+  if not (ns.Util.isNumber(unitValue) and ns.Util.isNumber(qty) and ns.Util.isNumber(gold)) then return false end
+  if gold <= 0 then return false end
+  return unitValue * qty >= gold * 10000
+end
+
+-- Option "alertGold" / "alertSound": a chat line (and a sound) for a valuable drop.
+function Core.alertIfValuable(link, qty, unitValue)
+  if not (ns.Options and ns.db) then return end
+  if not Core.alertWorthy(unitValue, qty, ns.Options.get(ns.db, "alertGold")) then return end
+  say(string.format("valuable drop: %s%s worth %s", link, (qty or 1) > 1 and (" x" .. qty) or "",
+    ns.Money.format(unitValue * qty)))
+  if ns.Options.get(ns.db, "alertSound") and type(PlaySound) == "function" then
+    local kit = type(SOUNDKIT) == "table" and SOUNDKIT.UI_EPICLOOT_TOAST or nil
+    if kit then PlaySound(kit) end
   end
 end
 
@@ -251,6 +272,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if previous ~= ns.session then Core.archiveSession(previous) end
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   ns.Options.applyAll(ns.db)
+  if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
   refreshUI()
 end
 

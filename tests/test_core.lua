@@ -268,3 +268,12 @@ h.test("Core.lookupPrice never errors", function()
   h.eq(Core.lookupPrice(7).vendor, 7)
   ns.prices = nil
 end)
+
+h.test("Core.alertWorthy: drop value against the gold threshold", function()
+  h.eq(Core.alertWorthy(50000, 2, 10), true)  -- 10 g exactly
+  h.eq(Core.alertWorthy(49999, 2, 10), false)
+  h.eq(Core.alertWorthy(10 ^ 9, 1, 0), false)  -- 0 = off
+  h.eq(Core.alertWorthy(10 ^ 9, 1, -1), false) -- unlimited = off
+  h.eq(Core.alertWorthy(nil, 1, 10), false)
+  h.eq(Core.alertWorthy(100, nil, 10), false)
+end)

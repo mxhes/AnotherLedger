@@ -32,7 +32,18 @@ The last tab is remembered.
 
 ## Options
 
-The gear button at the top right of the header (left of the X) opens the options panel next to the window (Esc or the gear closes it):
+The gear button at the top right of the header (left of the X) opens the options panel next to the window (Esc or the gear closes it). The same options are also on the page **LootPrice** in the game's own options window (Esc > Options > AddOns), and a **minimap button** gives quick access: left click shows / hides the window, right click opens the options panel, drag moves it around the minimap.
+
+- **Show minimap button**: hides or shows the minimap button. Default on. **Reset minimap button position** puts it back at the bottom left.
+- **Window scale** (70-150 %, default 100 %), **Lock window** (no moving or resizing), **Start hidden at login**.
+- **Keep the session across logins** (same as `/lp keep`) and **TSM price source** (same as `/lp tsm`, default `DBMarket`).
+- **Price refresh interval** (10-120 s, default 30 s): how often prices and age tags are looked up again while the clock runs. **Mark cached prices as old after** (1-72 h, default 12 h): when the orange age tag appears.
+- **Sort order (at login)**: AH value (default), vendor value, name or most recent. The sort button of the filter bar still changes it for the rest of the session.
+- **Amounts of 1 gold and more**: show gold, silver and copper (default), gold and silver, or gold only. Amounts under 1 gold always show in full.
+- **Add raw gold to the combined total**: with it off, the "Items + gold" block is left out of the footer. Default on.
+- **Alert for drops worth (gold)**: a chat line when one drop (price times quantity) is worth at least this much; 0 or empty = off (default). **Play a sound with the alert** adds a sound.
+
+The two-column panel and the page in the game's options window (Esc > Options > AddOns > LootPrice) show the same list.
 
 - **Window opacity** (0-100 %): fades the window background and border; text and rows stay fully opaque. Default 100 %.
 - **Window brightness** (0-200 %): multiplies the background and border color; 100 % is the theme color, above that the dark panel gets lighter, 0 % is black. Default 100 %.

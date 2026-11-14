@@ -237,6 +237,7 @@ h.test("wiring: no unexpected globals leak", function()
   local allowed = {
     LootPriceDB = true, LootPriceCharDB = true, SLASH_LOOTPRICE1 = true,
     SLASH_LOOTPRICE2 = true, LootPriceWindow = true, LootPriceMenu = true,
+    LootPriceOptionsPage = true, LootPriceMinimapButton = true,
   }
   for k in pairs(ctx.env) do
     if not ctx.baseline[k] and not allowed[k] then error("leaked global: " .. tostring(k)) end
@@ -740,4 +741,105 @@ h.test("wiring: /lp help lists every command, demo included", function()
   for _, word in ipairs({ "/lp -", "show | hide", "start | stop", "/lp reset", "/lp keep", "/lp tsm", "/lp demo", "Note:" }) do
     h.eq(text:find(word, 1, true) ~= nil, true, word)
   end
+end)
+
+h.test("wiring: the minimap button toggles the window, right click opens the options", function()
+  local ctx = boot()
+  ctx.env.Minimap = ctx.env.CreateFrame("Frame", "Minimap")
+  ctx.env.GameTooltip = ctx.env.CreateFrame("Frame")
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local button = ns.UI.Minimap.button
+  h.eq(button ~= nil, true)
+  h.eq(button:IsShown(), true)
+  local window = ns.UI.Window.frame
+  h.eq(window:IsShown(), true)
+  button._scripts.OnClick(button, "LeftButton")
+  h.eq(window:IsShown(), false)
+  button._scripts.OnClick(button, "LeftButton")
+  h.eq(window:IsShown(), true)
+  button._scripts.OnClick(button, "RightButton")
+  h.eq(ns.UI.OptionsPanel.frame:IsShown(), true)
+  button._scripts.OnClick(button, "RightButton")
+  h.eq(ns.UI.OptionsPanel.frame:IsShown(), false)
+  -- the option hides and shows it again
+  ns.Options.set(ns.db, "minimapButton", false)
+  h.eq(button:IsShown(), false)
+  ns.Options.set(ns.db, "minimapButton", true)
+  h.eq(button:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the minimap button stays away when the option is off", function()
+  local ctx = boot({ db = { settings = { minimapButton = false } } })
+  ctx.env.Minimap = ctx.env.CreateFrame("Frame", "Minimap")
+  startWorld(ctx, false)
+  h.eq(ctx.ns.UI.Minimap.button, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the options page registers in the game's options window", function()
+  local registered
+  local ctx = boot()
+  ctx.env.Settings = {
+    RegisterCanvasLayoutCategory = function(frame, name) return { frame = frame, name = name } end,
+    RegisterAddOnCategory = function(category) registered = category end,
+  }
+  startWorld(ctx, false)
+  local P = ctx.ns.UI.OptionsPanel
+  h.eq(registered ~= nil, true)
+  h.eq(registered.name, "LootPrice")
+  h.eq(registered.frame, P.page)
+  for _, spec in ipairs(ctx.ns.Options.list()) do
+    h.eq(P.page.widgets[spec.key] ~= nil, true, spec.key)
+  end
+  P.page._scripts.OnShow(P.page)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: lock, scale, start hidden, gold display, sort and stale options take effect", function()
+  local ctx = boot({ db = { settings = { startHidden = true, windowScale = 1.25, defaultSort = "name" } } })
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local frame = ns.UI.Window.frame
+  h.eq(frame:IsShown(), false)
+  h.eq(frame:GetScale(), 1) -- the fake frame reports a fixed scale; the call itself must not fail
+  h.eq(ns.db.sort, "name")
+  -- lock: dragging does nothing
+  local moved = false
+  frame.StartMoving = function() moved = true end
+  ns.Options.set(ns.db, "lockWindow", true)
+  frame.header._scripts.OnDragStart()
+  h.eq(moved, false)
+  ns.Options.set(ns.db, "lockWindow", false)
+  frame.header._scripts.OnDragStart()
+  h.eq(moved, true)
+  -- stale age and gold display
+  ns.Options.set(ns.db, "staleHours", 2)
+  h.eq(ns.Prices.STALE_AFTER, 7200)
+  ns.Options.set(ns.db, "goldDisplay", "gold")
+  h.eq(ns.Money.format(12345678), "1234g")
+  ns.Options.set(ns.db, "windowScale", 0.8)
+  -- the minimap reset button restores the default angle
+  ns.db.settings.minimapAngle = 10
+  ns.Options.spec("minimapReset").action()
+  h.eq(ns.db.settings.minimapAngle, 225)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a valuable drop prints an alert, a cheap one does not", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.prices = { lookup = function() return { ah = 200000 } end } -- 20 g each
+  ns.Options.set(ns.db, "alertGold", 50)
+  local before = #ctx.printed
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- x3 = 60 g
+  h.eq(#ctx.printed, before + 1)
+  h.eq(ctx.printed[#ctx.printed]:find("valuable drop", 1, true) ~= nil, true)
+  ns.Options.set(ns.db, "alertGold", 100)
+  before = #ctx.printed
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(#ctx.printed, before)
+  h.eq(ctx.errors, {})
 end)

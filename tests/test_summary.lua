@@ -175,3 +175,8 @@ h.test("topLines carries a tooltip link when Rows is loaded", function()
   h.eq(S.topLines(rows)[1].tooltipLink, "L")
   ns.UI.Rows = nil
 end)
+
+h.test("Summary.footerHeightFor: noCombined drops the combined block", function()
+  local layout = S.footerLayout()
+  h.eq(S.footerHeightFor({ noCombined = true }), layout.height - layout.total.height)
+end)

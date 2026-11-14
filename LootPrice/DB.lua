@@ -17,6 +17,20 @@ DB.defaults = {
     combatHide = false,
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,
+    -- Minimap button: shown, and its place on the minimap rim in degrees
+    -- (0 = right, counter-clockwise; the default is bottom left).
+    minimapButton = true,
+    minimapAngle = 225,
+    lockWindow = false,
+    windowScale = 1,
+    startHidden = false,
+    defaultSort = "ah",
+    goldDisplay = "full",
+    includeGold = true,
+    refreshSeconds = 30,
+    staleHours = 12,
+    alertGold = 0,
+    alertSound = false,
   },
   window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false },
   filter = {

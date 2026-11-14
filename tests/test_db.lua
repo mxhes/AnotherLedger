@@ -6,7 +6,9 @@ h.test("DB.defaults shape", function()
   local d = DB.defaults
   h.eq(d.version, 1)
   h.eq(d.cache, {})
-  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50 })
+  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, minimapButton = true, minimapAngle = 225,
+    lockWindow = false, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full",
+    includeGold = true, refreshSeconds = 30, staleHours = 12, alertGold = 0, alertSound = false })
   h.eq(d.window, { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false })
   h.eq(d.filter.minValue, 0)
   h.eq(d.filter.search, "")

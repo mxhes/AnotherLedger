@@ -86,6 +86,16 @@ end
 
 local clamp = ns.Util.clamp
 
+-- Option "lockWindow": no moving, no resizing.
+local function locked()
+  return ns.Options ~= nil and ns.db ~= nil and ns.Options.get(ns.db, "lockWindow") == true
+end
+
+local function scaleSetting()
+  if ns.Options and ns.db then return ns.Options.get(ns.db, "windowScale") or 1 end
+  return 1
+end
+
 local function save()
   local frame, w = Window.frame, winDB()
   if not frame or not w then return end
@@ -178,7 +188,9 @@ local function build(db)
   header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -inset, -inset)
   header:EnableMouse(true)
   header:RegisterForDrag("LeftButton")
-  header:SetScript("OnDragStart", function() frame:StartMoving() end)
+  header:SetScript("OnDragStart", function()
+    if not locked() then frame:StartMoving() end
+  end)
   header:SetScript("OnDragStop", function()
     frame:StopMovingOrSizing()
     frame:SetUserPlaced(false) -- db.window is the only position store
@@ -219,7 +231,7 @@ local function build(db)
   grip:SetFrameLevel(frame:GetFrameLevel() + 10)
   grip:SetNormalTexture(T.textures.resizeGrip)
   grip:SetScript("OnMouseDown", function(_, button)
-    if button == "LeftButton" then frame:StartSizing("BOTTOMRIGHT") end
+    if button == "LeftButton" and not locked() then frame:StartSizing("BOTTOMRIGHT") end
   end)
   grip:SetScript("OnMouseUp", function()
     frame:StopMovingOrSizing()
@@ -246,10 +258,32 @@ local function build(db)
   frame.grip = grip
 
   Window.db = db
+  -- The scale first: the saved position and size are in the scaled units.
+  frame:SetScale(scaleSetting())
   restore(frame)
   local w = winDB()
-  frame:SetShown(not (w and w.hidden))
+  local startHidden = ns.Options ~= nil and ns.Options.get(db, "startHidden") == true
+  frame:SetShown(not ((w and w.hidden) or startHidden))
   return frame
+end
+
+-- Option "windowScale": rescales the window and keeps its center where it is
+-- on the screen.
+function Window.applyScale()
+  local frame = Window.frame
+  if not frame then return end
+  local scale = scaleSetting()
+  local old = frame:GetScale()
+  if not old or old == 0 then old = 1 end
+  if math.abs(old - scale) < 0.0001 then return end
+  local x, y = centerOffset(frame)
+  frame:SetScale(scale)
+  if x then
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER", x * old / scale, y * old / scale)
+  end
+  ensureOnScreen(frame)
+  save()
 end
 
 -- Creates the window once; later calls return the same frame.

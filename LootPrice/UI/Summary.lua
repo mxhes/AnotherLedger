@@ -106,6 +106,9 @@ function Summary.footerHeightFor(view)
   if type(view) == "table" and view.kind == "inventory" then
     return layout.items.height + (view.note and s.footerNoteHeight or 0)
   end
+  if type(view) == "table" and view.noCombined then
+    return layout.height - layout.total.height
+  end
   return layout.height
 end
 
@@ -295,10 +298,14 @@ function Summary.attach(topBox, footer)
   -- Footer blocks and height for the view kind (session / inventory).
   function summary:SetKind(view)
     local inventory = view.kind == "inventory"
+    local noCombined = view.noCombined and true or false
     if inventory ~= self.inventory then
       self.inventory = inventory
       self.goldBox:SetBlockShown(not inventory)
-      self.totalBox:SetBlockShown(not inventory)
+    end
+    if inventory ~= self.inventoryTotal or noCombined ~= self.noCombined then
+      self.inventoryTotal, self.noCombined = inventory, noCombined
+      self.totalBox:SetBlockShown(not inventory and not noCombined)
     end
     local footerHeight = Summary.footerHeightFor(view)
     if footerHeight ~= self.footerHeight then

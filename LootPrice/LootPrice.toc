@@ -32,5 +32,6 @@ UI\Summary.lua
 UI\FilterBar.lua
 UI\Tabs.lua
 UI\OptionsPanel.lua
+UI\Minimap.lua
 UI\Ledger.lua
 Core.lua

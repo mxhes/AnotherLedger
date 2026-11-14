@@ -6,11 +6,12 @@ local ADDON, ns = ...
 --
 --   Options.define({
 --     key     = "alpha",              -- db.settings[key] (default in DB.defaults.settings)
---     type    = "slider",             -- slider | dropdown | checkbox | number (see OptionsPanel.WIDGETS)
+--     type    = "slider",             -- slider | dropdown | checkbox | number | text | button (see OptionsPanel.WIDGETS)
 --     label   = "Window opacity",
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = "A" }, ... }, -- dropdown (or a function returning that list)
 --     (number: whole number >= 0, or -1 = unlimited; typed into a text box)
+--     (text: any non-empty text; button: has no value, `action` runs on click)
 --     format  = function(v) ... end,  -- optional display text of the value
 --     apply   = function(value) ... end, -- optional: make the value take effect
 --   })
@@ -25,7 +26,7 @@ local Options = {
 local num = ns.Util.isNumber
 
 -- Vertical size (px) of one option block in the panel, by type.
-Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46 }
+Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46, text = 46, button = 28 }
 Options.GAP = 8
 
 function Options.define(spec)
@@ -80,6 +81,11 @@ function Options.normalize(spec, value)
       v = tonumber(string.format("%.6g", v))
     end
     return v
+  elseif spec.type == "text" then
+    if type(value) ~= "string" then return default end
+    local trimmed = value:gsub("^%s+", ""):gsub("%s+$", "")
+    if trimmed == "" then return default end
+    return trimmed
   elseif spec.type == "number" then
     if not num(value) then return default end
     if value < 0 then return -1 end
@@ -124,7 +130,7 @@ end
 -- Applies every stored value (login): repairs invalid saved values as it goes.
 function Options.applyAll(db)
   for _, spec in ipairs(Options.specs) do
-    Options.set(db, spec.key, Options.get(db, spec.key))
+    if spec.type ~= "button" then Options.set(db, spec.key, Options.get(db, spec.key)) end
   end
 end
 
@@ -141,15 +147,26 @@ function Options.valueText(spec, value)
   return tostring(value)
 end
 
--- Panel layout: top offset of each option block and the total height.
--- Returns { tops = { [key] = y }, height = total }.
-function Options.layout(specs)
-  local tops, y = {}, 0
+-- Panel layout: top offset of each option block and the total height. With
+-- `columns` > 1 the blocks flow top to bottom through the columns, each about
+-- equally tall. Returns { tops = { [key] = y }, cols = { [key] = column },
+-- height = tallest column }.
+function Options.layout(specs, columns)
+  columns = math.max(1, math.floor(columns or 1))
+  local total = 0
+  for _, spec in ipairs(specs) do total = total + Options.HEIGHTS[spec.type] + Options.GAP end
+  local per = total / columns
+  local tops, cols, col, y, height = {}, {}, 1, 0, 0
   for _, spec in ipairs(specs) do
-    tops[spec.key] = y
-    y = y + Options.HEIGHTS[spec.type] + Options.GAP
+    local h = Options.HEIGHTS[spec.type]
+    if col < columns and y > 0 and y + h / 2 > per then
+      height = math.max(height, y - Options.GAP)
+      col, y = col + 1, 0
+    end
+    tops[spec.key], cols[spec.key] = y, col
+    y = y + h + Options.GAP
   end
-  return { tops = tops, height = math.max(0, y - Options.GAP) }
+  return { tops = tops, cols = cols, height = math.max(height, y - Options.GAP, 0) }
 end
 
 -- ---------------------------------------------------------------------------
@@ -179,6 +196,29 @@ Options.define({
 })
 
 Options.define({
+  key = "windowScale", type = "slider", label = "Window scale",
+  min = 0.7, max = 1.5, step = 0.05, format = percent,
+  apply = function()
+    if ns.UI and ns.UI.Window and ns.UI.Window.applyScale then ns.UI.Window.applyScale() end
+  end,
+})
+
+Options.define({ key = "lockWindow", type = "checkbox", label = "Lock window (no moving or resizing)" })
+
+Options.define({ key = "startHidden", type = "checkbox", label = "Start hidden at login" })
+
+Options.define({
+  key = "combatHide",
+  type = "checkbox",
+  label = "Hide in combat, show again afterwards",
+  apply = function(v)
+    if not v and ns.UI and ns.UI.Window and ns.UI.Window.combatShow then ns.UI.Window.combatShow() end
+  end,
+})
+
+Options.define({ key = "keepSession", type = "checkbox", label = "Keep the session across logins" })
+
+Options.define({
   key = "priceSource",
   type = "dropdown",
   label = "AH price source",
@@ -187,12 +227,84 @@ Options.define({
   apply = refreshUI,
 })
 
+-- The TSM price string, read live by Sources/TSM.lua (same as /lp tsm).
 Options.define({
-  key = "combatHide",
-  type = "checkbox",
-  label = "Hide in combat, show again afterwards",
+  key = "tsmSource", type = "text", label = "TSM price source (e.g. DBMarket)", apply = refreshUI,
+})
+
+Options.define({
+  key = "refreshSeconds", type = "slider", label = "Price refresh interval",
+  min = 10, max = 120, step = 5, format = function(v) return v .. " s" end,
+})
+
+-- After this long a cached AH price shows its age tag in orange.
+Options.define({
+  key = "staleHours", type = "slider", label = "Mark cached prices as old after",
+  min = 1, max = 72, step = 1, format = function(v) return v .. " h" end,
   apply = function(v)
-    if not v and ns.UI and ns.UI.Window and ns.UI.Window.combatShow then ns.UI.Window.combatShow() end
+    if ns.Prices then ns.Prices.STALE_AFTER = v * 3600 end
+    refreshUI()
+  end,
+})
+
+-- Applied at login and whenever changed; the sort button of the filter bar
+-- still changes the order for the rest of the session.
+Options.define({
+  key = "defaultSort",
+  type = "dropdown",
+  label = "Sort order (at login)",
+  choices = {
+    { value = "ah", label = "AH value" },
+    { value = "vendor", label = "Vendor value" },
+    { value = "name", label = "Name" },
+    { value = "recent", label = "Most recent" },
+  },
+  apply = function(v)
+    if ns.db then ns.db.sort = v end
+    refreshUI()
+  end,
+})
+
+Options.define({
+  key = "goldDisplay",
+  type = "dropdown",
+  label = "Amounts of 1 gold and more",
+  choices = {
+    { value = "full", label = "Gold, silver and copper" },
+    { value = "silver", label = "Gold and silver" },
+    { value = "gold", label = "Gold only" },
+  },
+  apply = function(v)
+    if ns.Money then ns.Money.setStyle(v) end
+    refreshUI()
+  end,
+})
+
+Options.define({
+  key = "includeGold", type = "checkbox", label = "Add raw gold to the combined total", apply = refreshUI,
+})
+
+-- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
+Options.define({
+  key = "alertGold", type = "number", label = "Alert for drops worth (gold, 0 = off)",
+})
+
+Options.define({ key = "alertSound", type = "checkbox", label = "Play a sound with the alert" })
+
+-- Round button on the minimap (UI/Minimap.lua).
+Options.define({
+  key = "minimapButton",
+  type = "checkbox",
+  label = "Show minimap button",
+  apply = function(v)
+    if ns.UI and ns.UI.Minimap then ns.UI.Minimap.setShown(v) end
+  end,
+})
+
+Options.define({
+  key = "minimapReset", type = "button", label = "Reset minimap button position",
+  action = function()
+    if ns.UI and ns.UI.Minimap then ns.UI.Minimap.resetPosition() end
   end,
 })
 
