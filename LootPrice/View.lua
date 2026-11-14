@@ -124,41 +124,46 @@ function View.buildInventory(items, opts)
   return { rows = rows, top = {}, totals = totals, kind = "inventory" }
 end
 
--- History tab, list level: one row per archived session (newest first), shown
--- through the normal row layout. The DE line carries the session's raw gold.
+-- History tab: one row per archived session (newest first), shown through the
+-- normal row layout; the DE line carries the session's raw gold. The session
+-- at `openIndex` (if any) moves to the top and its items are listed right
+-- under it (filter and sort apply to them), then the other sessions follow.
 -- opts.formatDate(timestamp) -> text.
-function View.buildHistory(list, opts)
+function View.buildHistory(list, opts, openIndex)
   opts = opts or {}
-  local rows = {}
+  local sessionRows, byIndex = {}, {}
   local totals = { vendor = 0, ah = 0, unpriced = 0, filtered = false }
   for i, e in ipairs(type(list) == "table" and list or {}) do
     if ns.History.valid(e) then
       local when = opts.formatDate and opts.formatDate(e.startedAt) or tostring(e.startedAt)
-      rows[#rows + 1] = {
-        id = -i, historyIndex = i, name = when .. "  " .. ns.History.duration(e.elapsed),
+      local open = i == openIndex
+      local row = {
+        id = -i, historyIndex = i,
+        name = (open and "- " or "+ ") .. when .. "  " .. ns.History.duration(e.elapsed),
         quality = 1, quantity = e.nItems,
         vendorTotal = e.vendor, ahTotal = e.ah, deTotal = e.gold, deLabel = "Gold: ",
-        icon = "Interface\\Icons\\INV_Misc_Note_01", hint = "Click to show the items",
+        icon = "Interface\\Icons\\INV_Misc_Note_01",
+        hint = open and "Click to collapse" or "Click to show the items",
         value = e.ah, lastSeen = e.startedAt,
       }
+      sessionRows[#sessionRows + 1] = row
+      byIndex[i] = row
       totals.vendor = totals.vendor + e.vendor
       totals.ah = totals.ah + e.ah
     end
   end
-  return { rows = rows, top = {}, totals = totals, kind = "inventory", history = true }
-end
 
--- History tab, detail level: the items of one archived session like the Bags
--- tab, with the session's date, length and raw gold as the footer note.
-function View.buildHistoryDetail(entry, opts)
-  opts = opts or {}
-  local ok = ns.History.valid(entry)
-  local view = View.buildInventory(ok and entry.items or {}, opts)
-  if ok then
-    local when = opts.formatDate and opts.formatDate(entry.startedAt) or tostring(entry.startedAt)
-    view.note = when .. " - " .. ns.History.duration(entry.elapsed) .. " - Gold " .. ns.Money.format(entry.gold)
+  local rows = {}
+  local view = { rows = rows, top = {}, totals = totals, kind = "inventory", history = true }
+  local opened = openIndex and byIndex[openIndex]
+  if opened then
+    rows[1] = opened
+    local items = View.buildInventory(list[openIndex].items, opts)
+    for _, r in ipairs(items.rows) do rows[#rows + 1] = r end
   end
-  view.history = true
+  for _, r in ipairs(sessionRows) do
+    if r ~= opened then rows[#rows + 1] = r end
+  end
   return view
 end
 

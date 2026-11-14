@@ -26,7 +26,7 @@ Four tabs sit in the header between the filters and the list; the window, rows, 
 - **Bags**: every item in your bags (backpack, carried bags, reagent bag), identical stacks merged into one row, valued like loot rows (vendor, AH, age tag). The footer is the single Items block (vendor and AH totals, unpriced count, `filtered` marker); no clock, rates, raw gold or Top finds. The list refreshes when your bags change.
 - **Bank**: the same for your bank. The client only lets addons read the bank while its window is open, so LootPrice scans it while you are at the banker and saves the scan per character; away from the bank the tab shows the last scan with a note (`Scanned 3h ago`, orange after 12 h). Before the first visit it says `Open your bank once to scan it.`
 
-- **History**: past sessions of this character, newest first. A session is saved when it would be thrown away: the Reset button or `/lp reset`, or a fresh login with keep-session off (empty sessions and `/lp demo` loot are skipped). Each row shows the start time and length, the number of different items, vendor and AH totals (prices at the time it was saved) and the raw gold. Click a row to see its items like the Bags tab (the footer note has the date, length and gold); the `Back` button (in place of Reset) returns to the list. The footer totals on the list add up all saved sessions. The option **History sessions kept** in the options panel sets how many are stored: a number (default 50), `0` for none, or an empty box for unlimited; lowering it deletes the oldest ones at once.
+- **History**: past sessions of this character, newest first. A session is saved when it would be thrown away: the Reset button or `/lp reset`, or a fresh login with keep-session off (empty sessions and `/lp demo` loot are skipped). Each row shows the start time and length, the number of different items, vendor and AH totals (prices at the time it was saved) and the raw gold. Click a session to open it: it moves to the top of the list and its items are listed right under it (filter and sort apply); click it again to collapse. The footer totals on the list add up all saved sessions. The option **History sessions kept** in the options panel sets how many are stored: a number (default 50), `0` for none, or an empty box for unlimited; lowering it deletes the oldest ones at once.
 
 The last tab is remembered.
 
@@ -181,5 +181,5 @@ Filter bar
 
 History tab (unverified in the client)
 - [ ] Reset with loot adds a row to History; `/lp demo` then reset does not; relog (keep off) archives the old session; `/reload` does not
-- [ ] History rows show date (`date("%d %b %H:%M")`), length, item count, Vendor / AH / Gold lines; clicking opens the item list, `Back` returns; the tab title is Session History
+- [ ] History rows show date (`date("%d %b %H:%M")`), length, item count, Vendor / AH / Gold lines; clicking a row moves it to the top with its items under it, a second click collapses it; the tab title is Session History
 - [ ] Options: the `History sessions kept` box (`InputBoxTemplate`) accepts a number, empty = unlimited, Enter/focus loss saves, Esc reverts; lowering it prunes at once

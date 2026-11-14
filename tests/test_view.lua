@@ -334,10 +334,9 @@ h.test("View.buildHistory: one row per archived session with totals", function()
     { startedAt = 100, elapsed = 60, gold = 0, nItems = 1, vendor = 5, ah = 20, items = {} },
     "garbage",
   }
-  ns.History = ns.History or nil
   local v = ns.View.buildHistory(list, { formatDate = function(t) return "d" .. t end })
   h.eq(#v.rows, 2)
-  h.eq(v.rows[1].name, "d200  1h 0m"); h.eq(v.rows[1].historyIndex, 1)
+  h.eq(v.rows[1].name, "+ d200  1h 0m"); h.eq(v.rows[1].historyIndex, 1)
   h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, 40); h.eq(v.rows[1].deLabel, "Gold: ")
   h.eq(v.rows[2].historyIndex, 2)
   h.eq(v.totals.vendor, 15); h.eq(v.totals.ah, 120)
@@ -345,12 +344,23 @@ h.test("View.buildHistory: one row per archived session with totals", function()
   h.eq(#ns.View.buildHistory(nil, {}).rows, 0)
 end)
 
-h.test("View.buildHistoryDetail lists the archived items with a note", function()
-  local entry = { startedAt = 200, elapsed = 120, gold = 12400, nItems = 1, vendor = 40, ah = 2000,
-    items = { [7] = { id = 7, link = "[A]", qty = 4, lastSeen = 1 } } }
-  local v = ns.View.buildHistoryDetail(entry, { formatDate = function() return "D" end,
-    lookup = function() return { vendor = 10, ah = 500 } end })
-  h.eq(#v.rows, 1); h.eq(v.rows[1].quantity, 4); h.eq(v.rows[1].ahTotal, 2000)
-  h.eq(v.note, "D - 2m - Gold 1g 24s")
-  h.eq(#ns.View.buildHistoryDetail(nil, {}).rows, 0)
+h.test("View.buildHistory: the opened session moves to the top with its items under it", function()
+  local list = {
+    { startedAt = 200, elapsed = 60, gold = 0, nItems = 1, vendor = 5, ah = 20, items = {} },
+    { startedAt = 100, elapsed = 120, gold = 12400, nItems = 2, vendor = 40, ah = 2000, items = {
+      [7] = { id = 7, link = "[A]", qty = 4, lastSeen = 1 },
+      [8] = { id = 8, link = "[B]", qty = 1, lastSeen = 1 } } },
+  }
+  local opts = { formatDate = function() return "D" end,
+    lookup = function(id) return { vendor = 1, ah = id == 7 and 500 or 100 } end }
+  local v = ns.View.buildHistory(list, opts, 2)
+  h.eq(#v.rows, 4)
+  h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D  2m")
+  h.eq(v.rows[1].hint, "Click to collapse")
+  h.eq(v.rows[2].id, 7); h.eq(v.rows[2].ahTotal, 2000) -- items, best AH value first
+  h.eq(v.rows[3].id, 8)
+  h.eq(v.rows[4].historyIndex, 1) -- the other session follows
+  h.eq(v.totals.ah, 2020) -- totals still cover every session
+  -- an index that is not in the list opens nothing
+  h.eq(#ns.View.buildHistory(list, opts, 9).rows, 2)
 end)
