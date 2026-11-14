@@ -7,6 +7,7 @@ local ADDON, ns = ...
 --   Options.define({
 --     key     = "alpha",              -- db.settings[key] (default in DB.defaults.settings)
 --     type    = "slider",             -- slider | dropdown | checkbox | number | text | button (see OptionsPanel.WIDGETS)
+--     category = "window",            -- section of the panel (Options.CATEGORIES)
 --     label   = "Window opacity",
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = "A" }, ... }, -- dropdown (or a function returning that list)
@@ -26,7 +27,7 @@ local Options = {
 local num = ns.Util.isNumber
 
 -- Vertical size (px) of one option block in the panel, by type.
-Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46, text = 46, button = 28 }
+Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46, text = 46, button = 28, header = 26 }
 Options.GAP = 8
 
 function Options.define(spec)
@@ -45,6 +46,37 @@ end
 
 function Options.list()
   return Options.specs
+end
+
+-- The sections of the panel, in order. An option names its section with
+-- `category`; one without (or with an unknown one) lands in a last "Other" section.
+Options.CATEGORIES = {
+  { id = "window", label = "Window" },
+  { id = "prices", label = "Prices" },
+  { id = "display", label = "Display" },
+  { id = "session", label = "Session and alerts" },
+}
+
+-- What the panel shows, top to bottom: for every section a header entry
+-- ({ key = "header:<id>", type = "header", label }) followed by its options in
+-- the order they were defined. Empty sections are left out.
+function Options.entries()
+  local known, byCategory = {}, {}
+  for _, c in ipairs(Options.CATEGORIES) do known[c.id], byCategory[c.id] = true, {} end
+  local other = {}
+  for _, spec in ipairs(Options.specs) do
+    local list = known[spec.category] and byCategory[spec.category] or other
+    list[#list + 1] = spec
+  end
+  local out = {}
+  local function section(id, label, specs)
+    if #specs == 0 then return end
+    out[#out + 1] = { key = "header:" .. id, type = "header", label = label }
+    for _, spec in ipairs(specs) do out[#out + 1] = spec end
+  end
+  for _, c in ipairs(Options.CATEGORIES) do section(c.id, c.label, byCategory[c.id]) end
+  section("other", "Other", other)
+  return out
 end
 
 function Options.spec(key)
@@ -157,14 +189,20 @@ function Options.layout(specs, columns)
   for _, spec in ipairs(specs) do total = total + Options.HEIGHTS[spec.type] + Options.GAP end
   local per = total / columns
   local tops, cols, col, y, height = {}, {}, 1, 0, 0
-  for _, spec in ipairs(specs) do
+  local previous
+  for i, spec in ipairs(specs) do
     local h = Options.HEIGHTS[spec.type]
-    if col < columns and y > 0 and y + h / 2 > per then
+    -- A header counts together with the entry under it, and that entry never
+    -- starts a column by itself.
+    local need = h
+    if spec.type == "header" and specs[i + 1] then need = h + Options.GAP + Options.HEIGHTS[specs[i + 1].type] end
+    if col < columns and y > 0 and not (previous and previous.type == "header") and y + need / 2 > per then
       height = math.max(height, y - Options.GAP)
       col, y = col + 1, 0
     end
     tops[spec.key], cols[spec.key] = y, col
     y = y + h + Options.GAP
+    previous = spec
   end
   return { tops = tops, cols = cols, height = math.max(height, y - Options.GAP, 0) }
 end
@@ -185,30 +223,30 @@ end
 
 -- Window background and border.
 Options.define({
-  key = "alpha", type = "slider", label = "Window opacity",
+  key = "alpha", category = "window", type = "slider", label = "Window opacity",
   min = 0, max = 1, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
 -- 100 % is the theme color; above that the dark panel gets lighter.
 Options.define({
-  key = "brightness", type = "slider", label = "Window brightness",
+  key = "brightness", category = "window", type = "slider", label = "Window brightness",
   min = 0, max = 2, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
 Options.define({
-  key = "windowScale", type = "slider", label = "Window scale",
+  key = "windowScale", category = "window", type = "slider", label = "Window scale",
   min = 0.7, max = 1.5, step = 0.05, format = percent,
   apply = function()
     if ns.UI and ns.UI.Window and ns.UI.Window.applyScale then ns.UI.Window.applyScale() end
   end,
 })
 
-Options.define({ key = "lockWindow", type = "checkbox", label = "Lock window (no moving or resizing)" })
+Options.define({ key = "lockWindow", category = "window", type = "checkbox", label = "Lock window (no moving or resizing)" })
 
-Options.define({ key = "startHidden", type = "checkbox", label = "Start hidden at login" })
+Options.define({ key = "startHidden", category = "window", type = "checkbox", label = "Start hidden at login" })
 
 Options.define({
-  key = "combatHide",
+  key = "combatHide", category = "window",
   type = "checkbox",
   label = "Hide in combat, show again afterwards",
   apply = function(v)
@@ -216,10 +254,10 @@ Options.define({
   end,
 })
 
-Options.define({ key = "keepSession", type = "checkbox", label = "Keep the session across logins" })
+Options.define({ key = "keepSession", category = "session", type = "checkbox", label = "Keep the session across logins" })
 
 Options.define({
-  key = "priceSource",
+  key = "priceSource", category = "prices",
   type = "dropdown",
   label = "AH price source",
   -- "Auto" plus every registered price source (Sources/Sources.lua).
@@ -229,17 +267,17 @@ Options.define({
 
 -- The TSM price string, read live by Sources/TSM.lua (same as /lp tsm).
 Options.define({
-  key = "tsmSource", type = "text", label = "TSM price source (e.g. DBMarket)", apply = refreshUI,
+  key = "tsmSource", category = "prices", type = "text", label = "TSM price source (e.g. DBMarket)", apply = refreshUI,
 })
 
 Options.define({
-  key = "refreshSeconds", type = "slider", label = "Price refresh interval",
+  key = "refreshSeconds", category = "prices", type = "slider", label = "Price refresh interval",
   min = 10, max = 120, step = 5, format = function(v) return v .. " s" end,
 })
 
 -- After this long a cached AH price shows its age tag in orange.
 Options.define({
-  key = "staleHours", type = "slider", label = "Mark cached prices as old after",
+  key = "staleHours", category = "prices", type = "slider", label = "Mark cached prices as old after",
   min = 1, max = 72, step = 1, format = function(v) return v .. " h" end,
   apply = function(v)
     if ns.Prices then ns.Prices.STALE_AFTER = v * 3600 end
@@ -250,7 +288,7 @@ Options.define({
 -- Applied at login and whenever changed; the sort button of the filter bar
 -- still changes the order for the rest of the session.
 Options.define({
-  key = "defaultSort",
+  key = "defaultSort", category = "display",
   type = "dropdown",
   label = "Sort order (at login)",
   choices = {
@@ -266,7 +304,7 @@ Options.define({
 })
 
 Options.define({
-  key = "goldDisplay",
+  key = "goldDisplay", category = "display",
   type = "dropdown",
   label = "Amounts of 1 gold and more",
   choices = {
@@ -281,19 +319,49 @@ Options.define({
 })
 
 Options.define({
-  key = "includeGold", type = "checkbox", label = "Add raw gold to the combined total", apply = refreshUI,
+  key = "includeGold", category = "display", type = "checkbox", label = "Add raw gold to the combined total", apply = refreshUI,
 })
 
 -- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
 Options.define({
-  key = "alertGold", type = "number", label = "Alert for drops worth (gold, 0 = off)",
+  key = "alertGold", category = "session", type = "number", label = "Alert for drops worth (gold, 0 = off)",
 })
 
-Options.define({ key = "alertSound", type = "checkbox", label = "Play a sound with the alert" })
+Options.define({ key = "alertSound", category = "session", type = "checkbox", label = "Play a sound with the alert" })
 
 -- Round button on the minimap (UI/Minimap.lua).
+-- Font sizes (UI/Fonts.lua): decided before the window is built, so they take
+-- effect after /reload.
+-- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.
 Options.define({
-  key = "minimapButton",
+  key = "fontFace", category = "display",
+  type = "dropdown",
+  label = "Font",
+  choices = function()
+    if ns.UI and ns.UI.Fonts then return ns.UI.Fonts.choices() end
+    return { { value = "default", label = "WoW default" } }
+  end,
+  apply = function(v)
+    if ns.UI and ns.UI.Fonts then ns.UI.Fonts.applyFace(v) end
+  end,
+})
+
+local function px(v) return v .. " px" end
+Options.define({ key = "fontSizeRows", category = "display", type = "slider", label = "List text size (after /reload)",
+  min = 8, max = 18, step = 1, format = px })
+Options.define({ key = "fontSizeTotals", category = "display", type = "slider", label = "Totals text size (after /reload)",
+  min = 8, max = 18, step = 1, format = px })
+Options.define({ key = "fontSizeTitles", category = "display", type = "slider", label = "Section title size (after /reload)",
+  min = 10, max = 24, step = 1, format = px })
+Options.define({
+  key = "reloadUI", category = "display", type = "button", label = "Reload UI to apply font sizes",
+  action = function()
+    if type(ReloadUI) == "function" then ReloadUI() end
+  end,
+})
+
+Options.define({
+  key = "minimapButton", category = "window",
   type = "checkbox",
   label = "Show minimap button",
   apply = function(v)
@@ -302,7 +370,7 @@ Options.define({
 })
 
 Options.define({
-  key = "minimapReset", type = "button", label = "Reset minimap button position",
+  key = "minimapReset", category = "window", type = "button", label = "Reset minimap button position",
   action = function()
     if ns.UI and ns.UI.Minimap then ns.UI.Minimap.resetPosition() end
   end,
@@ -310,7 +378,7 @@ Options.define({
 
 -- How many finished sessions the History tab keeps. Lowering it prunes at once.
 Options.define({
-  key = "historyLimit",
+  key = "historyLimit", category = "session",
   type = "number",
   label = "History sessions kept (empty = unlimited)",
   apply = function(v)

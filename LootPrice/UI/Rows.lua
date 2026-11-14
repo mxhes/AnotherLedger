@@ -329,7 +329,7 @@ local function createRow(parent, owner)
 
   -- Auto-width, left-justified (the tag anchors to the AH amount's right end).
   local function line2()
-    local fs = f:CreateFontString(nil, "OVERLAY", T.fonts.small)
+    local fs = f:CreateFontString(nil, "OVERLAY", T.fonts.rowSmall)
     fs:SetJustifyH("LEFT")
     fs:SetWordWrap(false)
     setColor(fs, T.colors.ink)
@@ -403,7 +403,7 @@ function Rows.attach(area, onMeasure)
     blockMeasure = { amount = 0, tag = 0 } }
 
   -- Offscreen probes with the same font objects as the row's texts.
-  local probe = area:CreateFontString(nil, "OVERLAY", T.fonts.small)
+  local probe = area:CreateFontString(nil, "OVERLAY", T.fonts.rowSmall)
   probe:SetAlpha(0)
   probe:SetWordWrap(false)
   local qtyProbe = area:CreateFontString(nil, "OVERLAY", T.fonts.body)

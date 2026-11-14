@@ -11,7 +11,8 @@ h.test("Options: the built-in options are registered in panel order", function()
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "startHidden", "combatHide",
     "keepSession", "priceSource", "tsmSource", "refreshSeconds", "staleHours", "defaultSort",
-    "goldDisplay", "includeGold", "alertGold", "alertSound", "minimapButton", "minimapReset",
+    "goldDisplay", "includeGold", "alertGold", "alertSound", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "fontSizeTitles", "reloadUI", "minimapButton", "minimapReset",
     "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
@@ -175,4 +176,42 @@ h.test("Options: historyLimit apply prunes the saved history", function()
   O.set(db(), "historyLimit", 3)
   h.eq(ns.chardb.history.pruned, 3)
   ns.History, ns.chardb = nil, nil
+end)
+
+h.test("Options.entries: a header per section, every option exactly once, in section order", function()
+  local entries = O.entries()
+  local headers, seen, section = {}, {}, nil
+  for _, e in ipairs(entries) do
+    if e.type == "header" then
+      headers[#headers + 1] = e.label
+      section = e.key:match("^header:(.+)$")
+    else
+      h.eq(seen[e.key], nil, e.key)
+      seen[e.key] = true
+      h.eq(e.category, section, e.key) -- listed under its own section
+    end
+  end
+  h.eq(headers, { "Window", "Prices", "Display", "Session and alerts" })
+  for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
+end)
+
+h.test("Options.entries: an option without a known category goes to Other", function()
+  local spec = O.define({ key = "zzTest", type = "checkbox", label = "T" })
+  local entries = O.entries()
+  h.eq(entries[#entries - 1].label, "Other")
+  h.eq(entries[#entries].key, "zzTest")
+  for i, s in ipairs(O.specs) do if s == spec then table.remove(O.specs, i) end end
+  O.byKey.zzTest = nil
+end)
+
+h.test("Options.layout: a header always sits right above its first option, also across columns", function()
+  local entries = O.entries()
+  local L = O.layout(entries, 2)
+  for i, e in ipairs(entries) do
+    if e.type == "header" then
+      local nextEntry = entries[i + 1]
+      h.eq(L.cols[nextEntry.key], L.cols[e.key], e.key)
+      h.eq(L.tops[nextEntry.key], L.tops[e.key] + O.HEIGHTS.header + O.GAP, e.key)
+    end
+  end
 end)

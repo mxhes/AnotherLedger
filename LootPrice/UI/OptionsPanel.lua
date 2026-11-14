@@ -6,7 +6,7 @@ ns.UI = ns.UI or {}
 -- registered with Options.define (Options.lua). Client-only widgets; every WoW
 -- global is touched inside functions only.
 --
--- Expandability: the panel never names an option. It walks Options.list() and
+-- Expandability: the panel never names an option. It walks Options.entries() (sections with their options) and
 -- asks WIDGETS[spec.type] for a widget. A new option is one Options.define
 -- call; a new kind of control is one entry in WIDGETS (plus its height in
 -- Options.HEIGHTS).
@@ -118,6 +118,19 @@ function Panel.WIDGETS.number(block, spec)
   }
 end
 
+-- Section title: gold text with a thin line under it.
+function Panel.WIDGETS.header(block, spec)
+  local T = theme()
+  local title = label(block, T.fonts.body, T.colors.gold)
+  title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -2)
+  title:SetText(spec.label)
+  local line = ns.UI.Widgets.line(block, T.colors.goldLine, "ARTWORK", 0.5)
+  line:SetHeight(1)
+  line:SetPoint("BOTTOMLEFT", block, "BOTTOMLEFT", 0, 2)
+  line:SetPoint("BOTTOMRIGHT", block, "BOTTOMRIGHT", 0, 2)
+  return { refresh = function() end }
+end
+
 function Panel.WIDGETS.text(block, spec)
   local T = theme()
   local title = label(block, T.fonts.small, T.colors.ink)
@@ -220,7 +233,7 @@ end
 local function build()
   local T = theme()
   local pad = T.sizes.padding + 4
-  local specs = ns.Options.list()
+  local specs = ns.Options.entries()
   local layout = ns.Options.layout(specs, COLUMNS)
   local width = 2 * pad + COLUMNS * COLUMN_WIDTH + (COLUMNS - 1) * COLUMN_GAP
 
@@ -286,7 +299,7 @@ local PAGE_NAME = "LootPrice"
 local function buildPage()
   local T = theme()
   local pad = 16
-  local specs = ns.Options.list()
+  local specs = ns.Options.entries()
   local layout = ns.Options.layout(specs, COLUMNS)
 
   local page = CreateFrame("Frame", "LootPriceOptionsPage")

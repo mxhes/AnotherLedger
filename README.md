@@ -43,7 +43,10 @@ The gear button at the top right of the header (left of the X) opens the options
 - **Add raw gold to the combined total**: with it off, the "Items + gold" block is left out of the footer. Default on.
 - **Alert for drops worth (gold)**: a chat line when one drop (price times quantity) is worth at least this much; 0 or empty = off (default). **Play a sound with the alert** adds a sound.
 
-The two-column panel and the page in the game's options window (Esc > Options > AddOns > LootPrice) show the same list.
+- **Font**: the typeface of all addon text. `WoW default` (default) keeps the game's own font for your client's language; the list also offers the built-in fonts the client loads (Arial Narrow, Skurri, Morpheus) and every font registered with LibSharedMedia when another addon provides it. Changes at once. The addon uses its own copies of the game fonts, so other addons are not affected.
+- **List text size**, **Totals text size** (totals and Top finds) and **Section title size**: the size in px of the main font of that part (defaults 12, 12 and 16; the smaller fonts of that part keep their proportion). The matching row heights scale with it. The fonts are set before the window is built, so a change takes effect after `/reload` (the **Reload UI** button does it). The buttons, filter bar and header keep their size.
+
+The two-column panel groups the options into the sections **Window**, **Prices**, **Display** and **Session and alerts**; an option names its section with `category = "..."` in `Options.define` (the list is `Options.CATEGORIES`). The panel and the page in the game's options window (Esc > Options > AddOns > LootPrice) show the same list.
 
 - **Window opacity** (0-100 %): fades the window background and border; text and rows stay fully opaque. Default 100 %.
 - **Window brightness** (0-200 %): multiplies the background and border color; 100 % is the theme color, above that the dark panel gets lighter, 0 % is black. Default 100 %.

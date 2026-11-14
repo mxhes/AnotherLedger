@@ -31,6 +31,12 @@ DB.defaults = {
     staleHours = 12,
     alertGold = 0,
     alertSound = false,
+    -- Font size in px of the list text, the totals and the section titles (after /reload).
+    -- Typeface: "default" (the WoW font) or a font file path.
+    fontFace = "default",
+    fontSizeRows = 12,
+    fontSizeTotals = 12,
+    fontSizeTitles = 16,
   },
   window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false },
   filter = {

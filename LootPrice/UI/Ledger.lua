@@ -254,6 +254,7 @@ end
 function Ledger.init()
   if Ledger.frame then return Ledger.frame end
   local UI = ns.UI
+  if UI.Fonts then UI.Fonts.install(ns.db) end -- before any text is created
   local frame = UI.Window.create(ns.db)
   if not frame then return nil end
   Ledger.frame = frame

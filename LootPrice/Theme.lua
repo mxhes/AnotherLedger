@@ -19,6 +19,7 @@ Theme.fonts = {
   body = "GameFontHighlight",
   number = "GameFontHighlight",
   small = "GameFontHighlightSmall",
+  rowSmall = "GameFontHighlightSmall", -- second and third line of a list row
   -- Summary (totals bar, Top finds): about 12 pt; markers stay small.
   summary = "GameFontHighlight",
   summaryMarker = "GameFontHighlightSmall",
