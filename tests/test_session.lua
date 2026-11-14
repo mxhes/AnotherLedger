@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Session.lua" })
+local ns = h.load({ "Util.lua", "Session.lua" })
 local S = ns.Session
 local L = "|cff0070dd|Hitem:5::::::::|h[Thing]|h|r"
 

@@ -25,37 +25,30 @@ local MAX_TOP = 3
 -- ---------------------------------------------------------------------------
 -- Pure helpers
 
-local function money(v)
-  return ns.Money.format(tonumber(v) or 0)
+-- Every text helper takes an optional `formatMoney`; it defaults to the colored
+-- coin format (Money.formatColored), the tests pass Money.format for plain text.
+local NONE = {}
+
+local function amountText(v, formatMoney)
+  return (formatMoney or ns.Money.formatColored)(tonumber(v) or 0)
 end
 
-local function moneyColored(v)
-  return ns.Money.formatColored(tonumber(v) or 0)
+-- "12g 5s/h", or an em dash while there is no rate yet.
+function Summary.rateText(perHour, formatMoney)
+  if perHour == nil then return DASH end
+  return (formatMoney or ns.Money.formatColored)(perHour) .. L_PER_HOUR
 end
 
-local function rate(v)
-  if v == nil then return DASH end
-  return ns.Money.format(v) .. L_PER_HOUR
-end
-
-local function rateColored(v)
-  if v == nil then return DASH end
-  return ns.Money.formatColored(v) .. L_PER_HOUR
-end
-
-function Summary.totalsText(totals)
-  totals = totals or {}
+-- Items block: `totals` = View totals {vendor, ah, vendorPerHour, ahPerHour,
+-- unpriced, filtered}.
+function Summary.totalsText(totals, formatMoney)
+  totals = totals or NONE
   local unpriced = tonumber(totals.unpriced) or 0
   return {
-    vendor = L_VENDOR .. money(totals.vendor),
-    vendorRate = rate(totals.vendorPerHour),
-    ah = L_AH .. money(totals.ah),
-    ahRate = rate(totals.ahPerHour),
-    -- Same texts with colored coin amounts (color escapes), used by the UI.
-    vendorColored = L_VENDOR .. moneyColored(totals.vendor),
-    vendorRateColored = rateColored(totals.vendorPerHour),
-    ahColored = L_AH .. moneyColored(totals.ah),
-    ahRateColored = rateColored(totals.ahPerHour),
+    vendor = L_VENDOR .. amountText(totals.vendor, formatMoney),
+    vendorRate = Summary.rateText(totals.vendorPerHour, formatMoney),
+    ah = L_AH .. amountText(totals.ah, formatMoney),
+    ahRate = Summary.rateText(totals.ahPerHour, formatMoney),
     unpriced = unpriced > 0 and (unpriced .. L_UNPRICED) or nil,
     filtered = totals.filtered and true or false,
   }
@@ -63,25 +56,24 @@ end
 
 -- Raw gold block: `gold` = View gold {total, perHour}; one line, total left and
 -- rate right (an em dash while the rate is nil).
-function Summary.goldText(gold)
-  gold = gold or {}
+function Summary.goldText(gold, formatMoney)
+  gold = gold or NONE
   return {
-    total = L_GOLD .. money(gold.total),
-    rate = rate(gold.perHour),
-    totalColored = L_GOLD .. moneyColored(gold.total),
-    rateColored = rateColored(gold.perHour),
+    total = L_GOLD .. amountText(gold.total, formatMoney),
+    rate = Summary.rateText(gold.perHour, formatMoney),
   }
 end
 
 -- Combined items + gold block: `combined` = View combined {vendor, ah,
 -- vendorPerHour, ahPerHour}. Same texts as the item totals, without the
 -- unpriced / filtered markers (those belong to the item block only).
-function Summary.combinedText(combined)
-  local t = Summary.totalsText(combined)
+function Summary.combinedText(combined, formatMoney)
+  combined = combined or NONE
   return {
-    vendor = t.vendor, vendorRate = t.vendorRate, ah = t.ah, ahRate = t.ahRate,
-    vendorColored = t.vendorColored, vendorRateColored = t.vendorRateColored,
-    ahColored = t.ahColored, ahRateColored = t.ahRateColored,
+    vendor = L_VENDOR .. amountText(combined.vendor, formatMoney),
+    vendorRate = Summary.rateText(combined.vendorPerHour, formatMoney),
+    ah = L_AH .. amountText(combined.ah, formatMoney),
+    ahRate = Summary.rateText(combined.ahPerHour, formatMoney),
   }
 end
 
@@ -125,16 +117,16 @@ function Summary.requiredWindowHeight()
     + s.minListRows * s.rowHeight + Summary.footerLayout().height
 end
 
-function Summary.topLines(top)
+function Summary.topLines(top, formatMoney)
   local out = {}
   if type(top) ~= "table" then return out end
+  formatMoney = formatMoney or ns.Money.formatColored
   for i = 1, math.min(#top, MAX_TOP) do
     local r = top[i]
-    out[#out + 1] = {
+    out[i] = {
       name = r.name or "?",
       qty = "x" .. (tonumber(r.quantity) or 0),
-      valueText = ns.Money.format(r.value),
-      valueColored = ns.Money.formatColored(r.value),
+      value = formatMoney(r.value),
       quality = r.quality,
       tooltipLink = ns.UI.Rows and ns.UI.Rows.tooltipLink(r) or nil,
     }
@@ -167,14 +159,6 @@ end
 -- ---------------------------------------------------------------------------
 -- Widgets
 
-local function makeText(parent, font, color, justify)
-  local fs = parent:CreateFontString(nil, "OVERLAY", font)
-  fs:SetJustifyH(justify or "LEFT")
-  fs:SetWordWrap(false)
-  fs:SetTextColor(color[1], color[2], color[3], color[4] or 1)
-  return fs
-end
-
 -- Footer layout at the 326 px content minimum (350 px window): three blocks,
 -- each under a label row. Items and Total: a stacked pair per half (total
 -- above, rate below), ~159 px per line (Summary.footerHalfWidth). Gold: one
@@ -182,6 +166,8 @@ end
 function Summary.attach(topBox, footer)
   if Summary.instance then return Summary.instance end
   local T = ns.Theme
+  local W = ns.UI.Widgets
+  local makeText = W.text
   local S = T.sizes
   local ink, stale = T.colors.ink, T.colors.stale
   local titleColor = T.colors.sectionTitle
@@ -202,9 +188,7 @@ function Summary.attach(topBox, footer)
     row:SetHeight(S.topRowHeight)
     row:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight))
     row:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight))
-    local edge = row:CreateTexture(nil, "ARTWORK")
-    edge:SetTexture(T.textures.rowHighlight)
-    edge:SetVertexColor(line[1], line[2], line[3], 0.9)
+    local edge = W.line(row, line, "ARTWORK", 0.9)
     edge:SetWidth(2)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     edge:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
@@ -220,25 +204,14 @@ function Summary.attach(topBox, footer)
     local entry = { frame = row, name = name, qty = qty, value = value }
     -- Item tooltip while the mouse is over the find.
     row:EnableMouse(true)
-    row:SetScript("OnEnter", function()
-      local link = entry.tooltipLink
-      if not link or not GameTooltip then return end
-      GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-      GameTooltip:SetHyperlink(link)
-      GameTooltip:Show()
-    end)
-    row:SetScript("OnLeave", function()
-      if GameTooltip then GameTooltip:Hide() end
-    end)
+    row:SetScript("OnEnter", function() W.showItemTooltip(row, entry.tooltipLink) end)
+    row:SetScript("OnLeave", W.hideTooltip)
     summary.rows[i] = entry
   end
 
   -- Divider between the summaries and the Top finds block: the top edge of the
   -- topBox, so it disappears together with a collapsed topBox.
-  local divider = topBox:CreateTexture(nil, "ARTWORK")
-  divider:SetTexture(T.textures.rowHighlight)
-  local dc = T.colors.divider
-  divider:SetVertexColor(dc[1], dc[2], dc[3], dc[4])
+  local divider = W.line(topBox, T.colors.divider)
   divider:SetHeight(S.dividerHeight)
   divider:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, 0)
@@ -258,9 +231,7 @@ function Summary.attach(topBox, footer)
     label:SetPoint("TOPLEFT", footer, "TOPLEFT", 0, -b.top)
     label:SetHeight(b.labelHeight)
     label:SetText(labelText)
-    local rule = footer:CreateTexture(nil, "ARTWORK")
-    rule:SetTexture(T.textures.rowHighlight)
-    rule:SetVertexColor(sep[1], sep[2], sep[3], sep[4])
+    local rule = W.line(footer, sep)
     rule:SetHeight(S.rowSeparator)
     rule:SetPoint("LEFT", label, "RIGHT", S.footerLabelGap, 0)
     rule:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
@@ -321,8 +292,8 @@ function Summary.attach(topBox, footer)
   summary.total = total
   summary.goldBox, summary.totalBox, summary.note = goldBox, totalBox, note
 
-  function summary:Set(view)
-    view = view or {}
+  -- Footer blocks and height for the view kind (session / inventory).
+  function summary:SetKind(view)
     local inventory = view.kind == "inventory"
     if inventory ~= self.inventory then
       self.inventory = inventory
@@ -336,23 +307,30 @@ function Summary.attach(topBox, footer)
         ns.UI.Window.setFooterHeight(footerHeight)
       end
     end
-    if view.note then
-      local c = view.noteStale and stale or ink
-      self.note:SetTextColor(c[1], c[2], c[3], c[4] or 1)
-      self.note:SetText(view.note)
-      self.note:Show()
-    else
+  end
+
+  -- Scan-age note under the items block (bank tab).
+  function summary:SetNote(text, isStale)
+    if not text then
       self.note:Hide()
+      return
     end
-    local lines = Summary.topLines(view.top)
+    W.setTextColor(self.note, isStale and stale or ink)
+    self.note:SetText(text)
+    self.note:Show()
+  end
+
+  -- Top finds: up to MAX_TOP lines; the box collapses without any.
+  function summary:SetTop(top)
+    local lines = Summary.topLines(top)
     for i = 1, MAX_TOP do
       local w, l = self.rows[i], lines[i]
       if l then
-        local r, g, b = T.qualityColor(l.quality, true)
+        local r, g, b = T.qualityColor(l.quality)
         w.name:SetTextColor(r, g, b, 1)
         w.name:SetText(l.name)
         w.qty:SetText(l.qty)
-        w.value:SetText(l.valueColored)
+        w.value:SetText(l.value)
         w.tooltipLink = l.tooltipLink
         w.frame:Show()
       else
@@ -366,40 +344,57 @@ function Summary.attach(topBox, footer)
         ns.UI.Window.setTopBoxHeight(height)
       end
     end
-
-    self:SetTotals(view)
-    if inventory then return end
-
-    local g = Summary.goldText(view.gold)
-    self.goldTotal:SetText(g.totalColored)
-    self.goldRate:SetText(g.rateColored)
-
-    local c = Summary.combinedText(view.combined)
-    self.total.vendor:SetText(c.vendorColored)
-    self.total.vendorRate:SetText(c.vendorRateColored)
-    self.total.ah:SetText(c.ahColored)
-    self.total.ahRate:SetText(c.ahRateColored)
   end
 
-  -- The items block (vendor / AH totals, unpriced and filtered markers).
+  -- The amounts: item totals with the unpriced / filtered markers and, on the
+  -- session tab, raw gold and the combined totals.
   function summary:SetTotals(view)
-    local t = Summary.totalsText(view.totals)
-    self.vendor:SetText(t.vendorColored)
-    self.vendorRate:SetText(t.vendorRateColored)
-    self.ah:SetText(t.ahColored)
-    self.ahRate:SetText(t.ahRateColored)
-    if t.unpriced then
-      self.unpriced:SetText(t.unpriced)
+    local totals = view.totals or NONE
+    self.vendor:SetText(L_VENDOR .. amountText(totals.vendor))
+    self.ah:SetText(L_AH .. amountText(totals.ah))
+    local unpricedCount = tonumber(totals.unpriced) or 0
+    if unpricedCount > 0 then
+      self.unpriced:SetText(unpricedCount .. L_UNPRICED)
       self.unpriced:Show()
     else
       self.unpriced:Hide()
     end
-    self.filtered:SetShown(t.filtered)
+    self.filtered:SetShown(totals.filtered and true or false)
+    if self.inventory then return end
+
+    local gold, combined = view.gold or NONE, view.combined or NONE
+    self.goldTotal:SetText(L_GOLD .. amountText(gold.total))
+    self.total.vendor:SetText(L_VENDOR .. amountText(combined.vendor))
+    self.total.ah:SetText(L_AH .. amountText(combined.ah))
   end
 
-  -- Ledger part: refreshed with every tick / loot event.
+  -- The per-hour rates: the only footer texts that change with the clock.
+  function summary:SetRates(view)
+    local rateText = Summary.rateText
+    local totals = view.totals or NONE
+    self.vendorRate:SetText(rateText(totals.vendorPerHour))
+    self.ahRate:SetText(rateText(totals.ahPerHour))
+    if self.inventory then return end
+
+    local gold, combined = view.gold or NONE, view.combined or NONE
+    self.goldRate:SetText(rateText(gold.perHour))
+    self.total.vendorRate:SetText(rateText(combined.vendorPerHour))
+    self.total.ahRate:SetText(rateText(combined.ahPerHour))
+  end
+
+  function summary:Set(view)
+    view = view or NONE
+    self:SetKind(view)
+    self:SetNote(view.note, view.noteStale)
+    self:SetTop(view.top)
+    self:SetTotals(view)
+    self:SetRates(view)
+  end
+
+  -- Ledger part: everything on a full refresh, only the rates on a clock tick.
   local part = {}
-  function part:Update(v) summary:Set(v) end
+  function part:Update(view) summary:Set(view) end
+  function part:Tick(view) summary:SetRates(view) end
   if ns.UI.Ledger then ns.UI.Ledger.register(part) end
 
   Summary.instance = summary

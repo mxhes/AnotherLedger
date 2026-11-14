@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Theme.lua", "UI/Header.lua" })
+local ns = h.load({ "Util.lua", "Theme.lua", "UI/Header.lua" })
 local H = ns.UI.Header
 
 h.test("formatElapsed basics", function()

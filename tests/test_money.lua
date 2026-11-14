@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Money.lua" })
+local ns = h.load({ "Util.lua", "Money.lua" })
 
 local cases = {
   { 12000, "1g 20s" }, { 45000, "4g 50s" }, { 620000, "62g" }, { 800, "8s" },

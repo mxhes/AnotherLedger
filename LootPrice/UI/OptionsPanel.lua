@@ -23,42 +23,20 @@ local function get(spec) return ns.Options.get(ns.db, spec.key) end
 local function set(spec, value) return ns.Options.set(ns.db, spec.key, value) end
 
 local function label(parent, font, color)
-  local fs = parent:CreateFontString(nil, "OVERLAY", font)
-  fs:SetJustifyH("LEFT")
-  fs:SetWordWrap(false)
-  fs:SetTextColor(color[1], color[2], color[3], color[4] or 1)
-  return fs
+  return ns.UI.Widgets.text(parent, font, color)
 end
 
--- ---------------------------------------------------------------------------
--- Choice menu (feature-detected at call time, like the filter bar menu)
-
-local legacyMenu
+-- One radio entry per choice of a dropdown option.
 local function openChoiceMenu(anchor, spec, onPick)
-  if MenuUtil and MenuUtil.CreateContextMenu then
-    -- UNVERIFIED (check in client): MenuUtil.CreateContextMenu / CreateRadio.
-    MenuUtil.CreateContextMenu(anchor, function(_, root)
-      for _, c in ipairs(spec.choices) do
-        root:CreateRadio(c.label,
-          function() return get(spec) == c.value end,
-          function() onPick(c.value) end)
-      end
-    end)
-    return
+  local entries = {}
+  for _, choice in ipairs(ns.Options.choices(spec)) do
+    entries[#entries + 1] = {
+      text = choice.label,
+      isChecked = function() return get(spec) == choice.value end,
+      onClick = function() onPick(choice.value) end,
+    }
   end
-  if not legacyMenu then
-    legacyMenu = CreateFrame("Frame", "LootPriceOptionsMenu", UIParent, "UIDropDownMenuTemplate")
-  end
-  UIDropDownMenu_Initialize(legacyMenu, function()
-    for _, c in ipairs(spec.choices) do
-      local info = UIDropDownMenu_CreateInfo()
-      info.text = c.label
-      info.checked = get(spec) == c.value
-      info.func = function() onPick(c.value) end
-      UIDropDownMenu_AddButton(info)
-    end
-  end, "MENU")
-  ToggleDropDownMenu(1, nil, legacyMenu, anchor, 0, 0)
+  ns.UI.Widgets.openMenu(anchor, entries, "radio")
 end
 
 -- ---------------------------------------------------------------------------
@@ -160,12 +138,9 @@ function Panel.WIDGETS.dropdown(block, spec)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local button = CreateFrame("Button", nil, block, "UIPanelButtonTemplate")
-  button:SetHeight(T.sizes.buttonHeight)
+  local button = ns.UI.Widgets.button(block)
   button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -20)
   button:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, -20)
-  button:SetNormalFontObject(T.fonts.button)
-  button:SetHighlightFontObject(T.fonts.buttonHighlight)
 
   local function show(value)
     button:SetText(ns.Options.valueText(spec, value))
@@ -194,17 +169,7 @@ local function build()
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
   frame:SetSize(WIDTH, 2 * pad + TITLE_HEIGHT + layout.height)
-  frame:SetBackdrop({
-    bgFile = T.textures.parchment,
-    edgeFile = T.textures.frameBorder,
-    tile = true,
-    tileSize = T.sizes.backdropTile,
-    edgeSize = T.sizes.backdropEdge,
-    insets = {
-      left = T.sizes.backdropInset, right = T.sizes.backdropInset,
-      top = T.sizes.backdropInset, bottom = T.sizes.backdropInset,
-    },
-  })
+  ns.UI.Widgets.applyBackdrop(frame)
   -- Always fully opaque: the opacity option is for the ledger window.
   local c = T.colors.panelTint
   frame:SetBackdropColor(c[1], c[2], c[3], 1)
@@ -215,11 +180,7 @@ local function build()
   title:SetPoint("TOPLEFT", frame, "TOPLEFT", pad, -pad)
   title:SetText(TITLE)
 
-  local close = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-  close:SetSize(T.widths.header.hide, T.sizes.buttonHeight)
-  close:SetText("X")
-  close:SetNormalFontObject(T.fonts.button)
-  close:SetHighlightFontObject(T.fonts.buttonHighlight)
+  local close = ns.UI.Widgets.button(frame, "X", T.widths.header.hide)
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -pad, -pad + 2)
   close:SetScript("OnClick", function() frame:Hide() end)
 

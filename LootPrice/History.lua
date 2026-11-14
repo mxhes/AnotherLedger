@@ -11,13 +11,7 @@ local History = {
   UNLIMITED = -1,
 }
 
-local function num(v)
-  return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
-
-local function nonNeg(v)
-  return num(v) and v >= 0 and v or 0
-end
+local num, nonNeg = ns.Util.isNumber, ns.Util.nonNegative
 
 -- Snapshot of `session`, or nil when it holds nothing worth keeping (no items
 -- and no gold). `lookup(itemID)` returns { vendor, ah } or nil; `now` ends a

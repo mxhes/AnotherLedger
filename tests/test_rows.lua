@@ -1,26 +1,27 @@
 local h = ...
-local ns = h.load({ "Money.lua", "Prices.lua", "Theme.lua", "UI/Rows.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Prices.lua", "Theme.lua", "UI/Rows.lua" })
 local R = ns.UI.Rows
 
 h.test("rowText priced live", function()
   local t = R.rowText({ name = "Linen Cloth", quantity = 23, vendorTotal = 230, ahTotal = 12650, ahFromCache = false, stale = false })
   h.eq(t.name, "Linen Cloth")
   h.eq(t.qty, "x23")
-  h.eq(t.vendorText, "Vendor: 2s 30c")
-  h.eq(t.ahText, "AH: 1g 26s 50c")
   h.eq(t.tag, nil)
   h.eq(t.tagStale, false)
+  -- colored coin amounts by default, plain text with Money.format
   local g = ns.Theme.colors
-  h.eq(t.vendorColored, "Vendor: " .. ns.Money.formatColored(230, g))
-  h.eq(t.ahColored, "AH: " .. ns.Money.formatColored(12650, g))
-  h.eq((t.ahColored:find("|cff", 1, true)) ~= nil, true)
+  h.eq(t.vendorAmount, ns.Money.formatColored(230, g))
+  h.eq(t.ahAmount, ns.Money.formatColored(12650, g))
+  h.eq((t.ahAmount:find("|cff", 1, true)) ~= nil, true)
+  local p = R.rowText({ name = "Linen Cloth", quantity = 23, vendorTotal = 230, ahTotal = 12650 }, ns.Money.format)
+  h.eq(p.vendorAmount, "2s 30c")
+  h.eq(p.ahAmount, "1g 26s 50c")
 end)
 
 h.test("rowText unpriced AH shows n/a", function()
   local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil, ahFromCache = false, stale = false })
-  h.eq(t.ahText, "AH: n/a")
-  h.eq(R.rowText({ name = "X", quantity = 1 }).vendorText, "Vendor: n/a")
-  h.eq(t.ahColored, "AH: n/a")
+  h.eq(t.ahAmount, "n/a")
+  h.eq(R.rowText({ name = "X", quantity = 1 }).vendorAmount, "n/a")
 end)
 
 h.test("rowText age tag only for cached prices", function()
@@ -59,9 +60,9 @@ h.test("offsetFor scrolls minimally", function()
 end)
 
 h.test("rowText separate columns", function()
-  local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil })
-  h.eq(t.vendorLabel, "Vendor: ")
-  h.eq(t.ahLabel, "AH: ")
+  local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil }, ns.Money.format)
+  h.eq(R.LABELS.vendor, "Vendor: ")
+  h.eq(R.LABELS.ah, "AH: ")
   h.eq(t.ahAmount, "n/a")
   h.eq(t.vendorAmount, "5c")
 end)
@@ -209,8 +210,11 @@ h.test("Rows.tooltipLink: the row link, else an item string, else nil", function
 end)
 
 h.test("rowText disenchant line only for disenchantable items", function()
-  local t = R.rowText({ name = "X", quantity = 2, deTotal = 500 })
+  local t = R.rowText({ name = "X", quantity = 2, deTotal = 500 }, ns.Money.format)
   h.eq(t.deLabel, "DE: "); h.eq(t.deAmount, "5s")
+  h.eq(R.rowText({ name = "X", quantity = 2, deTotal = 500 }).deAmount,
+    ns.Money.formatColored(500, ns.Theme.colors))
   local n = R.rowText({ name = "X", quantity = 2 })
-  h.eq(n.deLabel, ""); h.eq(n.deAmount, ""); h.eq(n.deAmountColored, "")
+  h.eq(n.deLabel, ""); h.eq(n.deAmount, "")
+  h.eq(R.rowText({ name = "S", quantity = 1, deTotal = 9, deLabel = "Gold: " }).deLabel, "Gold: ")
 end)

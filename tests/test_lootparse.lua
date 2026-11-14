@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "LootParse.lua" })
+local ns = h.load({ "Util.lua", "LootParse.lua" })
 
 local G = {
   LOOT_ITEM_SELF = "You receive loot: %s.",

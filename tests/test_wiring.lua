@@ -236,7 +236,7 @@ h.test("wiring: no unexpected globals leak", function()
   fire(ctx, "PLAYER_LOGOUT")
   local allowed = {
     LootPriceDB = true, LootPriceCharDB = true, SLASH_LOOTPRICE1 = true,
-    SLASH_LOOTPRICE2 = true, LootPriceWindow = true, LootPriceFilterMenu = true,
+    SLASH_LOOTPRICE2 = true, LootPriceWindow = true, LootPriceMenu = true,
   }
   for k in pairs(ctx.env) do
     if not ctx.baseline[k] and not allowed[k] then error("leaked global: " .. tostring(k)) end
@@ -586,4 +586,158 @@ h.test("wiring: a History session opens at the top and collapses on a second cli
   L.setTab("history")
   h.eq(L.historyIndex, nil) -- leaving the tab collapses
   h.eq(ctx.errors, {})
+end)
+
+-- A stub client whose timers wait until the test runs them (a "next frame").
+local function bootDeferred()
+  local ctx = boot()
+  ctx.timers = {}
+  ctx.env.C_Timer = { After = function(_, fn) ctx.timers[#ctx.timers + 1] = fn end }
+  function ctx.runTimers()
+    local due = ctx.timers
+    ctx.timers = {}
+    for _, fn in ipairs(due) do fn() end
+  end
+  return ctx
+end
+
+local function countCalls(tbl, name)
+  local calls, real = { n = 0 }, tbl[name]
+  tbl[name] = function(...)
+    calls.n = calls.n + 1
+    return real(...)
+  end
+  return calls
+end
+
+local function lootMsg(id, qty)
+  return "You receive loot: |cffffffff|Hitem:" .. id .. "::::::::60:::::::::|h[Item" .. id .. "]|h|r" .. "x" .. qty .. "."
+end
+
+h.test("wiring: several loot messages in one frame share a single rebuild", function()
+  local ctx = bootDeferred()
+  startWorld(ctx, false)
+  ctx.runTimers()
+  local builds = countCalls(ctx.ns.View, "build")
+  for id = 1, 5 do fire(ctx, "CHAT_MSG_LOOT", lootMsg(id, 2)) end
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  h.eq(ctx.ns.session.items[3].qty, 2) -- the session itself is updated at once
+  h.eq(ctx.ns.session.gold, 500)
+  h.eq(builds.n, 0)
+  ctx.runTimers()
+  h.eq(#ctx.ns.UI.Ledger.view.rows, 5)
+  h.eq(ctx.ns.UI.Ledger.view.gold.total, 500)
+  h.eq(builds.n <= 2, true) -- one for the items, at most one more for the gold
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the clock tick updates the rates without rebuilding, prices refresh every 30 s", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local L = ctx.ns.UI.Ledger
+  local onUpdate = L.frame._scripts.OnUpdate
+  local builds = countCalls(ctx.ns.View, "build")
+  local view = L.view
+  h.eq(view.totals.vendorPerHour, nil) -- younger than a minute
+  ctx.now = ctx.now + 10
+  onUpdate(L.frame, 0.4)
+  h.eq(builds.n, 0) -- not a full second yet
+  ctx.now = ctx.now + 15
+  onUpdate(L.frame, 0.7)
+  h.eq(builds.n, 0)
+  h.eq(L.view == view, true)
+  ctx.now = 1000 + 120
+  onUpdate(L.frame, 1)
+  h.eq(builds.n, 1) -- 30 s since the last full refresh: prices are looked up again
+  h.near(L.view.totals.vendorPerHour, 75 * 3600 / 120)
+  local fresh = L.view
+  ctx.now = ctx.now + 20
+  onUpdate(L.frame, 1)
+  h.eq(builds.n, 1)
+  h.eq(L.view == fresh, true)
+  h.near(fresh.totals.vendorPerHour, 75 * 3600 / 140) -- the rate follows the clock
+  -- a stopped clock does not tick, another tab does not tick
+  slash(ctx, "stop")
+  local after = builds.n
+  ctx.now = ctx.now + 100
+  onUpdate(L.frame, 1)
+  h.eq(builds.n, after)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: nothing is rebuilt while the window is hidden; showing it catches up", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, W = ctx.ns.UI.Ledger, ctx.ns.UI.Window
+  local builds = countCalls(ctx.ns.View, "build")
+  W.hide()
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  h.eq(builds.n, 0)
+  h.eq(ctx.ns.session.items[2589].qty, 3) -- still recorded
+  h.eq(#L.view.rows, 0)
+  W.show()
+  L.refresh() -- the client fires OnShow, which is hooked to this
+  h.eq(builds.n, 1)
+  h.eq(#L.view.rows, 1)
+  h.eq(L.view.gold.total, 500)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: item info only redraws for an item listed on the shown tab", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 1, { 2592, 2 } } })
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local L = ctx.ns.UI.Ledger
+  h.eq(L.wantsItemInfo(2589), true)
+  h.eq(L.wantsItemInfo(2592), false)
+  L.setTab("bags")
+  h.eq(L.wantsItemInfo(2592), true)
+  h.eq(L.wantsItemInfo(2589), false)
+  h.eq(L.wantsItemInfo(424242), false)
+  L.setTab("bank")
+  h.eq(L.wantsItemInfo(2592), false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a tab defined by another file shows up and builds through the ledger", function()
+  local ctx = boot()
+  ctx.ns.UI.Tabs.define({ key = "mail", label = "Mail", title = "Mail Ledger",
+    build = function(c) return ctx.ns.View.buildInventory({ [5] = { id = 5, qty = 2, lastSeen = 0 } }, c.opts) end })
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("mail")
+  h.eq(L.tab, "mail")
+  h.eq(#L.view.rows, 1)
+  h.eq(L.tabs.buttons.mail ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: cached prices older than 30 days are dropped at login", function()
+  local day = 86400
+  local now = 200 * day
+  local db = { cache = { ["EU-7"] = {
+    [1] = { price = 5, seenAt = now - 40 * day },
+    [2] = { price = 6, seenAt = now - 2 * day },
+  }, ["US-1"] = { [3] = { price = 7, seenAt = 5 } } } }
+  local ctx = boot({ db = db, now = now })
+  startWorld(ctx, false)
+  local cache = ctx.env.LootPriceDB.cache
+  h.eq(cache["EU-7"][1], nil)
+  h.eq(cache["EU-7"][2].price, 6)
+  h.eq(cache["US-1"], nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: /lp help lists every command, demo included", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  ctx.printed = {}
+  slash(ctx, "help")
+  local text = table.concat(ctx.printed, "\n")
+  for _, word in ipairs({ "/lp -", "show | hide", "start | stop", "/lp reset", "/lp keep", "/lp tsm", "/lp demo", "Note:" }) do
+    h.eq(text:find(word, 1, true) ~= nil, true, word)
+  end
 end)

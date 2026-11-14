@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Theme.lua", "View.lua", "UI/FilterBar.lua" })
+local ns = h.load({ "Util.lua", "Theme.lua", "View.lua", "UI/FilterBar.lua" })
 local F = ns.UI.FilterBar
 
 h.test("parseMinGold", function()

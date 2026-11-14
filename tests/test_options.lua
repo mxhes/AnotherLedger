@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "DB.lua", "Options.lua" })
+local ns = h.load({ "Util.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Options.lua" })
 local O = ns.Options
 
 local function db(settings)

@@ -8,13 +8,7 @@ local Inventory = {
   BANK_STALE_SECONDS = 12 * 3600,
 }
 
-local function num(v)
-  return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
-
-local function count(v)
-  return num(v) and v > 0 and v or 0
-end
+local num, count = ns.Util.isNumber, ns.Util.nonNegative
 
 -- Bag container ids: backpack 0, the carried bags and (where the client has
 -- one) the reagent bag. UNVERIFIED (check in client): NUM_BAG_SLOTS /
@@ -43,20 +37,25 @@ function Inventory.bankIDs(env)
   return ids
 end
 
+-- Adds one stack to an items map; an invalid id or quantity is skipped. The
+-- first link seen for an item is kept.
+local function addStack(items, id, link, qty, now)
+  if not (num(id) and id > 0 and num(qty) and qty > 0) then return end
+  local item = items[id]
+  if not item then
+    item = { id = id, link = nil, qty = 0, lastSeen = now }
+    items[id] = item
+  end
+  item.qty = item.qty + qty
+  if item.link == nil and type(link) == "string" then item.link = link end
+end
+
 -- entries = list of { id, link, qty }; invalid entries are skipped. Returns an
 -- items map with the stacks of one item id merged.
 function Inventory.merge(entries, now)
   local items = {}
   for _, e in ipairs(entries) do
-    if type(e) == "table" and num(e.id) and e.id > 0 and num(e.qty) and e.qty > 0 then
-      local item = items[e.id]
-      if not item then
-        item = { id = e.id, link = nil, qty = 0, lastSeen = now }
-        items[e.id] = item
-      end
-      item.qty = item.qty + e.qty
-      if type(e.link) == "string" and item.link == nil then item.link = e.link end
-    end
+    if type(e) == "table" then addStack(items, e.id, e.link, e.qty, now) end
   end
   return items
 end
@@ -71,19 +70,19 @@ function Inventory.scan(env, containerIDs, now)
       or type(api.GetContainerItemInfo) ~= "function" then
     return {}
   end
-  local entries = {}
+  local items = {}
   for _, bag in ipairs(containerIDs) do
     local ok, slots = pcall(api.GetContainerNumSlots, bag)
     if ok and num(slots) then
       for slot = 1, slots do
         local okInfo, info = pcall(api.GetContainerItemInfo, bag, slot)
         if okInfo and type(info) == "table" then
-          entries[#entries + 1] = { id = info.itemID, link = info.hyperlink, qty = info.stackCount }
+          addStack(items, info.itemID, info.hyperlink, info.stackCount, now)
         end
       end
     end
   end
-  return Inventory.merge(entries, now)
+  return items
 end
 
 function Inventory.scanBags(env, now)
@@ -106,15 +105,7 @@ function Inventory.scanNote(now, scannedAt)
   local age = math.max(0, now - scannedAt)
   local stale = age >= Inventory.BANK_STALE_SECONDS
   if age < 60 then return L_JUST_NOW, stale end
-  local text
-  if age < 3600 then
-    text = math.floor(age / 60) .. "m"
-  elseif age < 86400 then
-    text = math.floor(age / 3600) .. "h"
-  else
-    text = math.floor(age / 86400) .. "d"
-  end
-  return L_SCANNED .. text .. L_AGO, stale
+  return L_SCANNED .. ns.Util.shortAge(age) .. L_AGO, stale
 end
 
 ns.Inventory = Inventory

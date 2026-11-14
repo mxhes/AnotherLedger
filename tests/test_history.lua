@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Money.lua", "Session.lua", "History.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Session.lua", "History.lua" })
 local H = ns.History
 
 local function session(items, gold)

@@ -1,16 +1,15 @@
 local ADDON, ns = ...
 
+local num, posInt = ns.Util.isNumber, ns.Util.isPositiveInt
+
+-- The loot session: a clock that can be stopped plus the looted items and raw
+-- gold. Pure: the caller passes the time in. Shape:
+--   { startedAt, running, runningSince, elapsedBase, gold,
+--     items = { [itemID] = { id, link, qty, lastSeen } } }
+
 local Session = {
   LARGE_SESSION_ITEMS = 25,
 }
-
-local function num(v)
-  return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
-
-local function posInt(v)
-  return num(v) and v > 0 and v == math.floor(v)
-end
 
 function Session.new(now)
   return {
@@ -115,11 +114,7 @@ end
 local function normalizeGold(s)
   local g = s.gold
   if type(g) == "table" then
-    local sum = 0
-    for _, k in ipairs({ "looted", "quest" }) do
-      if num(g[k]) and g[k] > 0 then sum = sum + g[k] end
-    end
-    s.gold = sum
+    s.gold = ns.Util.nonNegative(g.looted) + ns.Util.nonNegative(g.quest)
   elseif not (num(g) and g >= 0) then
     s.gold = 0
   end

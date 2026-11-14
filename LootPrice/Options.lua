@@ -9,7 +9,7 @@ local ADDON, ns = ...
 --     type    = "slider",             -- slider | dropdown | checkbox | number (see OptionsPanel.WIDGETS)
 --     label   = "Window opacity",
 --     min = 0.1, max = 1, step = 0.05, -- slider
---     choices = { { value = "a", label = "A" }, ... }, -- dropdown
+--     choices = { { value = "a", label = "A" }, ... }, -- dropdown (or a function returning that list)
 --     (number: whole number >= 0, or -1 = unlimited; typed into a text box)
 --     format  = function(v) ... end,  -- optional display text of the value
 --     apply   = function(value) ... end, -- optional: make the value take effect
@@ -22,9 +22,7 @@ local Options = {
   byKey = {},
 }
 
-local function num(v)
-  return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-end
+local num = ns.Util.isNumber
 
 -- Vertical size (px) of one option block in the panel, by type.
 Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46 }
@@ -50,6 +48,14 @@ end
 
 function Options.spec(key)
   return Options.byKey[key]
+end
+
+-- The choices of a dropdown option; a function is asked each time, so a list
+-- that grows later (price sources) is always current.
+function Options.choices(spec)
+  local choices = spec.choices
+  if type(choices) == "function" then choices = choices() end
+  return type(choices) == "table" and choices or {}
 end
 
 function Options.defaultFor(key)
@@ -79,7 +85,7 @@ function Options.normalize(spec, value)
     if value < 0 then return -1 end
     return math.floor(value)
   elseif spec.type == "dropdown" then
-    for _, c in ipairs(spec.choices or {}) do
+    for _, c in ipairs(Options.choices(spec)) do
       if c.value == value then return value end
     end
     return default
@@ -128,7 +134,7 @@ function Options.valueText(spec, value)
   if spec.format then return spec.format(value) end
   if spec.type == "number" and num(value) and value < 0 then return "Unlimited" end
   if spec.type == "dropdown" then
-    for _, c in ipairs(spec.choices or {}) do
+    for _, c in ipairs(Options.choices(spec)) do
       if c.value == value then return c.label end
     end
   end
@@ -145,15 +151,6 @@ function Options.layout(specs)
   end
   return { tops = tops, height = math.max(0, y - Options.GAP) }
 end
-
--- ---------------------------------------------------------------------------
--- Price source choices; Core.sourceAllowed uses the same values.
-
-Options.PRICE_SOURCES = {
-  { value = "auto", label = "Auto (TSM, then Auctionator)" },
-  { value = "tsm", label = "TSM" },
-  { value = "auctionator", label = "Auctionator" },
-}
 
 -- ---------------------------------------------------------------------------
 -- Built-in options. Apply callbacks look the UI up at call time, so they are
@@ -185,7 +182,8 @@ Options.define({
   key = "priceSource",
   type = "dropdown",
   label = "AH price source",
-  choices = Options.PRICE_SOURCES,
+  -- "Auto" plus every registered price source (Sources/Sources.lua).
+  choices = function() return ns.Sources.choices() end,
   apply = refreshUI,
 })
 
@@ -207,7 +205,7 @@ Options.define({
     if ns.History and ns.chardb and type(ns.chardb.history) == "table" then
       ns.History.prune(ns.chardb.history, v)
     end
-    if ns.UI and ns.UI.refresh then ns.UI.refresh() end
+    refreshUI()
   end,
 })
 

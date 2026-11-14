@@ -15,25 +15,40 @@ local function split(copper)
   return sign, floor(copper / 10000), floor((copper % 10000) / 100), copper % 100
 end
 
+-- Appends `piece` to `text` with a space between (text may be nil).
+local function join(text, piece)
+  if text then return text .. " " .. piece end
+  return piece
+end
+
 -- Formats a copper amount as "1g 20s 5c", showing only non-zero units.
 function Money.format(copper)
   if copper == nil then return "n/a" end
   local sign, g, s, c = split(copper)
-  if g == 0 and s == 0 and c == 0 then return "0c" end
-  local parts = {}
-  if g > 0 then parts[#parts + 1] = g .. "g" end
-  if s > 0 then parts[#parts + 1] = s .. "s" end
-  if c > 0 then parts[#parts + 1] = c .. "c" end
-  return sign .. table.concat(parts, " ")
+  local text
+  if g > 0 then text = g .. "g" end
+  if s > 0 then text = join(text, s .. "s") end
+  if c > 0 then text = join(text, c .. "c") end
+  if not text then return "0c" end
+  return sign .. text
 end
 
-local function hex(c)
-  local function byte(v)
-    v = tonumber(v) or 0
-    if v < 0 then v = 0 elseif v > 1 then v = 1 end
-    return floor(v * 255 + 0.5)
+local function byte(v)
+  v = tonumber(v) or 0
+  if v < 0 then v = 0 elseif v > 1 then v = 1 end
+  return floor(v * 255 + 0.5)
+end
+
+-- Color escape prefix ("|cffRRGGBB") of a color table, built once per table.
+-- Color tables are treated as constants (Theme.colors never change at runtime).
+local hexCache = setmetatable({}, { __mode = "k" })
+local function hex(color)
+  local h = hexCache[color]
+  if not h then
+    h = string.format("|cff%02x%02x%02x", byte(color[1]), byte(color[2]), byte(color[3]))
+    hexCache[color] = h
   end
-  return string.format("|cff%02x%02x%02x", byte(c[1]), byte(c[2]), byte(c[3]))
+  return h
 end
 
 -- Same text as Money.format, each unit's amount and letter wrapped in a color
@@ -48,12 +63,12 @@ function Money.formatColored(copper, colors)
     return Money.format(copper)
   end
   local sign, g, s, c = split(copper)
-  local parts = {}
-  if g > 0 then parts[#parts + 1] = hex(colors.moneyGold) .. g .. "g|r" end
-  if s > 0 then parts[#parts + 1] = hex(colors.moneySilver) .. s .. "s|r" end
-  if c > 0 then parts[#parts + 1] = hex(colors.moneyCopper) .. c .. "c|r" end
-  if #parts == 0 then return hex(colors.moneyCopper) .. "0c|r" end
-  return sign .. table.concat(parts, " ")
+  local text
+  if g > 0 then text = hex(colors.moneyGold) .. g .. "g|r" end
+  if s > 0 then text = join(text, hex(colors.moneySilver) .. s .. "s|r") end
+  if c > 0 then text = join(text, hex(colors.moneyCopper) .. c .. "c|r") end
+  if not text then return hex(colors.moneyCopper) .. "0c|r" end
+  return sign .. text
 end
 
 ns.Money = Money

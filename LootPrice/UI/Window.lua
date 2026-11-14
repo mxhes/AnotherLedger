@@ -84,12 +84,7 @@ local function applyBounds(frame)
   end
 end
 
-local function clamp(v, lo, hi)
-  if hi < lo then hi = lo end
-  if v < lo then return lo end
-  if v > hi then return hi end
-  return v
-end
+local clamp = ns.Util.clamp
 
 local function save()
   local frame, w = Window.frame, winDB()
@@ -173,21 +168,7 @@ local function build(db)
   frame:EnableMouse(true)
   applyBounds(frame)
 
-  frame:SetBackdrop({
-    bgFile = T.textures.parchment,
-    edgeFile = T.textures.frameBorder,
-    tile = true,
-    tileSize = T.sizes.backdropTile,
-    edgeSize = T.sizes.backdropEdge,
-    insets = {
-      left = T.sizes.backdropInset, right = T.sizes.backdropInset,
-      top = T.sizes.backdropInset, bottom = T.sizes.backdropInset,
-    },
-  })
-  local c = T.colors.panelTint
-  frame:SetBackdropColor(c[1], c[2], c[3], c[4])
-  local bc = T.colors.panelBorder
-  frame:SetBackdropBorderColor(bc[1], bc[2], bc[3], bc[4])
+  ns.UI.Widgets.applyBackdrop(frame)
 
   -- Header: three 28 px rows (title and buttons, filters, tabs). Dragging the
   -- header moves the window.
@@ -207,10 +188,9 @@ local function build(db)
   header.row2 = makeRow(header, header.row1, false)
   header.row3 = makeRow(header, header.row2, false)
 
-  local title = header.row1:CreateFontString(nil, "OVERLAY", T.fonts.title)
+  local title = ns.UI.Widgets.text(header.row1, T.fonts.title, T.colors.ink)
   title:SetPoint("LEFT", header.row1, "LEFT", 0, 0)
   title:SetText(TITLE)
-  title:SetTextColor(T.colors.ink[1], T.colors.ink[2], T.colors.ink[3], T.colors.ink[4])
   header.title = title
 
   -- Top finds box at the very bottom, under the summaries; collapsed (hidden,

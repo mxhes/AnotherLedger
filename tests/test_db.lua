@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "DB.lua" })
+local ns = h.load({ "Util.lua", "DB.lua" })
 local DB = ns.DB
 
 h.test("DB.defaults shape", function()

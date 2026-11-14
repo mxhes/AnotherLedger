@@ -7,11 +7,13 @@
 ## SavedVariablesPerCharacter: LootPriceCharDB
 ## OptionalDeps: TradeSkillMaster, Auctionator
 
+Util.lua
 Money.lua
 Theme.lua
 DB.lua
 LootParse.lua
 Prices.lua
+Sources\Sources.lua
 Sources\Vendor.lua
 Sources\TSM.lua
 Sources\Auctionator.lua
@@ -21,6 +23,8 @@ Inventory.lua
 Options.lua
 View.lua
 Slash.lua
+Demo.lua
+UI\Widgets.lua
 UI\Window.lua
 UI\Rows.lua
 UI\Header.lua

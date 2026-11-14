@@ -1,6 +1,7 @@
 local h = ...
-local ns = h.load({ "Money.lua", "DB.lua", "LootParse.lua", "Prices.lua", "Sources/Vendor.lua",
-  "Sources/TSM.lua", "Sources/Auctionator.lua", "Session.lua", "View.lua", "Core.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "DB.lua", "LootParse.lua", "Prices.lua", "Sources/Sources.lua", "Sources/Vendor.lua",
+  "Sources/TSM.lua", "Sources/Auctionator.lua", "Session.lua", "View.lua", "Slash.lua", "Demo.lua", "Core.lua" })
+local Demo = ns.Demo
 local Core = ns.Core
 
 h.test("Core loads without a client and exposes helpers", function()
@@ -42,11 +43,11 @@ h.test("Core.buildPrices wires sources, vendor, live TSM source and cache", func
   h.eq(askedSource, "DBMinBuyout")
 end)
 
-h.test("Core.seedDemoCache seeds fresh, stale and missing entries", function()
+h.test("Demo.seedCache seeds fresh, stale and missing entries", function()
   local db = { cache = {} }
-  Core.seedDemoCache(db, nil, 100000)
+  Demo.seedCache(db, nil, 100000)
   h.eq(db.cache, {})
-  Core.seedDemoCache(db, "EU-1", 100000)
+  Demo.seedCache(db, "EU-1", 100000)
   local b = db.cache["EU-1"]
   h.eq(b[2589].seenAt, 100000)
   h.eq(b[3356].seenAt, 100000 - 14 * 3600)
@@ -59,14 +60,14 @@ h.test("Core.recordLoot adds to the session and flashes", function()
   ns.UI = { flash = function(id, lvl) flashed = { id, lvl } end, refresh = function() end }
   ns.prices = { lookup = function() return { vendor = 5 } end }
   _G.time = function() return 10 end
-  Core.recordLoot(Core.makeLink(2589, "Linen Cloth", "ffffff"), 3)
+  Core.recordLoot(Demo.makeLink(2589, "Linen Cloth", "ffffff"), 3)
   _G.time = nil
   h.eq(ns.session.items[2589].qty, 3)
   h.eq(flashed, { 2589, "normal" })
   ns.Session.stop(ns.session, 10)
   flashed = nil
   _G.time = function() return 11 end
-  Core.recordLoot(Core.makeLink(2589, "Linen Cloth", "ffffff"), 3)
+  Core.recordLoot(Demo.makeLink(2589, "Linen Cloth", "ffffff"), 3)
   _G.time = nil
   h.eq(ns.session.items[2589].qty, 3)
   h.eq(flashed, nil)
@@ -76,69 +77,69 @@ local function demoDb()
   return { cache = { ["EU-1"] = { [2589] = { price = 77, seenAt = 5 }, [999] = { price = 1, seenAt = 1 } } } }
 end
 
-h.test("Core.restoreDemoCache returns the cache to its original", function()
-  Core.demoBackup = nil
+h.test("Demo.restoreCache returns the cache to its original", function()
+  Demo.backup = nil
   local db = demoDb()
-  Core.seedDemoCache(db, "EU-1", 100000)
+  Demo.seedCache(db, "EU-1", 100000)
   h.eq(db.cache["EU-1"][2589].price, 55)
-  Core.restoreDemoCache(db)
+  Demo.restoreCache(db)
   h.eq(db.cache, demoDb().cache)
-  h.eq(next(Core.demoBackup or {}), nil)
+  h.eq(next(Demo.backup or {}), nil)
   -- bucket that did not exist at all
   local db2 = { cache = {} }
-  Core.seedDemoCache(db2, "EU-2", 100000)
-  Core.restoreDemoCache(db2)
+  Demo.seedCache(db2, "EU-2", 100000)
+  Demo.restoreCache(db2)
   h.eq(db2.cache, {})
 end)
 
 h.test("a second demo seed keeps the original backup", function()
-  Core.demoBackup = nil
+  Demo.backup = nil
   local db = demoDb()
-  Core.seedDemoCache(db, "EU-1", 100000)
-  Core.seedDemoCache(db, "EU-1", 200000)
-  Core.restoreDemoCache(db)
+  Demo.seedCache(db, "EU-1", 100000)
+  Demo.seedCache(db, "EU-1", 200000)
+  Demo.restoreCache(db)
   h.eq(db.cache, demoDb().cache)
 end)
 
 h.test("Core.resetSession restores the demo cache", function()
-  Core.demoBackup = nil
+  Demo.backup = nil
   local db = demoDb()
   ns.db = db
   ns.session = ns.Session.new(0)
   ns.UI = { refresh = function() end }
-  Core.seedDemoCache(db, "EU-1", 100000)
+  Demo.seedCache(db, "EU-1", 100000)
   _G.time = function() return 10 end
   Core.resetSession()
   _G.time = nil
   h.eq(db.cache, demoDb().cache)
 end)
 
-h.test("restoreDemoCache keeps a real price written after the demo seed", function()
-  Core.demoBackup = nil
+h.test("Demo.restoreCache keeps a real price written after the demo seed", function()
+  Demo.backup = nil
   local db = demoDb()
-  Core.seedDemoCache(db, "EU-1", 100000)
+  Demo.seedCache(db, "EU-1", 100000)
   db.cache["EU-1"][2589] = { price = 777, seenAt = 150000 }
-  Core.restoreDemoCache(db)
+  Demo.restoreCache(db)
   h.eq(db.cache["EU-1"][2589], { price = 777, seenAt = 150000 })
   h.eq(db.cache["EU-1"][2592], nil)
   h.eq(db.cache["EU-1"][999], { price = 1, seenAt = 1 })
 end)
 
-h.test("restoreDemoCache keeps a real price when the original was absent", function()
-  Core.demoBackup = nil
+h.test("Demo.restoreCache keeps a real price when the original was absent", function()
+  Demo.backup = nil
   local db = { cache = {} }
-  Core.seedDemoCache(db, "EU-3", 100000)
+  Demo.seedCache(db, "EU-3", 100000)
   db.cache["EU-3"][2592] = { price = 777, seenAt = 150000 }
-  Core.restoreDemoCache(db)
+  Demo.restoreCache(db)
   h.eq(db.cache, { ["EU-3"] = { [2592] = { price = 777, seenAt = 150000 } } })
 end)
 
 h.test("second demo updates the seeded record, original backup stays", function()
-  Core.demoBackup = nil
+  Demo.backup = nil
   local db = demoDb()
-  Core.seedDemoCache(db, "EU-1", 100000)
-  Core.seedDemoCache(db, "EU-1", 200000)
-  Core.restoreDemoCache(db)
+  Demo.seedCache(db, "EU-1", 100000)
+  Demo.seedCache(db, "EU-1", 200000)
+  Demo.restoreCache(db)
   h.eq(db.cache, demoDb().cache)
 end)
 
@@ -200,10 +201,10 @@ h.test("recordLoot refreshes once", function()
   }
   ns.prices = nil
   _G.time = function() return 10 end
-  Core.recordLoot(Core.makeLink(2589, "Linen Cloth", "ffffff"), 1)
+  Core.recordLoot(Demo.makeLink(2589, "Linen Cloth", "ffffff"), 1)
   h.eq({ refreshes, flashes }, { 0, 1 })
   ns.UI.flash = nil
-  Core.recordLoot(Core.makeLink(2589, "Linen Cloth", "ffffff"), 1)
+  Core.recordLoot(Demo.makeLink(2589, "Linen Cloth", "ffffff"), 1)
   _G.time = nil
   h.eq({ refreshes, flashes }, { 1, 1 })
 end)
@@ -225,18 +226,45 @@ h.test("Core.recordGold adds, refreshes once and ignores bad input", function()
   h.eq(refreshes, 1)
 end)
 
-h.test("Core.sourceAllowed / gateSource follow the price source option", function()
-  h.eq(Core.sourceAllowed("auto", "tsm"), true)
-  h.eq(Core.sourceAllowed("auto", "auctionator"), true)
-  h.eq(Core.sourceAllowed("tsm", "tsm"), true)
-  h.eq(Core.sourceAllowed("tsm", "auctionator"), false)
-  h.eq(Core.sourceAllowed("auctionator", "tsm"), false)
-  h.eq(Core.sourceAllowed(nil, "tsm"), true) -- unknown value behaves like auto
+h.test("Sources.allowed / gate follow the price source option", function()
+  local S = ns.Sources
+  h.eq(S.allowed("auto", "tsm"), true)
+  h.eq(S.allowed("auto", "auctionator"), true)
+  h.eq(S.allowed("tsm", "tsm"), true)
+  h.eq(S.allowed("tsm", "auctionator"), false)
+  h.eq(S.allowed("auctionator", "tsm"), false)
+  h.eq(S.allowed(nil, "tsm"), true) -- unknown value behaves like auto
+  h.eq(S.allowed("zzz", "tsm"), true)
   local selected = "tsm"
-  local src = Core.gateSource({ name = "TSM", get = function() return 99 end }, "tsm", function() return selected end)
+  local src = S.gate({ name = "TSM", get = function() return 99 end }, "tsm", function() return selected end)
   h.eq(src.name, "TSM")
   h.eq(src.get(1), 99)
   selected = "auctionator"
   h.eq(src.get(1), nil)
-  h.eq(Core.gateSource({ name = "x", get = function() return 1 end }, "tsm", function() error("boom") end).get(1), nil)
+  h.eq(S.gate({ name = "x", get = function() return 1 end }, "tsm", function() error("boom") end).get(1), nil)
+end)
+
+h.test("Core.buildPrices asks the sources in order and takes the disenchant value from TSM", function()
+  local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
+  local env = {
+    TSM_API = { GetCustomPriceValue = function(src) return src == "Destroy" and 40 or nil end },
+    Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 222 end } } },
+  }
+  local p = Core.buildPrices(env, db, function() return 1000 end, function() return "EU-1" end)
+  local r = p:lookup(5)
+  h.eq(r.ah, 222) -- TSM has no price, Auctionator answers
+  h.eq(r.ahSource, "Auctionator")
+  h.eq(r.de, 40)
+  db.settings.priceSource = "auctionator"
+  h.eq(p:lookup(5).de, nil) -- the disenchant value is TSM's: silent with TSM off
+end)
+
+h.test("Core.lookupPrice never errors", function()
+  ns.prices = nil
+  h.eq(Core.lookupPrice(1), nil)
+  ns.prices = { lookup = function() error("boom") end }
+  h.eq(Core.lookupPrice(1), nil)
+  ns.prices = { lookup = function(_, id) return { vendor = id } end }
+  h.eq(Core.lookupPrice(7).vendor, 7)
+  ns.prices = nil
 end)

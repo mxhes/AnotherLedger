@@ -75,22 +75,12 @@ end
 -- ---------------------------------------------------------------------------
 -- Widgets
 
-local function makeButton(parent, label, width)
-  local T = ns.Theme
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(width, T.sizes.buttonHeight)
-  b:SetText(label)
-  -- Per-state font objects: a FontString font would be reset on state changes.
-  b:SetNormalFontObject(T.fonts.button)
-  b:SetHighlightFontObject(T.fonts.buttonHighlight)
-  b:SetDisabledFontObject(T.fonts.buttonDisabled)
-  return b
-end
-
 -- Attaches to header row 1; `handlers` = { start, stop, reset, hide, options }.
 function Header.attach(row, handlers)
   if Header.instance then return Header.instance end
   local T = ns.Theme
+  local W = ns.UI.Widgets
+  local makeButton = W.button
   Header.handlers = handlers
   local gap = T.sizes.buttonGap
 
@@ -116,14 +106,9 @@ function Header.attach(row, handlers)
     if handlers.options then handlers.options() end
   end)
   options:SetScript("OnEnter", function(self)
-    if not GameTooltip then return end
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
-    GameTooltip:SetText(L_OPTIONS)
-    GameTooltip:Show()
+    W.showTextTooltip(self, L_OPTIONS, "ANCHOR_BOTTOMRIGHT")
   end)
-  options:SetScript("OnLeave", function()
-    if GameTooltip then GameTooltip:Hide() end
-  end)
+  options:SetScript("OnLeave", W.hideTooltip)
 
   local reset = makeButton(row, L_RESET, widths().reset)
   reset:SetPoint("RIGHT", options, "LEFT", -gap, 0)
@@ -141,12 +126,9 @@ function Header.attach(row, handlers)
     if handlers.start then handlers.start() end
   end)
 
-  local timer = row:CreateFontString(nil, "OVERLAY", T.fonts.number)
+  local timer = W.text(row, T.fonts.number, T.colors.ink, "RIGHT")
   timer:SetWidth(T.sizes.timerWidth)
-  timer:SetJustifyH("RIGHT")
   timer:SetPoint("RIGHT", start, "LEFT", -gap * 3, 0)
-  local ink = T.colors.ink
-  timer:SetTextColor(ink[1], ink[2], ink[3], ink[4])
   timer:SetText(Header.formatElapsed(0))
 
   header.timer, header.start, header.stop = timer, start, stop
@@ -165,18 +147,23 @@ function Header.attach(row, handlers)
     self.timer:SetText(Header.formatElapsed(seconds))
   end
 
+  -- The buttons only change when the running state does.
   function header:SetRunning(running)
+    running = running and true or false
+    if running == self.running then return end
+    self.running = running
     local st = Header.buttonStates(running)
     self.start:SetEnabled(st.start)
     self.stop:SetEnabled(st.stop)
   end
 
-  -- Ledger part: refreshed with every tick / loot event.
+  -- Ledger part: the clock is the same work on a full refresh and on a tick.
   local part = {}
   function part:Update(_, session, now)
     header:SetElapsed(ns.Session.elapsed(session, now))
     header:SetRunning(session.running)
   end
+  part.Tick = part.Update
   if ns.UI.Ledger then ns.UI.Ledger.register(part) end
 
   Header.instance = header

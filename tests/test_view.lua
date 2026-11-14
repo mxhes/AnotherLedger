@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Money.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
 local V = ns.View
 
 local function link(name) return "|cff0070dd|Hitem:1::|h[" .. name .. "]|h|r" end
@@ -363,4 +363,53 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
   h.eq(v.totals.ah, 2020) -- totals still cover every session
   -- an index that is not in the list opens nothing
   h.eq(#ns.View.buildHistory(list, opts, 9).rows, 2)
+end)
+
+h.test("View.applyRates recomputes only the rates and clears them for a young session", function()
+  local s = ns.Session.new(0)
+  ns.Session.add(s, 1, "|Hitem:1|h[A]|h", 2, 0)
+  ns.Session.addGold(s, 500, 0)
+  local opts = { now = 3600, lookup = function() return { vendor = 10, ah = 100 } end }
+  local v = ns.View.build(s, opts)
+  h.near(v.totals.ahPerHour, 200)
+  h.near(v.gold.perHour, 500)
+  h.near(v.combined.vendorPerHour, 520)
+  local rows = v.rows
+  h.eq(ns.View.applyRates(v, 7200) == v, true)
+  h.eq(v.rows == rows, true) -- rows are not rebuilt
+  h.near(v.totals.ahPerHour, 100)
+  h.near(v.totals.vendorPerHour, 10)
+  h.near(v.gold.perHour, 250)
+  h.near(v.combined.ahPerHour, 350)
+  ns.View.applyRates(v, 30) -- below MIN_RATE_SECONDS
+  h.eq(v.totals.ahPerHour, nil)
+  h.eq(v.gold.perHour, nil)
+  h.eq(v.combined.vendorPerHour, nil)
+  h.eq(v.totals.ah, 200) -- totals untouched
+end)
+
+h.test("top finds: best three by value, ties by name, zero value left out", function()
+  local s = ns.Session.new(0)
+  local values = { [1] = 50, [2] = 900, [3] = 0, [4] = 50, [5] = 300, [6] = 10 }
+  local names = { [1] = "Zinc", [2] = "Ruby", [3] = "Dust", [4] = "Amber", [5] = "Opal", [6] = "Clay" }
+  for id in pairs(values) do ns.Session.add(s, id, nil, 1, 0) end
+  local v = ns.View.build(s, {
+    now = 10,
+    lookup = function(id) return { ah = values[id] > 0 and values[id] or nil } end,
+    itemInfo = function(id) return { name = names[id], quality = 1 } end,
+  })
+  h.eq(#v.top, 3)
+  h.eq({ v.top[1].id, v.top[2].id, v.top[3].id }, { 2, 5, 4 }) -- Amber before Zinc at 50
+end)
+
+h.test("search and name sort ignore case", function()
+  local s = ns.Session.new(0)
+  local names = { [1] = "banana", [2] = "Apple", [3] = "cherry" }
+  for id in pairs(names) do ns.Session.add(s, id, nil, 1, 0) end
+  local function info(id) return { name = names[id], quality = 1 } end
+  local v = ns.View.build(s, { now = 10, sort = "name", itemInfo = info })
+  h.eq({ v.rows[1].name, v.rows[2].name, v.rows[3].name }, { "Apple", "banana", "cherry" })
+  local f = ns.View.build(s, { now = 10, sort = "name", itemInfo = info, filter = { search = "APP" } })
+  h.eq(#f.rows, 1)
+  h.eq(f.rows[1].name, "Apple")
 end)

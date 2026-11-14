@@ -22,34 +22,40 @@ local QUESTION_MARK = 134400 -- INV_Misc_QuestionMark
 -- ---------------------------------------------------------------------------
 -- Pure helpers
 
-function Rows.rowText(row)
+-- The fixed labels of the right block (set once per row frame).
+Rows.LABELS = { vendor = L.VENDOR, ah = L.AH }
+
+-- The texts one row shows. `formatMoney` defaults to the colored coin format
+-- (Money.formatColored); the tests pass Money.format for plain text.
+function Rows.rowText(row, formatMoney)
+  formatMoney = formatMoney or ns.Money.formatColored
   local tag, tagStale = nil, false
   if row.ahFromCache and type(row.ahAge) == "number" then
     tag = "(" .. ns.Prices.formatAge(row.ahAge) .. ")"
     tagStale = row.stale and true or false
   end
+  local hasDE = row.deTotal ~= nil
   return {
     name = row.name or "",
     qty = L.QTY .. tostring(row.quantity or 0),
-    vendorText = L.VENDOR .. ns.Money.format(row.vendorTotal),
-    ahText = L.AH .. ns.Money.format(row.ahTotal),
-    -- Same texts with colored coin amounts (color escapes), used by the UI.
-    vendorColored = L.VENDOR .. ns.Money.formatColored(row.vendorTotal),
-    ahColored = L.AH .. ns.Money.formatColored(row.ahTotal),
+    vendorAmount = formatMoney(row.vendorTotal),
+    ahAmount = formatMoney(row.ahTotal),
+    -- Disenchant line: empty for items that cannot be disenchanted.
+    deLabel = hasDE and (row.deLabel or L.DE) or "",
+    deAmount = hasDE and formatMoney(row.deTotal) or "",
     tag = tag,
     tagStale = tagStale,
-    -- Separate pieces for the aligned columns.
-    vendorLabel = L.VENDOR,
-    ahLabel = L.AH,
-    vendorAmount = ns.Money.format(row.vendorTotal),
-    ahAmount = ns.Money.format(row.ahTotal),
-    vendorAmountColored = ns.Money.formatColored(row.vendorTotal),
-    ahAmountColored = ns.Money.formatColored(row.ahTotal),
-    -- Disenchant line: empty for items that cannot be disenchanted.
-    deLabel = row.deTotal and (row.deLabel or L.DE) or "",
-    deAmount = row.deTotal and ns.Money.format(row.deTotal) or "",
-    deAmountColored = row.deTotal and ns.Money.formatColored(row.deTotal) or "",
   }
+end
+
+-- The texts of a view row are built once and reused while it scrolls.
+local function textOf(row)
+  local text = row.text
+  if not text then
+    text = Rows.rowText(row)
+    row.text = text
+  end
+  return text
 end
 
 -- Worst-case sample strings measured at runtime (plain text: color escapes
@@ -58,9 +64,7 @@ local SAMPLE_AMOUNT = "123456g 78s 90c"
 local SAMPLE_TAG = "(999d)"
 local SAMPLE_QTY = "x9999"
 
-local function positive(v)
-  return type(v) == "number" and v == v and v > 0
-end
+local positive = ns.Util.isPositive
 
 -- Resolves the widths: a measured value (+ padding) when valid, else the fixed
 -- Theme fallback. Returns widths and whether any fallback was used.
@@ -199,19 +203,10 @@ function Rows.tooltipLink(row)
   return nil
 end
 
+-- The item tooltip of the row, or its hint text (History rows) without an item.
 local function showTooltip(f)
-  local link = f.tooltipLink
-  if not GameTooltip then return end
-  if not link and f.tooltipText then
-    GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
-    GameTooltip:SetText(f.tooltipText)
-    GameTooltip:Show()
-    return
-  end
-  if not link then return end
-  GameTooltip:SetOwner(f, "ANCHOR_RIGHT")
-  GameTooltip:SetHyperlink(link)
-  GameTooltip:Show()
+  local W = ns.UI.Widgets
+  return W.showItemTooltip(f, f.tooltipLink) or W.showTextTooltip(f, f.tooltipText)
 end
 
 local function itemIcon(itemID)
@@ -225,38 +220,62 @@ local function setColor(fs, c)
   fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
 end
 
--- Places the row's FontStrings: Rows.blockLayout from the owner's current
--- block measurement (widest amount/tag of the rendered rows) for the row's width.
-local function layoutRow(f)
+local NONE = {}
+
+local function validWidth(w)
+  return type(w) == "number" and w > 0
+end
+
+-- Rows.blockLayout for a row of width `w`, from the current block measurement
+-- of the list (widest amount / tag of the rendered rows).
+local function blockFor(owner, w)
   local S = theme().sizes
-  local w = f:GetWidth()
-  if type(w) ~= "number" or w <= 0 then return end
-  local owner = f.owner or {}
-  local m = owner.measured or {}
-  local bm = owner.blockMeasure or {}
-  local c = Rows.blockLayout(w - S.rowTextLeft - S.rowRightInset,
+  local m = owner.measured or NONE
+  local bm = owner.blockMeasure or NONE
+  return Rows.blockLayout(w - S.rowTextLeft - S.rowRightInset,
     math.max(m.vendorLabel or 0, m.ahLabel or 0), bm.amount, bm.tag)
+end
+
+-- Anchors `region` by one point at (x, y) from the same point of `f`.
+local function place(region, f, point, x, y)
+  region:ClearAllPoints()
+  region:SetPoint(point, f, point, x, y)
+end
+
+-- Places the FontStrings of a row. `block` is the shared Rows.blockLayout
+-- result when the list lays out all rows at once; a row that is resized on its
+-- own computes it.
+local function layoutRow(f, block)
+  local w = f:GetWidth()
+  if not validWidth(w) then return end
+  local S = theme().sizes
+  local owner = f.owner or NONE
+  local c = block or blockFor(owner, w)
   local x0, inset = S.rowTextLeft, S.rowLineInset
-  local function put(fs, point, x)
-    fs:ClearAllPoints()
-    fs:SetPoint(point, f, point, x0 + x, point == "TOPLEFT" and -inset or inset)
-  end
-  put(f.name, "TOPLEFT", c.nameX)
+
+  -- Name and quantity share the left column; the quantity always stays visible.
+  place(f.name, f, "TOPLEFT", x0 + c.nameX, -inset)
   f.name:SetWidth(0) -- auto width, to read the natural text width
   local qtyW = f.qty:GetStringWidth()
-  if not positive(qtyW) then qtyW = m.qtyWorst and m.qtyWorst + S.rowMeasurePad or S.rowQtyW end
+  if not positive(qtyW) then
+    local m = owner.measured or NONE
+    qtyW = m.qtyWorst and m.qtyWorst + S.rowMeasurePad or S.rowQtyW
+  end
   f.name:SetWidth(Rows.nameFit(c.nameW, qtyW, f.name:GetStringWidth()))
   f.qty:ClearAllPoints()
   f.qty:SetPoint("LEFT", f.name, "RIGHT", S.rowQtyGap, 0)
-  put(f.vendorLabel, "TOPLEFT", c.labelX)
-  put(f.vendor, "TOPLEFT", c.amountX)
-  put(f.ahLabel, "BOTTOMLEFT", c.labelX)
-  put(f.ah, "BOTTOMLEFT", c.amountX)
+
+  -- Right block: vendor on the top line, AH on the bottom line, DE between.
+  local labelX, amountX = x0 + c.labelX, x0 + c.amountX
+  place(f.vendorLabel, f, "TOPLEFT", labelX, -inset)
+  place(f.vendor, f, "TOPLEFT", amountX, -inset)
+  place(f.ahLabel, f, "BOTTOMLEFT", labelX, inset)
+  place(f.ah, f, "BOTTOMLEFT", amountX, inset)
   local midY = -f:GetHeight() / 2
   f.deLabel:ClearAllPoints()
-  f.deLabel:SetPoint("LEFT", f, "TOPLEFT", x0 + c.labelX, midY)
+  f.deLabel:SetPoint("LEFT", f, "TOPLEFT", labelX, midY)
   f.de:ClearAllPoints()
-  f.de:SetPoint("LEFT", f, "TOPLEFT", x0 + c.amountX, midY)
+  f.de:SetPoint("LEFT", f, "TOPLEFT", amountX, midY)
   f.tag:ClearAllPoints()
   f.tag:SetPoint("LEFT", f.ah, "RIGHT", c.tagGap, 0)
 end
@@ -319,10 +338,12 @@ local function createRow(parent, owner)
   local vendorLabel, vendor = line2(), line2()
   local ahLabel, ah, tag = line2(), line2(), line2()
   local deLabel, de = line2(), line2()
+  vendorLabel:SetText(Rows.LABELS.vendor) -- these two labels never change
+  ahLabel:SetText(Rows.LABELS.ah)
   f.vendorLabel, f.ahLabel, f.deLabel, f.de = vendorLabel, ahLabel, deLabel, de
 
   f.name, f.qty, f.vendor, f.ah, f.tag = name, qty, vendor, ah, tag
-  f:SetScript("OnSizeChanged", layoutRow)
+  f:SetScript("OnSizeChanged", function(self) layoutRow(self) end)
 
   -- Item tooltip while the mouse is over the row.
   f:EnableMouse(true)
@@ -332,9 +353,7 @@ local function createRow(parent, owner)
     local o = self.owner
     if o and o.onRowClick and self.row then o.onRowClick(self.row) end
   end)
-  f:SetScript("OnLeave", function()
-    if GameTooltip then GameTooltip:Hide() end
-  end)
+  f:SetScript("OnLeave", ns.UI.Widgets.hideTooltip)
   return f
 end
 
@@ -345,36 +364,43 @@ end
 
 local function fillRow(f, row)
   local T = theme()
-  local t = Rows.rowText(row)
-  local r, g, b = T.qualityColor(row.quality, true)
+  local t = textOf(row)
+  local r, g, b = T.qualityColor(row.quality)
   f.name:SetText(t.name)
   f.name:SetTextColor(r, g, b)
   f.qty:SetText(t.qty)
-  f.vendorLabel:SetText(t.vendorLabel)
-  f.ahLabel:SetText(t.ahLabel)
-  f.vendor:SetText(t.vendorAmountColored)
-  f.ah:SetText(t.ahAmountColored)
+  f.vendor:SetText(t.vendorAmount)
+  f.ah:SetText(t.ahAmount)
   f.deLabel:SetText(t.deLabel)
-  f.de:SetText(t.deAmountColored)
+  f.de:SetText(t.deAmount)
   f.tag:SetText(t.tag or "")
+  f.hasTag = t.tag ~= nil
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
-  local br, bg, bb = T.qualityColor(row.quality, false)
-  f.iconBorder:SetColorTexture(br, bg, bb, 1)
+  f.iconBorder:SetColorTexture(r, g, b, 1)
   f.icon:SetTexture(row.icon or itemIcon(row.id))
   f.row = row
   f.tooltipLink = Rows.tooltipLink(row)
   f.tooltipText = row.hint
   -- A hovered row that now shows another item (or fresh data) updates its tooltip.
-  if GameTooltip and GameTooltip:IsOwned(f) then
-    if f.tooltipLink then showTooltip(f) else GameTooltip:Hide() end
+  local W = ns.UI.Widgets
+  if W.tooltipOwnedBy(f) then
+    if f.tooltipLink then showTooltip(f) else W.hideTooltip() end
   end
+end
+
+-- Takes a pooled row frame out of use.
+local function releaseRow(f)
+  f.itemID = nil
+  stopFlash(f)
+  f:Hide()
 end
 
 -- Attaches the scrolling list to `area`. Returns the list object.
 -- `onMeasure(measured)` is called whenever a re-measure changes the widths.
 function Rows.attach(area, onMeasure)
   local T = theme()
-  local list = { area = area, data = {}, offset = 0, pool = {}, shown = 0 }
+  local list = { area = area, data = {}, offset = 0, pool = {}, shown = 0,
+    blockMeasure = { amount = 0, tag = 0 } }
 
   -- Offscreen probes with the same font objects as the row's texts.
   local probe = area:CreateFontString(nil, "OVERLAY", T.fonts.small)
@@ -439,51 +465,54 @@ function Rows.attach(area, onMeasure)
 
   local function visible() return Rows.visibleCount(area:GetHeight(), T.sizes.rowHeight) end
 
+  -- The pooled row frame for list position `i`, created on first use.
+  local function rowFrame(i)
+    local f = list.pool[i]
+    if not f then
+      local y = -(i - 1) * T.sizes.rowHeight
+      f = createRow(content, list)
+      f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
+      f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y)
+      list.pool[i] = f
+    end
+    return f
+  end
+
   function list:Render()
     if self.measureFallback then self:Measure() end
     local n = visible()
     local total = #self.data
     self.offset = Rows.clampOffset(self.offset, total, n)
-    local amountMax, tagMax, shownRows = 0, 0, {}
-    for i = 1, n do
-      local f = self.pool[i]
-      if not f then
-        f = createRow(content, self)
-        f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(i - 1) * T.sizes.rowHeight)
-        f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, -(i - 1) * T.sizes.rowHeight)
-        self.pool[i] = f
-      end
+    local filled = math.min(n, total - self.offset) -- rows that show data
+
+    -- Pass 1: fill the rows and find the widest amount / tag among them.
+    local amountMax, tagMax = 0, 0
+    for i = 1, filled do
+      local f = rowFrame(i)
       local row = self.data[self.offset + i]
-      if row then
-        if f.itemID ~= row.id then stopFlash(f) end
-        f.itemID = row.id
-        fillRow(f, row)
-        f.separator:SetShown(self.offset + i < total)
-        f:Show()
-        -- Pass 1: widest amount / tag among the rendered rows.
-        local aw = math.max(f.vendor:GetStringWidth() or 0, f.ah:GetStringWidth() or 0)
-        if aw > amountMax then amountMax = aw end
-        if f.tag:GetText() ~= "" then
-          local tw = f.tag:GetStringWidth() or 0
-          if tw <= 0 then tw = theme().sizes.rowTagW end
-          if tw > tagMax then tagMax = tw end
-        end
-        shownRows[#shownRows + 1] = f
-      else
-        f.itemID = nil
-        stopFlash(f)
-        f:Hide()
+      if f.itemID ~= row.id then stopFlash(f) end
+      f.itemID = row.id
+      fillRow(f, row)
+      f.separator:SetShown(self.offset + i < total)
+      f:Show()
+      local aw = math.max(f.vendor:GetStringWidth() or 0, f.ah:GetStringWidth() or 0)
+      if aw > amountMax then amountMax = aw end
+      if f.hasTag then
+        local tw = f.tag:GetStringWidth() or 0
+        if tw <= 0 then tw = T.sizes.rowTagW end
+        if tw > tagMax then tagMax = tw end
       end
     end
+
     -- Pass 2: one shared block layout for every rendered row.
-    self.blockMeasure = { amount = amountMax, tag = tagMax }
-    for _, f in ipairs(shownRows) do layoutRow(f) end
-    for i = n + 1, #self.pool do
-      local f = self.pool[i]
-      f.itemID = nil
-      stopFlash(f)
-      f:Hide()
+    self.blockMeasure.amount, self.blockMeasure.tag = amountMax, tagMax
+    if filled > 0 then
+      local w = self.pool[1]:GetWidth()
+      local block = validWidth(w) and blockFor(self, w) or nil
+      for i = 1, filled do layoutRow(self.pool[i], block) end
     end
+
+    for i = filled + 1, #self.pool do releaseRow(self.pool[i]) end
     self.shown = n
 
     local maxOffset = math.max(0, total - n)
@@ -507,7 +536,9 @@ function Rows.attach(area, onMeasure)
   function list:ScrollToItem(itemID)
     local idx = ns.View.indexOf(self.data, itemID)
     if not idx then return end
-    self.offset = Rows.offsetFor(idx, self.offset, visible(), #self.data)
+    local offset = Rows.offsetFor(idx, self.offset, visible(), #self.data)
+    if offset == self.offset then return end -- already in view
+    self.offset = offset
     self:Render()
   end
 

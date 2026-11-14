@@ -51,6 +51,42 @@ The panel is built from a registry, it never names an option. To add one:
 
 A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPanel.lua`) plus its block height in `Options.HEIGHTS`. The panel grows to fit.
 
+## When the window updates
+
+- **Every second** (session tab, clock running): only the clock and the per-hour rates.
+- **Every 30 seconds** (session tab, clock running): prices and age tags are looked up again.
+- **At once** when something changes: loot, raw gold, a bag or bank change on its tab, a filter, sort or option. Several loot messages of one frame (area loot) share one redraw.
+- **Never while the window is hidden** (also when hidden by the combat option). Loot is still recorded; the window catches up when it is shown.
+
+Cached AH prices that were last seen more than 30 days ago are removed from the saved file at login (`Prices.CACHE_MAX_AGE`).
+
+## Code layout and extending
+
+Files load in the order of `LootPrice/LootPrice.toc`. Modules without `UI/` in their path are plain Lua with every client call passed in, so the tests can run them.
+
+| File | Job |
+| --- | --- |
+| `Util.lua` | shared helpers (number checks, clamp, age text, chat output) |
+| `Money.lua`, `Theme.lua`, `DB.lua` | coin text, look and feel, saved-variable defaults |
+| `LootParse.lua` | turns loot and money chat messages into item links and copper |
+| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
+| `Session.lua`, `History.lua`, `Inventory.lua` | the session, the archive of past sessions, bag and bank scans |
+| `View.lua` | turns items and prices into the rows and totals a tab shows |
+| `Options.lua`, `Slash.lua`, `Demo.lua` | option registry, slash commands, `/lp demo` |
+| `UI/Widgets.lua` | shared buttons, texts, lines, tooltips, context menu |
+| `UI/Window.lua`, `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua`, `UI/OptionsPanel.lua` | the window and its parts |
+| `UI/Tabs.lua` | tab registry and tab buttons |
+| `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
+| `Core.lua` | events: login, loot capture, bank scan, redraw requests |
+
+Three more things are registries like the options, so adding one touches a single place:
+
+- **A price source**: a new file in `Sources/` (listed in the `.toc` after `Sources\Sources.lua`) that ends with `ns.Sources.register({ key, label, create = function(env, setting) return { name, get = function(itemID) ... end } end })`. It joins the lookup order and the **AH price source** dropdown by itself. See `Sources/Auctionator.lua`.
+- **A tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx) return view end, ... })` in `UI/Tabs.lua`. `build` returns a view from `View.lua`; optional fields say whether the tab shows the session clock (`sessionControls`), follows it (`ticks`), which data change redraws it (`watches`) and which items it lists (`hasItem`).
+- **A slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`. The `help` line shows up in `/lp help`.
+
+A window part that should redraw with the ledger registers itself with `ns.UI.Ledger.register(part)`: `part:Update(view, session, now)` runs on every full redraw, an optional `part:Tick(view, session, now)` once a second while the clock runs (keep it cheap).
+
 ## Events used
 
 `CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan), `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` (combat auto hide).

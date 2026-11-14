@@ -20,6 +20,7 @@ local SORT_LABELS = { ah = "AH", vendor = "Vendor", name = "Name", recent = "Rec
 
 FilterBar.SORTS = { "ah", "vendor", "name", "recent" }
 
+local MIN_QUALITY, MAX_QUALITY = 0, 7
 local COPPER_PER_GOLD = 10000
 local MAX_GOLD = 10000000
 
@@ -47,13 +48,13 @@ end
 
 local function fullSet()
   local t = {}
-  for q = 0, 7 do t[q] = true end
+  for q = MIN_QUALITY, MAX_QUALITY do t[q] = true end
   return t
 end
 
 function FilterBar.toggleQuality(filter, q)
   if type(filter) ~= "table" then return end
-  if type(q) ~= "number" or q < 0 or q > 7 or q ~= math.floor(q) then return end
+  if type(q) ~= "number" or q < MIN_QUALITY or q > MAX_QUALITY or q ~= math.floor(q) then return end
   if type(filter.qualities) ~= "table" then filter.qualities = fullSet() end
   filter.qualities[q] = not filter.qualities[q]
 end
@@ -93,7 +94,7 @@ end
 -- Menus (feature-detected at call time)
 
 local function qualityLabel(q)
-  local r, g, b = ns.Theme.qualityColor(q, false) -- menus are dark
+  local r, g, b = ns.Theme.qualityColor(q)
   return string.format("|cff%02x%02x%02x%s|r",
     math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5),
     QUALITY_NAMES[q])
@@ -103,65 +104,24 @@ local function isQualityOn(filter, q)
   return type(filter.qualities) ~= "table" or filter.qualities[q] == true
 end
 
-local function openMenuModern(anchor, getFilter, changed)
-  -- UNVERIFIED (check in client): MenuUtil.CreateContextMenu and MenuResponse.Refresh.
-  MenuUtil.CreateContextMenu(anchor, function(_, root)
-    for q = 0, 7 do
-      root:CreateCheckbox(qualityLabel(q),
-        function() return isQualityOn(getFilter(), q) end,
-        function()
-          FilterBar.toggleQuality(getFilter(), q)
-          changed()
-          return MenuResponse and MenuResponse.Refresh or nil
-        end)
-    end
-  end)
-end
-
-local legacyMenu
-local function openMenuLegacy(anchor, getFilter, changed)
-  if not legacyMenu then
-    legacyMenu = CreateFrame("Frame", "LootPriceFilterMenu", UIParent, "UIDropDownMenuTemplate")
-  end
-  UIDropDownMenu_Initialize(legacyMenu, function()
-    for q = 0, 7 do
-      local info = UIDropDownMenu_CreateInfo()
-      info.text = qualityLabel(q)
-      info.isNotRadio = true
-      info.keepShownOnClick = true
-      info.checked = isQualityOn(getFilter(), q)
-      info.func = function()
+-- One checkbox per quality; the menu stays open while qualities are toggled.
+local function openQualityMenu(anchor, getFilter, changed)
+  local entries = {}
+  for q = MIN_QUALITY, MAX_QUALITY do
+    entries[#entries + 1] = {
+      text = qualityLabel(q),
+      isChecked = function() return isQualityOn(getFilter(), q) end,
+      onClick = function()
         FilterBar.toggleQuality(getFilter(), q)
         changed()
-      end
-      UIDropDownMenu_AddButton(info)
-    end
-  end, "MENU")
-  ToggleDropDownMenu(1, nil, legacyMenu, anchor, 0, 0)
-end
-
-local function openQualityMenu(anchor, getFilter, changed)
-  if MenuUtil and MenuUtil.CreateContextMenu then
-    openMenuModern(anchor, getFilter, changed)
-  else
-    openMenuLegacy(anchor, getFilter, changed)
+      end,
+    }
   end
+  ns.UI.Widgets.openMenu(anchor, entries, "checkbox")
 end
 
 -- ---------------------------------------------------------------------------
 -- Widgets
-
-local function makeButton(parent, label, width)
-  local T = ns.Theme
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(width, T.sizes.buttonHeight)
-  b:SetText(label)
-  -- Per-state font objects: a FontString font would be reset on state changes.
-  b:SetNormalFontObject(T.fonts.button)
-  b:SetHighlightFontObject(T.fonts.buttonHighlight)
-  b:SetDisabledFontObject(T.fonts.buttonDisabled)
-  return b
-end
 
 -- Edit box with a gray hint shown while empty and unfocused.
 local function makeEdit(parent, hint, width)
@@ -172,10 +132,8 @@ local function makeEdit(parent, hint, width)
   e:SetFontObject(T.fonts.small)
   e:SetTextInsets(4, 4, 0, 0)
   e:SetMaxLetters(40)
-  local label = e:CreateFontString(nil, "OVERLAY", T.fonts.small)
+  local label = ns.UI.Widgets.text(e, T.fonts.small, T.colors.hint)
   label:SetPoint("LEFT", e, "LEFT", 4, 0)
-  local hc = T.colors.hint
-  label:SetTextColor(hc[1], hc[2], hc[3], hc[4])
   label:SetText(hint)
   e.hint = label
   function e:RefreshHint()
@@ -191,6 +149,7 @@ end
 function FilterBar.attach(row, db, onChange)
   if FilterBar.instance then return FilterBar.instance end
   local T = ns.Theme
+  local makeButton = ns.UI.Widgets.button
   FilterBar.repair(db)
   local gap = T.sizes.buttonGap
   local bar = { row = row }
@@ -205,10 +164,7 @@ function FilterBar.attach(row, db, onChange)
   end
 
   -- Gold underline while any filter is active.
-  local underline = row:CreateTexture(nil, "ARTWORK")
-  underline:SetTexture(T.textures.rowHighlight)
-  local gold = T.colors.goldLine
-  underline:SetVertexColor(gold[1], gold[2], gold[3], 1)
+  local underline = ns.UI.Widgets.line(row, T.colors.goldLine, "ARTWORK", 1)
   underline:SetHeight(2)
   underline:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
   underline:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)

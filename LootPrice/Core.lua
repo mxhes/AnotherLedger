@@ -1,28 +1,53 @@
 local ADDON, ns = ...
 
+-- The addon's event core: creates the session and the price lookup at login,
+-- records loot and gold, scans the bank, and tells the UI when to redraw.
+-- Slash commands live in Slash.lua, the /lp demo data in Demo.lua.
 local Core = {}
 ns.Core = Core
 
-local PREFIX = "|cff33ff99LootPrice|r: "
-local REFRESH_THROTTLE = 0.2
+local say = ns.Util.say
+
+local REFRESH_THROTTLE = 0.2 -- seconds: bursts of item info / bag events share one redraw
 local KEY_RETRY_SECONDS = 10
 
-local keyState = { key = nil }
+local keyState = { key = nil } -- { key, tried }: the price cache key, see keyFromState
 local setupDone = false -- session/prices/UI are created once per Lua session
-local compiled -- LootParse patterns, built once from the real globals
-local compiledMoney -- LootParse money patterns, built lazily likewise
+local lootPatterns -- LootParse patterns, built once from the real globals
+local moneyPatterns -- LootParse money patterns, built lazily likewise
 local refreshPending = false
+local bankOpen = false
 
-local function say(msg)
-  print(PREFIX .. msg)
-end
+-- ---------------------------------------------------------------------------
+-- UI notifications
 
 local function refreshUI()
   if ns.UI and ns.UI.refresh then ns.UI.refresh() end
 end
 
+-- One redraw after `delay` seconds for any number of requests in between.
+local function requestRefresh(delay)
+  if refreshPending then return end
+  if not (C_Timer and C_Timer.After) then
+    refreshUI()
+    return
+  end
+  refreshPending = true
+  C_Timer.After(delay or REFRESH_THROTTLE, function()
+    refreshPending = false
+    refreshUI()
+  end)
+end
+
+-- Data of kind `what` ("bags", "bank") changed: redraw if the shown tab lists it.
+local function dataChanged(what)
+  local ledger = ns.UI and ns.UI.Ledger
+  if ledger and ledger.dataChanged(what) then requestRefresh() end
+end
+
 -- ---------------------------------------------------------------------------
--- Pure-ish helpers (take the global environment as a parameter, testable)
+-- Price cache key and price lookup (take the global environment as a
+-- parameter, testable)
 
 -- Region/game-mode cache key, or nil while either part is unavailable.
 -- Both engine calls may be missing on the Forever client, hence pcall.
@@ -52,119 +77,45 @@ function Core.keyFromState(state, env, now)
   return state.key
 end
 
--- Pure. Whether the source `which` ("tsm" / "auctionator") may answer under the
--- selected price source option ("auto" asks all, in order).
-function Core.sourceAllowed(selected, which)
-  return selected == "auto" or selected == which or (selected ~= "tsm" and selected ~= "auctionator")
+-- The current price cache key (nil while region / game mode are unknown).
+function Core.cacheKey()
+  return Core.keyFromState(keyState, _G, time())
 end
 
--- Wraps a price source so it only answers while the option allows it. The
--- selection is read live, so changing the option needs no rebuild.
-function Core.gateSource(source, which, getSelected)
-  return {
-    name = source.name,
-    get = function(itemID)
-      local ok, selected = pcall(getSelected)
-      if not ok or not Core.sourceAllowed(selected, which) then return nil end
-      return source.get(itemID)
-    end,
-  }
-end
-
--- Builds the Prices object over `env` (_G in the client). `getKey` returns the
--- current cache key; the TSM source string is read live from db.settings.
+-- Builds the Prices object over `env` (_G in the client) from the registered
+-- price sources (Sources/Sources.lua). `getKey` returns the current cache key;
+-- the settings (price source option, TSM price string) are read live from
+-- db.settings, so changing them needs no rebuild.
 function Core.buildPrices(env, db, now, getKey)
   local Sources = ns.Sources
-  -- Disenchant value: TSM's "Destroy" price source (nil for items that cannot
-  -- be disenchanted), asked only while the price source option allows TSM.
-  local destroy = Core.gateSource(Sources.TSM.new(env, function() return "Destroy" end),
-    "tsm", function() return db.settings.priceSource end)
+  local function setting(key) return db.settings[key] end
+  local function selected() return db.settings.priceSource end
+
+  local sources, disenchant = {}, nil
+  for _, spec in ipairs(Sources.list()) do
+    sources[#sources + 1] = Sources.gate(spec.create(env, setting), spec.key, selected)
+    -- Disenchant value: from the first source that offers one.
+    if not disenchant and spec.createDisenchant then
+      disenchant = Sources.gate(spec.createDisenchant(env, setting), spec.key, selected).get
+    end
+  end
+
   return ns.Prices.new({
-    sources = {
-      Core.gateSource(Sources.TSM.new(env, function() return db.settings.tsmSource end),
-        "tsm", function() return db.settings.priceSource end),
-      Core.gateSource(Sources.Auctionator.new(env), "auctionator",
-        function() return db.settings.priceSource end),
-    },
+    sources = sources,
     vendor = function(itemID) return Sources.Vendor.get(env, itemID) end,
-    disenchant = destroy.get,
+    disenchant = disenchant,
     cache = db.cache,
     key = getKey,
     now = now,
   })
 end
 
--- Real-format item link for fake/demo items.
-function Core.makeLink(itemID, name, colorHex)
-  return string.format("|cff%s|Hitem:%d::::::::60:::::::::|h[%s]|h|r", colorHex, itemID, name)
-end
-
--- Demo loot: { id, name, color, qty, ahPrice (copper or nil), stale (bool) }
-Core.DEMO_ITEMS = {
-  { 2589, "Linen Cloth", "ffffff", 23, 55, false },
-  { 2592, "Wool Cloth", "ffffff", 14, 130, false },
-  { 3356, "Kingsblood", "ffffff", 6, 1500, true },
-  { 2318, "Light Leather", "ffffff", 9, nil, false },
-  { 4306, "Silk Cloth", "ffffff", 11, 900, false },
-  { 7910, "Star Ruby", "1eff00", 2, 38000, false },
-}
-
--- Originals of the cache entries demo overwrote (NOT persisted):
--- demoBackup[key] = { created = bool, items = { [itemID] = entry or false },
---                     seeded = { [itemID] = the fake entry demo wrote } }
-Core.demoBackup = nil
-
-local function copyEntry(e)
-  if type(e) ~= "table" then return e end
-  local c = {}
-  for k, v in pairs(e) do c[k] = v end
-  return c
-end
-
-function Core.seedDemoCache(db, key, now)
-  if not key then return end
-  Core.demoBackup = Core.demoBackup or {}
-  local bucket = db.cache[key]
-  local backup = Core.demoBackup[key]
-  if not backup then
-    backup = { created = type(bucket) ~= "table", items = {}, seeded = {} }
-    Core.demoBackup[key] = backup
-  end
-  if type(bucket) ~= "table" then
-    bucket = {}
-    db.cache[key] = bucket
-  end
-  for _, d in ipairs(Core.DEMO_ITEMS) do
-    if d[5] then
-      if backup.items[d[1]] == nil then
-        backup.items[d[1]] = bucket[d[1]] ~= nil and copyEntry(bucket[d[1]]) or false
-      end
-      local fake = { price = d[5], seenAt = d[6] and now - 14 * 3600 or now }
-      bucket[d[1]] = fake
-      backup.seeded[d[1]] = copyEntry(fake)
-    end
-  end
-end
-
--- Puts back the cache entries demo replaced and drops the fake ones.
-function Core.restoreDemoCache(db)
-  local all = Core.demoBackup
-  Core.demoBackup = nil
-  if not all or not db or type(db.cache) ~= "table" then return end
-  for key, backup in pairs(all) do
-    local bucket = db.cache[key]
-    if type(bucket) == "table" then
-      for id, orig in pairs(backup.items) do
-        local cur, fake = bucket[id], backup.seeded[id]
-        -- Only revert entries that still are the demo's fake; a real write wins.
-        if type(cur) == "table" and type(fake) == "table"
-            and cur.price == fake.price and cur.seenAt == fake.seenAt then
-          if orig == false then bucket[id] = nil else bucket[id] = orig end
-        end
-      end
-      if backup.created and next(bucket) == nil then db.cache[key] = nil end
-    end
-  end
+-- Price lookup that never errors: nil before login is done or when a source fails.
+function Core.lookupPrice(itemID)
+  local prices = ns.prices
+  if not prices then return nil end
+  local ok, info = pcall(prices.lookup, prices, itemID)
+  return ok and info or nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -174,82 +125,39 @@ function Core.recordLoot(link, qty)
   local itemID = ns.LootParse.itemID(link)
   if not itemID or not ns.session then return end
   if not ns.Session.add(ns.session, itemID, link, qty, time()) then return end
-  local unitValue
-  if ns.prices then
-    local info = ns.prices:lookup(itemID)
-    unitValue = info.ah or info.vendor
-  end
   if ns.UI and ns.UI.flash then
-    -- flash refreshes the ledger itself
+    -- flash refreshes the ledger itself (once per frame, however much dropped)
+    local info = Core.lookupPrice(itemID)
+    local unitValue = info and (info.ah or info.vendor)
     ns.UI.flash(itemID, ns.View.flashLevel(unitValue, qty))
   else
     refreshUI()
   end
 end
 
--- Raw gold (looted or quest money), copper > 0. Refreshes the UI on success.
+-- Raw gold (looted or quest money), copper > 0. Redraws on success; gold that
+-- drops together with items shares their redraw.
 function Core.recordGold(copper)
   if not ns.session then return end
   if not ns.Session.addGold(ns.session, copper, time()) then return end
-  refreshUI()
-end
-
-local function onMoneyMessage(text)
-  if not compiledMoney then compiledMoney = ns.LootParse.compileMoney(_G) end
-  local copper = ns.LootParse.parseMoney(compiledMoney, text)
-  if copper then Core.recordGold(copper) end
+  requestRefresh(0)
 end
 
 local function onLootMessage(text)
-  if not compiled then compiled = ns.LootParse.compile(_G) end
-  local link, qty = ns.LootParse.parse(compiled, text)
+  if not lootPatterns then lootPatterns = ns.LootParse.compile(_G) end
+  local link, qty = ns.LootParse.parse(lootPatterns, text)
   if link then Core.recordLoot(link, qty) end
 end
 
-local function requestRefresh()
-  if refreshPending then return end
-  refreshPending = true
-  C_Timer.After(REFRESH_THROTTLE, function()
-    refreshPending = false
-    refreshUI()
-  end)
+local function onMoneyMessage(text)
+  if not moneyPatterns then moneyPatterns = ns.LootParse.compileMoney(_G) end
+  local copper = ns.LootParse.parseMoney(moneyPatterns, text)
+  if copper then Core.recordGold(copper) end
 end
 
 -- ---------------------------------------------------------------------------
--- Slash commands
+-- Session actions (shared by the slash commands and the header buttons)
 
-local HELP = {
-  "/lp - toggle the window",
-  "/lp show | hide - show or hide the window",
-  "/lp start | stop - start or stop the session clock",
-  "/lp reset - clear the session",
-  "/lp keep on|off - keep the session across logins",
-  "/lp tsm <source> - TSM price source (e.g. DBMarket)",
-  "/lp demo - add fake sample loot, gold and temporary fake AH prices (UI check only)",
-  "Note: an AH age tag can look fresh when the price source serves old scan data.",
-}
-
-local function windowCall(name)
-  local w = ns.UI and ns.UI.Window
-  if w and type(w[name]) == "function" then w[name]() end
-end
-
-local function demo()
-  if not ns.session then return end
-  if not ns.session.running then
-    say("session is stopped - press Start first.")
-    return
-  end
-  local now = time()
-  Core.seedDemoCache(ns.db, keyState.key, now)
-  for _, d in ipairs(Core.DEMO_ITEMS) do
-    Core.recordLoot(Core.makeLink(d[1], d[2], d[3]), d[4])
-  end
-  Core.recordGold(1240) -- 12s 40c (8s 40c looted + 4s quest)
-  say("added demo loot.")
-end
-
--- Session actions shared by the slash commands and the header buttons.
 function Core.startSession()
   if not ns.session then return end
   ns.Session.start(ns.session, time())
@@ -267,24 +175,21 @@ end
 -- Saves a finished session to the History tab (per character). Empty sessions
 -- are skipped; the History option decides how many are kept.
 function Core.archiveSession(session)
-  if not ns.chardb or not ns.History or type(session) ~= "table" then return end
-  local limit = ns.Options and ns.db and ns.Options.get(ns.db, "historyLimit") or ns.History.DEFAULT_LIMIT
+  local History = ns.History
+  if not ns.chardb or not History or type(session) ~= "table" then return end
+  local limit = ns.Options and ns.db and ns.Options.get(ns.db, "historyLimit") or History.DEFAULT_LIMIT
   if limit == 0 then return end
-  local now = time()
-  local entry = ns.History.snapshot(session, function(id)
-    if not ns.prices then return nil end
-    local ok, info = pcall(ns.prices.lookup, ns.prices, id)
-    return ok and info or nil
-  end, now)
+  local entry = History.snapshot(session, Core.lookupPrice, time())
   if not entry then return end
   if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
-  ns.History.add(ns.chardb.history, entry, limit)
+  History.add(ns.chardb.history, entry, limit)
 end
 
 function Core.resetSession()
   -- Demo loot is fake: it is not worth keeping in History.
-  local wasDemo = Core.demoBackup ~= nil
-  Core.restoreDemoCache(ns.db)
+  local Demo = ns.Demo
+  local wasDemo = Demo ~= nil and Demo.active()
+  if Demo then Demo.restoreCache(ns.db) end
   if not ns.session then return end
   if not wasDemo then Core.archiveSession(ns.session) end
   ns.Session.reset(ns.session, time())
@@ -292,60 +197,26 @@ function Core.resetSession()
   refreshUI()
 end
 
-local handlers = {
-  toggle = function() windowCall("toggle") end,
-  show = function() windowCall("show") end,
-  hide = function() windowCall("hide") end,
-  start = Core.startSession,
-  stop = Core.stopSession,
-  reset = function()
-    -- Same path as the Reset button: asks first when the session is large.
-    if ns.UI and ns.UI.Header then
-      ns.UI.Header.requestReset()
-    else
-      Core.resetSession()
-    end
-  end,
-  keep = function(arg)
-    local v = arg and arg:lower()
-    if v ~= "on" and v ~= "off" then
-      say("usage: /lp keep on|off (currently " .. (ns.db.settings.keepSession and "on" or "off") .. ")")
-      return
-    end
-    ns.db.settings.keepSession = (v == "on")
-    say("keep session across logins: " .. v)
-  end,
-  tsm = function(arg)
-    if not arg then
-      say("TSM source: " .. tostring(ns.db.settings.tsmSource))
-      return
-    end
-    ns.db.settings.tsmSource = arg
-    say("TSM source: " .. arg)
-    refreshUI()
-  end,
-  demo = demo,
-  help = function()
-    for _, line in ipairs(HELP) do say(line) end
-  end,
-}
+-- ---------------------------------------------------------------------------
+-- Bank scan
 
-local function onSlash(msg)
-  local cmd, arg = ns.Slash.parse(msg)
-  local fn = handlers[cmd]
-  if not fn then
-    handlers.help()
-    return
-  end
-  if not ns.session and cmd ~= "help" then
-    say("not ready yet.")
-    return
-  end
-  fn(arg)
+-- Bank contents can only be read while the bank window is open: scan while it
+-- is, keep the last scan (per character) for the Bank tab. A first scan that
+-- comes back empty right at opening is ignored when a scan is saved already
+-- (the slots may not be loaded yet); later scans of the same visit are trusted.
+function Core.scanBank(trustEmpty)
+  local chardb = ns.chardb
+  if not chardb then return end
+  local now = time()
+  local items = ns.Inventory.scanBank(_G, now)
+  local saved = chardb.bank
+  if next(items) == nil and not trustEmpty and saved and next(saved.items) ~= nil then return end
+  chardb.bank = { scannedAt = now, items = items }
+  dataChanged("bank")
 end
 
 -- ---------------------------------------------------------------------------
--- Events
+-- Events: one function per event, registered automatically by Core.init.
 
 local events = {}
 
@@ -362,17 +233,20 @@ end
 -- (isReloadingUi) always keeps it. Later firings (zone changes, instances)
 -- only re-evaluate the cache key.
 function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
+  local now = time()
   keyState.key = Core.evalKey(_G)
-  keyState.tried = time()
+  keyState.tried = now
   if setupDone or not ns.db then return end
   setupDone = true
+
+  -- Old cached prices are of no use and only grow the saved file.
+  ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
+
   local keep = ns.db.settings.keepSession or isReloadingUi
   local previous = ns.chardb.session
-  ns.session = ns.Session.login(previous, keep, time())
+  ns.session = ns.Session.login(previous, keep, now)
   ns.chardb.session = ns.session
-  ns.prices = Core.buildPrices(_G, ns.db, time, function()
-    return Core.keyFromState(keyState, _G, time())
-  end)
+  ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
@@ -383,13 +257,13 @@ end
 -- Combat auto hide / show (option "combatHide"): hides the window when combat
 -- starts and shows it again when combat ends, but only if it was shown before.
 function events.PLAYER_REGEN_DISABLED()
-  local w = ns.UI and ns.UI.Window
-  if w and ns.db and ns.db.settings.combatHide then w.combatHide() end
+  local window = ns.UI and ns.UI.Window
+  if window and ns.db and ns.db.settings.combatHide then window.combatHide() end
 end
 
 function events.PLAYER_REGEN_ENABLED()
-  local w = ns.UI and ns.UI.Window
-  if w then w.combatShow() end
+  local window = ns.UI and ns.UI.Window
+  if window then window.combatShow() end
 end
 
 function events.CHAT_MSG_LOOT(text)
@@ -405,7 +279,8 @@ function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
   if ns.session then Core.recordGold(moneyReward) end
 end
 
--- Only items on the shown tab matter; the event fires for every item query.
+-- Only items on the shown tab matter; the event fires for every item query
+-- of every addon.
 function events.GET_ITEM_INFO_RECEIVED(itemID)
   local ledger = ns.UI and ns.UI.Ledger
   local wanted
@@ -415,23 +290,6 @@ function events.GET_ITEM_INFO_RECEIVED(itemID)
     wanted = ns.session ~= nil and ns.session.items[itemID] ~= nil
   end
   if wanted then requestRefresh() end
-end
-
--- Bank contents can only be read while the bank window is open: scan while it
--- is, keep the last scan (per character) for the Bank tab. A first scan that
--- comes back empty right at opening is ignored when a scan is saved already
--- (the slots may not be loaded yet); later scans of the same visit are trusted.
-local bankOpen = false
-
-function Core.scanBank(trustEmpty)
-  if not ns.chardb then return end
-  local now = time()
-  local items = ns.Inventory.scanBank(_G, now)
-  if next(items) == nil and not trustEmpty and ns.chardb.bank and next(ns.chardb.bank.items) ~= nil then
-    return
-  end
-  ns.chardb.bank = { scannedAt = now, items = items }
-  if ns.UI and ns.UI.Ledger and ns.UI.Ledger.tab == "bank" then refreshUI() end
 end
 
 function events.BANKFRAME_OPENED()
@@ -445,14 +303,11 @@ end
 
 function events.BAG_UPDATE_DELAYED()
   if bankOpen then Core.scanBank(true) end
-  local ledger = ns.UI and ns.UI.Ledger
-  if not ledger then return end
-  ledger.markBagsDirty()
-  if ledger.tab == "bags" and ns.UI.Window and ns.UI.Window.isShown() then requestRefresh() end
+  dataChanged("bags")
 end
 
 function events.PLAYER_LOGOUT()
-  Core.restoreDemoCache(ns.db)
+  if ns.Demo then ns.Demo.restoreCache(ns.db) end
   if ns.session then
     ns.Session.suspend(ns.session, time())
     ns.chardb.session = ns.session
@@ -465,14 +320,11 @@ function Core.init()
   local frame = CreateFrame("Frame")
   for event in pairs(events) do frame:RegisterEvent(event) end
   frame:SetScript("OnEvent", function(_, event, ...)
-    local fn = events[event]
-    if fn then fn(...) end
+    local handler = events[event]
+    if handler then handler(...) end
   end)
   Core.frame = frame
-
-  SLASH_LOOTPRICE1 = "/lp"
-  SLASH_LOOTPRICE2 = "/lootprice"
-  SlashCmdList["LOOTPRICE"] = onSlash
+  if ns.Slash then ns.Slash.register() end
 end
 
 if type(_G.CreateFrame) == "function" then Core.init() end

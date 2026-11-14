@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Theme.lua" })
+local ns = h.load({ "Util.lua", "Theme.lua" })
 local T = ns.Theme
 
 h.test("Theme has required keys", function()

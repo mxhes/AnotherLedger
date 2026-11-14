@@ -22,3 +22,17 @@ function TSM.new(env, getSource)
 end
 
 ns.Sources.TSM = TSM
+
+ns.Sources.register({
+  key = "tsm",
+  label = "TSM",
+  -- The TSM price string (e.g. "DBMarket") is the tsmSource setting, read live.
+  create = function(env, setting)
+    return TSM.new(env, function() return setting("tsmSource") end)
+  end,
+  -- Disenchant value: TSM's "Destroy" price (nil for items that cannot be
+  -- disenchanted).
+  createDisenchant = function(env)
+    return TSM.new(env, function() return "Destroy" end)
+  end,
+})

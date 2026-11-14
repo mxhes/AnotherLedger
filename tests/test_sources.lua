@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Sources/Vendor.lua", "Sources/TSM.lua", "Sources/Auctionator.lua" })
+local ns = h.load({ "Util.lua", "Sources/Sources.lua", "Sources/Vendor.lua", "Sources/TSM.lua", "Sources/Auctionator.lua" })
 local S = ns.Sources
 
 -- Vendor
@@ -78,4 +78,36 @@ h.test("Auctionator error and non-number are nil", function()
   h.eq(S.Auctionator.new(mk(function() error("x") end)).get(9), nil)
   h.eq(S.Auctionator.new(mk(function() return nil end)).get(9), nil)
   h.eq(S.Auctionator.new(mk(function() return "9" end)).get(9), nil)
+end)
+
+h.test("Sources registry: order, choices and the source built from a spec", function()
+  local keys = {}
+  for i, spec in ipairs(S.list()) do keys[i] = spec.key end
+  h.eq(keys, { "tsm", "auctionator" })
+  h.eq(S.choices(), {
+    { value = "auto", label = "Auto (TSM, then Auctionator)" },
+    { value = "tsm", label = "TSM" },
+    { value = "auctionator", label = "Auctionator" },
+  })
+  local asked
+  local env = { TSM_API = { GetCustomPriceValue = function(src) asked = src return 5 end } }
+  local settings = { tsmSource = "DBMarket" }
+  local src = S.list()[1].create(env, function(key) return settings[key] end)
+  h.eq(src.get(1), 5); h.eq(asked, "DBMarket")
+  settings.tsmSource = "DBMinBuyout" -- read live
+  src.get(1); h.eq(asked, "DBMinBuyout")
+  S.list()[1].createDisenchant(env).get(1); h.eq(asked, "Destroy")
+end)
+
+h.test("Sources.register: a new source joins the list and the choices, a repeat replaces", function()
+  local count = #S.list()
+  S.register({ key = "extra", label = "Extra", create = function() return { name = "Extra", get = function() return 1 end } end })
+  h.eq(#S.list(), count + 1)
+  local choices = S.choices()
+  h.eq(choices[#choices], { value = "extra", label = "Extra" })
+  h.eq(choices[1].label, "Auto (TSM, then Auctionator, then Extra)")
+  h.eq(S.allowed("extra", "tsm"), false)
+  S.register({ key = "extra", label = "Extra 2", create = function() end })
+  h.eq(#S.list(), count + 1)
+  h.eq(pcall(S.register, { key = "bad" }), false)
 end)

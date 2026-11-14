@@ -2,6 +2,8 @@ local ADDON, ns = ...
 
 ns.Sources = ns.Sources or {}
 
+-- Vendor sell price: always available, not an auction house source (so it is
+-- not registered with Sources.register).
 local Vendor = {}
 
 -- env is the global environment (_G in the client). Returns the vendor sell

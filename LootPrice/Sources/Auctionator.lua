@@ -21,3 +21,9 @@ function Auctionator.new(env)
 end
 
 ns.Sources.Auctionator = Auctionator
+
+ns.Sources.register({
+  key = "auctionator",
+  label = "Auctionator",
+  create = function(env) return Auctionator.new(env) end,
+})

@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Prices.lua" })
+local ns = h.load({ "Util.lua", "Prices.lua" })
 local P = ns.Prices
 
 local function make(sources, vendor, cache, key, clock)
@@ -158,4 +158,40 @@ h.test("Prices disenchant value is live and optional", function()
   h.eq(de(function() return 0 end), nil)
   h.eq(de(function() error("boom") end), nil)
   h.eq(de(nil), nil)
+end)
+
+h.test("Prices.prune drops old and unusable entries and empty buckets", function()
+  local day = 86400
+  local now = 100 * day
+  local cache = {
+    ["EU-1"] = {
+      [1] = { price = 5, seenAt = now - 10 * day },  -- kept
+      [2] = { price = 5, seenAt = now - 31 * day },  -- too old
+      [3] = { price = 5, seenAt = now + 50 },        -- clock went back: kept
+      [4] = "garbage",
+      [5] = { price = 5 },                           -- no timestamp
+    },
+    ["EU-2"] = { [9] = { price = 1, seenAt = 0 } },  -- bucket ends up empty
+    junk = 7,                                        -- not a bucket: left alone
+  }
+  h.eq(ns.Prices.prune(cache, now, 30 * day), 4)
+  h.eq(cache["EU-1"], { [1] = { price = 5, seenAt = now - 10 * day }, [3] = { price = 5, seenAt = now + 50 } })
+  h.eq(cache["EU-2"], nil)
+  h.eq(cache.junk, 7)
+  h.eq(ns.Prices.prune(cache, now, 30 * day), 0)
+  h.eq(ns.Prices.prune(nil, now, day), 0)
+  h.eq(ns.Prices.prune(cache, nil, day), 0)
+  h.eq(ns.Prices.CACHE_MAX_AGE, 30 * day)
+end)
+
+h.test("an unchanged live price re-stamps the cache entry in place", function()
+  local entry = { price = 100, seenAt = 1000 }
+  local cache = { ["EU-1"] = { [5] = entry } }
+  local p = ns.Prices.new({
+    sources = { { name = "S", get = function() return 100 end } },
+    cache = cache, key = function() return "EU-1" end, now = function() return 2000 end,
+  })
+  p:lookup(5)
+  h.eq(cache["EU-1"][5] == entry, true) -- no new table
+  h.eq(entry.seenAt, 2000)
 end)

@@ -191,9 +191,8 @@ local QUALITY = {
   [7] = { 0.00, 0.80, 1.00 }, -- 00ccff
 }
 
--- onParchment is accepted for old callers and ignored: the panel is dark, so
--- one bright set serves everywhere.
-function Theme.qualityColor(quality, onParchment)
+-- Returns r, g, b; an unknown quality gets the common (white) color.
+function Theme.qualityColor(quality)
   local c = QUALITY[quality]
   if type(quality) ~= "number" or not c then c = QUALITY[1] end
   return c[1], c[2], c[3]

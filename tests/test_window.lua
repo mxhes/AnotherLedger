@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Theme.lua", "UI/Window.lua" })
+local ns = h.load({ "Util.lua", "Theme.lua", "UI/Window.lua" })
 local clamp = ns.UI.Window.clampToScreen
 
 h.test("clampToScreen keeps a window that fits", function()

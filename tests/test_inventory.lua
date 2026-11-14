@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Inventory.lua" })
+local ns = h.load({ "Util.lua", "Inventory.lua" })
 local I = ns.Inventory
 
 local function link(id) return "|cffffffff|Hitem:" .. id .. "::|h[Item" .. id .. "]|h|r" end
@@ -92,4 +92,23 @@ h.test("Inventory.scanNote: never, just now, minutes, hours, days, stale", funct
   h.eq({ I.scanNote(1000 + 13 * 3600, 1000) }, { "Scanned 13h ago", true })
   h.eq({ I.scanNote(1000 + 2 * 86400, 1000) }, { "Scanned 2d ago", true })
   h.eq({ I.scanNote(500, 1000) }, { "Scanned just now", false }) -- clock went back
+end)
+
+h.test("Inventory.scan merges stacks straight from the slots and keeps the first link", function()
+  local slots = {
+    { itemID = 7, stackCount = 3, hyperlink = "first" },
+    { itemID = 7, stackCount = 4, hyperlink = "second" },
+    { itemID = 0, stackCount = 4 },   -- invalid id
+    { itemID = 8, stackCount = 0 },   -- empty stack
+    { itemID = 9, stackCount = 1 },
+  }
+  local env = { C_Container = {
+    GetContainerNumSlots = function() return #slots end,
+    GetContainerItemInfo = function(_, slot) return slots[slot] end,
+  } }
+  local items = I.scan(env, { 0 }, 50)
+  h.eq(items, {
+    [7] = { id = 7, link = "first", qty = 7, lastSeen = 50 },
+    [9] = { id = 9, qty = 1, lastSeen = 50 },
+  })
 end)
