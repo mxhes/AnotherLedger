@@ -1,12 +1,14 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Client-only module: every WoW global is touched inside functions only.
 local Window = {}
 ns.UI.Window = Window
 
-local TITLE = "Session Ledger" -- single place to localize later
+local TITLE = L["Session Ledger"]
 local TOPBOX_EMPTY = 0.001     -- zero-height frames anchor badly; keep a hair
 
 local function theme() return ns.Theme end

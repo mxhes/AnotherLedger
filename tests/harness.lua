@@ -38,10 +38,15 @@ function h.near(a, b, eps)
 end
 
 -- Loads each file into one shared ns table. Paths resolve under LootPrice/
--- unless they start with "tests/".
+-- unless they start with "tests/". Locale.lua (ns.L, needed by every file
+-- with texts) is loaded first unless the list names it.
 function h.load(files)
   local ns = {}
-  for _, file in ipairs(files) do
+  local list, hasLocale = {}, false
+  for _, file in ipairs(files) do if file == "Locale.lua" then hasLocale = true end end
+  if not hasLocale then list[1] = "Locale.lua" end
+  for _, file in ipairs(files) do list[#list + 1] = file end
+  for _, file in ipairs(list) do
     local path = file
     if file:sub(1, 6) ~= "tests/" then path = "LootPrice/" .. file end
     local chunk, err = loadfile(path)

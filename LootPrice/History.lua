@@ -1,49 +1,98 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 -- Archive of finished sessions (per character, newest first). Pure: no WoW
 -- globals. An entry is a snapshot taken when a session is thrown away (Reset,
--- or a fresh login without "keep session"):
---   { startedAt, elapsed, gold, nItems, vendor, ah, unpriced,
---     items = { [itemID] = { id, link, qty, lastSeen } } }
--- The vendor / AH totals are the prices at archive time.
+-- a fresh login without "keep session", or the new-session-per-instance option):
+--   { startedAt, elapsed, gold, nItems, vendor, ah, best, unpriced,
+--     places = { "label", ... } (most loot first),
+--     items = { [key] = { id, key, link, qty, lastSeen, price } },
+--     currencies = { [currencyID] = { id, link, qty } } }
+-- The vendor / AH / best totals are the prices at archive time; an item the
+-- live lookup cannot price falls back to the price seen when it was looted.
 local History = {
   DEFAULT_LIMIT = 50,
   UNLIMITED = -1,
+  MAX_PLACES = 5,
 }
 
 local num, nonNeg = ns.Util.isNumber, ns.Util.nonNegative
 
--- Snapshot of `session`, or nil when it holds nothing worth keeping (no items
--- and no gold). `lookup(itemID)` returns { vendor, ah } or nil; `now` ends a
--- still running clock.
+local L_PLACES = L["Places: "]
+local L_ITEMS = L[" items"]
+local L_VENDOR = L["Vendor: "]
+local L_AH = L["AH: "]
+local L_BEST = L["Best: "]
+local L_GOLD = L["Raw gold: "]
+local L_PER_HOUR = L["/h"]
+
+local function copyPrice(p)
+  if type(p) ~= "table" then return nil end
+  local out = {}
+  for _, k in ipairs({ "vendor", "ah", "de" }) do
+    if num(p[k]) then out[k] = p[k] end
+  end
+  return next(out) and out or nil
+end
+
+-- Snapshot of `session`, or nil when it holds nothing worth keeping (no items,
+-- currencies or gold). `lookup(itemID, link)` returns { vendor, ah, de } or
+-- nil; `now` ends a still running clock.
 function History.snapshot(session, lookup, now)
   if type(session) ~= "table" or type(session.items) ~= "table" then return nil end
-  local items, count, vendor, ah, unpriced = {}, 0, 0, 0, 0
-  for _, it in pairs(session.items) do
+  local items, count, vendor, ah, best, unpriced = {}, 0, 0, 0, 0, 0
+  for key, it in pairs(session.items) do
     if type(it) == "table" and num(it.id) and num(it.qty) and it.qty > 0 then
-      items[it.id] = {
+      local itemKey = it.key or key
+      local saved = copyPrice(it.price) or {}
+      items[itemKey] = {
         id = it.id,
+        key = itemKey,
         link = type(it.link) == "string" and it.link or nil,
         qty = it.qty,
         lastSeen = nonNeg(it.lastSeen),
+        price = copyPrice(it.price),
       }
       count = count + 1
-      local p = lookup and lookup(it.id)
+      local p = lookup and lookup(it.id, it.link)
       if type(p) ~= "table" then p = {} end
-      if num(p.vendor) then vendor = vendor + p.vendor * it.qty end
-      if num(p.ah) then ah = ah + p.ah * it.qty else unpriced = unpriced + 1 end
+      local v = num(p.vendor) and p.vendor or saved.vendor
+      local a = num(p.ah) and p.ah or saved.ah
+      local d = num(p.de) and p.de or saved.de
+      if v then vendor = vendor + v * it.qty end
+      if a then ah = ah + a * it.qty else unpriced = unpriced + 1 end
+      local b = math.max(v or 0, a or 0, d or 0)
+      best = best + b * it.qty
+    end
+  end
+  local currencies, nCurrencies = {}, 0
+  if type(session.currencies) == "table" then
+    for id, c in pairs(session.currencies) do
+      if type(c) == "table" and num(id) and num(c.qty) and c.qty > 0 then
+        currencies[id] = { id = id, qty = c.qty, link = type(c.link) == "string" and c.link or nil }
+        nCurrencies = nCurrencies + 1
+      end
     end
   end
   local gold = nonNeg(session.gold)
-  if count == 0 and gold <= 0 then return nil end
+  if count == 0 and nCurrencies == 0 and gold <= 0 then return nil end
   local elapsed = nonNeg(session.elapsedBase)
   if session.running and num(session.runningSince) and num(now) and ns.Session and ns.Session.elapsed then
     local ok, v = pcall(ns.Session.elapsed, session, now)
     if ok and num(v) then elapsed = nonNeg(v) end
   end
+  local places = {}
+  if ns.Session and ns.Session.placeList then
+    for i, label in ipairs(ns.Session.placeList(session.places)) do
+      if i > History.MAX_PLACES then break end
+      places[i] = label
+    end
+  end
   return {
     startedAt = nonNeg(session.startedAt), elapsed = elapsed, gold = gold,
-    nItems = count, vendor = vendor, ah = ah, unpriced = unpriced, items = items,
+    nItems = count, vendor = vendor, ah = ah, best = best, unpriced = unpriced,
+    places = places, items = items, currencies = currencies,
   }
 end
 
@@ -69,6 +118,19 @@ function History.valid(e)
     and num(e.nItems) and num(e.vendor) and num(e.ah) and type(e.items) == "table"
 end
 
+-- Best value of an entry; entries saved before it existed use their AH total.
+function History.bestOf(e)
+  if num(e.best) then return e.best end
+  return math.max(e.ah or 0, e.vendor or 0)
+end
+
+-- Where most of the loot of an entry came from, or nil.
+function History.place(e)
+  local places = type(e) == "table" and e.places
+  if type(places) == "table" and type(places[1]) == "string" then return places[1] end
+  return nil
+end
+
 -- "1h 12m", "12m", "45s".
 function History.duration(seconds)
   if not num(seconds) or seconds < 0 then seconds = 0 end
@@ -78,6 +140,72 @@ function History.duration(seconds)
   end
   if seconds >= 60 then return math.floor(seconds / 60) .. "m" end
   return seconds .. "s"
+end
+
+-- Copper per hour over `elapsed` seconds, or nil under a minute.
+function History.perHour(amount, elapsed)
+  if not num(amount) or not num(elapsed) or elapsed < 60 then return nil end
+  return amount * 3600 / elapsed
+end
+
+-- Multi-line tooltip text of an entry: when, how long, where, the totals and
+-- their rates. `formatDate(timestamp)` -> text; `formatMoney` defaults to Money.format.
+function History.details(e, formatDate, formatMoney)
+  formatMoney = formatMoney or ns.Money.format
+  local lines = {}
+  local when = formatDate and formatDate(e.startedAt) or tostring(e.startedAt)
+  lines[#lines + 1] = when .. "  (" .. History.duration(e.elapsed) .. ", " .. e.nItems .. L_ITEMS .. ")"
+  if type(e.places) == "table" and #e.places > 0 then
+    lines[#lines + 1] = L_PLACES .. table.concat(e.places, ", ")
+  end
+  local function money(label, amount)
+    local text = label .. formatMoney(amount)
+    local rate = History.perHour(amount, e.elapsed)
+    if rate then text = text .. "  (" .. formatMoney(rate) .. L_PER_HOUR .. ")" end
+    lines[#lines + 1] = text
+  end
+  money(L_VENDOR, e.vendor)
+  money(L_AH, e.ah)
+  money(L_BEST, History.bestOf(e))
+  money(L_GOLD, e.gold)
+  return table.concat(lines, "\n")
+end
+
+-- ---------------------------------------------------------------------------
+-- CSV export
+
+History.CSV_HEADER = "start,duration_min,place,items,vendor_g,ah_g,best_g,raw_gold_g,best_plus_gold_per_hour_g"
+
+local function csvField(text)
+  text = tostring(text or "")
+  if text:find('[,"\n]') then text = '"' .. text:gsub('"', '""') .. '"' end
+  return text
+end
+
+local function goldNumber(copper)
+  return string.format("%.4f", (copper or 0) / 10000)
+end
+
+-- The History list as CSV text (header first, newest session first). Amounts
+-- are in gold with four decimals so a spreadsheet can sum them.
+function History.csv(list, formatDate)
+  local out = { History.CSV_HEADER }
+  if type(list) ~= "table" then list = {} end
+  for _, e in ipairs(list) do
+    if History.valid(e) then
+      local best = History.bestOf(e)
+      local rate = History.perHour(best + e.gold, e.elapsed)
+      out[#out + 1] = table.concat({
+        csvField(formatDate and formatDate(e.startedAt) or e.startedAt),
+        string.format("%.1f", e.elapsed / 60),
+        csvField(type(e.places) == "table" and table.concat(e.places, "; ") or ""),
+        tostring(e.nItems),
+        goldNumber(e.vendor), goldNumber(e.ah), goldNumber(best), goldNumber(e.gold),
+        rate and goldNumber(rate) or "",
+      }, ",")
+    end
+  end
+  return table.concat(out, "\n")
 end
 
 ns.History = History

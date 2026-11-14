@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Minimap button: left click shows / hides the ledger window, right click
@@ -57,9 +59,9 @@ end
 local function showTooltip(button)
   GameTooltip:SetOwner(button, "ANCHOR_LEFT")
   GameTooltip:SetText("LootPrice")
-  GameTooltip:AddLine("Left click: show / hide the window", 1, 1, 1)
-  GameTooltip:AddLine("Right click: options", 1, 1, 1)
-  GameTooltip:AddLine("Drag: move the button", 1, 1, 1)
+  GameTooltip:AddLine(L["Left click: show / hide the window"], 1, 1, 1)
+  GameTooltip:AddLine(L["Right click: options"], 1, 1, 1)
+  GameTooltip:AddLine(L["Drag: move the button"], 1, 1, 1)
   GameTooltip:Show()
 end
 
@@ -104,13 +106,16 @@ end
 
 -- Option "minimapReset": back to the default place on the rim.
 function Minimap.resetPosition()
+  if ns.UI.Broker and ns.UI.Broker.resetIcon() then return end
   local s = settings()
   if s then s.minimapAngle = ns.DB.defaults.settings.minimapAngle end
   if Minimap.button then place(Minimap.button) end
 end
 
--- Shows or hides the button; builds it on first use.
+-- Shows or hides the button; builds it on first use. With LibDBIcon loaded
+-- (UI/Broker.lua) that library draws the button instead.
 function Minimap.setShown(shown)
+  if ns.UI.Broker and ns.UI.Broker.setIconShown(shown) then return end
   if not shown then
     if Minimap.button then Minimap.button:Hide() end
     return

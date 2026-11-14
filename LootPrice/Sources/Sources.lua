@@ -5,7 +5,7 @@ local ADDON, ns = ...
 --   ns.Sources.register({
 --     key    = "tsm",                -- value of the "AH price source" option
 --     label  = "TSM",                -- shown in the options dropdown
---     create = function(env, setting) return { name = "TSM", get = function(itemID) ... end } end,
+--     create = function(env, setting) return { name = "TSM", get = function(itemID, link) ... end } end,
 --     createDisenchant = function(env, setting) ... end, -- optional, same shape
 --   })
 --
@@ -43,10 +43,10 @@ end
 function Sources.gate(source, key, getSelected)
   return {
     name = source.name,
-    get = function(itemID)
+    get = function(itemID, link)
       local ok, selected = pcall(getSelected)
       if not ok or not Sources.allowed(selected, key) then return nil end
-      return source.get(itemID)
+      return source.get(itemID, link)
     end,
   }
 end

@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Tab registry and the tab buttons of header row 3. The ledger never names a
@@ -8,8 +10,8 @@ ns.UI = ns.UI or {}
 --
 --   Tabs.define({
 --     key   = "bags",                -- saved in db.tab
---     label = "Bags",                -- button text
---     title = "Bag Ledger",          -- window title while selected
+--     label = L["Bags"],                -- button text
+--     title = L["Bag Ledger"],          -- window title while selected
 --     build = function(ctx) return view end, -- see View.lua for the view shape
 --     sessionControls = false,       -- show the clock and Start / Stop / Reset
 --     ticks   = false,               -- per-hour rates change with the clock
@@ -66,24 +68,24 @@ end
 
 -- Session: the loot of the running session.
 Tabs.define({
-  key = "session", label = "Session", title = "Session Ledger",
+  key = "session", label = L["Session"], title = L["Session Ledger"],
   sessionControls = true,
   ticks = true,
   build = function(ctx) return ns.View.build(ctx.session, ctx.opts) end,
-  hasItem = function(itemID, ctx) return ctx.session.items[itemID] ~= nil end,
+  hasItem = function(itemID, ctx) return ns.Session.hasItemID(ctx.session.items, itemID) end,
 })
 
 -- Bags: live bag contents, scanned again only after the bags changed.
 local bagItems
 Tabs.define({
-  key = "bags", label = "Bags", title = "Bag Ledger",
+  key = "bags", label = L["Bags"], title = L["Bag Ledger"],
   watches = "bags",
   invalidate = function() bagItems = nil end,
   build = function(ctx)
     if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
     return ns.View.buildInventory(bagItems, ctx.opts)
   end,
-  hasItem = function(itemID) return bagItems ~= nil and bagItems[itemID] ~= nil end,
+  hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
 })
 
 -- Bank: the last saved scan (Core scans while the bank window is open).
@@ -93,17 +95,18 @@ local function savedBank(ctx)
 end
 
 Tabs.define({
-  key = "bank", label = "Bank", title = "Bank Ledger",
+  key = "bank", label = L["Bank"], title = L["Bank Ledger"],
   watches = "bank",
   build = function(ctx)
     local bank = savedBank(ctx)
     local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
-    view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank and bank.scannedAt)
+    local hours = ns.Options and ns.db and ns.Options.get(ns.db, "staleHours")
+    view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank and bank.scannedAt, hours and hours * 3600)
     return view
   end,
   hasItem = function(itemID, ctx)
     local bank = savedBank(ctx)
-    return bank ~= nil and type(bank.items) == "table" and bank.items[itemID] ~= nil
+    return bank ~= nil and ns.Session.hasItemID(bank.items, itemID)
   end,
 })
 
@@ -114,7 +117,7 @@ local function savedHistory(ctx)
 end
 
 Tabs.define({
-  key = "history", label = "History", title = "Session History",
+  key = "history", label = L["History"], title = L["Session History"],
   build = function(ctx)
     local history, ledger = savedHistory(ctx), ctx.ledger
     if ledger.historyIndex and not history[ledger.historyIndex] then ledger.historyIndex = nil end
@@ -122,7 +125,7 @@ Tabs.define({
   end,
   hasItem = function(itemID, ctx)
     local entry = savedHistory(ctx)[ctx.ledger.historyIndex or 0]
-    return type(entry) == "table" and type(entry.items) == "table" and entry.items[itemID] ~= nil
+    return type(entry) == "table" and ns.Session.hasItemID(entry.items, itemID)
   end,
 })
 
@@ -130,8 +133,7 @@ Tabs.define({
 -- Buttons
 
 -- `row` is the header row to put the buttons in; `onSelect(key)` is called when
--- a tab button is clicked. Returns an object with SetSelected(key): the
--- selected tab's button is disabled (disabled font).
+-- another tab's button is clicked. Returns an object with SetSelected(key).
 function Tabs.attach(row, onSelect)
   local T = ns.Theme
   local tabs = { buttons = {} }
@@ -144,14 +146,29 @@ function Tabs.attach(row, onSelect)
       b:SetPoint("LEFT", row, "LEFT", 0, 0)
     end
     b:SetScript("OnClick", function()
-      if onSelect then onSelect(key) end
+      if onSelect and key ~= tabs.selected then onSelect(key) end
     end)
+    -- Gold bar under the selected tab.
+    local mark = ns.UI.Widgets.line(b, T.colors.goldLine, "OVERLAY")
+    mark:SetHeight(2)
+    mark:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 3, -1)
+    mark:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -3, -1)
+    mark:Hide()
+    b.mark = mark
     tabs.buttons[key] = b
     previous = b
   end
 
+  -- The selected tab keeps its white text, gets the gold bar and a locked
+  -- highlight; clicking it again does nothing.
+  -- UNVERIFIED (check in client): Button:LockHighlight on UIPanelButtonTemplate.
   function tabs:SetSelected(key)
-    for k, b in pairs(self.buttons) do b:SetEnabled(k ~= key) end
+    self.selected = key
+    for k, b in pairs(self.buttons) do
+      local on = k == key
+      b.mark:SetShown(on)
+      if on then b:LockHighlight() else b:UnlockHighlight() end
+    end
   end
 
   return tabs

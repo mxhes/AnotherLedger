@@ -20,11 +20,10 @@ Theme.fonts = {
   number = "GameFontHighlight",
   small = "GameFontHighlightSmall",
   rowSmall = "GameFontHighlightSmall", -- second and third line of a list row
-  -- Summary (totals bar, Top finds): about 12 pt; markers stay small.
+  -- Summary (footer table, Top finds): about 12 pt; column titles and the notes
+  -- line stay small.
   summary = "GameFontHighlight",
   summaryMarker = "GameFontHighlightSmall",
-  -- Section title of a footer block (Items / Raw gold / Items + gold): gold, like "Top finds".
-  blockLabel = "GameFontHighlightLarge",
   topHeader = "GameFontHighlightLarge",
   topRow = "GameFontHighlight",
   button = "GameFontHighlightSmall", -- white; the disabled state stays gray
@@ -40,13 +39,16 @@ Theme.colors = {
   ink = { 0.93, 0.87, 0.72, 1 },
   -- Age tag of stale prices: bright orange (ff8a4a).
   stale = { 1.00, 0.54, 0.29, 1 },
-  -- Section titles (Top finds, footer blocks): white.
+  -- Section title (Top finds): white.
   sectionTitle = { 1, 1, 1, 1 },
+  -- Label of the line that holds a row's value (best of vendor / AH / DE).
+  best = { 1.00, 0.82, 0.00, 1 },
   -- The in-game gold (ffd100).
   gold = { 1.00, 0.82, 0.00, 1 },
   -- Bright gold for lines (divider, edge, filter underline); not for text.
   goldLine = { 1.00, 0.82, 0.20, 1 },
-  -- Divider between Top finds and the list (goldLine at partial alpha).
+  -- Divider between the footer summaries and Top finds below them (goldLine at
+  -- partial alpha). Window stack, top to bottom: header, list, footer, Top finds.
   divider = { 1.00, 0.82, 0.20, 0.85 },
   -- Row flash: soft warm glow, strong one brighter (alpha highlight on dark).
   -- Thin line between ledger rows: goldLine at low alpha (quiet but visible).
@@ -62,6 +64,8 @@ Theme.colors = {
   moneySilver = { 0.780, 0.780, 0.812, 1 }, -- c7c7cf
   moneyCopper = { 0.929, 0.647, 0.373, 1 }, -- eda55f
   hint = { 0.68, 0.63, 0.55, 1 },
+  -- Column titles of the footer table (Value, /h): the hint color.
+  columnTitle = { 0.68, 0.63, 0.55, 1 },
   scrollTrack = { 0.93, 0.87, 0.72, 0.10 },
   scrollThumb = { 0.93, 0.87, 0.72, 0.45 },
 }
@@ -75,8 +79,8 @@ Theme.durations = {
 Theme.sizes = {
   minWidth = 350,
   -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 88
-  -- + 4 list rows (4 * 40) + footer 158 = 514 (tests/test_summary.lua recomputes it).
-  minHeight = 514,
+  -- + 4 list rows (4 * 40) + footer 72 = 428 (tests/test_summary.lua recomputes it).
+  minHeight = 428,
   minListRows = 4,
   rowHeight = 40, -- three text lines: Vendor, DE (disenchant), AH
   iconSize = 24,
@@ -85,17 +89,12 @@ Theme.sizes = {
   padding = 8,
   headerHeight = 84, -- three header rows: title/buttons, filters, tabs
   headerRowHeight = 28,
-  -- Footer = three stacked blocks, each a title row (gold title + thin separator)
-  -- above its content: items 38 (two lines), gold 16 (one line), total 38
-  -- (two lines). footerHeight is their sum.
-  footerLabelHeight = 22, -- section title row (16 pt font)
-  footerLabelGap = 4,
-  footerItemsHeight = 38,
-  footerGoldHeight = 16,
-  footerTotalHeight = 38,
-  footerHeight = 158,
-  -- Inventory tabs: the footer is the items block only, plus a one-line note
-  -- (bank scan age) when shown.
+  -- Footer = the value table: a column-title line and the rows Items / Raw gold
+  -- / Total, footerRowHeight each; footerHeight = 4 lines (the full session table).
+  -- Summary.tableLayout gives the real height per view.
+  footerRowHeight = 18,
+  footerHeight = 72,
+  -- Notes line under the table (filtered / unpriced / bank scan age), when shown.
   footerNoteHeight = 16,
   buttonHeight = 20,
   buttonGap = 2,
@@ -104,7 +103,7 @@ Theme.sizes = {
   topRowHeight = 20,
   dividerHeight = 2,
   -- Estimated average glyph widths in FRIZQT (px) of the 12 pt summary font and
-  -- the 10 pt marker font; Summary.footerWorstWidth() budgets with them.
+  -- the 10 pt marker font; Summary.tableWorstWidth() budgets with them.
   summaryCharPx = 6.6,
   markerCharPx = 5.5,
   gripSize = 16,
@@ -144,15 +143,15 @@ Theme.sizes = {
 }
 
 -- Button / box widths of the header rows. Row 1 at the 350 px minimum is
--- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 + 34 + 40 + 20 + 20 (options) = 152
--- plus four 2 px gaps = 160, timer 54, leaving ~112 px for the title (~95 px).
+-- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 (Start / Stop) + 40 (reset)
+-- + 20 (options) + 20 (close) = 118 plus three 2 px gaps = 124, timer 54 + 6 px gap,
+-- leaving ~142 px for the title (~95 px).
 -- Row 2: quality 70 + min 44 + sort 78 + three 2 px gaps (plus ~8 px of
 -- inset) = ~206, leaving ~120 px for the flexible search box.
--- minWidth 350 comes from the footer (see Summary.footerWorstWidth): the
--- 12 pt totals bar needs 157 px per half, so 2 * 157 + 8 px center gap + 24 px
--- window inset = 346, rounded up.
+-- minWidth 350 is the header's budget above; the footer table needs less
+-- (Summary.tableWorstWidth, ~278 px of the 326 px content width).
 Theme.widths = {
-  header = { start = 38, stop = 34, reset = 40, hide = 20, options = 20 },
+  header = { toggle = 38, reset = 40, hide = 20, options = 20 },
   filter = { quality = 70, min = 44, sort = 78 },
   tab = 72, -- tab buttons hanging below the window
 }

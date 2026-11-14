@@ -6,7 +6,8 @@ local isNumber, isPositive = ns.Util.isNumber, ns.Util.isPositive
 -- each source returned (per region / game mode), plus vendor and disenchant
 -- values. Pure: every client call is injected through Prices.new.
 local Prices = {
-  STALE_AFTER = 43200,             -- a cached price older than 12 h is tagged stale
+  -- A cached price older than this is tagged stale (option "staleHours").
+  STALE_AFTER = ((ns.DB and ns.DB.defaults.settings.staleHours) or 12) * 3600,
   WRITE_INTERVAL = 60,             -- an unchanged price is re-stamped at most this often
   CACHE_MAX_AGE = 30 * 86400,      -- cached prices older than 30 days are dropped at login
 }
@@ -54,10 +55,12 @@ local Instance = {}
 Instance.__index = Instance
 
 -- opts = {
---   sources    = { { name, get(itemID) -> copper or nil }, ... } asked in order,
---   vendor     = function(itemID) -> copper or nil,
---   disenchant = function(itemID) -> copper or nil (optional),
---   cache      = saved table { [key] = { [itemID] = { price, seenAt } } },
+--   sources    = { { name, get(itemID, link) -> copper or nil }, ... } asked in order,
+--   vendor     = function(itemID, link) -> copper or nil,
+--   disenchant = function(itemID, link) -> copper or nil (optional),
+--   cache      = saved table { [key] = { [itemKey] = { price, seenAt } } },
+-- `link` (optional) lets a source price the exact variant (bonus IDs); the
+-- cache stores prices under LootParse.itemKey (the item ID for plain items).
 --   key        = function() -> cache key or nil,
 --   now        = function() -> timestamp,
 -- }
@@ -73,9 +76,9 @@ function Prices.new(opts)
 end
 
 -- First valid live price and the name of the source that gave it.
-function Instance:_live(itemID)
+function Instance:_live(itemID, link)
   for _, source in ipairs(self.sources) do
-    local ok, value = pcall(source.get, itemID)
+    local ok, value = pcall(source.get, itemID, link)
     if ok and isPositive(value) then return value, source.name end
   end
   return nil
@@ -100,16 +103,18 @@ end
 
 -- Returns { vendor, de, ah, ahSource, ahAge }; every field may be missing.
 -- ahSource is the live source's name or "cache"; ahAge is 0 for a live price.
-function Instance:lookup(itemID)
+function Instance:lookup(itemID, link)
   local result = {}
+  local itemKey = itemID
+  if type(link) == "string" and ns.LootParse then itemKey = ns.LootParse.itemKey(link) or itemID end
   if self.vendor then
-    local ok, v = pcall(self.vendor, itemID)
+    local ok, v = pcall(self.vendor, itemID, link)
     if ok and type(v) == "number" and v == v then result.vendor = v end
   end
 
   -- Disenchant value (live only, nil when the item cannot be disenchanted).
   if self.disenchant then
-    local ok, v = pcall(self.disenchant, itemID)
+    local ok, v = pcall(self.disenchant, itemID, link)
     if ok and isPositive(v) then result.de = v end
   end
 
@@ -119,14 +124,14 @@ function Instance:lookup(itemID)
   local bucket = key and self.cache and self.cache[key] or nil
   if type(bucket) ~= "table" then bucket = nil end
 
-  local price, name = self:_live(itemID)
+  local price, name = self:_live(itemID, link)
   if price then
     result.ah, result.ahSource, result.ahAge = price, name, 0
-    if key and self.cache then self:_remember(key, bucket, itemID, price, now) end
+    if key and self.cache then self:_remember(key, bucket, itemKey, price, now) end
     return result
   end
 
-  local entry = bucket and bucket[itemID]
+  local entry = bucket and bucket[itemKey]
   if validEntry(entry) and isPositive(entry.price) then
     result.ah, result.ahSource, result.ahAge = entry.price, "cache", math.max(0, now - entry.seenAt)
   end

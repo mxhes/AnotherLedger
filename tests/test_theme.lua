@@ -16,7 +16,7 @@ h.test("Theme has required keys", function()
     "buttonDisabled", "file" }) do
     h.eq(type(T.fonts[k]), "string", "fonts." .. k)
   end
-  for _, k in ipairs({ "summary", "summaryMarker", "blockLabel", "topHeader", "topRow" }) do
+  for _, k in ipairs({ "summary", "summaryMarker", "topHeader", "topRow" }) do
     h.eq(type(T.fonts[k]), "string", "fonts." .. k)
   end
   for _, k in ipairs({ "hint", "scrollTrack", "scrollThumb" }) do
@@ -25,26 +25,26 @@ h.test("Theme has required keys", function()
   for _, k in ipairs({ "minWidth", "minHeight", "rowHeight", "iconSize", "scrollbarWidth",
     "scrollThumbHeight", "padding", "headerHeight", "headerRowHeight", "footerHeight",
     "buttonHeight", "buttonGap", "timerWidth", "topHeaderHeight", "topRowHeight", "gripSize",
-    "gripInset", "dividerHeight", "footerLabelHeight", "footerLabelGap", "footerItemsHeight",
-    "footerGoldHeight", "footerTotalHeight", "minListRows", "summaryCharPx", "markerCharPx", "backdropTile", "backdropEdge", "backdropInset" }) do
+    "gripInset", "dividerHeight", "footerRowHeight", "footerNoteHeight",
+    "minListRows", "summaryCharPx", "markerCharPx", "backdropTile", "backdropEdge", "backdropInset" }) do
     h.eq(type(T.sizes[k]), "number", "sizes." .. k)
   end
   for _, k in ipairs({ "flashNormal", "flashStrong" }) do
     h.eq(type(T.durations[k]), "number", "durations." .. k)
   end
-  for _, k in ipairs({ "start", "stop", "reset", "hide", "options" }) do
+  for _, k in ipairs({ "toggle", "reset", "hide", "options" }) do
     h.eq(type(T.widths.header[k]), "number", "widths.header." .. k)
   end
   for _, k in ipairs({ "quality", "min", "sort" }) do
     h.eq(type(T.widths.filter[k]), "number", "widths.filter." .. k)
   end
-  h.eq(T.sizes.footerHeight, 158)
+  h.eq(T.sizes.footerHeight, 72)
   h.eq(T.sizes.topHeaderHeight, 22)
   h.eq(T.sizes.topRowHeight, 20)
   h.eq(T.sizes.rowHeight, 40)
   h.eq(T.sizes.headerHeight, 3 * T.sizes.headerRowHeight)
   h.eq(T.sizes.minWidth, 350)
-  h.eq(T.sizes.minHeight, 514)
+  h.eq(T.sizes.minHeight, 428)
 end)
 
 for _, onParchment in ipairs({ true, false }) do -- the second argument is ignored now
@@ -143,6 +143,5 @@ end)
 h.test("button text and section titles are white", function()
   h.eq(T.colors.sectionTitle, { 1, 1, 1, 1 })
   h.eq(T.fonts.button, "GameFontHighlightSmall")
-  h.eq(T.fonts.blockLabel, "GameFontHighlightLarge")
   h.eq(T.fonts.topHeader, "GameFontHighlightLarge")
 end)

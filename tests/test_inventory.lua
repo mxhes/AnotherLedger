@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Inventory.lua" })
+local ns = h.load({ "Util.lua", "LootParse.lua", "Inventory.lua" })
 local I = ns.Inventory
 
 local function link(id) return "|cffffffff|Hitem:" .. id .. "::|h[Item" .. id .. "]|h|r" end
@@ -14,7 +14,7 @@ h.test("Inventory.merge: stacks of one item merge, invalid entries are skipped",
     { id = 13, qty = -1 },
     "junk",
   }, 777)
-  h.eq(items[10], { id = 10, link = link(10), qty = 8, lastSeen = 777 })
+  h.eq(items[10], { id = 10, key = 10, link = link(10), qty = 8, lastSeen = 777 })
   h.eq(items[11].qty, 1)
   h.eq(items[12], nil)
   h.eq(items[13], nil)
@@ -26,6 +26,38 @@ h.test("Inventory.bagIDs / bankIDs follow the client constants", function()
   h.eq(I.bankIDs({ BANK_CONTAINER = -1, NUM_BAG_SLOTS = 4, NUM_BANKBAGSLOTS = 2 }), { -1, 5, 6 })
   h.eq(I.bankIDs({ BANK_CONTAINER = -1, NUM_BAG_SLOTS = 4, NUM_REAGENTBAG_SLOTS = 1, NUM_BANKBAGSLOTS = 2 }),
     { -1, 6, 7 })
+  h.eq(I.bankIDs({ BANK_CONTAINER = -1, NUM_BAG_SLOTS = 4, NUM_BANKBAGSLOTS = 2, REAGENTBANK_CONTAINER = -3 }),
+    { -1, 5, 6, -3 })
+end)
+
+h.test("Inventory.bankIDs uses the character bank tabs where the client has them", function()
+  local env = { Enum = { BagIndex = { CharacterBankTab_1 = 6, CharacterBankTab_2 = 7, CharacterBankTab_3 = 8,
+    CharacterBankTab_4 = 9, CharacterBankTab_5 = 10, CharacterBankTab_6 = 11, AccountBankTab_1 = 12 } },
+    BANK_CONTAINER = -1, NUM_BANKBAGSLOTS = 7 }
+  h.eq(I.bankIDs(env), { 6, 7, 8, 9, 10, 11 })
+end)
+
+h.test("Inventory.merge keeps item variants (bonus IDs) apart", function()
+  local plain = "|Hitem:50::::::::60:::::::::|h[Sword]|h"
+  local v1 = "|Hitem:50::::::::60::::2:1477:4802::::::|h[Sword]|h"
+  local v2 = "|Hitem:50::::::::60::::1:9999::::::|h[Sword]|h"
+  local items = I.merge({
+    { id = 50, link = plain, qty = 1 },
+    { id = 50, link = v1, qty = 1 },
+    { id = 50, link = v1, qty = 1 },
+    { id = 50, link = v2, qty = 1 },
+  }, 1)
+  h.eq(items[50].qty, 1)
+  h.eq(items["50:1477:4802"].qty, 2)
+  h.eq(items["50:1477:4802"].id, 50)
+  h.eq(items["50:9999"].qty, 1)
+end)
+
+h.test("Inventory.scanNote follows a given stale limit", function()
+  local _, stale = I.scanNote(10000, 10000 - 3700, 3600)
+  h.eq(stale, true)
+  _, stale = I.scanNote(10000, 10000 - 3700)
+  h.eq(stale, false)
 end)
 
 local function fakeEnv(bags)
@@ -108,7 +140,7 @@ h.test("Inventory.scan merges stacks straight from the slots and keeps the first
   } }
   local items = I.scan(env, { 0 }, 50)
   h.eq(items, {
-    [7] = { id = 7, link = "first", qty = 7, lastSeen = 50 },
-    [9] = { id = 9, qty = 1, lastSeen = 50 },
+    [7] = { id = 7, key = 7, link = "first", qty = 7, lastSeen = 50 },
+    [9] = { id = 9, key = 9, qty = 1, lastSeen = 50 },
   })
 end)

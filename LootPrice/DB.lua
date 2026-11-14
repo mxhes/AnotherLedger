@@ -31,6 +31,13 @@ DB.defaults = {
     staleHours = 12,
     alertGold = 0,
     alertSound = false,
+    -- Crafted items and items received at a merchant / mailbox / trade / AH
+    -- count as loot only with this on.
+    countCrafted = false,
+    showCurrencies = true,
+    -- Pause the clock while AFK; a new session per dungeon / raid visit.
+    afkPause = false,
+    instanceSession = false,
     -- Font size in px of the list text, the totals and the section titles (after /reload).
     -- Typeface: "default" (the WoW font) or a font file path.
     fontFace = "default",
@@ -46,6 +53,9 @@ DB.defaults = {
   },
   sort = "ah",
   tab = "session", -- last shown tab: session / bags / bank / history
+  -- LibDBIcon's saved state (hide, minimapPos) when that library draws the
+  -- minimap button (UI/Broker.lua).
+  minimapIcon = {},
 }
 
 -- Per-character defaults (LootPriceCharDB): the last bank scan for the Bank tab.

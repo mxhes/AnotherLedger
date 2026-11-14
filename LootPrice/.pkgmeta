@@ -1,0 +1,20 @@
+# BigWigs packager config (https://github.com/BigWigsMods/packager).
+#
+# Layout: the repo root is NOT the addon folder; the addon lives in LootPrice/.
+# The packager runs with this folder as its top directory
+# (`release.sh -t LootPrice`, see .gitlab-ci.yml), reads this file from here
+# and zips a single LootPrice/ folder with the .toc inside.
+# UNVERIFIED: the first package-dry-run CI job confirms the zip layout and that
+# the externals below land in LootPrice/Libs/.
+package-as: LootPrice
+
+# Libraries loaded by embeds.xml. A development copy without Libs/ still
+# works (own minimap button, no data broker).
+externals:
+  Libs/LibStub: https://repos.curseforge.com/wow/libstub/trunk
+  Libs/CallbackHandler-1.0: https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0
+  Libs/LibDataBroker-1.1: https://github.com/tekkub/libdatabroker-1-1
+  Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
+
+ignore:
+  - .pkgmeta

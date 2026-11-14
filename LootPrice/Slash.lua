@@ -1,10 +1,12 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 -- Slash commands (/lp, /lootprice). A command is one Slash.define call:
 --
 --   Slash.define({
 --     name = "reset",                          -- /lp reset
---     help = "/lp reset - clear the session",  -- optional line of /lp help
+--     help = L["/lp reset - clear the session"],  -- optional line of /lp help
 --     needsSession = true,                     -- default: refuse before login is done
 --     run  = function(arg) ... end,            -- arg: text after the command, or nil
 --   })
@@ -15,7 +17,7 @@ local Slash = {}
 
 local say = ns.Util.say
 
-local HELP_NOTE = "Note: an AH age tag can look fresh when the price source serves old scan data."
+local HELP_NOTE = L["Note: an AH age tag can look fresh when the price source serves old scan data."]
 local DEFAULT_COMMAND = "toggle"
 
 local commands = {} -- definitions in order (the order of /lp help)
@@ -55,7 +57,7 @@ function Slash.run(msg)
     return
   end
   if command.needsSession ~= false and not ns.session then
-    say("not ready yet.")
+    say(L["not ready yet."])
     return
   end
   command.run(arg)
@@ -71,6 +73,15 @@ end
 -- ---------------------------------------------------------------------------
 -- Built-in commands
 
+-- Settings changed by a command go through the option registry (validation,
+-- apply) and show up in an open options panel.
+local function setOption(key, value)
+  local v = ns.Options.set(ns.db, key, value)
+  local panel = ns.UI and ns.UI.OptionsPanel
+  if panel and panel.refreshAll then panel.refreshAll() end
+  return v
+end
+
 local function windowCall(name)
   local window = ns.UI and ns.UI.Window
   if window and type(window[name]) == "function" then window[name]() end
@@ -78,13 +89,13 @@ end
 
 Slash.define({
   name = "toggle",
-  help = "/lp - toggle the window",
+  help = L["/lp - toggle the window"],
   run = function() windowCall("toggle") end,
 })
 
 Slash.define({
   name = "show",
-  help = "/lp show | hide - show or hide the window",
+  help = L["/lp show | hide - show or hide the window"],
   run = function() windowCall("show") end,
 })
 
@@ -92,7 +103,7 @@ Slash.define({ name = "hide", run = function() windowCall("hide") end })
 
 Slash.define({
   name = "start",
-  help = "/lp start | stop - start or stop the session clock",
+  help = L["/lp start | stop - start or stop the session clock"],
   run = function() ns.Core.startSession() end,
 })
 
@@ -100,7 +111,7 @@ Slash.define({ name = "stop", run = function() ns.Core.stopSession() end })
 
 Slash.define({
   name = "reset",
-  help = "/lp reset - clear the session",
+  help = L["/lp reset - clear the session"],
   run = function()
     -- Same path as the Reset button: asks first when the session is large.
     if ns.UI and ns.UI.Header then
@@ -113,31 +124,36 @@ Slash.define({
 
 Slash.define({
   name = "keep",
-  help = "/lp keep on|off - keep the session across logins",
+  help = L["/lp keep on|off - keep the session across logins"],
   run = function(arg)
-    local settings = ns.db.settings
     local value = arg and arg:lower()
     if value ~= "on" and value ~= "off" then
-      say("usage: /lp keep on|off (currently " .. (settings.keepSession and "on" or "off") .. ")")
+      say(L["usage: /lp keep on|off (currently "] .. (ns.Options.get(ns.db, "keepSession") and "on" or "off") .. ")")
       return
     end
-    settings.keepSession = (value == "on")
-    say("keep session across logins: " .. value)
+    setOption("keepSession", value == "on")
+    say(L["keep session across logins: "] .. value)
   end,
 })
 
 Slash.define({
   name = "tsm",
-  help = "/lp tsm <source> - TSM price source (e.g. DBMarket)",
+  help = L["/lp tsm <source> - TSM price source (e.g. DBMarket)"],
   run = function(arg)
-    local settings = ns.db.settings
     if not arg then
-      say("TSM source: " .. tostring(settings.tsmSource))
+      say(L["TSM source: "] .. tostring(ns.Options.get(ns.db, "tsmSource")))
       return
     end
-    settings.tsmSource = arg
-    say("TSM source: " .. arg)
-    if ns.UI and ns.UI.refresh then ns.UI.refresh() end
+    -- The option's apply redraws the window.
+    say(L["TSM source: "] .. tostring(setOption("tsmSource", arg)))
+  end,
+})
+
+Slash.define({
+  name = "export",
+  help = L["/lp export - copy the History as CSV"],
+  run = function()
+    if ns.UI and ns.UI.Export then ns.UI.Export.history() end
   end,
 })
 

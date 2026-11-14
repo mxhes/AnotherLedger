@@ -56,6 +56,16 @@ function Widgets.button(parent, label, width)
   return b
 end
 
+-- The game's own close button (the red X) at `size` px square. The template's
+-- default click (hide the parent) is replaced by `onClick`.
+-- UNVERIFIED (check in client): UIPanelCloseButton art scaled down to 20 px.
+function Widgets.closeButton(parent, size, onClick)
+  local b = CreateFrame("Button", nil, parent, "UIPanelCloseButton")
+  b:SetSize(size, size)
+  b:SetScript("OnClick", function() if onClick then onClick() end end)
+  return b
+end
+
 -- The dark leather backdrop of the ledger window and the options panel.
 function Widgets.applyBackdrop(frame)
   local T = ns.Theme

@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Header row 1 (right of the title): elapsed timer and the Start / Stop /
@@ -8,14 +10,13 @@ ns.UI = ns.UI or {}
 local Header = {}
 ns.UI.Header = Header
 
-local L_START = "Start"
-local L_STOP = "Stop"
-local L_RESET = "Reset"
-local L_HIDE = "X"
-local L_OPTIONS = "Options"
-local L_RESET_CONFIRM = "Reset the session? All logged loot and the timer will be cleared."
-local L_YES = "Reset"
-local L_NO = "Cancel"
+local L_START = L["Start"]
+local L_STOP = L["Stop"]
+local L_RESET = L["Reset"]
+local L_OPTIONS = L["Options"]
+local L_RESET_CONFIRM = L["Reset the session? All logged loot and the timer will be cleared."]
+local L_YES = L["Reset"]
+local L_NO = L["Cancel"]
 
 -- Compact button widths live in Theme.widths.header (width budget there).
 local function widths() return ns.Theme.widths.header end
@@ -34,9 +35,10 @@ function Header.formatElapsed(seconds)
   return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
-function Header.buttonStates(running)
-  local r = running and true or false
-  return { start = not r, stop = r }
+-- The one Start / Stop button: its label and the handler a click calls.
+function Header.toggleState(running)
+  if running then return { label = L_STOP, action = "stop" } end
+  return { label = L_START, action = "start" }
 end
 
 -- ---------------------------------------------------------------------------
@@ -86,13 +88,12 @@ function Header.attach(row, handlers)
 
   local header = { row = row }
 
-  -- Buttons are laid out right to left: Hide, Options, Reset, Stop, Start.
-  local hide = makeButton(row, L_HIDE, widths().hide)
-  hide:SetPoint("RIGHT", row, "RIGHT", 0, 0)
-  hide:SetScript("OnClick", function()
+  -- Buttons are laid out right to left: Close, Options, Reset, Start / Stop.
+  local hide = W.closeButton(row, widths().hide, function()
     -- Window.hide persists the hidden flag; never frame:Hide() directly.
     if handlers.hide then handlers.hide() end
   end)
+  hide:SetPoint("RIGHT", row, "RIGHT", 0, 0)
 
   -- Options (gear icon), left of the Hide button; opens the options panel.
   local options = CreateFrame("Button", nil, row)
@@ -114,32 +115,27 @@ function Header.attach(row, handlers)
   reset:SetPoint("RIGHT", options, "LEFT", -gap, 0)
   reset:SetScript("OnClick", function() Header.requestReset() end)
 
-  local stop = makeButton(row, L_STOP, widths().stop)
-  stop:SetPoint("RIGHT", reset, "LEFT", -gap, 0)
-  stop:SetScript("OnClick", function()
-    if handlers.stop then handlers.stop() end
-  end)
-
-  local start = makeButton(row, L_START, widths().start)
-  start:SetPoint("RIGHT", stop, "LEFT", -gap, 0)
-  start:SetScript("OnClick", function()
-    if handlers.start then handlers.start() end
+  -- One button: Start while stopped, Stop while running.
+  local toggle = makeButton(row, L_START, widths().toggle)
+  toggle:SetPoint("RIGHT", reset, "LEFT", -gap, 0)
+  toggle:SetScript("OnClick", function()
+    local fn = handlers[Header.toggleState(header.running).action]
+    if fn then fn() end
   end)
 
   local timer = W.text(row, T.fonts.number, T.colors.ink, "RIGHT")
   timer:SetWidth(T.sizes.timerWidth)
-  timer:SetPoint("RIGHT", start, "LEFT", -gap * 3, 0)
+  timer:SetPoint("RIGHT", toggle, "LEFT", -gap * 3, 0)
   timer:SetText(Header.formatElapsed(0))
 
-  header.timer, header.start, header.stop = timer, start, stop
+  header.timer, header.toggle = timer, toggle
   header.reset, header.hide, header.options = reset, hide, options
 
   -- The clock and the Start / Stop / Reset buttons belong to the session tab;
-  -- the Hide button stays on every tab.
+  -- the close button stays on every tab.
   function header:SetSessionControls(shown)
     self.timer:SetShown(shown)
-    self.start:SetShown(shown)
-    self.stop:SetShown(shown)
+    self.toggle:SetShown(shown)
     self.reset:SetShown(shown)
   end
 
@@ -147,14 +143,12 @@ function Header.attach(row, handlers)
     self.timer:SetText(Header.formatElapsed(seconds))
   end
 
-  -- The buttons only change when the running state does.
+  -- The button only changes when the running state does.
   function header:SetRunning(running)
     running = running and true or false
     if running == self.running then return end
     self.running = running
-    local st = Header.buttonStates(running)
-    self.start:SetEnabled(st.start)
-    self.stop:SetEnabled(st.stop)
+    self.toggle:SetText(Header.toggleState(running).label)
   end
 
   -- Ledger part: the clock is the same work on a full refresh and on a tick.

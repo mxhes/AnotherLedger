@@ -8,12 +8,13 @@ ns.UI = ns.UI or {}
 local Rows = {}
 ns.UI.Rows = Rows
 
--- User-visible strings (single place to localize later).
+-- User-visible strings (translated through ns.L, Locale.lua).
 local L = {
-  VENDOR = "Vendor: ",
-  AH = "AH: ",
-  DE = "DE: ",
-  QTY = "x",
+  VENDOR = ns.L["Vendor: "],
+  AH = ns.L["AH: "],
+  DE = ns.L["DE: "],
+  QTY = ns.L["x"],
+  BOUND = ns.L["bound"],
 }
 
 local WHEEL_STEP = 2
@@ -34,15 +35,27 @@ function Rows.rowText(row, formatMoney)
     tag = "(" .. ns.Prices.formatAge(row.ahAge) .. ")"
     tagStale = row.stale and true or false
   end
+  local qty = L.QTY .. tostring(row.quantity or 0)
+  -- Currencies have a quantity only: no amounts and no labels.
+  if row.isCurrency then
+    return { name = row.name or "", qty = qty, vendorLabel = "", ahLabel = "", vendorAmount = "",
+      ahAmount = "", deLabel = "", deAmount = "", tag = nil, tagStale = false }
+  end
   local hasDE = row.deTotal ~= nil
+  local ahAmount = formatMoney(row.ahTotal)
+  -- A bound item cannot be sold on the AH: say so instead of "n/a".
+  if row.ahTotal == nil and row.bound then ahAmount = L.BOUND end
   return {
     name = row.name or "",
-    qty = L.QTY .. tostring(row.quantity or 0),
+    qty = qty,
+    vendorLabel = L.VENDOR, ahLabel = L.AH,
     vendorAmount = formatMoney(row.vendorTotal),
-    ahAmount = formatMoney(row.ahTotal),
+    ahAmount = ahAmount,
     -- Disenchant line: empty for items that cannot be disenchanted.
     deLabel = hasDE and (row.deLabel or L.DE) or "",
     deAmount = hasDE and formatMoney(row.deTotal) or "",
+    -- Which line holds the row's value (its label is highlighted).
+    best = row.bestKind,
     tag = tag,
     tagStale = tagStale,
   }
@@ -199,7 +212,9 @@ local function theme() return ns.Theme end
 function Rows.tooltipLink(row)
   if type(row) ~= "table" then return nil end
   if type(row.link) == "string" and row.link ~= "" then return row.link end
-  if type(row.id) == "number" and row.id > 0 then return "item:" .. row.id end
+  if type(row.id) == "number" and row.id > 0 then
+    return (row.isCurrency and "currency:" or "item:") .. row.id
+  end
   return nil
 end
 
@@ -338,7 +353,7 @@ local function createRow(parent, owner)
   local vendorLabel, vendor = line2(), line2()
   local ahLabel, ah, tag = line2(), line2(), line2()
   local deLabel, de = line2(), line2()
-  vendorLabel:SetText(Rows.LABELS.vendor) -- these two labels never change
+  vendorLabel:SetText(Rows.LABELS.vendor)
   ahLabel:SetText(Rows.LABELS.ah)
   f.vendorLabel, f.ahLabel, f.deLabel, f.de = vendorLabel, ahLabel, deLabel, de
 
@@ -369,6 +384,11 @@ local function fillRow(f, row)
   f.name:SetText(t.name)
   f.name:SetTextColor(r, g, b)
   f.qty:SetText(t.qty)
+  f.vendorLabel:SetText(t.vendorLabel or "")
+  f.ahLabel:SetText(t.ahLabel or "")
+  setColor(f.vendorLabel, t.best == "vendor" and T.colors.best or T.colors.ink)
+  setColor(f.ahLabel, t.best == "ah" and T.colors.best or T.colors.ink)
+  setColor(f.deLabel, t.best == "de" and T.colors.best or T.colors.ink)
   f.vendor:SetText(t.vendorAmount)
   f.ah:SetText(t.ahAmount)
   f.deLabel:SetText(t.deLabel)
@@ -377,7 +397,7 @@ local function fillRow(f, row)
   f.hasTag = t.tag ~= nil
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
   f.iconBorder:SetColorTexture(r, g, b, 1)
-  f.icon:SetTexture(row.icon or itemIcon(row.id))
+  f.icon:SetTexture(row.icon or (row.isCurrency and QUESTION_MARK) or itemIcon(row.id))
   f.row = row
   f.tooltipLink = Rows.tooltipLink(row)
   f.tooltipText = row.hint
@@ -390,7 +410,7 @@ end
 
 -- Takes a pooled row frame out of use.
 local function releaseRow(f)
-  f.itemID = nil
+  f.rowKey = nil
   stopFlash(f)
   f:Hide()
 end
@@ -490,8 +510,9 @@ function Rows.attach(area, onMeasure)
     for i = 1, filled do
       local f = rowFrame(i)
       local row = self.data[self.offset + i]
-      if f.itemID ~= row.id then stopFlash(f) end
-      f.itemID = row.id
+      local key = row.key or row.id
+      if f.rowKey ~= key then stopFlash(f) end
+      f.rowKey = key
       fillRow(f, row)
       f.separator:SetShown(self.offset + i < total)
       f:Show()
@@ -533,8 +554,9 @@ function Rows.attach(area, onMeasure)
     self:Render()
   end
 
-  function list:ScrollToItem(itemID)
-    local idx = ns.View.indexOf(self.data, itemID)
+  -- `key` is the row key (LootParse.itemKey).
+  function list:ScrollToItem(key)
+    local idx = ns.View.indexOf(self.data, key)
     if not idx then return end
     local offset = Rows.offsetFor(idx, self.offset, visible(), #self.data)
     if offset == self.offset then return end -- already in view
@@ -543,11 +565,11 @@ function Rows.attach(area, onMeasure)
   end
 
   -- Items scrolled out of view have no frame: ignored.
-  function list:Flash(itemID, level)
+  function list:Flash(key, level)
     local c = (level == "strong") and T.colors.flashStrong or T.colors.flashNormal
     for i = 1, self.shown do
       local f = self.pool[i]
-      if f and f:IsShown() and f.itemID == itemID then
+      if f and f:IsShown() and f.rowKey == key then
         f.flashGroup:Stop()
         f.flash:SetColorTexture(c[1], c[2], c[3], c[4])
         f.flashFade:SetDuration(level == "strong" and T.durations.flashStrong or T.durations.flashNormal)

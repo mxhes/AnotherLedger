@@ -5,9 +5,14 @@
 ## Author: Maximilian Henjes
 ## SavedVariables: LootPriceDB
 ## SavedVariablesPerCharacter: LootPriceCharDB
-## OptionalDeps: TradeSkillMaster, Auctionator
+## OptionalDeps: TradeSkillMaster, Auctionator, LibStub, LibDataBroker-1.1, LibDBIcon-1.0
+## IconTexture: Interface\Icons\INV_Misc_Coin_01
+
+embeds.xml
 
 Util.lua
+Locale.lua
+Locales\deDE.lua
 Money.lua
 Theme.lua
 DB.lua
@@ -34,5 +39,7 @@ UI\FilterBar.lua
 UI\Tabs.lua
 UI\OptionsPanel.lua
 UI\Minimap.lua
+UI\Export.lua
+UI\Broker.lua
 UI\Ledger.lua
 Core.lua

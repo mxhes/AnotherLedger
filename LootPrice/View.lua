@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 local num = ns.Util.isNumber
 local lower = string.lower
 
@@ -10,18 +12,29 @@ local lower = string.lower
 --   now      = timestamp,
 --   filter   = { qualities = { [0..7] = bool }, minValue = copper, search = text },
 --   sort     = key of SORTS,
---   lookup   = function(itemID) -> Prices lookup result or nil,
---   itemInfo = function(itemID) -> { name, quality } or nil,
+--   lookup   = function(itemID, link) -> Prices lookup result or nil,
+--   itemInfo = function(itemID, link) -> { name, quality, bound } or nil,
+--   currencyInfo = function(currencyID) -> { name, icon, quality } or nil,
+--   showCurrencies = bool (default true),
+--   includeGold = bool (default true),
 --   formatDate = function(timestamp) -> text (History tab),
 -- }
+--
+-- A row's value is the best of its vendor, AH and disenchant totals; the sort
+-- "AH value", Top finds, the minimum value filter and the alerts use it.
 local View = {
   TOP_COUNT = 3,
   MIN_RATE_SECONDS = 60,
   STRONG_FLASH_VALUE = 100000,
+  CURRENCY_KEY_PREFIX = "c:",
 }
 
 local MIN_QUALITY, MAX_QUALITY = 0, 7
 local NO_LOOKUP = {}
+
+local L_GOLD = L["Gold: "]
+local L_CLICK_OPEN = L["Click to show the items"]
+local L_CLICK_CLOSE = L["Click to collapse"]
 
 local function allQualities(set)
   for q = MIN_QUALITY, MAX_QUALITY do
@@ -38,38 +51,60 @@ function View.isFiltered(filter)
   return false
 end
 
+-- The best of the three totals and which one it is ("vendor", "ah", "de").
+-- Ties prefer vendor, then AH (the surest money).
+function View.best(vendorTotal, ahTotal, deTotal)
+  local best, kind = nil, nil
+  if num(vendorTotal) then best, kind = vendorTotal, "vendor" end
+  if num(ahTotal) and (best == nil or ahTotal > best) then best, kind = ahTotal, "ah" end
+  if num(deTotal) and (best == nil or deTotal > best) then best, kind = deTotal, "de" end
+  return best, kind
+end
+
 -- ---------------------------------------------------------------------------
 -- Rows
 
--- One ledger row for an item ({ id, link, qty, lastSeen }).
+-- One ledger row for an item ({ id, key, link, qty, lastSeen, price }).
+-- `item.price` (unit prices seen at loot time) fills in what the live lookup
+-- does not know; an AH price from there shows its age like a cached one.
 local function makeRow(item, opts)
-  local lookup = opts.lookup and opts.lookup(item.id)
+  local lookup = opts.lookup and opts.lookup(item.id, item.link)
   if type(lookup) ~= "table" then lookup = NO_LOOKUP end
-  local info = opts.itemInfo and opts.itemInfo(item.id)
+  local info = opts.itemInfo and opts.itemInfo(item.id, item.link)
   if type(info) ~= "table" then info = nil end
+  local saved = type(item.price) == "table" and item.price or NO_LOOKUP
 
   local name = info and type(info.name) == "string" and info.name or nil
   if not name then name = type(item.link) == "string" and item.link:match("%[(.-)%]") or "" end
   local quality = info and num(info.quality) and info.quality or 1
 
   local qty = item.qty
-  local vendorEach = num(lookup.vendor) and lookup.vendor or nil
+  local vendorEach = num(lookup.vendor) and lookup.vendor or (num(saved.vendor) and saved.vendor or nil)
   local ahEach = num(lookup.ah) and lookup.ah or nil
-  local deEach = num(lookup.de) and lookup.de or nil
   local ahFromCache = lookup.ahSource == "cache"
   local ahAge = num(lookup.ahAge) and lookup.ahAge or nil
+  if not ahEach and num(saved.ah) then
+    ahEach, ahFromCache = saved.ah, true
+    ahAge = num(item.lastSeen) and num(opts.now) and math.max(0, opts.now - item.lastSeen) or nil
+  end
+  local deEach = num(lookup.de) and lookup.de or (num(saved.de) and saved.de or nil)
   local vendorTotal = vendorEach and vendorEach * qty or nil
   local ahTotal = ahEach and ahEach * qty or nil
+  local deTotal = deEach and deEach * qty or nil
+  local bestTotal, bestKind = View.best(vendorTotal, ahTotal, deTotal)
 
   return {
-    id = item.id, link = item.link, name = name, quality = quality, quantity = qty,
+    id = item.id, key = item.key or item.id, link = item.link, name = name, quality = quality, quantity = qty,
     sortName = lower(name), -- lowercased once, for the search and the name sort
     vendorEach = vendorEach, vendorTotal = vendorTotal,
     ahEach = ahEach, ahTotal = ahTotal,
-    deEach = deEach, deTotal = deEach and deEach * qty or nil,
+    deEach = deEach, deTotal = deTotal,
+    bestTotal = bestTotal, bestKind = bestKind,
+    -- Bound items can never be sold on the AH: no "unpriced" count for them.
+    bound = info and info.bound and true or false,
     ahFromCache = ahFromCache, ahAge = ahAge,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
-    value = ahTotal or vendorTotal or 0,
+    value = bestTotal or 0,
     lastSeen = item.lastSeen,
   }
 end
@@ -83,17 +118,24 @@ local function visible(row, filter, needle)
   return true
 end
 
+local function searchNeedle(filter)
+  if type(filter) == "table" and type(filter.search) == "string" and filter.search ~= "" then
+    return lower(filter.search)
+  end
+  return nil
+end
+
 -- ---------------------------------------------------------------------------
--- Sorting: every order is total (ties by name, then id), so it is stable
+-- Sorting: every order is total (ties by name, then key), so it is stable
 -- across refreshes.
 
 local function byName(a, b)
   local an, bn = a.sortName, b.sortName
   if an ~= bn then return an < bn end
-  return a.id < b.id
+  return tostring(a.key or a.id) < tostring(b.key or b.id)
 end
 
--- Descending by row[field] (missing = 0), ties by name then id.
+-- Descending by row[field] (missing = 0), ties by name then key.
 local function descending(field)
   return function(a, b)
     local ka, kb = a[field] or 0, b[field] or 0
@@ -103,8 +145,9 @@ local function descending(field)
 end
 
 -- A new sort order is one entry here plus its label in UI/FilterBar.lua.
+-- "ah" keeps its saved key but sorts by the best value.
 local SORTS = {
-  ah = descending("ahTotal"),
+  ah = descending("value"),
   vendor = descending("vendorTotal"),
   recent = descending("lastSeen"),
   name = byName,
@@ -117,7 +160,7 @@ local byValue = descending("value")
 local function topRows(rows, count)
   local top = {}
   for _, row in ipairs(rows) do
-    if row.value > 0 then
+    if row.value > 0 and not row.isCurrency then
       local pos = #top + 1
       while pos > 1 and byValue(row, top[pos - 1]) do pos = pos - 1 end
       if pos <= count then
@@ -129,18 +172,16 @@ local function topRows(rows, count)
   return top
 end
 
--- Filtered, sorted rows and their vendor / AH totals for an items map
--- ({ [itemID] = { id, link, qty, lastSeen } }); shared by the session and the
+-- Filtered, sorted rows and their vendor / AH / best totals for an items map
+-- ({ [key] = { id, key, link, qty, lastSeen } }); shared by the session and the
 -- inventory tabs.
 local function collect(items, opts)
   local filter = opts.filter
-  local needle
-  if type(filter) == "table" and type(filter.search) == "string" and filter.search ~= "" then
-    needle = lower(filter.search)
-  end
+  local needle = searchNeedle(filter)
 
   local rows, n = {}, 0
-  local vendor, ah, unpriced = 0, 0, 0
+  local vendor, ah, best, unpriced = 0, 0, 0, 0
+  if type(items) ~= "table" then items = {} end
   for _, item in pairs(items) do
     if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 then
       local row = makeRow(item, opts)
@@ -149,13 +190,45 @@ local function collect(items, opts)
         rows[n] = row
         vendor = vendor + (row.vendorTotal or 0)
         ah = ah + (row.ahTotal or 0)
-        if row.ahEach == nil then unpriced = unpriced + 1 end
+        best = best + (row.bestTotal or 0)
+        if row.ahEach == nil and not row.bound then unpriced = unpriced + 1 end
       end
     end
   end
   table.sort(rows, SORTS[opts.sort] or SORTS.ah)
 
-  return rows, { vendor = vendor, ah = ah, unpriced = unpriced, filtered = View.isFiltered(filter) }
+  return rows, { vendor = vendor, ah = ah, best = best, unpriced = unpriced, filtered = View.isFiltered(filter) }
+end
+
+-- Currency rows ({ [currencyID] = { id, link, qty } }): quantity only, no
+-- value, listed after the items by name. The search and quality filters apply;
+-- a minimum value hides them (they are worth nothing in gold).
+function View.currencyRows(currencies, opts)
+  local rows = {}
+  if type(currencies) ~= "table" or opts.showCurrencies == false then return rows end
+  local filter = opts.filter
+  local needle = searchNeedle(filter)
+  for _, c in pairs(currencies) do
+    if type(c) == "table" and num(c.id) and num(c.qty) and c.qty > 0 then
+      local info = opts.currencyInfo and opts.currencyInfo(c.id)
+      if type(info) ~= "table" then info = {} end
+      local name = type(info.name) == "string" and info.name
+        or (type(c.link) == "string" and c.link:match("%[(.-)%]")) or (L["Currency "] .. c.id)
+      local row = {
+        id = c.id, key = View.CURRENCY_KEY_PREFIX .. c.id, link = c.link, isCurrency = true,
+        name = name, sortName = lower(name), quality = num(info.quality) and info.quality or 1,
+        quantity = c.qty, icon = info.icon, value = 0, lastSeen = c.lastSeen,
+      }
+      if visible(row, filter, needle) then rows[#rows + 1] = row end
+    end
+  end
+  table.sort(rows, byName)
+  return rows
+end
+
+local function append(rows, more)
+  for _, r in ipairs(more) do rows[#rows + 1] = r end
+  return rows
 end
 
 -- ---------------------------------------------------------------------------
@@ -166,48 +239,6 @@ end
 function View.buildInventory(items, opts)
   local rows, totals = collect(items, opts)
   return { rows = rows, top = {}, totals = totals, kind = "inventory" }
-end
-
--- History tab: one row per archived session (newest first), shown through the
--- normal row layout; the DE line carries the session's raw gold. The session
--- at `openIndex` (if any) moves to the top and its items are listed right
--- under it (filter and sort apply to them), then the other sessions follow.
--- opts.formatDate(timestamp) -> text.
-function View.buildHistory(list, opts, openIndex)
-  opts = opts or {}
-  if type(list) ~= "table" then list = {} end
-  local sessionRows, opened = {}, nil
-  local totals = { vendor = 0, ah = 0, unpriced = 0, filtered = false }
-  for i, e in ipairs(list) do
-    if ns.History.valid(e) then
-      local when = opts.formatDate and opts.formatDate(e.startedAt) or tostring(e.startedAt)
-      local open = i == openIndex
-      local row = {
-        id = -i, historyIndex = i,
-        name = (open and "- " or "+ ") .. when .. "  " .. ns.History.duration(e.elapsed),
-        quality = 1, quantity = e.nItems,
-        vendorTotal = e.vendor, ahTotal = e.ah, deTotal = e.gold, deLabel = "Gold: ",
-        icon = "Interface\\Icons\\INV_Misc_Note_01",
-        hint = open and "Click to collapse" or "Click to show the items",
-        value = e.ah, lastSeen = e.startedAt,
-      }
-      sessionRows[#sessionRows + 1] = row
-      if open then opened = row end
-      totals.vendor = totals.vendor + e.vendor
-      totals.ah = totals.ah + e.ah
-    end
-  end
-
-  local rows = {}
-  if opened then
-    rows[1] = opened
-    local items = collect(list[openIndex].items, opts)
-    for _, r in ipairs(items) do rows[#rows + 1] = r end
-  end
-  for _, r in ipairs(sessionRows) do
-    if r ~= opened then rows[#rows + 1] = r end
-  end
-  return { rows = rows, top = {}, totals = totals, kind = "inventory", history = true }
 end
 
 local function perHour(amount, elapsed)
@@ -222,43 +253,108 @@ function View.applyRates(view, elapsed)
   if num(elapsed) and elapsed >= View.MIN_RATE_SECONDS then
     totals.vendorPerHour = perHour(totals.vendor, elapsed)
     totals.ahPerHour = perHour(totals.ah, elapsed)
+    totals.bestPerHour = perHour(totals.best or 0, elapsed)
     gold.perHour = perHour(gold.total, elapsed)
     combined.vendorPerHour = perHour(combined.vendor, elapsed)
     combined.ahPerHour = perHour(combined.ah, elapsed)
+    combined.bestPerHour = perHour(combined.best or 0, elapsed)
   else
-    totals.vendorPerHour, totals.ahPerHour = nil, nil
+    totals.vendorPerHour, totals.ahPerHour, totals.bestPerHour = nil, nil, nil
     gold.perHour = nil
-    combined.vendorPerHour, combined.ahPerHour = nil, nil
+    combined.vendorPerHour, combined.ahPerHour, combined.bestPerHour = nil, nil, nil
   end
   return view
 end
 
+-- Gold and the combined (items + gold) totals of a view. Option "includeGold"
+-- off: the combined totals are only the items, and the footer leaves the block
+-- out.
+local function addGold(view, goldTotal, includeGold)
+  local totals = view.totals
+  view.gold = { total = goldTotal }
+  if includeGold == false then
+    view.combined = { vendor = totals.vendor, ah = totals.ah, best = totals.best }
+    view.noCombined = true
+  else
+    view.combined = { vendor = totals.vendor + goldTotal, ah = totals.ah + goldTotal,
+      best = totals.best + goldTotal }
+  end
+  return view
+end
+
+-- History tab: one row per archived session (newest first), shown through the
+-- normal row layout; the DE line carries the session's raw gold. The session
+-- at `openIndex` (if any) moves to the top and its items (and currencies) are
+-- listed right under it (filter and sort apply to them), then the other
+-- sessions follow. The footer adds up every saved session, with rates over
+-- their summed length. opts.formatDate(timestamp) -> text.
+function View.buildHistory(list, opts, openIndex)
+  opts = opts or {}
+  if type(list) ~= "table" then list = {} end
+  local History = ns.History
+  local sessionRows, opened = {}, nil
+  local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = false }
+  local gold, elapsed = 0, 0
+  for i, e in ipairs(list) do
+    if History.valid(e) then
+      local when = opts.formatDate and opts.formatDate(e.startedAt) or tostring(e.startedAt)
+      local open = i == openIndex
+      local best = History.bestOf(e)
+      local place = History.place(e)
+      local name = (open and "- " or "+ ") .. when .. "  " .. History.duration(e.elapsed)
+      if place then name = name .. "  " .. place end
+      local row = {
+        id = -i, key = -i, historyIndex = i,
+        name = name, sortName = lower(name),
+        quality = 1, quantity = e.nItems,
+        vendorTotal = e.vendor, ahTotal = e.ah, deTotal = e.gold, deLabel = L_GOLD,
+        icon = "Interface\\Icons\\INV_Misc_Note_01",
+        hint = History.details(e, opts.formatDate) .. "\n" .. (open and L_CLICK_CLOSE or L_CLICK_OPEN),
+        value = best, lastSeen = e.startedAt,
+      }
+      sessionRows[#sessionRows + 1] = row
+      if open then opened = row end
+      totals.vendor = totals.vendor + e.vendor
+      totals.ah = totals.ah + e.ah
+      totals.best = totals.best + best
+      gold = gold + e.gold
+      elapsed = elapsed + e.elapsed
+    end
+  end
+
+  local rows = {}
+  if opened then
+    rows[1] = opened
+    local entry = list[openIndex]
+    append(rows, (collect(entry.items, opts)))
+    append(rows, View.currencyRows(entry.currencies, opts))
+  end
+  for _, r in ipairs(sessionRows) do
+    if r ~= opened then rows[#rows + 1] = r end
+  end
+  local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true }
+  addGold(view, gold, opts.includeGold)
+  return View.applyRates(view, elapsed)
+end
+
 -- Session tab: rows, totals, raw gold, combined totals, rates and top finds.
+-- Currencies follow the item rows (they have no value).
 function View.build(session, opts)
   local rows, totals = collect(session.items, opts)
+  local top = topRows(rows, View.TOP_COUNT)
+  append(rows, View.currencyRows(session.currencies, opts))
 
-  -- Raw gold is income of its own: never filtered, counted equally on both
-  -- sides of the combined totals.
-  local goldTotal = math.max(0, ns.Session.goldTotal(session))
-  local view = {
-    rows = rows,
-    top = topRows(rows, View.TOP_COUNT),
-    totals = totals,
-    gold = { total = goldTotal },
-    combined = { vendor = totals.vendor + goldTotal, ah = totals.ah + goldTotal },
-  }
-  -- Option "includeGold" off: the combined totals are only the items, and the
-  -- footer leaves the block out.
-  if opts.includeGold == false then
-    view.combined = { vendor = totals.vendor, ah = totals.ah }
-    view.noCombined = true
-  end
+  -- Raw gold is income of its own: never filtered, counted equally on every
+  -- side of the combined totals.
+  local view = { rows = rows, top = top, totals = totals, kind = "session" }
+  addGold(view, math.max(0, ns.Session.goldTotal(session)), opts.includeGold)
   return View.applyRates(view, ns.Session.elapsed(session, opts.now))
 end
 
-function View.indexOf(rows, itemID)
+-- Position of the row with `key` (a LootParse.itemKey, or an item ID).
+function View.indexOf(rows, key)
   for i, r in ipairs(rows) do
-    if r.id == itemID then return i end
+    if r.key == key or (r.key == nil and r.id == key) then return i end
   end
   return nil
 end

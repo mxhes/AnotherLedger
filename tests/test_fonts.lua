@@ -47,9 +47,50 @@ h.test("Fonts.install: a scaled group gets its own font objects and taller rows"
   h.eq(ns.Theme.fonts.summary, "LootPriceSummary")
   h.eq(created.LootPriceSummary.size, 12)
   h.eq(ns.Theme.fonts.title, "GameFontNormal") -- no such game font in this fake client
-  h.eq(ns.Theme.sizes.footerHeight, 3 * ns.Theme.sizes.footerLabelHeight + ns.Theme.sizes.footerItemsHeight
-    + ns.Theme.sizes.footerGoldHeight + ns.Theme.sizes.footerTotalHeight)
+  h.eq(ns.Theme.sizes.footerHeight, 4 * ns.Theme.sizes.footerRowHeight)
   h.eq(ns.Theme.sizes.minHeight, ns.UI.Summary.requiredWindowHeight())
+end)
+
+h.test("Fonts.install: a larger totals size grows the footer table and the minimum height", function()
+  local ns = load()
+  _G.CreateFont = function(name)
+    local f = {}
+    function f:CopyFontObject() end
+    function f:GetFont() return "file.ttf", 12, "" end
+    function f:SetFont() end
+    return f
+  end
+  local ok, err = pcall(function()
+    ns.UI.Fonts.install({ settings = { fontSizeTotals = 15 } })
+  end)
+  _G.CreateFont = nil
+  assert(ok, err)
+  local s = ns.Theme.sizes
+  h.eq(s.footerRowHeight, 23) -- 18 * 15 / 12, rounded
+  h.eq(s.footerNoteHeight, 20)
+  h.eq(s.footerHeight, 4 * 23)
+  h.eq(s.minHeight, ns.UI.Summary.requiredWindowHeight())
+end)
+
+h.test("Fonts.install: the largest totals size widens the table columns and the minimum width", function()
+  local ns = load()
+  _G.CreateFont = function()
+    local f = {}
+    function f:CopyFontObject() end
+    function f:GetFont() return "file.ttf", 12, "" end
+    function f:SetFont() end
+    return f
+  end
+  local ok, err = pcall(function()
+    ns.UI.Fonts.install({ settings = { fontSizeTotals = 18 } })
+  end)
+  _G.CreateFont = nil
+  assert(ok, err)
+  local s = ns.Theme.sizes
+  -- the glyph estimate follows the font, so the /h column (14 glyphs) fits "999g 59s 59c/h"
+  h.eq(s.summaryCharPx >= 6.6 * 18 / 12 - 0.5, true)
+  -- and the window is never narrower than the widest table line
+  h.eq(s.minWidth >= ns.UI.Summary.tableWorstWidth() + 2 * (s.padding + 4), true)
 end)
 
 local function fakeClient(files)

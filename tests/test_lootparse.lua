@@ -39,6 +39,22 @@ h.test("LootParse rejects others", function()
   check("", nil, nil)
 end)
 
+h.test("LootParse.parse tells loot, pushed and created items apart", function()
+  h.eq(select(3, ns.LootParse.parse(c, "You receive loot: " .. L .. "x5.")), "loot")
+  h.eq(select(3, ns.LootParse.parse(c, "You receive item: " .. L .. ".")), "pushed")
+  h.eq(select(3, ns.LootParse.parse(c, "You create: " .. L .. "x2.")), "created")
+end)
+
+h.test("LootParse.itemKey: item ID for plain items, bonus IDs for variants", function()
+  local K = ns.LootParse.itemKey
+  h.eq({ K(L) }, { 3356, 3356 })
+  h.eq({ K("|Hitem:50::::::::60::::2:4802:1477::::::|h[Sword]|h") }, { "50:1477:4802", 50 })
+  h.eq({ K("|Hitem:50::::::::60::::0::::::|h[Sword]|h") }, { 50, 50 })
+  h.eq({ K("item:77") }, { 77, 77 })
+  h.eq(K("nonsense"), nil)
+  h.eq(K(nil), nil)
+end)
+
 h.test("LootParse.itemID", function()
   h.eq(ns.LootParse.itemID(L), 3356)
   h.eq(ns.LootParse.itemID("nonsense"), nil)
@@ -88,6 +104,29 @@ h.test("parseMoney ignores other players and garbage", function()
   h.eq(money(nil), nil)
   h.eq(money(42), nil)
   h.eq(ns.LootParse.parseMoney(nil, "You loot 5 Silver"), nil)
+end)
+
+h.test("parseMoney does not depend on the separator between the amounts", function()
+  h.eq(money("You loot 1 Gold 23 Silver 4 Copper"), 12304)
+  h.eq(money("You loot 1 Gold; 4 Copper"), 10004)
+  local de = ns.LootParse.compileMoney({ YOU_LOOT_MONEY = "Ihr erhaltet Beute: %s", GOLD_AMOUNT = "%d Gold",
+    SILVER_AMOUNT = "%d Silber", COPPER_AMOUNT = "%d Kupfer" })
+  h.eq(ns.LootParse.parseMoney(de, "Ihr erhaltet Beute: 2 Gold, 3 Silber, 1 Kupfer"), 20301)
+end)
+
+h.test("parseCurrency reads own currency gains", function()
+  local cc = ns.LootParse.compileCurrency({
+    CURRENCY_GAINED = "You receive currency: %s.",
+    CURRENCY_GAINED_MULTIPLE = "You receive currency: %s x%d.",
+    CURRENCY_GAINED_MULTIPLE_BONUS = "You receive currency: %s x%d. (Bonus Objective)",
+  })
+  local link = "|cff0070dd|Hcurrency:3008:0|h[Valorstones]|h|r"
+  h.eq({ ns.LootParse.parseCurrency(cc, "You receive currency: " .. link .. " x15.") }, { 3008, link, 15 })
+  h.eq({ ns.LootParse.parseCurrency(cc, "You receive currency: " .. link .. ".") }, { 3008, link, 1 })
+  h.eq({ ns.LootParse.parseCurrency(cc, "You receive currency: " .. link .. " x3. (Bonus Objective)") }, { 3008, link, 3 })
+  h.eq(ns.LootParse.parseCurrency(cc, "Bob receives currency: " .. link .. "."), nil)
+  h.eq(ns.LootParse.parseCurrency(cc, "You receive currency: [Nothing]."), nil)
+  h.eq(ns.LootParse.parseCurrency(nil, "x"), nil)
 end)
 
 h.test("parseMoney zero amounts are not income", function()

@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Options panel: a small window next to the ledger that shows every option
@@ -13,7 +15,7 @@ ns.UI = ns.UI or {}
 local Panel = {}
 ns.UI.OptionsPanel = Panel
 
-local TITLE = "Options"
+local TITLE = L["Options"]
 local COLUMNS = 2
 local COLUMN_WIDTH = 250
 local COLUMN_GAP = 24
@@ -254,9 +256,8 @@ local function build()
   title:SetPoint("TOPLEFT", frame, "TOPLEFT", pad, -pad)
   title:SetText(TITLE)
 
-  local close = ns.UI.Widgets.button(frame, "X", T.widths.header.hide)
+  local close = ns.UI.Widgets.closeButton(frame, T.widths.header.hide, function() frame:Hide() end)
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -pad, -pad + 2)
-  close:SetScript("OnClick", function() frame:Hide() end)
 
   frame.widgets = Panel.populate(frame, pad, pad + TITLE_HEIGHT, specs, layout, COLUMN_WIDTH)
 
@@ -269,6 +270,14 @@ local function build()
   if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootPriceOptions") end
   frame:Hide()
   return frame
+end
+
+-- Shows the stored values again in the panel and the options page (after a
+-- slash command changed a setting).
+function Panel.refreshAll()
+  for _, f in ipairs({ Panel.frame or false, Panel.page or false }) do
+    if f and f.RefreshAll and f:IsShown() then f:RefreshAll() end
+  end
 end
 
 -- Opens the panel next to the ledger window, or closes it.

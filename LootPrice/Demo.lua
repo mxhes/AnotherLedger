@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 -- /lp demo: fake sample loot, raw gold and temporary fake AH prices, to check
 -- the UI without farming. The fake prices overwrite entries of the saved
 -- price cache; the originals are kept in memory and put back by Demo.restore
@@ -95,7 +97,7 @@ end
 function Demo.run()
   local Core, say = ns.Core, ns.Util.say
   if not ns.session.running then
-    say("session is stopped - press Start first.")
+    say(L["session is stopped - press Start first."])
     return
   end
   Demo.seedCache(ns.db, Core.cacheKey(), time())
@@ -103,13 +105,13 @@ function Demo.run()
     Core.recordLoot(Demo.makeLink(item[1], item[2], item[3]), item[4])
   end
   Core.recordGold(Demo.GOLD)
-  say("added demo loot.")
+  say(L["added demo loot."])
 end
 
 if ns.Slash then
   ns.Slash.define({
     name = "demo",
-    help = "/lp demo - add fake sample loot, gold and temporary fake AH prices (UI check only)",
+    help = L["/lp demo - add fake sample loot, gold and temporary fake AH prices (UI check only)"],
     run = Demo.run,
   })
 end

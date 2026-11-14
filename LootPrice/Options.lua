@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 -- Options registry. Every option is one table passed to Options.define; the
 -- options panel (UI/OptionsPanel.lua) builds its widgets from the list, so a
 -- new option never touches the panel:
@@ -10,7 +12,8 @@ local ADDON, ns = ...
 --     category = "window",            -- section of the panel (Options.CATEGORIES)
 --     label   = "Window opacity",
 --     min = 0.1, max = 1, step = 0.05, -- slider
---     choices = { { value = "a", label = "A" }, ... }, -- dropdown (or a function returning that list)
+--     choices = { { value = "a", label = L["A"] }, ... }, -- dropdown (or a function returning that list)
+--     (labels go through ns.L, Locale.lua: L["Window opacity"])
 --     (number: whole number >= 0, or -1 = unlimited; typed into a text box)
 --     (text: any non-empty text; button: has no value, `action` runs on click)
 --     format  = function(v) ... end,  -- optional display text of the value
@@ -51,10 +54,10 @@ end
 -- The sections of the panel, in order. An option names its section with
 -- `category`; one without (or with an unknown one) lands in a last "Other" section.
 Options.CATEGORIES = {
-  { id = "window", label = "Window" },
-  { id = "prices", label = "Prices" },
-  { id = "display", label = "Display" },
-  { id = "session", label = "Session and alerts" },
+  { id = "window", label = L["Window"] },
+  { id = "prices", label = L["Prices"] },
+  { id = "display", label = L["Display"] },
+  { id = "session", label = L["Session and alerts"] },
 }
 
 -- What the panel shows, top to bottom: for every section a header entry
@@ -75,7 +78,7 @@ function Options.entries()
     for _, spec in ipairs(specs) do out[#out + 1] = spec end
   end
   for _, c in ipairs(Options.CATEGORIES) do section(c.id, c.label, byCategory[c.id]) end
-  section("other", "Other", other)
+  section("other", L["Other"], other)
   return out
 end
 
@@ -223,43 +226,43 @@ end
 
 -- Window background and border.
 Options.define({
-  key = "alpha", category = "window", type = "slider", label = "Window opacity",
+  key = "alpha", category = "window", type = "slider", label = L["Window opacity"],
   min = 0, max = 1, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
 -- 100 % is the theme color; above that the dark panel gets lighter.
 Options.define({
-  key = "brightness", category = "window", type = "slider", label = "Window brightness",
+  key = "brightness", category = "window", type = "slider", label = L["Window brightness"],
   min = 0, max = 2, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
 Options.define({
-  key = "windowScale", category = "window", type = "slider", label = "Window scale",
+  key = "windowScale", category = "window", type = "slider", label = L["Window scale"],
   min = 0.7, max = 1.5, step = 0.05, format = percent,
   apply = function()
     if ns.UI and ns.UI.Window and ns.UI.Window.applyScale then ns.UI.Window.applyScale() end
   end,
 })
 
-Options.define({ key = "lockWindow", category = "window", type = "checkbox", label = "Lock window (no moving or resizing)" })
+Options.define({ key = "lockWindow", category = "window", type = "checkbox", label = L["Lock window (no moving or resizing)"] })
 
-Options.define({ key = "startHidden", category = "window", type = "checkbox", label = "Start hidden at login" })
+Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden at login"] })
 
 Options.define({
   key = "combatHide", category = "window",
   type = "checkbox",
-  label = "Hide in combat, show again afterwards",
+  label = L["Hide in combat, show again afterwards"],
   apply = function(v)
     if not v and ns.UI and ns.UI.Window and ns.UI.Window.combatShow then ns.UI.Window.combatShow() end
   end,
 })
 
-Options.define({ key = "keepSession", category = "session", type = "checkbox", label = "Keep the session across logins" })
+Options.define({ key = "keepSession", category = "session", type = "checkbox", label = L["Keep the session across logins"] })
 
 Options.define({
   key = "priceSource", category = "prices",
   type = "dropdown",
-  label = "AH price source",
+  label = L["AH price source"],
   -- "Auto" plus every registered price source (Sources/Sources.lua).
   choices = function() return ns.Sources.choices() end,
   apply = refreshUI,
@@ -267,17 +270,17 @@ Options.define({
 
 -- The TSM price string, read live by Sources/TSM.lua (same as /lp tsm).
 Options.define({
-  key = "tsmSource", category = "prices", type = "text", label = "TSM price source (e.g. DBMarket)", apply = refreshUI,
+  key = "tsmSource", category = "prices", type = "text", label = L["TSM price source (e.g. DBMarket)"], apply = refreshUI,
 })
 
 Options.define({
-  key = "refreshSeconds", category = "prices", type = "slider", label = "Price refresh interval",
+  key = "refreshSeconds", category = "prices", type = "slider", label = L["Price refresh interval"],
   min = 10, max = 120, step = 5, format = function(v) return v .. " s" end,
 })
 
 -- After this long a cached AH price shows its age tag in orange.
 Options.define({
-  key = "staleHours", category = "prices", type = "slider", label = "Mark cached prices as old after",
+  key = "staleHours", category = "prices", type = "slider", label = L["Mark cached prices as old after"],
   min = 1, max = 72, step = 1, format = function(v) return v .. " h" end,
   apply = function(v)
     if ns.Prices then ns.Prices.STALE_AFTER = v * 3600 end
@@ -290,12 +293,12 @@ Options.define({
 Options.define({
   key = "defaultSort", category = "display",
   type = "dropdown",
-  label = "Sort order (at login)",
+  label = L["Sort order (at login)"],
   choices = {
-    { value = "ah", label = "AH value" },
-    { value = "vendor", label = "Vendor value" },
-    { value = "name", label = "Name" },
-    { value = "recent", label = "Most recent" },
+    { value = "ah", label = L["Best value"] },
+    { value = "vendor", label = L["Vendor value"] },
+    { value = "name", label = L["Name"] },
+    { value = "recent", label = L["Most recent"] },
   },
   apply = function(v)
     if ns.db then ns.db.sort = v end
@@ -306,11 +309,11 @@ Options.define({
 Options.define({
   key = "goldDisplay", category = "display",
   type = "dropdown",
-  label = "Amounts of 1 gold and more",
+  label = L["Amounts of 1 gold and more"],
   choices = {
-    { value = "full", label = "Gold, silver and copper" },
-    { value = "silver", label = "Gold and silver" },
-    { value = "gold", label = "Gold only" },
+    { value = "full", label = L["Gold, silver and copper"] },
+    { value = "silver", label = L["Gold and silver"] },
+    { value = "gold", label = L["Gold only"] },
   },
   apply = function(v)
     if ns.Money then ns.Money.setStyle(v) end
@@ -319,15 +322,32 @@ Options.define({
 })
 
 Options.define({
-  key = "includeGold", category = "display", type = "checkbox", label = "Add raw gold to the combined total", apply = refreshUI,
+  key = "includeGold", category = "display", type = "checkbox", label = L["Add raw gold to the combined total"], apply = refreshUI,
 })
 
 -- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
 Options.define({
-  key = "alertGold", category = "session", type = "number", label = "Alert for drops worth (gold, 0 = off)",
+  key = "alertGold", category = "session", type = "number", label = L["Alert for drops worth (gold, 0 = off)"],
 })
 
-Options.define({ key = "alertSound", category = "session", type = "checkbox", label = "Play a sound with the alert" })
+Options.define({ key = "alertSound", category = "session", type = "checkbox", label = L["Play a sound with the alert"] })
+
+-- Off: "You create" messages and items received while a merchant, mailbox,
+-- trade or auction house window is open are not loot.
+Options.define({
+  key = "countCrafted", category = "session", type = "checkbox", label = L["Count crafted items and purchases"],
+})
+
+Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause the clock while AFK"] })
+
+Options.define({
+  key = "instanceSession", category = "session", type = "checkbox",
+  label = L["New session for each dungeon or raid"],
+})
+
+Options.define({
+  key = "showCurrencies", category = "display", type = "checkbox", label = L["Show currencies in the list"], apply = refreshUI,
+})
 
 -- Round button on the minimap (UI/Minimap.lua).
 -- Font sizes (UI/Fonts.lua): decided before the window is built, so they take
@@ -336,10 +356,10 @@ Options.define({ key = "alertSound", category = "session", type = "checkbox", la
 Options.define({
   key = "fontFace", category = "display",
   type = "dropdown",
-  label = "Font",
+  label = L["Font"],
   choices = function()
     if ns.UI and ns.UI.Fonts then return ns.UI.Fonts.choices() end
-    return { { value = "default", label = "WoW default" } }
+    return { { value = "default", label = L["WoW default"] } }
   end,
   apply = function(v)
     if ns.UI and ns.UI.Fonts then ns.UI.Fonts.applyFace(v) end
@@ -347,14 +367,14 @@ Options.define({
 })
 
 local function px(v) return v .. " px" end
-Options.define({ key = "fontSizeRows", category = "display", type = "slider", label = "List text size (after /reload)",
+Options.define({ key = "fontSizeRows", category = "display", type = "slider", label = L["List text size (after /reload)"],
   min = 8, max = 18, step = 1, format = px })
-Options.define({ key = "fontSizeTotals", category = "display", type = "slider", label = "Totals text size (after /reload)",
+Options.define({ key = "fontSizeTotals", category = "display", type = "slider", label = L["Totals text size (after /reload)"],
   min = 8, max = 18, step = 1, format = px })
-Options.define({ key = "fontSizeTitles", category = "display", type = "slider", label = "Section title size (after /reload)",
+Options.define({ key = "fontSizeTitles", category = "display", type = "slider", label = L["Section title size (after /reload)"],
   min = 10, max = 24, step = 1, format = px })
 Options.define({
-  key = "reloadUI", category = "display", type = "button", label = "Reload UI to apply font sizes",
+  key = "reloadUI", category = "display", type = "button", label = L["Reload UI to apply font sizes"],
   action = function()
     if type(ReloadUI) == "function" then ReloadUI() end
   end,
@@ -363,16 +383,23 @@ Options.define({
 Options.define({
   key = "minimapButton", category = "window",
   type = "checkbox",
-  label = "Show minimap button",
+  label = L["Show minimap button"],
   apply = function(v)
     if ns.UI and ns.UI.Minimap then ns.UI.Minimap.setShown(v) end
   end,
 })
 
 Options.define({
-  key = "minimapReset", category = "window", type = "button", label = "Reset minimap button position",
+  key = "minimapReset", category = "window", type = "button", label = L["Reset minimap button position"],
   action = function()
     if ns.UI and ns.UI.Minimap then ns.UI.Minimap.resetPosition() end
+  end,
+})
+
+Options.define({
+  key = "exportHistory", category = "session", type = "button", label = L["Export History as CSV"],
+  action = function()
+    if ns.UI and ns.UI.Export then ns.UI.Export.history() end
   end,
 })
 
@@ -380,7 +407,7 @@ Options.define({
 Options.define({
   key = "historyLimit", category = "session",
   type = "number",
-  label = "History sessions kept (empty = unlimited)",
+  label = L["History sessions kept (empty = unlimited)"],
   apply = function(v)
     if ns.History and ns.chardb and type(ns.chardb.history) == "table" then
       ns.History.prune(ns.chardb.history, v)

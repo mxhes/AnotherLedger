@@ -4,6 +4,28 @@ local ns = h.load({ "Util.lua", "Money.lua", "DB.lua", "LootParse.lua", "Prices.
 local Demo = ns.Demo
 local Core = ns.Core
 
+h.test("Core.countsAsLoot: crafted and bought items only with the option", function()
+  h.eq(Core.countsAsLoot("loot", false, false), true)
+  h.eq(Core.countsAsLoot("loot", false, true), true)
+  h.eq(Core.countsAsLoot("pushed", false, false), true)
+  h.eq(Core.countsAsLoot("pushed", false, true), false)
+  h.eq(Core.countsAsLoot("created", false, false), false)
+  h.eq(Core.countsAsLoot("created", true, false), true)
+  h.eq(Core.countsAsLoot("pushed", true, true), true)
+  h.eq(Core.countsAsLoot(nil, false, true), true)
+end)
+
+h.test("Core.placeOf: zone outside, instance with difficulty inside", function()
+  h.eq({ Core.placeOf({ GetRealZoneText = function() return "Dornogal" end,
+    GetInstanceInfo = function() return "Khaz Algar", "none" end }) }, { "Dornogal" })
+  h.eq({ Core.placeOf({ GetInstanceInfo = function() return "The Stonevault", "party", 23, "Mythic" end }) },
+    { "The Stonevault (Mythic)", "The Stonevault:23" })
+  h.eq({ Core.placeOf({ GetInstanceInfo = function() return "Arena", "arena", 0, "" end }) },
+    { "Arena", "Arena:0" })
+  h.eq({ Core.placeOf({ GetInstanceInfo = function() error("x") end }) }, {})
+  h.eq({ Core.placeOf({}) }, {})
+end)
+
 h.test("Core loads without a client and exposes helpers", function()
   h.eq(type(Core.buildPrices), "function")
   h.eq(Core.frame, nil)

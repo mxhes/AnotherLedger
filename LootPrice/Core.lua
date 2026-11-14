@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 -- The addon's event core: creates the session and the price lookup at login,
 -- records loot and gold, scans the bank, and tells the UI when to redraw.
 -- Slash commands live in Slash.lua, the /lp demo data in Demo.lua.
@@ -15,8 +17,13 @@ local keyState = { key = nil } -- { key, tried }: the price cache key, see keyFr
 local setupDone = false -- session/prices/UI are created once per Lua session
 local lootPatterns -- LootParse patterns, built once from the real globals
 local moneyPatterns -- LootParse money patterns, built lazily likewise
+local currencyPatterns -- LootParse currency patterns, built lazily likewise
 local refreshPending = false
 local bankOpen = false
+-- Windows that put bought / traded / mailed items into the bags while open
+-- (their "You receive item" messages are not loot). [event base] = open.
+local tradeWindows = {}
+local lastInstance -- instance key of the last loading screen (option "instanceSession")
 
 -- ---------------------------------------------------------------------------
 -- UI notifications
@@ -102,7 +109,7 @@ function Core.buildPrices(env, db, now, getKey)
 
   return ns.Prices.new({
     sources = sources,
-    vendor = function(itemID) return Sources.Vendor.get(env, itemID) end,
+    vendor = function(itemID, link) return Sources.Vendor.get(env, itemID, link) end,
     disenchant = disenchant,
     cache = db.cache,
     key = getKey,
@@ -110,30 +117,97 @@ function Core.buildPrices(env, db, now, getKey)
   })
 end
 
--- Price lookup that never errors: nil before login is done or when a source fails.
-function Core.lookupPrice(itemID)
+-- Price lookup that never errors: nil before login is done or when a source
+-- fails. `link` (optional) prices the exact item variant.
+function Core.lookupPrice(itemID, link)
   local prices = ns.prices
   if not prices then return nil end
-  local ok, info = pcall(prices.lookup, prices, itemID)
+  local ok, info = pcall(prices.lookup, prices, itemID, link)
   return ok and info or nil
+end
+
+-- Unit value of a price lookup: the best of vendor, AH and disenchant.
+function Core.unitValue(info)
+  if type(info) ~= "table" then return nil end
+  return (ns.View.best(info.vendor, info.ah, info.de))
+end
+
+-- ---------------------------------------------------------------------------
+-- Where the player is (History: zone or instance per session)
+
+-- Pure over `env`. Returns the place label ("Zone", or "Instance (Difficulty)")
+-- and an instance key (nil outside instances).
+-- UNVERIFIED (check in client): GetInstanceInfo returns name, instanceType,
+-- difficultyID, difficultyName and GetRealZoneText exists on Forever.
+function Core.placeOf(env)
+  if type(env.GetInstanceInfo) == "function" then
+    local ok, name, instanceType, difficultyID, difficultyName = pcall(env.GetInstanceInfo)
+    if ok and type(name) == "string" and name ~= "" and instanceType ~= nil and instanceType ~= "none" then
+      local key = name .. ":" .. tostring(difficultyID)
+      if type(difficultyName) == "string" and difficultyName ~= "" then
+        return name .. " (" .. difficultyName .. ")", key
+      end
+      return name, key
+    end
+  end
+  local zone
+  for _, fn in ipairs({ "GetRealZoneText", "GetZoneText" }) do
+    if not zone and type(env[fn]) == "function" then
+      local ok, v = pcall(env[fn])
+      if ok and type(v) == "string" and v ~= "" then zone = v end
+    end
+  end
+  return zone, nil
+end
+
+local function notePlace()
+  if ns.session then ns.Session.notePlace(ns.session, (Core.placeOf(_G))) end
 end
 
 -- ---------------------------------------------------------------------------
 -- Loot capture
 
-function Core.recordLoot(link, qty)
-  local itemID = ns.LootParse.itemID(link)
-  if not itemID or not ns.session then return end
-  if not ns.Session.add(ns.session, itemID, link, qty, time()) then return end
-  local info = Core.lookupPrice(itemID)
-  local unitValue = info and (info.ah or info.vendor)
+-- Pure. Whether an item message of `kind` ("loot", "pushed", "created" or
+-- nil) counts as loot. Crafted items and items received while a merchant,
+-- mailbox, trade or auction house window is open only count with the option
+-- "countCrafted". `windowOpen` says whether such a window is open.
+function Core.countsAsLoot(kind, countCrafted, windowOpen)
+  if countCrafted then return true end
+  if kind == "created" then return false end
+  if kind == "pushed" and windowOpen then return false end
+  return true
+end
+
+local function tradeWindowOpen()
+  return next(tradeWindows) ~= nil
+end
+
+function Core.recordLoot(link, qty, kind)
+  if not ns.session then return end
+  local countCrafted = ns.Options and ns.db and ns.Options.get(ns.db, "countCrafted")
+  if not Core.countsAsLoot(kind, countCrafted, tradeWindowOpen()) then return end
+  local key, itemID = ns.LootParse.itemKey(link)
+  if not key then return end
+  local added, item = ns.Session.add(ns.session, itemID, link, qty, time(), key)
+  if not added then return end
+  notePlace()
+  local info = Core.lookupPrice(itemID, link)
+  ns.Session.setPrice(item, info)
+  local unitValue = Core.unitValue(info)
   if ns.UI and ns.UI.flash then
     -- flash refreshes the ledger itself (once per frame, however much dropped)
-    ns.UI.flash(itemID, ns.View.flashLevel(unitValue, qty))
+    ns.UI.flash(key, ns.View.flashLevel(unitValue, qty))
   else
     refreshUI()
   end
   Core.alertIfValuable(link, qty, unitValue)
+end
+
+-- Currency income (CHAT_MSG_CURRENCY).
+function Core.recordCurrency(currencyID, link, qty)
+  if not ns.session then return end
+  if not ns.Session.addCurrency(ns.session, currencyID, link, qty, time()) then return end
+  requestRefresh(0)
 end
 
 -- Pure. Is a drop of `unitValue` x `qty` copper worth an alert at `gold` (the
@@ -148,7 +222,7 @@ end
 function Core.alertIfValuable(link, qty, unitValue)
   if not (ns.Options and ns.db) then return end
   if not Core.alertWorthy(unitValue, qty, ns.Options.get(ns.db, "alertGold")) then return end
-  say(string.format("valuable drop: %s%s worth %s", link, (qty or 1) > 1 and (" x" .. qty) or "",
+  say(string.format(L["valuable drop: %s%s worth %s"], link, (qty or 1) > 1 and (" x" .. qty) or "",
     ns.Money.format(unitValue * qty)))
   if ns.Options.get(ns.db, "alertSound") and type(PlaySound) == "function" then
     local kit = type(SOUNDKIT) == "table" and SOUNDKIT.UI_EPICLOOT_TOAST or nil
@@ -161,13 +235,20 @@ end
 function Core.recordGold(copper)
   if not ns.session then return end
   if not ns.Session.addGold(ns.session, copper, time()) then return end
+  notePlace()
   requestRefresh(0)
 end
 
 local function onLootMessage(text)
   if not lootPatterns then lootPatterns = ns.LootParse.compile(_G) end
-  local link, qty = ns.LootParse.parse(lootPatterns, text)
-  if link then Core.recordLoot(link, qty) end
+  local link, qty, kind = ns.LootParse.parse(lootPatterns, text)
+  if link then Core.recordLoot(link, qty, kind) end
+end
+
+local function onCurrencyMessage(text)
+  if not currencyPatterns then currencyPatterns = ns.LootParse.compileCurrency(_G) end
+  local id, link, qty = ns.LootParse.parseCurrency(currencyPatterns, text)
+  if id then Core.recordCurrency(id, link, qty) end
 end
 
 local function onMoneyMessage(text)
@@ -181,15 +262,17 @@ end
 
 function Core.startSession()
   if not ns.session then return end
+  ns.session.afkPaused = nil
   ns.Session.start(ns.session, time())
-  say("session started.")
+  say(L["session started."])
   refreshUI()
 end
 
 function Core.stopSession()
   if not ns.session then return end
+  ns.session.afkPaused = nil
   ns.Session.stop(ns.session, time())
-  say("session stopped.")
+  say(L["session stopped."])
   refreshUI()
 end
 
@@ -206,7 +289,8 @@ function Core.archiveSession(session)
   History.add(ns.chardb.history, entry, limit)
 end
 
-function Core.resetSession()
+-- `message` (optional) replaces the chat line.
+function Core.resetSession(message)
   -- Demo loot is fake: it is not worth keeping in History.
   local Demo = ns.Demo
   local wasDemo = Demo ~= nil and Demo.active()
@@ -214,8 +298,43 @@ function Core.resetSession()
   if not ns.session then return end
   if not wasDemo then Core.archiveSession(ns.session) end
   ns.Session.reset(ns.session, time())
-  say("session reset.")
+  say(message or L["session reset."])
   refreshUI()
+end
+
+-- Option "instanceSession": a loading screen that enters or leaves an
+-- instance (or changes to another one) archives the session and starts a new
+-- one. Pure decision: returns whether the instance key changed.
+function Core.instanceChanged(previous, current)
+  return previous ~= current
+end
+
+local function checkInstance()
+  local place, key = Core.placeOf(_G)
+  local previous = lastInstance
+  lastInstance = key
+  if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
+  if not Core.instanceChanged(previous, key) then return end
+  Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
+end
+
+-- Option "afkPause": stops the clock while the player is AFK and starts it
+-- again when they are back (only if it was running before).
+local function checkAfk()
+  local session = ns.session
+  if not session or type(UnitIsAFK) ~= "function" then return end
+  local afk = UnitIsAFK("player") and true or false
+  if afk and session.running and ns.Options.get(ns.db, "afkPause") then
+    ns.Session.stop(session, time())
+    session.afkPaused = true
+    say(L["clock paused while you are away."])
+    refreshUI()
+  elseif not afk and session.afkPaused then
+    session.afkPaused = nil
+    ns.Session.start(session, time())
+    say(L["clock running again."])
+    refreshUI()
+  end
 end
 
 -- ---------------------------------------------------------------------------
@@ -257,8 +376,13 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   local now = time()
   keyState.key = Core.evalKey(_G)
   keyState.tried = now
-  if setupDone or not ns.db then return end
+  if setupDone then
+    checkInstance()
+    return
+  end
+  if not ns.db then return end
   setupDone = true
+  lastInstance = select(2, Core.placeOf(_G))
 
   -- Old cached prices are of no use and only grow the saved file.
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
@@ -271,6 +395,8 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
+  -- Before the options: LibDBIcon (if loaded) takes over the minimap button.
+  if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
   ns.Options.applyAll(ns.db)
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
   refreshUI()
@@ -296,6 +422,21 @@ function events.CHAT_MSG_MONEY(text)
   if ns.session then onMoneyMessage(text) end
 end
 
+function events.CHAT_MSG_CURRENCY(text)
+  if ns.session then onCurrencyMessage(text) end
+end
+
+function events.PLAYER_FLAGS_CHANGED(unit)
+  if unit == "player" then checkAfk() end
+end
+
+-- Merchant, mailbox, trade and auction house windows (see tradeWindows).
+-- UNVERIFIED (check in client): these event names exist on Forever.
+for _, base in ipairs({ "MERCHANT", "MAIL", "TRADE", "AUCTION_HOUSE" }) do
+  events[base .. "_SHOW"] = function() tradeWindows[base] = true end
+  events[base .. "_CLOSED"] = function() tradeWindows[base] = nil end
+end
+
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
 function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
   if ns.session then Core.recordGold(moneyReward) end
@@ -309,7 +450,7 @@ function events.GET_ITEM_INFO_RECEIVED(itemID)
   if ledger and ledger.wantsItemInfo then
     wanted = ledger.wantsItemInfo(itemID)
   else
-    wanted = ns.session ~= nil and ns.session.items[itemID] ~= nil
+    wanted = ns.session ~= nil and ns.Session.hasItemID(ns.session.items, itemID)
   end
   if wanted then requestRefresh() end
 end
@@ -328,6 +469,16 @@ function events.BAG_UPDATE_DELAYED()
   dataChanged("bags")
 end
 
+-- The bank's own slots and the reagent bank (older clients) fire these
+-- instead of BAG_UPDATE_DELAYED.
+function events.PLAYERBANKSLOTS_CHANGED()
+  if bankOpen then Core.scanBank(true) end
+end
+
+function events.PLAYERREAGENTBANKSLOTS_CHANGED()
+  if bankOpen then Core.scanBank(true) end
+end
+
 function events.PLAYER_LOGOUT()
   if ns.Demo then ns.Demo.restoreCache(ns.db) end
   if ns.session then
@@ -340,7 +491,8 @@ Core.events = events
 
 function Core.init()
   local frame = CreateFrame("Frame")
-  for event in pairs(events) do frame:RegisterEvent(event) end
+  -- An event this client does not know raises an error: skip it.
+  for event in pairs(events) do pcall(frame.RegisterEvent, frame, event) end
   frame:SetScript("OnEvent", function(_, event, ...)
     local handler = events[event]
     if handler then handler(...) end

@@ -1,11 +1,16 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 -- Pure inventory scan: turns the bag / bank slots of a client environment into
--- the same `items` map a session holds ({ [itemID] = { id, link, qty, lastSeen } }),
--- merging every stack of one item into one entry. The engine globals are read
+-- the same `items` map a session holds ({ [key] = { id, key, link, qty, lastSeen } },
+-- key = LootParse.itemKey), merging every stack of one item variant into one entry. The engine globals are read
 -- from the injected `env` (_G in the client), so everything is testable.
 local Inventory = {
+  -- Default age after which the bank scan note turns orange; the option
+  -- "staleHours" overrides it (Inventory.scanNote's third argument).
   BANK_STALE_SECONDS = 12 * 3600,
+  BANK_TABS = 6,
 }
 
 local num, count = ns.Util.isNumber, ns.Util.nonNegative
@@ -23,10 +28,28 @@ function Inventory.bagIDs(env)
   return ids
 end
 
--- Bank container ids: the bank itself (BANK_CONTAINER, -1) and the bank bag
--- slots after the carried bags. UNVERIFIED (check in client): BANK_CONTAINER and
--- NUM_BANKBAGSLOTS on Forever.
+local function bagIndex(env)
+  local E = env.Enum
+  return type(E) == "table" and type(E.BagIndex) == "table" and E.BagIndex or nil
+end
+
+-- Bank container ids. Clients with character bank tabs (retail 11.2 and
+-- later: Enum.BagIndex.CharacterBankTab_1..6) scan those tabs; older ones the
+-- bank itself (BANK_CONTAINER, -1), the bank bag slots after the carried bags
+-- and the reagent bank (REAGENTBANK_CONTAINER, -3) where it exists. The
+-- account-wide warband bank is not scanned.
+-- UNVERIFIED (check in client): which of the two layouts Forever has, and
+-- BANK_CONTAINER / NUM_BANKBAGSLOTS / REAGENTBANK_CONTAINER values.
 function Inventory.bankIDs(env)
+  local E = bagIndex(env)
+  if E and num(E.CharacterBankTab_1) then
+    local tabs = {}
+    for i = 1, Inventory.BANK_TABS do
+      local id = E["CharacterBankTab_" .. i]
+      if num(id) then tabs[#tabs + 1] = id end
+    end
+    return tabs
+  end
   local ids = { num(env.BANK_CONTAINER) and env.BANK_CONTAINER or -1 }
   local first = count(env.NUM_BAG_SLOTS)
   if first == 0 then first = 4 end
@@ -34,17 +57,25 @@ function Inventory.bankIDs(env)
   local bankBags = count(env.NUM_BANKBAGSLOTS)
   if bankBags == 0 then bankBags = 7 end
   for i = first + 1, first + bankBags do ids[#ids + 1] = i end
+  local reagent = (E and num(E.Reagentbank) and E.Reagentbank) or env.REAGENTBANK_CONTAINER
+  if num(reagent) then ids[#ids + 1] = reagent end
   return ids
 end
 
--- Adds one stack to an items map; an invalid id or quantity is skipped. The
--- first link seen for an item is kept.
+-- Adds one stack to an items map; an invalid id or quantity is skipped.
+-- Stacks are merged per item variant (LootParse.itemKey of the link); the
+-- first link seen for a variant is kept.
 local function addStack(items, id, link, qty, now)
   if not (num(id) and id > 0 and num(qty) and qty > 0) then return end
-  local item = items[id]
+  local key = id
+  if type(link) == "string" and ns.LootParse then
+    local k, linkID = ns.LootParse.itemKey(link)
+    if k and linkID == id then key = k end
+  end
+  local item = items[key]
   if not item then
-    item = { id = id, link = nil, qty = 0, lastSeen = now }
-    items[id] = item
+    item = { id = id, key = key, link = nil, qty = 0, lastSeen = now }
+    items[key] = item
   end
   item.qty = item.qty + qty
   if item.link == nil and type(link) == "string" then item.link = link end
@@ -93,17 +124,19 @@ function Inventory.scanBank(env, now)
   return Inventory.scan(env, Inventory.bankIDs(env), now)
 end
 
-local L_NEVER = "Open your bank once to scan it."
-local L_SCANNED = "Scanned "
-local L_AGO = " ago"
-local L_JUST_NOW = "Scanned just now"
+local L_NEVER = L["Open your bank once to scan it."]
+local L_SCANNED = L["Scanned "]
+local L_AGO = L[" ago"]
+local L_JUST_NOW = L["Scanned just now"]
 
 -- Note under the bank list: when the saved scan was taken. `scannedAt` 0 / nil
--- means never. Returns the text and whether it is stale (older than 12 h).
-function Inventory.scanNote(now, scannedAt)
+-- means never. Returns the text and whether it is stale (older than
+-- `staleSeconds`, default BANK_STALE_SECONDS).
+function Inventory.scanNote(now, scannedAt, staleSeconds)
   if not num(scannedAt) or scannedAt <= 0 then return L_NEVER, false end
   local age = math.max(0, now - scannedAt)
-  local stale = age >= Inventory.BANK_STALE_SECONDS
+  local limit = num(staleSeconds) and staleSeconds > 0 and staleSeconds or Inventory.BANK_STALE_SECONDS
+  local stale = age >= limit
   if age < 60 then return L_JUST_NOW, stale end
   return L_SCANNED .. ns.Util.shortAge(age) .. L_AGO, stale
 end

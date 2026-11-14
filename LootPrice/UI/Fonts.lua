@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Font options. The typeface (option "fontFace") changes live. Three groups of
@@ -17,9 +19,8 @@ ns.UI.Fonts = Fonts
 Fonts.GROUPS = {
   { option = "fontSizeRows", nominal = 12, fonts = { "body", "rowSmall" }, sizes = { "rowHeight" } },
   { option = "fontSizeTotals", nominal = 12, fonts = { "summary", "summaryMarker", "topRow" },
-    sizes = { "footerItemsHeight", "footerGoldHeight", "footerTotalHeight", "footerNoteHeight", "topRowHeight" } },
-  { option = "fontSizeTitles", nominal = 16, fonts = { "blockLabel", "topHeader" },
-    sizes = { "footerLabelHeight", "topHeaderHeight" } },
+    sizes = { "footerRowHeight", "footerNoteHeight", "topRowHeight" } },
+  { option = "fontSizeTitles", nominal = 16, fonts = { "topHeader" }, sizes = { "topHeaderHeight" } },
 }
 
 local function round(v) return math.floor(v + 0.5) end
@@ -60,7 +61,7 @@ end
 -- another addon provides it). Built once, on first use.
 function Fonts.choices()
   if faceChoices then return faceChoices end
-  local list, seen = { { value = Fonts.DEFAULT_FACE, label = "WoW default" } }, {}
+  local list, seen = { { value = Fonts.DEFAULT_FACE, label = L["WoW default"] } }, {}
   local function add(label, path)
     if seen[path:lower()] then return end
     seen[path:lower()] = true
@@ -153,7 +154,16 @@ function Fonts.install(db)
   end
   if not scaledAny then return end
   local s = T.sizes
-  s.footerHeight = 3 * s.footerLabelHeight + s.footerItemsHeight + s.footerGoldHeight + s.footerTotalHeight
+  s.footerHeight = 4 * s.footerRowHeight
+  -- The footer table's columns are budgeted with the glyph estimate of the
+  -- totals font (unrounded: it is a fraction of a px); the window is never
+  -- narrower than the widest table line.
+  local totals = factors.summary or 1
+  s.summaryCharPx = s.summaryCharPx * totals
+  s.markerCharPx = s.markerCharPx * totals
+  if ns.UI.Summary and ns.UI.Summary.tableWorstWidth then
+    s.minWidth = math.max(s.minWidth, math.ceil(ns.UI.Summary.tableWorstWidth() + 2 * (s.padding + 4)))
+  end
   if ns.UI.Summary and ns.UI.Summary.requiredWindowHeight then
     s.minHeight = ns.UI.Summary.requiredWindowHeight()
   end

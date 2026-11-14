@@ -3,51 +3,11 @@ local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "UI/Summary.lua" })
 local S = ns.UI.Summary
 local M = ns.Money
 
-h.test("totalsText formats money and rates", function()
-  local totals = { vendor = 12345, ah = 67890, unpriced = 0,
-    vendorPerHour = 5000, ahPerHour = 10000, filtered = false }
-  local t = S.totalsText(totals, M.format) -- plain text
-  h.eq(t.vendor, "Vendor: " .. M.format(12345))
-  h.eq(t.ah, "AH: " .. M.format(67890))
-  h.eq(t.vendorRate, M.format(5000) .. "/h")
-  h.eq(t.ahRate, M.format(10000) .. "/h")
-  h.eq(t.unpriced, nil)
-  h.eq(t.filtered, false)
-  local c = ns.Theme.colors
-  local colored = S.totalsText(totals) -- colored coin amounts by default
-  h.eq(colored.vendor, "Vendor: " .. M.formatColored(12345, c))
-  h.eq(colored.ah, "AH: " .. M.formatColored(67890, c))
-  h.eq(colored.vendorRate, M.formatColored(5000, c) .. "/h")
-  h.eq(colored.ahRate, M.formatColored(10000, c) .. "/h")
-end)
-
 h.test("rateText: money per hour, em dash without a rate", function()
   h.eq(S.rateText(5000, M.format), "50s/h")
   h.eq(S.rateText(nil, M.format), "\226\128\148")
   h.eq(S.rateText(nil), "\226\128\148")
   h.eq(S.rateText(5000), M.formatColored(5000, ns.Theme.colors) .. "/h")
-end)
-
-h.test("totalsText uses em dash for nil rates, never n/a", function()
-  local t = S.totalsText({ vendor = 0, ah = 0, unpriced = 0, filtered = false })
-  h.eq(t.vendorRate, "\226\128\148")
-  h.eq(t.ahRate, "\226\128\148")
-  for _, v in pairs(t) do
-    if type(v) == "string" then h.eq(v:find("n/a", 1, true), nil) end
-  end
-end)
-
-h.test("totalsText unpriced only when positive", function()
-  h.eq(S.totalsText({ vendor = 1, ah = 1, unpriced = 3 }).unpriced, "3 unpriced")
-  h.eq(S.totalsText({ vendor = 1, ah = 1, unpriced = 0 }).unpriced, nil)
-  h.eq(S.totalsText({ vendor = 1, ah = 1 }).unpriced, nil)
-end)
-
-h.test("totalsText filtered flag and nil tolerance", function()
-  h.eq(S.totalsText({ filtered = true }).filtered, true)
-  local t = S.totalsText(nil, M.format)
-  h.eq(t.filtered, false)
-  h.eq(t.vendor, "Vendor: " .. M.format(0))
 end)
 
 h.test("topLines", function()
@@ -72,100 +32,13 @@ h.test("topBoxHeight", function()
   h.eq(S.topBoxHeight(5), S.topBoxHeight(3))
 end)
 
-h.test("footer worst case fits at the minimum window width", function()
-  local T = ns.Theme.sizes
-  h.eq(S.footerHalfWidth(T.minWidth) >= S.footerWorstWidth(), true)
-  -- One step narrower would clip: the minimum is the smallest 10 px multiple that fits.
-  h.eq(S.footerHalfWidth(T.minWidth - 10) < S.footerWorstWidth(), true)
-end)
-
-h.test("footer blocks stack and add up to footerHeight", function()
-  local T = ns.Theme.sizes
-  local L = S.footerLayout()
-  h.eq(L.items.top, 0)
-  h.eq(L.gold.top, L.items.height)
-  h.eq(L.total.top, L.items.height + L.gold.height)
-  h.eq(L.items.contentTop, T.footerLabelHeight)
-  h.eq(L.items.contentHeight, 38) -- the item block keeps its height
-  h.eq(L.height, T.footerHeight)
-  h.eq(L.height, 3 * T.footerLabelHeight + 38 + 16 + 38)
-  h.eq(T.footerHeight, 158)
-end)
-
-h.test("two-line blocks fit their lines", function()
-  local T = ns.Theme.sizes
-  -- two 12 pt lines (about 14 px each) plus the 1 px insets
-  h.eq(T.footerItemsHeight >= 2 * 14 + 2, true)
-  h.eq(T.footerTotalHeight >= 2 * 14 + 2, true)
-  -- gold: one 12 pt line (14) + insets
-  h.eq(T.footerGoldHeight >= 14 + 2, true)
-  h.eq(T.footerLabelHeight >= 22, true)
-end)
-
-h.test("gold line fits the content width at the minimum window width", function()
-  local T = ns.Theme.sizes
-  local content = T.minWidth - 2 * (T.padding + 4)
-  -- "Gold " + "999g 59s 59c" left, "999g 59s 59c/h" right, 6 px gap
-  h.eq((5 + 12) * T.summaryCharPx + 6 + 14 * T.summaryCharPx <= content, true)
-end)
-
 h.test("minHeight leaves the list at least four rows beside a full Top finds block", function()
   local T = ns.Theme.sizes
   h.eq(T.minListRows, 4)
-  h.eq(S.requiredWindowHeight(), 24 + 84 + 88 + 4 * 40 + 158)
+  h.eq(S.requiredWindowHeight(), 24 + 84 + 88 + 4 * 40 + 72)
   h.eq(T.minHeight >= S.requiredWindowHeight(), true)
-  h.eq(T.minHeight, 514)
-end)
-
-h.test("goldText formats total and rate", function()
-  local t = S.goldText({ total = 37304, perHour = 1000 }, M.format)
-  h.eq(t.total, "Gold " .. M.format(37304))
-  h.eq(t.rate, M.format(1000) .. "/h")
-  local c = ns.Theme.colors
-  local colored = S.goldText({ total = 37304, perHour = 1000 })
-  h.eq(colored.total, "Gold " .. M.formatColored(37304, c))
-  h.eq(colored.rate, M.formatColored(1000, c) .. "/h")
-  h.eq(t.breakdown, nil)
-end)
-
-h.test("goldText shows 0c when empty, em dash for nil rate, never n/a", function()
-  local t = S.goldText({ total = 0 }, M.format)
-  h.eq(t.total, "Gold 0c")
-  h.eq(t.rate, "\226\128\148")
-  h.eq(S.goldText({ total = 0 }).rate, "\226\128\148")
-  local n = S.goldText(nil, M.format)
-  h.eq(n.total, "Gold 0c")
-  for _, v in pairs(t) do h.eq(v:find("n/a", 1, true), nil) end
-  for _, v in pairs(n) do h.eq(v:find("n/a", 1, true), nil) end
-end)
-
-h.test("combinedText formats like the item totals without markers", function()
-  local combined = { vendor = 5000, ah = 9000, vendorPerHour = 100, ahPerHour = 200 }
-  local t = S.combinedText(combined, M.format)
-  h.eq(t.vendor, "Vendor: " .. M.format(5000))
-  h.eq(t.ah, "AH: " .. M.format(9000))
-  h.eq(t.vendorRate, M.format(100) .. "/h")
-  h.eq(t.ahRate, M.format(200) .. "/h")
-  local c = ns.Theme.colors
-  local colored = S.combinedText(combined)
-  h.eq(colored.vendor, "Vendor: " .. M.formatColored(5000, c))
-  h.eq(colored.ahRate, M.formatColored(200, c) .. "/h")
-  h.eq(t.unpriced, nil)
-  h.eq(t.filtered, nil)
-  local e = S.combinedText({ vendor = 0, ah = 0 })
-  h.eq(e.vendorRate, "\226\128\148")
-  h.eq(e.ahRate, "\226\128\148")
-  h.eq(S.combinedText(nil, M.format).vendor, "Vendor: 0c")
-end)
-
-h.test("Summary.footerHeightFor: session full, inventory items block plus note", function()
-  local S = ns.UI.Summary
-  local sz = ns.Theme.sizes
-  h.eq(S.footerHeightFor({}), sz.footerHeight)
-  h.eq(S.footerHeightFor(nil), sz.footerHeight)
-  h.eq(S.footerHeightFor({ kind = "inventory" }), sz.footerLabelHeight + sz.footerItemsHeight)
-  h.eq(S.footerHeightFor({ kind = "inventory", note = "x" }),
-    sz.footerLabelHeight + sz.footerItemsHeight + sz.footerNoteHeight)
+  h.eq(T.minHeight, 428)
+  h.eq(T.footerHeight, 72)
 end)
 
 h.test("topLines carries a tooltip link when Rows is loaded", function()
@@ -176,7 +49,73 @@ h.test("topLines carries a tooltip link when Rows is loaded", function()
   ns.UI.Rows = nil
 end)
 
-h.test("Summary.footerHeightFor: noCombined drops the combined block", function()
-  local layout = S.footerLayout()
-  h.eq(S.footerHeightFor({ noCombined = true }), layout.height - layout.total.height)
+h.test("tableLayout: session, inventory, noCombined", function()
+  local r = ns.Theme.sizes.footerRowHeight
+  local s = S.tableLayout({ totals = {} })
+  h.eq(s.rows, { "items", "gold", "total" })
+  h.eq(s.rates, true)
+  h.eq(s.titles, true)
+  h.eq(s.height, 72)
+  h.eq(4 * r, 72)
+  h.eq(S.tableLayout(nil).height, 72)
+  local inv = S.tableLayout({ kind = "inventory", totals = {} })
+  h.eq(inv.rows, { "items" })
+  h.eq(inv.rates, false)
+  h.eq(inv.titles, false)
+  h.eq(inv.height, 18)
+  h.eq(S.tableLayout({ noCombined = true, totals = {} }).rows, { "items", "gold" })
+  h.eq(S.tableLayout({ noCombined = true, totals = {} }).height, 54)
+  h.eq(S.tableLayout({ kind = "inventory", note = "x", totals = {} }).height, 18 + 16)
+  h.eq(S.tableLayout({ totals = { unpriced = 1 } }).notes, true)
+end)
+
+h.test("rowTexts: best value and rate per row, em dash without a rate", function()
+  local t = S.rowTexts({ totals = { best = 1000, bestPerHour = 300 }, gold = { total = 50 },
+    combined = { best = 1050, bestPerHour = 320 } }, M.format)
+  h.eq(t.items.value, M.format(1000))
+  h.eq(t.items.rate, M.format(300) .. "/h")
+  h.eq(t.gold.value, M.format(50))
+  h.eq(t.gold.rate, "\226\128\148")
+  h.eq(t.total.value, M.format(1050))
+  h.eq(t.total.rate, M.format(320) .. "/h")
+  local e = S.rowTexts({}, M.format)
+  h.eq(e.items.value, "0c")
+  h.eq(e.total.rate, "\226\128\148")
+  for _, row in pairs(e) do h.eq(row.rate:find("n/a", 1, true), nil) end
+  h.eq(S.rowTexts(nil, M.format).gold.value, "0c")
+end)
+
+h.test("notesText: markers and bank note on one line", function()
+  h.eq(S.notesText({ totals = {} }), nil)
+  h.eq(S.notesText(nil), nil)
+  local text, orange = S.notesText({ totals = { filtered = true, unpriced = 3 } })
+  h.eq(text, "filtered \194\183 3 unpriced")
+  h.eq(orange, true)
+  text, orange = S.notesText({ kind = "inventory", totals = {}, note = "Scanned 3h ago" })
+  h.eq(text, "Scanned 3h ago")
+  h.eq(orange, false)
+  text, orange = S.notesText({ totals = { unpriced = 2 }, note = "Scanned 2d ago", noteStale = true })
+  h.eq(text, "2 unpriced \194\183 Scanned 2d ago")
+  h.eq(orange, true)
+end)
+
+h.test("tooltipLines: items and items + gold with rates; inventory without", function()
+  local view = { totals = { vendor = 1, ah = 2, best = 2, vendorPerHour = 10, ahPerHour = 20, bestPerHour = 20 },
+    combined = { vendor = 3, ah = 4, best = 4 } }
+  local l = S.tooltipLines(view, M.format)
+  h.eq(l[1], { "Items", "" })
+  h.eq(l[2], { "Vendor: ", M.format(1) .. "  " .. M.format(10) .. "/h" })
+  h.eq(l[4], { "Best: ", M.format(2) .. "  " .. M.format(20) .. "/h" })
+  h.eq(l[5], { "Items + gold", "" })
+  h.eq(l[6], { "Vendor: ", M.format(3) .. "  " .. "\226\128\148" })
+  h.eq(#l, 8)
+  local inv = S.tooltipLines({ kind = "inventory", totals = { vendor = 1, ah = 2, best = 2 } }, M.format)
+  h.eq(#inv, 4)
+  h.eq(inv[2], { "Vendor: ", M.format(1) })
+  h.eq(#S.tooltipLines({ noCombined = true, totals = view.totals, combined = view.combined }, M.format), 4)
+end)
+
+h.test("table worst case fits the minimum window width", function()
+  local T = ns.Theme.sizes
+  h.eq(S.tableWorstWidth() <= T.minWidth - 2 * (T.padding + 4), true)
 end)

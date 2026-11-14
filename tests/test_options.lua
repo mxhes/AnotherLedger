@@ -11,9 +11,10 @@ h.test("Options: the built-in options are registered in panel order", function()
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "startHidden", "combatHide",
     "keepSession", "priceSource", "tsmSource", "refreshSeconds", "staleHours", "defaultSort",
-    "goldDisplay", "includeGold", "alertGold", "alertSound", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "goldDisplay", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
+    "showCurrencies", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "reloadUI", "minimapButton", "minimapReset",
-    "historyLimit" })
+    "exportHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
     if s.type ~= "button" then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end

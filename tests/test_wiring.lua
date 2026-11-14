@@ -109,7 +109,13 @@ local function boot(opts)
 
   local ns = {}
   for _, file in ipairs(readToc()) do
-    local chunk, err = loadfile("LootPrice/" .. file, "t", env)
+    local chunk, err
+    if setfenv then -- Lua 5.1 (the client's version)
+      chunk, err = loadfile("LootPrice/" .. file)
+      if chunk then setfenv(chunk, env) end
+    else
+      chunk, err = loadfile("LootPrice/" .. file, "t", env)
+    end
     assert(chunk, err)
     chunk("LootPrice", ns)
   end
@@ -237,7 +243,7 @@ h.test("wiring: no unexpected globals leak", function()
   local allowed = {
     LootPriceDB = true, LootPriceCharDB = true, SLASH_LOOTPRICE1 = true,
     SLASH_LOOTPRICE2 = true, LootPriceWindow = true, LootPriceMenu = true,
-    LootPriceOptionsPage = true, LootPriceMinimapButton = true,
+    LootPriceOptionsPage = true, LootPriceMinimapButton = true, LootPriceExport = true,
   }
   for k in pairs(ctx.env) do
     if not ctx.baseline[k] and not allowed[k] then error("leaked global: " .. tostring(k)) end
@@ -358,7 +364,7 @@ h.test("wiring: bags tab lists the bag contents, footer shows only the items blo
   h.eq(#L.view.rows, 1)
   h.eq(L.view.rows[1].quantity, 9)
   L.setTab("session")
-  h.eq(L.view.kind, nil)
+  h.eq(L.view.kind, "session")
   h.eq(ctx.errors, {})
 end)
 
@@ -407,6 +413,80 @@ h.test("wiring: the last tab survives a reload", function()
   startWorld(reload, true)
   h.eq(reload.errors, {})
   h.eq(reload.ns.UI.Ledger.tab, "bags")
+end)
+
+h.test("wiring: footer table height follows the tab and the raw gold option", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, footer = ctx.ns.UI.Ledger, ctx.ns.UI.Window.frame.footer
+  local summary = ctx.ns.UI.Summary.instance
+  L.refresh()
+  h.eq(footer:GetHeight(), 72)
+  L.setTab("bags")
+  h.eq(footer:GetHeight(), 18)
+  h.eq(summary.cells.gold.label:IsShown(), false)
+  h.eq(summary.cells.items.rate:IsShown(), false)
+  h.eq(summary.titles.value:IsShown(), false)
+  L.setTab("session")
+  h.eq(footer:GetHeight(), 72)
+  h.eq(summary.cells.gold.label:IsShown(), true)
+  h.eq(summary.cells.total.value:IsShown(), true)
+  h.eq(summary.cells.items.rate:IsShown(), true)
+  h.eq(summary.titles.value:IsShown(), true)
+  ctx.ns.Options.set(ctx.ns.db, "includeGold", false)
+  L.refresh()
+  h.eq(footer:GetHeight(), 54)
+  h.eq(summary.cells.total.label:IsShown(), false)
+  ctx.ns.Options.set(ctx.ns.db, "includeGold", true)
+  L.refresh()
+  h.eq(footer:GetHeight(), 72)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: hovering the footer table shows the vendor / AH tooltip", function()
+  local ctx = boot()
+  local lines = {}
+  ctx.env.GameTooltip = {
+    SetOwner = function() end, Show = function() end, Hide = function() end,
+    SetText = function() end, IsOwned = function() return false end,
+    AddDoubleLine = function(_, l, r) lines[#lines + 1] = { l, r } end,
+  }
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local tbl = ctx.ns.UI.Summary.instance.table
+  tbl._scripts.OnEnter(tbl)
+  h.eq(lines[1][1], "Items")
+  h.eq(lines[2][1], "Vendor: ")
+  h.eq(#lines, 8)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the Start / Stop button toggles the clock and its label", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local header = ctx.ns.UI.Header.instance
+  local toggle = header.toggle
+  local running = ctx.ns.session.running
+  toggle._scripts.OnClick(toggle, "LeftButton")
+  h.eq(ctx.ns.session.running, not running)
+  ctx.ns.UI.Ledger.refresh()
+  h.eq(toggle:GetText(), ctx.ns.session.running and "Stop" or "Start")
+  toggle._scripts.OnClick(toggle, "LeftButton")
+  h.eq(ctx.ns.session.running, running)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local tabs = ctx.ns.UI.Ledger.tabs
+  local bags = tabs.buttons.bags
+  bags._scripts.OnClick(bags, "LeftButton")
+  h.eq(ctx.ns.UI.Ledger.tab, "bags")
+  h.eq(tabs.selected, "bags")
+  h.eq(bags.mark:IsShown(), true)
+  h.eq(tabs.buttons.session.mark:IsShown(), false)
+  h.eq(ctx.errors, {})
 end)
 
 h.test("wiring: top finds collapse on the inventory tabs and come back on Session", function()
@@ -842,4 +922,206 @@ h.test("wiring: a valuable drop prints an alert, a cheap one does not", function
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   h.eq(#ctx.printed, before)
   h.eq(ctx.errors, {})
+end)
+
+
+-- ---------------------------------------------------------------------------
+-- Loot kinds, variants, currencies, places, automatic sessions
+
+h.test("wiring: crafted items and purchases only count with the option on", function()
+  local ctx = boot()
+  ctx.env.LOOT_ITEM_CREATED_SELF = "You create: %s."
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", "You create: " .. LINK .. ".")
+  h.eq(ns.session.items[2589], nil)
+  fire(ctx, "MERCHANT_SHOW")
+  fire(ctx, "CHAT_MSG_LOOT", "You receive item: " .. LINK .. ".")
+  h.eq(ns.session.items[2589], nil)
+  fire(ctx, "MERCHANT_CLOSED")
+  fire(ctx, "CHAT_MSG_LOOT", "You receive item: " .. LINK .. ".") -- a quest reward
+  h.eq(ns.session.items[2589].qty, 1)
+  ns.Options.set(ns.db, "countCrafted", true)
+  fire(ctx, "CHAT_MSG_LOOT", "You create: " .. LINK .. ".")
+  h.eq(ns.session.items[2589].qty, 2)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: item variants get their own rows, prices and flash", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local asked = {}
+  ns.prices = { lookup = function(_, id, link) asked[#asked + 1] = link return { ah = 100 } end }
+  local v1 = "|cffa335ee|Hitem:50::::::::60::::2:1477:4802::::::|h[Sword]|h|r"
+  local v2 = "|cffa335ee|Hitem:50::::::::60::::1:9999::::::|h[Sword]|h|r"
+  fire(ctx, "CHAT_MSG_LOOT", "You receive loot: " .. v1 .. ".")
+  fire(ctx, "CHAT_MSG_LOOT", "You receive loot: " .. v2 .. ".")
+  h.eq(ns.session.items["50:1477:4802"].qty, 1)
+  h.eq(ns.session.items["50:9999"].qty, 1)
+  h.eq(ns.session.items["50:9999"].price, { ah = 100 })
+  h.eq(asked[1], v1)
+  h.eq(#ns.UI.Ledger.view.rows, 2)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: currencies are recorded and listed after the items", function()
+  local ctx = boot()
+  ctx.env.CURRENCY_GAINED_MULTIPLE = "You receive currency: %s x%d."
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_CURRENCY", "You receive currency: |cff0070dd|Hcurrency:3008:0|h[Valorstones]|h|r x15.")
+  h.eq(ns.session.currencies[3008].qty, 15)
+  local rows = ns.UI.Ledger.view.rows
+  h.eq(#rows, 2)
+  h.eq(rows[2].isCurrency, true)
+  ns.Options.set(ns.db, "showCurrencies", false)
+  h.eq(#ns.UI.Ledger.view.rows, 1)
+  slash(ctx, "reset")
+  h.eq(ctx.env.LootPriceCharDB.history[1].currencies[3008].qty, 15)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: loot notes the place; a new session per instance with the option", function()
+  local ctx = boot()
+  local where = { zone = "Dornogal" }
+  ctx.env.GetRealZoneText = function() return where.zone end
+  ctx.env.GetInstanceInfo = function()
+    if where.instance then return where.instance, "party", 2, "Heroic" end
+    return where.zone, "none", 0, ""
+  end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.places, { Dornogal = 1 })
+  -- option off: entering a dungeon keeps the session
+  where.instance = "The Stonevault"
+  fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  h.eq(#ctx.env.LootPriceCharDB.history, 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.Session.placeList(ns.session.places), { "The Stonevault (Heroic)", "Dornogal" })
+  -- option on: leaving archives the dungeon session and starts a new one
+  ns.Options.set(ns.db, "instanceSession", true)
+  where.instance = nil
+  fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  local hist = ctx.env.LootPriceCharDB.history
+  h.eq(#hist, 1)
+  h.eq(hist[1].places, { "The Stonevault (Heroic)", "Dornogal" })
+  h.eq(next(ns.session.items), nil)
+  -- a loading screen inside the open world changes nothing
+  fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  h.eq(#hist, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the clock pauses while AFK with the option on", function()
+  local ctx = boot()
+  local afk = false
+  ctx.env.UnitIsAFK = function() return afk end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  afk = true
+  fire(ctx, "PLAYER_FLAGS_CHANGED", "player")
+  h.eq(ns.session.running, true) -- option off
+  ns.Options.set(ns.db, "afkPause", true)
+  fire(ctx, "PLAYER_FLAGS_CHANGED", "player")
+  h.eq(ns.session.running, false)
+  afk = false
+  fire(ctx, "PLAYER_FLAGS_CHANGED", "target")
+  h.eq(ns.session.running, false)
+  fire(ctx, "PLAYER_FLAGS_CHANGED", "player")
+  h.eq(ns.session.running, true)
+  -- a clock stopped by hand stays stopped
+  slash(ctx, "stop")
+  afk = true
+  fire(ctx, "PLAYER_FLAGS_CHANGED", "player")
+  afk = false
+  fire(ctx, "PLAYER_FLAGS_CHANGED", "player")
+  h.eq(ns.session.running, false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: /lp keep and /lp tsm go through the options", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  slash(ctx, "keep on")
+  h.eq(ctx.env.LootPriceDB.settings.keepSession, true)
+  slash(ctx, "tsm   DBMinBuyout  ")
+  h.eq(ctx.env.LootPriceDB.settings.tsmSource, "DBMinBuyout")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: /lp export shows the History as CSV", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  slash(ctx, "export")
+  local text = ctx.ns.UI.Export.frame.text
+  h.eq(text:sub(1, #ctx.ns.History.CSV_HEADER), ctx.ns.History.CSV_HEADER)
+  local _, lines = text:gsub("\n", "")
+  h.eq(lines, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the bank's own slots rescan while it is open", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local slots = { { itemID = 2589, stackCount = 5 } }
+  ctx.env.C_Container = {
+    GetContainerNumSlots = function(bag) return bag == -1 and #slots or 0 end,
+    GetContainerItemInfo = function(bag, slot) return bag == -1 and slots[slot] or nil end,
+  }
+  fire(ctx, "BANKFRAME_OPENED")
+  h.eq(ctx.env.LootPriceCharDB.bank.items[2589].qty, 5)
+  slots[1] = { itemID = 2589, stackCount = 7 }
+  fire(ctx, "PLAYERBANKSLOTS_CHANGED", 1)
+  h.eq(ctx.env.LootPriceCharDB.bank.items[2589].qty, 7)
+  fire(ctx, "BANKFRAME_CLOSED")
+  slots[1] = { itemID = 2589, stackCount = 1 }
+  fire(ctx, "PLAYERBANKSLOTS_CHANGED", 1)
+  h.eq(ctx.env.LootPriceCharDB.bank.items[2589].qty, 7)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: with LibDataBroker and LibDBIcon the button is LibDBIcon's", function()
+  local ctx = boot()
+  local objects, registered, shown = {}, {}, {}
+  local ldb = { NewDataObject = function(_, name, obj) objects[name] = obj return obj end }
+  local icon = {
+    Register = function(_, name, obj, saved) registered[name] = saved end,
+    Show = function(_, name) shown[name] = true end,
+    Hide = function(_, name) shown[name] = false end,
+    Refresh = function() end,
+  }
+  ctx.env.LibStub = function(name) return ({ ["LibDataBroker-1.1"] = ldb, ["LibDBIcon-1.0"] = icon })[name] end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  h.eq(objects.LootPrice ~= nil, true)
+  h.eq(registered.LootPrice, ctx.env.LootPriceDB.minimapIcon)
+  h.eq(ns.UI.Minimap.button, nil) -- no own button
+  ns.Options.set(ns.db, "minimapButton", false)
+  h.eq(shown.LootPrice, false)
+  h.eq(ctx.env.LootPriceDB.minimapIcon.hide, true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ns.UI.Broker.update()
+  h.eq(type(objects.LootPrice.text), "string")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an event the client does not know does not stop the others", function()
+  local ctx = boot()
+  -- registered after boot: re-run init with a frame that rejects one event
+  local frame = ctx.env.CreateFrame("Frame")
+  local real = frame.RegisterEvent
+  frame.RegisterEvent = function(self, ev)
+    if ev == "CHAT_MSG_CURRENCY" then error("unknown event") end
+    return real(self, ev)
+  end
+  ctx.env.CreateFrame = function() return frame end
+  ctx.ns.Core.init()
+  h.eq(frame._events.CHAT_MSG_LOOT, true)
+  h.eq(frame._events.CHAT_MSG_CURRENCY, nil)
 end)

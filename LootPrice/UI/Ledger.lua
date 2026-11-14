@@ -17,7 +17,7 @@ local Ledger = {}
 ns.UI.Ledger = Ledger
 
 local TICK_SECONDS = 1
-local FULL_REFRESH_SECONDS = 30 -- default of the option "refreshSeconds"
+local FULL_REFRESH_SECONDS = ns.DB.defaults.settings.refreshSeconds -- option "refreshSeconds"
 
 local function refreshSeconds()
   local seconds = ns.Options and ns.db and ns.Options.get(ns.db, "refreshSeconds")
@@ -59,31 +59,63 @@ end
 -- ---------------------------------------------------------------------------
 -- View inputs (one reused options / context table: no garbage per refresh)
 
-local function readItemInfo(itemID)
-  local name, _, quality
-  if C_Item and C_Item.GetItemInfo then
-    name, _, quality = C_Item.GetItemInfo(itemID)
-  elseif type(GetItemInfo) == "function" then
-    name, _, quality = GetItemInfo(itemID)
+-- Bind types (14th GetItemInfo return) of items that can never be sold on the
+-- auction house: on pickup, quest, account, warband, warband until equipped.
+-- UNVERIFIED (check in client): the bindType values on Forever.
+local UNAUCTIONABLE = { [1] = true, [4] = true, [7] = true, [8] = true, [9] = true }
+
+local function readItemInfo(itemID, link)
+  local name, _, quality, bindType
+  local query = type(link) == "string" and link or itemID
+  local getInfo = (C_Item and C_Item.GetItemInfo) or (type(GetItemInfo) == "function" and GetItemInfo) or nil
+  if getInfo then
+    local r = { getInfo(query) }
+    name, quality, bindType = r[1], r[3], r[14]
   end
   if name == nil then return nil end
-  return { name = name, quality = quality }
+  return { name = name, quality = quality, bound = UNAUCTIONABLE[bindType] or false }
 end
 
-local function itemInfo(itemID)
-  local ok, info = pcall(readItemInfo, itemID)
+local function itemInfo(itemID, link)
+  local ok, info = pcall(readItemInfo, itemID, link)
   return ok and info or nil
 end
 
-local function lookupPrice(itemID)
-  return ns.Core.lookupPrice(itemID)
+-- UNVERIFIED (check in client): C_CurrencyInfo.GetCurrencyInfo(id) returns
+-- { name, iconFileID, quality } on Forever.
+local function readCurrencyInfo(currencyID)
+  local api = C_CurrencyInfo
+  if not (api and api.GetCurrencyInfo) then return nil end
+  local info = api.GetCurrencyInfo(currencyID)
+  if type(info) ~= "table" then return nil end
+  return { name = info.name, icon = info.iconFileID, quality = info.quality }
+end
+
+local function currencyInfo(currencyID)
+  local ok, info = pcall(readCurrencyInfo, currencyID)
+  return ok and info or nil
+end
+
+-- Prices are looked up once per item variant and redraw: the same item can
+-- show up more than once (History) and every lookup asks every source.
+local priceMemo = {}
+local function lookupPrice(itemID, link)
+  local key = itemID
+  if type(link) == "string" then key = ns.LootParse.itemKey(link) or itemID end
+  local hit = priceMemo[key]
+  if hit == nil then
+    hit = ns.Core.lookupPrice(itemID, link) or false
+    priceMemo[key] = hit
+  end
+  return hit or nil
 end
 
 local function formatDate(timestamp)
-  return date("%d %b %H:%M", timestamp)
+  return date("%Y-%m-%d %H:%M", timestamp)
 end
+Ledger.formatDate = formatDate
 
-local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, formatDate = formatDate }
+local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate }
 local context = { opts = viewOpts, ledger = Ledger }
 
 local function currentContext(now)
@@ -92,6 +124,7 @@ local function currentContext(now)
   viewOpts.filter = db and db.filter
   viewOpts.sort = db and db.sort
   viewOpts.includeGold = not (ns.Options and db) or ns.Options.get(db, "includeGold") ~= false
+  viewOpts.showCurrencies = not (ns.Options and db) or ns.Options.get(db, "showCurrencies") ~= false
   context.now = now
   context.env = _G
   context.session = ns.session
@@ -104,6 +137,7 @@ end
 
 function Ledger.buildView(now)
   if not ns.session then return nil end
+  for k in pairs(priceMemo) do priceMemo[k] = nil end
   return ns.UI.Tabs.get(Ledger.tab).build(currentContext(now))
 end
 
@@ -167,16 +201,17 @@ local function flushFlashes()
   Ledger.refresh()
   if windowShown() then
     if lastFlashed then list:ScrollToItem(lastFlashed) end
-    for itemID, level in pairs(pendingFlash) do list:Flash(itemID, level) end
+    for key, level in pairs(pendingFlash) do list:Flash(key, level) end
   end
-  for itemID in pairs(pendingFlash) do pendingFlash[itemID] = nil end
+  for key in pairs(pendingFlash) do pendingFlash[key] = nil end
   lastFlashed = nil
 end
 
-function Ledger.flash(itemID, level)
+-- `key` is the looted item's LootParse.itemKey.
+function Ledger.flash(key, level)
   if not list then return end
-  if pendingFlash[itemID] ~= "strong" then pendingFlash[itemID] = level end
-  lastFlashed = itemID
+  if pendingFlash[key] ~= "strong" then pendingFlash[key] = level end
+  lastFlashed = key
   if flashScheduled then return end
   flashScheduled = true
   if C_Timer and C_Timer.After then

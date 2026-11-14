@@ -1,5 +1,7 @@
 local ADDON, ns = ...
 
+local L = ns.L
+
 ns.UI = ns.UI or {}
 
 -- Header row 2: quality menu, minimum value (gold), search and sort. Edits
@@ -9,14 +11,16 @@ ns.UI = ns.UI or {}
 local FilterBar = {}
 ns.UI.FilterBar = FilterBar
 
-local L_QUALITY = "Quality"
-local L_MIN_HINT = "Min g"
-local L_SEARCH_HINT = "Search"
-local L_SORT_PREFIX = "Sort: "
+local L_QUALITY = L["Quality"]
+local L_MIN_HINT = L["Min g"]
+local L_SEARCH_HINT = L["Search"]
+local L_SORT_PREFIX = L["Sort: "]
 local QUALITY_NAMES = {
-  [0] = "Poor", "Common", "Uncommon", "Rare", "Epic", "Legendary", "Artifact", "Heirloom",
+  [0] = L["Poor"], L["Common"], L["Uncommon"], L["Rare"], L["Epic"], L["Legendary"],
+  L["Artifact"], L["Heirloom"],
 }
-local SORT_LABELS = { ah = "AH", vendor = "Vendor", name = "Name", recent = "Recent" }
+-- "ah" is the saved key of the best-value sort (best of vendor, AH, DE).
+local SORT_LABELS = { ah = L["Value"], vendor = L["Vendor"], name = L["Name"], recent = L["Recent"] }
 
 FilterBar.SORTS = { "ah", "vendor", "name", "recent" }
 

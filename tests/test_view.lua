@@ -340,8 +340,77 @@ h.test("View.buildHistory: one row per archived session with totals", function()
   h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, 40); h.eq(v.rows[1].deLabel, "Gold: ")
   h.eq(v.rows[2].historyIndex, 2)
   h.eq(v.totals.vendor, 15); h.eq(v.totals.ah, 120)
-  h.eq(v.kind, "inventory")
+  h.eq(v.kind, "history")
+  h.eq(v.gold.total, 40)
+  h.eq(v.combined.ah, 160)
+  h.near(v.totals.ahPerHour, 120 * 3600 / 3660)
   h.eq(#ns.View.buildHistory(nil, {}).rows, 0)
+end)
+
+h.test("View.buildHistory: the place joins the name, the details the hint", function()
+  local list = {
+    { startedAt = 200, elapsed = 3600, gold = 10000, nItems = 1, vendor = 10, ah = 100, best = 150,
+      places = { "The Stonevault (Heroic)", "Dornogal" }, items = {} },
+  }
+  local v = ns.View.buildHistory(list, { formatDate = function() return "D" end })
+  h.eq(v.rows[1].name, "+ D  1h 0m  The Stonevault (Heroic)")
+  h.eq(v.rows[1].value, 150)
+  h.eq(v.totals.best, 150)
+  h.eq(v.rows[1].hint:find("Places: The Stonevault (Heroic), Dornogal", 1, true) ~= nil, true)
+  h.eq(v.rows[1].hint:find("Raw gold: 1g  (1g/h)", 1, true) ~= nil, true)
+end)
+
+h.test("View: the best of vendor, AH and disenchant is the row value", function()
+  local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 0,
+    items = {
+      [1] = { id = 1, link = "[A]", qty = 2, lastSeen = 1 },
+      [2] = { id = 2, link = "[B]", qty = 1, lastSeen = 1 },
+      [3] = { id = 3, link = "[C]", qty = 1, lastSeen = 1 },
+    } }
+  local prices = { [1] = { vendor = 50, ah = 10 }, [2] = { vendor = 5, ah = 100, de = 300 }, [3] = { vendor = 1, ah = 70 } }
+  local v = ns.View.build(session, { now = 10, sort = "ah", lookup = function(id) return prices[id] end })
+  h.eq(v.rows[1].id, 2); h.eq(v.rows[1].bestKind, "de"); h.eq(v.rows[1].value, 300)
+  h.eq(v.rows[2].id, 1); h.eq(v.rows[2].bestKind, "vendor"); h.eq(v.rows[2].value, 100)
+  h.eq(v.rows[3].bestKind, "ah")
+  h.eq(v.totals.best, 470)
+  h.eq(v.combined.best, 470)
+  h.eq(v.top[1].id, 2)
+end)
+
+h.test("View: bound items are not counted as unpriced", function()
+  local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 0,
+    items = { [1] = { id = 1, link = "[A]", qty = 1, lastSeen = 1 }, [2] = { id = 2, link = "[B]", qty = 1, lastSeen = 1 } } }
+  local v = ns.View.build(session, { now = 10, lookup = function() return { vendor = 5 } end,
+    itemInfo = function(id) return { name = "x" .. id, quality = 1, bound = id == 1 } end })
+  h.eq(v.totals.unpriced, 1)
+end)
+
+h.test("View: loot-time prices fill in a missing live price with their age", function()
+  local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 0,
+    items = { [1] = { id = 1, link = "[A]", qty = 2, lastSeen = 100, price = { ah = 40, vendor = 3 } } } }
+  local v = ns.View.build(session, { now = 3700, lookup = function() return {} end })
+  h.eq(v.rows[1].ahTotal, 80); h.eq(v.rows[1].ahFromCache, true); h.eq(v.rows[1].ahAge, 3600)
+  h.eq(v.rows[1].vendorTotal, 6)
+end)
+
+h.test("View: variants have their own rows and keys; currencies follow the items", function()
+  local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 0,
+    items = {
+      [50] = { id = 50, key = 50, link = "[S]", qty = 1, lastSeen = 1 },
+      ["50:1477"] = { id = 50, key = "50:1477", link = "[S]", qty = 1, lastSeen = 1 },
+    },
+    currencies = { [3008] = { id = 3008, link = "|Hcurrency:3008|h[Valorstones]|h", qty = 15 } } }
+  local linkSeen = {}
+  local v = ns.View.build(session, { now = 10, lookup = function(id, link) linkSeen[#linkSeen + 1] = link
+    return { ah = 10 } end })
+  h.eq(#v.rows, 3)
+  h.eq(v.rows[3].isCurrency, true); h.eq(v.rows[3].name, "Valorstones"); h.eq(v.rows[3].quantity, 15)
+  h.eq(v.rows[3].key, "c:3008")
+  h.eq(ns.View.indexOf(v.rows, "50:1477") ~= nil, true)
+  h.eq(linkSeen[1], "[S]")
+  h.eq(v.totals.unpriced, 0)
+  v = ns.View.build(session, { now = 10, showCurrencies = false, lookup = function() return { ah = 10 } end })
+  h.eq(#v.rows, 2)
 end)
 
 h.test("View.buildHistory: the opened session moves to the top with its items under it", function()
@@ -356,7 +425,7 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
   local v = ns.View.buildHistory(list, opts, 2)
   h.eq(#v.rows, 4)
   h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D  2m")
-  h.eq(v.rows[1].hint, "Click to collapse")
+  h.eq(v.rows[1].hint:match("[^\n]+$"), "Click to collapse")
   h.eq(v.rows[2].id, 7); h.eq(v.rows[2].ahTotal, 2000) -- items, best AH value first
   h.eq(v.rows[3].id, 8)
   h.eq(v.rows[4].historyIndex, 1) -- the other session follows

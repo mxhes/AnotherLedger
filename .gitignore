@@ -1,1 +1,4 @@
 .superpowers/
+# Libraries fetched by the packager (.pkgmeta externals)
+LootPrice/Libs/
+.release/
