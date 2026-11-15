@@ -6,7 +6,7 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 
 ## What it shows
 
-The Session Ledger is a draggable, resizable, scrollable window:
+The Session Ledger is a draggable, resizable, scrollable window with rounded corners (a thin tan edge, like the tabs):
 
 - **Header**: the title, the session clock, one **Start / Stop** button (it reads Start while the clock is stopped and Stop while it runs), Reset, the gear (options) and the game's close button. Under it the filter bar (quality, minimum gold, search, sort) and the tab buttons: tabs open at the bottom, standing on a thin tan line, with a rounded tan edge and the window's own background (so the opacity and brightness options apply to them too); the selected one has a bright gold edge and a gold glow from its top and opens into the list (the line is open below it); hovering a tab lights its edge.
 - **Rows**: one per looted item (icon, quality-colored name, quantity) with the quantity (`xN`) right after the name and the vendor and auction house (AH) values stacked in a block that is right-aligned and adaptive (each amount directly after its label, amounts and labels lined up; the block hugs the right edge and shifts left only as far as the longest amount currently shown needs; the AH age tag follows the AH amount; long names are clipped, the quantity stays visible). Hovering a row shows the item's tooltip. A thin quiet separator line runs between rows. Newly looted rows flash.
@@ -202,7 +202,7 @@ Core and loot
 - [ ] `GET_ITEM_INFO_RECEIVED` throttle; `C_Timer.After` exists
 
 Window
-- [ ] Appears as a dark brown leather panel, the border reads as a frame (edgeSize / insets may need tuning); title readable (ink color on the gold font object)
+- [ ] Appears as a dark brown leather panel with rounded corners: the thin `Interface\Tooltips\UI-Tooltip-Border` edge (16 px, fill inset 5 px) reads as a frame and no square fill corner shows outside it, also on the options panel and the CSV copy box and at 0 % / 200 % brightness; title readable (ink color on the gold font object)
 - [ ] Drag by header; resize with the grip, never below the minimum (428 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor/AH block); position unchanged after resize ends
 - [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
 - [ ] Changing UI scale / resolution never leaves it off-screen

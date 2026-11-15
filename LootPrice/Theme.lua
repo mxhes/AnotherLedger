@@ -6,7 +6,9 @@ local Theme = {}
 Theme.textures = {
   -- No certain retail leather path; a flat tile tinted with colors.panelTint.
   parchment = "Interface\\Buttons\\WHITE8X8",
-  frameBorder = "Interface\\DialogFrame\\UI-DialogBox-Border",
+  -- Rounded window edge (tinted with colors.panelBorder); the fill sits inside
+  -- its curve (sizes.backdropInset), so the corners read round.
+  frameBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
   resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
   -- Options button: a gear-like trade icon, present in every client.
@@ -156,9 +158,12 @@ Theme.sizes = {
   -- Padding added around each measured string width.
   rowMeasurePad = 2,
   gripInset = 4,
+  -- Window edge: the game tooltip's proportions (16 px edge, fill inset 5 px),
+  -- so the square fill stays hidden behind the rounded corners.
+  -- UNVERIFIED (check in client): no square fill corner shows outside the edge.
   backdropTile = 16,
-  backdropEdge = 24,
-  backdropInset = 6,
+  backdropEdge = 16,
+  backdropInset = 5,
 }
 
 -- Button / box widths of the header rows. Row 1 at the 350 px minimum is
