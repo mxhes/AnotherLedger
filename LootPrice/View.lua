@@ -420,7 +420,9 @@ local function spotOf(pos)
     end
   end
   if not best then return nil end
-  return { mapID = bestID, x = best.x / best.n, y = best.y / best.n }
+  -- Corrupt saved sums must not put the waypoint off the map.
+  local function clamp(v) return math.max(0, math.min(1, v)) end
+  return { mapID = bestID, x = clamp(best.x / best.n), y = clamp(best.y / best.n) }
 end
 
 -- Adds `qty` of the entry item `src` under `key` to an items map.

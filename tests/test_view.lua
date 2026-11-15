@@ -772,3 +772,10 @@ h.test("View.dailyFarm gives each place the averaged spot of its main map", func
   local broken = zentry({ [1] = 4 }, { Z = { subs = { A = { time = 3600, gold = 0, items = { [1] = 4 }, pos = "x" } } } })
   h.eq(V.dailyFarm({ broken }, { lookup = zlookup }, 0).best.pos, nil)
 end)
+
+h.test("View.dailyFarm keeps a spot from corrupt sums on the map (0..1)", function()
+  local e = zentry({ [1] = 4 }, { Z = { subs = { A = { time = 3600, gold = 0, items = { [1] = 4 },
+    pos = { [2022] = { x = 5, y = -2, n = 1 } } } } } })
+  local p = V.dailyFarm({ e }, { lookup = zlookup }, 0).best.pos
+  h.eq(p.mapID, 2022); h.eq(p.x, 1); h.eq(p.y, 0)
+end)
