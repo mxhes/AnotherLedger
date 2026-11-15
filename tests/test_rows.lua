@@ -78,9 +78,9 @@ h.test("marketText: levels in order, plain or colored, nil without levels", func
   h.eq(R.marketText({ volumeLevel = "medium" }), "Medium volume")
   h.eq(R.marketText({}), nil)
   local colored = R.marketText({ rateLevel = "bad" }, ns.Theme.colors)
-  h.eq(colored, ns.Money.hex(ns.Theme.colors.marketBad) .. "Sells poorly|r")
+  h.eq(colored, ns.Money.colorCode(ns.Theme.colors.marketBad) .. "Sells poorly|r")
   h.eq(R.rowText({ name = "X", quantity = 1, rateLevel = "ok" }).market,
-    ns.Money.hex(ns.Theme.colors.marketOk) .. "Sells okay|r")
+    ns.Money.colorCode(ns.Theme.colors.marketOk) .. "Sells okay|r")
   h.eq(R.rowText({ name = "X", quantity = 1 }).market, nil)
   h.eq(R.rowText({ name = "C", quantity = 1, isCurrency = true, rateLevel = "ok" }).market, nil)
 end)

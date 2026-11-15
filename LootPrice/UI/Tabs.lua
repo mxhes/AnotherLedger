@@ -235,10 +235,6 @@ local function edgeInset()
   return math.floor(ns.Theme.sizes.tabEdge / 4)
 end
 
--- One tab, open at the bottom: the button clips its children, and the edge
--- (a backdrop with no fill on the `skin` frame) is tabEdge px taller than the
--- button, so its bottom edge is cut off. A centered label and the glow of the
--- selected tab sit on the skin.
 -- Pure. Width of a tab button: Theme.widths.tab, wider when the label needs it
 -- (`textW` = measured label width; nil or 0 keeps the theme width).
 function Tabs.buttonWidth(textW)
@@ -250,6 +246,10 @@ function Tabs.buttonWidth(textW)
   return w
 end
 
+-- One tab, open at the bottom: the button clips its children, and the edge
+-- (a backdrop with no fill on the `skin` frame) is tabEdge px taller than the
+-- button, so its bottom edge is cut off. A centered label and the glow of the
+-- selected tab sit on the skin.
 local function makeTab(row, label)
   local T, W = ns.Theme, ns.UI.Widgets
   local S = T.sizes

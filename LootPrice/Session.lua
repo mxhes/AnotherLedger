@@ -268,7 +268,7 @@ function Session.zoneSnapshot(session, now)
 end
 
 -- Raw gold income in copper (looted and quest money, one total).
-function Session.addGold(session, copper, now)
+function Session.addGold(session, copper)
   if not session.running then return false end
   if not posInt(copper) then return false end
   session.gold = (num(session.gold) and session.gold or 0) + copper

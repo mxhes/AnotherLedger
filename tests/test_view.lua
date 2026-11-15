@@ -456,7 +456,7 @@ end)
 h.test("View.applyRates recomputes only the rates and clears them for a young session", function()
   local s = ns.Session.new(0)
   ns.Session.add(s, 1, "|Hitem:1|h[A]|h", 2, 0)
-  ns.Session.addGold(s, 500, 0)
+  ns.Session.addGold(s, 500)
   local opts = { now = 3600, lookup = function() return { vendor = 10, ah = 100 } end }
   local v = ns.View.build(s, opts)
   h.near(v.totals.ahPerHour, 200)

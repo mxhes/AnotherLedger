@@ -49,7 +49,7 @@ function Rows.marketText(row, colors)
     local m = lv and MARKET[lv]
     if m then
       local c = colors and colors[m[2]]
-      parts[#parts + 1] = c and (ns.Money.hex(c) .. m[1] .. "|r") or m[1]
+      parts[#parts + 1] = c and (ns.Money.colorCode(c) .. m[1] .. "|r") or m[1]
     end
   end
   if #parts == 0 then return nil end

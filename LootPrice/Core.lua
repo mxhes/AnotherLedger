@@ -319,7 +319,7 @@ end
 -- giver), so it does not move the place's farm spot.
 function Core.recordGold(copper, noSpot)
   if not ns.session then return end
-  if not ns.Session.addGold(ns.session, copper, time()) then return end
+  if not ns.Session.addGold(ns.session, copper) then return end
   notePlace()
   Core.updatePlace()
   ns.Session.notePlaceGold(ns.session, copper)
@@ -491,14 +491,14 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   refreshUI()
 end
 
--- Combat auto hide / show (option "combatHide"): hides the window when combat
--- starts and shows it again when combat ends, but only if it was shown before.
 -- History Zones: the player moved to another zone or subzone (no redraw).
 -- They fire for subzone changes too.
 for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
   events[event] = function() Core.updatePlace() end
 end
 
+-- Combat auto hide / show (option "combatHide"): hides the window when combat
+-- starts and shows it again when combat ends, but only if it was shown before.
 function events.PLAYER_REGEN_DISABLED()
   local window = ns.UI and ns.UI.Window
   if window and ns.db and ns.db.settings.combatHide then window.combatHide() end

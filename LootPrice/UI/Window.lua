@@ -170,7 +170,8 @@ local function modeSize(frame)
   local w = winDB() or {}
   local slot = compact() and (type(w.compact) == "table" and w.compact or {}) or w
   local sw, sh = screenSize(frame)
-  local dw, dh = 420, 440
+  local defaults = ns.DB.defaults.window
+  local dw, dh = defaults.width, defaults.height
   if compact() then dw, dh = S.compactWidth, S.compactHeight end
   return clamp(tonumber(slot.width) or dw, minWidth(), sw), clamp(tonumber(slot.height) or dh, minHeight(), sh)
 end
@@ -227,8 +228,9 @@ local function build(db)
 
   ns.UI.Widgets.applyBackdrop(frame)
 
-  -- Header: three 28 px rows (title and buttons, filters, tabs). Dragging the
-  -- header moves the window.
+  -- Header rows: row1 title and buttons, row2 filters, rowFarm the Daily
+  -- strip (optional), row3 tabs, row4 sub-tabs (optional). Dragging the header
+  -- moves the window.
   local header = CreateFrame("Frame", nil, frame)
   header:SetHeight(T.sizes.headerHeight)
   header:SetPoint("TOPLEFT", frame, "TOPLEFT", inset, -inset)
@@ -398,8 +400,7 @@ function Window.applySizes()
   end
 end
 
--- Shows or hides header row 4 (sub-tabs); the list area below the header
--- follows by anchoring.
+-- The optional parts shown right now: sub-tab row, Daily farm row, Top finds.
 local optionalRows = { subtab = false, farm = false, topBox = false }
 
 -- Pure. Which parts of the window a mode shows. Full: the filter and tab rows,
@@ -430,6 +431,8 @@ local function applyHeaderHeight()
   frame.header:SetHeight(Window.headerHeight(optionalRows.subtab, optionalRows.farm, Window.mode))
 end
 
+-- Shows or hides header row 4 (sub-tabs); the list area below the header
+-- follows by anchoring.
 function Window.setSubtabRow(shown)
   local frame = Window.frame
   if not (frame and frame.header and frame.header.row4) then return end

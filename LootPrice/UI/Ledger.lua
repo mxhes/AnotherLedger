@@ -113,9 +113,16 @@ local function readIsQuest(itemID)
   return classID == QUEST_CLASS
 end
 
+-- An item's class never changes: asked once per item ID.
+local questMemo = {}
 local function isQuest(itemID)
-  local ok, quest = pcall(readIsQuest, itemID)
-  return ok and quest or false
+  local hit = questMemo[itemID]
+  if hit == nil then
+    local ok, quest = pcall(readIsQuest, itemID)
+    hit = ok and quest or false
+    questMemo[itemID] = hit
+  end
+  return hit
 end
 
 -- Prices are looked up once per item variant and redraw: the same item can

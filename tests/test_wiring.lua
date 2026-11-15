@@ -1357,7 +1357,7 @@ h.test("wiring: TSM sale info shows under the name and follows its options", fun
   local L, colors = ns.UI.Ledger, ns.Theme.colors
   L.refresh()
   local row = L.list.pool[1]
-  local hex = ns.Money.hex
+  local hex = ns.Money.colorCode
   h.eq(row.market:GetText(), hex(colors.marketGood) .. "Sells well|r, " .. hex(colors.marketBad) .. "Low volume|r")
   ns.Options.set(ns.db, "saleRateGood", 0.7)
   ns.Options.set(ns.db, "soldMedium", 0)
