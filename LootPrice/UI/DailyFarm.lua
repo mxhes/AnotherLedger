@@ -6,7 +6,7 @@ ns.UI = ns.UI or {}
 
 -- Daily farm strip: one header row between the filters and the tabs naming
 -- the saved place with the best gold per hour (view.dailyFarm, View.dailyFarm).
--- Hidden without a pick. Click: History -> Zones at that place.
+-- Hidden without a pick. Click: waypoint to the farm spot (DailyFarm.click).
 -- label and hint are pure; attach and Update touch the client.
 local DailyFarm = {}
 ns.UI.DailyFarm = DailyFarm
@@ -22,6 +22,11 @@ local L_GOLD_PER_HOUR = L["Gold per hour: "]
 local L_ALSO_GOOD = L["Also good:"]
 local L_SELLS_SLOWLY = L["Sells slowly: "]
 local L_CLICK = L["Click to open it in Zones"]
+local L_CLICK_WAYPOINT = L["Click: waypoint"]
+local L_SHIFT_CLICK = L["Shift-click: open it in Zones"]
+local L_RIGHT_CLICK = L["Right-click: copy the /way line"]
+local L_WAYPOINT_SET = L["Waypoint set: "]
+local L_NO_WAYPOINT = L["No waypoint could be set."]
 
 DailyFarm.shown = false
 
@@ -34,10 +39,7 @@ local function rounded(copper)
 end
 
 -- "Subzone (Zone)", or the zone alone when the place is the zone itself.
-function DailyFarm.placeName(p)
-  if p.sub == nil or p.sub == p.zone then return p.zone end
-  return p.sub .. " (" .. p.zone .. ")"
-end
+function DailyFarm.placeName(p) return ns.Waypoint.name(p) end
 
 local function rate(p)
   return "~" .. ns.Money.format(rounded(p.perHour)) .. L_PER_HOUR
@@ -68,8 +70,37 @@ function DailyFarm.hint(farm)
   if farm.slow and type(farm.slow.names) == "table" then
     lines[#lines + 1] = L_SELLS_SLOWLY .. table.concat(farm.slow.names, ", ")
   end
-  lines[#lines + 1] = L_CLICK
+  if best.pos then
+    lines[#lines + 1] = L_CLICK_WAYPOINT
+    lines[#lines + 1] = L_SHIFT_CLICK
+    lines[#lines + 1] = L_RIGHT_CLICK
+  else
+    lines[#lines + 1] = L_CLICK
+  end
   return table.concat(lines, "\n")
+end
+
+-- Click on the strip: left sets a waypoint to the farm spot (Zones when the
+-- place has none), shift-left opens Zones, right shows the /way line in the
+-- copy box (addons cannot write the clipboard).
+function DailyFarm.click(which, shift)
+  local farm = DailyFarm.farm
+  if not farm then return end
+  local best = farm.best
+  if which == "RightButton" then
+    local text = ns.Waypoint.text(best)
+    if text and ns.UI.Export then ns.UI.Export.show(text) end
+    return
+  end
+  if shift or not best.pos then
+    ns.UI.Ledger.showFarm(best.zone, best.sub)
+    return
+  end
+  if ns.Waypoint.set(_G, best) then
+    ns.Util.say(L_WAYPOINT_SET .. DailyFarm.placeName(best))
+  else
+    ns.Util.say(L_NO_WAYPOINT)
+  end
 end
 
 -- ---------------------------------------------------------------------------
@@ -88,8 +119,8 @@ function part:Update(view)
 end
 
 -- Attaches to the header's Daily farm row: a full-width button with the map icon
--- and the label; hover shows the hint and a highlight, click opens the place
--- in Zones, dragging moves the window like the rest of the header. The text
+-- and the label; hover shows the hint and a highlight, clicks go to
+-- DailyFarm.click, dragging moves the window like the rest of the header. The text
 -- uses the header font (not the list font, which follows List text size).
 function DailyFarm.attach(row)
   local T, W = ns.Theme, ns.UI.Widgets
@@ -108,9 +139,9 @@ function DailyFarm.attach(row)
   text:SetPoint("RIGHT", button, "RIGHT", 0, 0)
   DailyFarm.button, DailyFarm.text = button, text
 
-  button:SetScript("OnClick", function()
-    local farm = DailyFarm.farm
-    if farm then ns.UI.Ledger.showFarm(farm.best.zone, farm.best.sub) end
+  button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  button:SetScript("OnClick", function(_, which)
+    DailyFarm.click(which, type(IsShiftKeyDown) == "function" and IsShiftKeyDown() and true or false)
   end)
   button:SetScript("OnEnter", function(self)
     if DailyFarm.farm then W.showTextTooltip(self, DailyFarm.hint(DailyFarm.farm), "ANCHOR_BOTTOMLEFT") end

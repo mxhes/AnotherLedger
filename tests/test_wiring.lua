@@ -1317,8 +1317,9 @@ h.test("wiring: the Zones sub-tab groups all sessions by zone and subzone", func
 end)
 
 -- One saved session: an hour in Wingrest, five minutes in Teerakai.
-local function bootWithFarm()
+local function bootWithFarm(pos)
   local ctx = bootInZone("Waking Shores", "Wingrest")
+  ctx.pos = pos
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ctx.now = ctx.now + 3600
@@ -1483,6 +1484,51 @@ h.test("wiring: dragging the strip moves the window unless it is locked", functi
   ctx.ns.Options.set(ctx.ns.db, "lockWindow", true)
   DF.button._scripts.OnDragStart(DF.button)
   h.eq(moved, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: strip clicks set a waypoint, open Zones, show the /way line", function()
+  local ctx = bootWithFarm({ 2022, 0.4, 0.6 })
+  local L, DF = ctx.ns.UI.Ledger, ctx.ns.UI.DailyFarm
+  local tom
+  ctx.env.TomTom = { AddWaypoint = function(_, m, x, y, o) tom = { m, x, y, o.title } end }
+  ctx.env.IsShiftKeyDown = function() return ctx.shift end
+  L.setTab("session")
+  h.eq(DF.farm.best.sub, "Wingrest")
+  local printed = #ctx.printed
+  DF.button._scripts.OnClick(DF.button, "LeftButton")
+  h.eq(tom[1], 2022); h.near(tom[2], 0.4); h.near(tom[3], 0.6)
+  h.eq(tom[4], "Wingrest (Waking Shores)")
+  h.eq(L.tab, "session")
+  h.eq(#ctx.printed, printed + 1)
+  h.eq(ctx.printed[#ctx.printed]:find("Wingrest (Waking Shores)", 1, true) ~= nil, true)
+  ctx.shift = true
+  DF.button._scripts.OnClick(DF.button, "LeftButton")
+  h.eq(L.tab, "history"); h.eq(L.subtab, "zones"); h.eq(L.zoneOpen.sub, "Wingrest")
+  ctx.shift = false
+  DF.button._scripts.OnClick(DF.button, "RightButton")
+  h.eq(ctx.ns.UI.Export.frame.text, "/way #2022 40.0 60.0 Wingrest")
+  h.eq(ctx.ns.UI.Export.frame:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a place without a position opens Zones on click, no copy box", function()
+  local ctx = bootWithFarm()
+  local L, DF = ctx.ns.UI.Ledger, ctx.ns.UI.DailyFarm
+  L.setTab("session")
+  DF.button._scripts.OnClick(DF.button, "RightButton")
+  h.eq(ctx.ns.UI.Export.frame, nil)
+  DF.button._scripts.OnClick(DF.button, "LeftButton")
+  h.eq(L.tab, "history"); h.eq(L.zoneOpen.sub, "Wingrest")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: no TomTom and no map pin says so in chat", function()
+  local ctx = bootWithFarm({ 2022, 0.4, 0.6 })
+  local DF = ctx.ns.UI.DailyFarm
+  ctx.ns.UI.Ledger.setTab("session")
+  DF.button._scripts.OnClick(DF.button, "LeftButton")
+  h.eq(ctx.printed[#ctx.printed]:find(ctx.ns.L["No waypoint could be set."], 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 

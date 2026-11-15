@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "History.lua", "UI/DailyFarm.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "History.lua", "Waypoint.lua", "UI/DailyFarm.lua" })
 local DF = ns.UI.DailyFarm
 
 local function farm()
@@ -42,4 +42,17 @@ h.test("DailyFarm.label rounds the rate to whole gold from 1 gold up", function(
   h.eq(s:find(ns.Money.format(12350000), 1, true) ~= nil, true)
   f.best.perHour = 5555 -- under 1 gold: in full
   h.eq(DF.label(f):find(ns.Money.format(5555), 1, true) ~= nil, true)
+end)
+
+h.test("DailyFarm.hint lists the clicks: waypoint ones only with a spot", function()
+  local f = farm()
+  local s = DF.hint(f)
+  h.eq(s:find(ns.L["Click to open it in Zones"], 1, true) ~= nil, true)
+  h.eq(s:find(ns.L["Click: waypoint"], 1, true), nil)
+  f.best.pos = { mapID = 1, x = 0.5, y = 0.5 }
+  s = DF.hint(f)
+  h.eq(s:find(ns.L["Click: waypoint"], 1, true) ~= nil, true)
+  h.eq(s:find(ns.L["Shift-click: open it in Zones"], 1, true) ~= nil, true)
+  h.eq(s:find(ns.L["Right-click: copy the /way line"], 1, true) ~= nil, true)
+  h.eq(s:find(ns.L["Click to open it in Zones"], 1, true), nil)
 end)
