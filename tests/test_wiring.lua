@@ -245,6 +245,29 @@ h.test("wiring: History kept asks before deleting, reset asks for a valuable ses
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: right-click deletes a History session, Clear History empties it", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local shown = {}
+  ctx.env.StaticPopup_Show = function(name) shown[#shown + 1] = ctx.env.StaticPopupDialogs[name] end
+  local history = ctx.env.LootPriceCharDB.history
+  for i = 1, 3 do history[i] = { startedAt = i, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} } end
+  local Ledger = ctx.ns.UI.Ledger
+  Ledger.setTab("history")
+  Ledger.toggleHistory(3) -- the oldest one is open
+  Ledger.list.onRowClick({ historyIndex = 1 }, "RightButton")
+  h.eq(#history, 3) -- asks first
+  shown[#shown].OnAccept()
+  h.eq(#history, 2); h.eq(history[1].startedAt, 2)
+  h.eq(Ledger.historyIndex, 2) -- still the same (oldest) session
+  ctx.ns.Options.spec("clearHistory").action()
+  h.eq(#history, 2)
+  shown[#shown].OnAccept()
+  h.eq(#history, 0)
+  h.eq(ctx.env.LootPriceCharDB.history == history, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: demo on a stopped session seeds nothing", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -844,7 +867,8 @@ h.test("wiring: hovering a History session shows the colored tooltip", function(
   local doubles, last = 0, ops[#ops]
   for _, o in ipairs(ops) do if o[1] == "double" then doubles = doubles + 1 end end
   h.eq(doubles >= 4, true) -- Vendor, AH, Best, Raw gold
-  h.eq(last[2], ctx.ns.L["Click to show the items"]); h.eq(last[4], C.tipHint[2])
+  h.eq(ops[#ops - 1][2], ctx.ns.L["Click to show the items"]); h.eq(last[4], C.tipHint[2])
+  h.eq(last[2], ctx.ns.L["Right-click to delete it"])
   h.eq(ctx.errors, {})
 end)
 
@@ -1979,5 +2003,34 @@ h.test("wiring: the coin icons option re-lays the window out and redraws the amo
   ns.Options.set(ns.db, "coinIcons", true)
   h.eq(ns.UI.Ledger.list.pool[1].amount:GetText():find("|T", 1, true) ~= nil, true)
   ns.UI.Ledger.relayout = orig
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the resize grip hides while the window is locked", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local grip = ctx.ns.UI.Window.frame.grip
+  h.eq(grip:IsShown(), true)
+  ctx.ns.Options.set(ctx.ns.db, "lockWindow", true)
+  h.eq(grip:IsShown(), false)
+  ctx.ns.Options.set(ctx.ns.db, "lockWindow", false)
+  h.eq(grip:IsShown(), true)
+end)
+
+h.test("wiring: Scroll to new loot off keeps the Session list where it is", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  local function loot(id)
+    fire(ctx, "CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:" .. id .. "::::::::60:::::::::|h[I" .. id .. "]|h|r.")
+  end
+  for id = 1000, 1039 do loot(id) end
+  L.list:SetOffset(0)
+  ctx.ns.Options.set(ctx.ns.db, "followLoot", false)
+  loot(9999) -- sorts last (same value, name "Item9999")
+  h.eq(L.list.offset, 0)
+  ctx.ns.Options.set(ctx.ns.db, "followLoot", true)
+  loot(9998) -- a new row near the end
+  h.eq(L.list.offset > 0, true)
   h.eq(ctx.errors, {})
 end)

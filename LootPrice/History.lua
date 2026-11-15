@@ -26,6 +26,8 @@ local L_VENDOR = L["Vendor: "]
 local L_AH = L["AH: "]
 local L_BEST = L["Best: "]
 local L_GOLD = L["Raw gold: "]
+local L_CURRENCIES = L["Currencies: "]
+local L_CURRENCY = L["Currency "]
 
 local function copyPrice(p)
   if type(p) ~= "table" then return nil end
@@ -115,6 +117,19 @@ function History.add(list, entry, limit)
   return true
 end
 
+-- Removes the entry at `index` (1 = newest). Returns whether one was removed.
+function History.remove(list, index)
+  if type(list) ~= "table" or not num(index) or not list[index] then return false end
+  table.remove(list, index)
+  return true
+end
+
+-- Empties the list in place (the saved table stays the same table).
+function History.clear(list)
+  if type(list) ~= "table" then return end
+  for i = #list, 1, -1 do list[i] = nil end
+end
+
 -- Whether a saved entry is usable (the list lives in saved variables).
 function History.valid(e)
   return type(e) == "table" and num(e.startedAt) and num(e.elapsed) and num(e.gold)
@@ -132,6 +147,23 @@ function History.place(e)
   local places = type(e) == "table" and e.places
   if type(places) == "table" and type(places[1]) == "string" then return places[1] end
   return nil
+end
+
+-- The currencies of an entry as "Name x3, Other x1" (by name), or nil. The
+-- name comes from the saved link; `sep` joins the parts (default ", ").
+function History.currencyText(e, sep)
+  local list = {}
+  if type(e) ~= "table" or type(e.currencies) ~= "table" then return nil end
+  for id, c in pairs(e.currencies) do
+    if type(c) == "table" and num(c.qty) and c.qty > 0 then
+      local name = type(c.link) == "string" and c.link:match("%[(.-)%]") or (L_CURRENCY .. tostring(id))
+      list[#list + 1] = { name = name, qty = c.qty }
+    end
+  end
+  if #list == 0 then return nil end
+  table.sort(list, function(a, b) return a.name < b.name end)
+  for i, c in ipairs(list) do list[i] = c.name .. " x" .. c.qty end
+  return table.concat(list, sep or ", ")
 end
 
 -- "1h 12m", "12m", "45s".
@@ -163,6 +195,8 @@ function History.details(e, formatDate)
   if type(e.places) == "table" and #e.places > 0 then
     Tip.labelled(tip, L_PLACES, table.concat(e.places, ", "))
   end
+  local currencies = History.currencyText(e)
+  if currencies then Tip.labelled(tip, L_CURRENCIES, currencies) end
   local function money(label, amount)
     Tip.money(tip, label, amount, History.perHour(amount, e.elapsed))
   end
@@ -176,7 +210,7 @@ end
 -- ---------------------------------------------------------------------------
 -- CSV export
 
-History.CSV_HEADER = "start,duration_min,place,items,vendor_g,ah_g,best_g,raw_gold_g,best_plus_gold_per_hour_g"
+History.CSV_HEADER = "start,duration_min,place,items,vendor_g,ah_g,best_g,raw_gold_g,best_plus_gold_per_hour_g,currencies"
 
 local function csvField(text)
   text = tostring(text or "")
@@ -204,6 +238,7 @@ function History.csv(list, formatDate)
         tostring(e.nItems),
         goldNumber(e.vendor), goldNumber(e.ah), goldNumber(best), goldNumber(e.gold),
         rate and goldNumber(rate) or "",
+        csvField(History.currencyText(e, "; ") or ""),
       }, ",")
     end
   end

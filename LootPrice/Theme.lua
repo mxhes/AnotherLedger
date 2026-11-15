@@ -249,13 +249,14 @@ Theme.sizes = {
 -- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 (Start / Stop) + 40 (reset)
 -- + 20 (mode) + 20 (options) + 20 (close) = 138 plus four 2 px gaps = 146, timer
 -- 54 + 6 px gap, leaving ~120 px for the title (~95 px).
--- Row 2: quality 70 + min 44 + sort 78 + three 2 px gaps (plus ~8 px of
--- inset) = ~206, leaving ~120 px for the flexible search box.
+-- Row 2: quality 78 ("Quality 5/8") + min 44 + sort 78 + three 2 px gaps (plus
+-- ~8 px of inset) = ~214, leaving ~112 px for the flexible search box, ~92 px
+-- while the clear button (18 + 2) shows.
 -- minWidth 350 is the header's budget above; the footer table needs less
 -- (Summary.tableWorstWidth, ~278 px of the 326 px content width).
 Theme.widths = {
   header = { toggle = 38, reset = 40, hide = 20, options = 20, mode = 20 },
-  filter = { quality = 70, min = 44, sort = 78 },
+  filter = { quality = 78, min = 44, sort = 78, clear = 18 },
   tab = 72, -- tab buttons in header row 3
 }
 

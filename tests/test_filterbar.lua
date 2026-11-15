@@ -84,3 +84,15 @@ h.test("FilterBar sort cycling respects the allowed sorts", function()
   h.eq(F.repair({ sort = "perHour" }).sort, "perHour")
   h.eq(F.repair({ sort = "bogus" }).sort, "ah")
 end)
+
+h.test("FilterBar.qualityLabel counts the shown qualities, clear resets every filter", function()
+  local f = { qualities = { [0] = true, true, true, true, true, true, true, true }, minValue = 0, search = "" }
+  h.eq(F.qualityLabel(f), "Quality")
+  F.toggleQuality(f, 0); F.toggleQuality(f, 1)
+  h.eq(F.qualityLabel(f), "Quality 6/8")
+  f.minValue, f.search = 50000, "ore"
+  F.clear(f)
+  h.eq(F.qualityLabel(f), "Quality")
+  h.eq(f.minValue, 0); h.eq(f.search, "")
+  h.eq(F.isActive({ filter = f }), false)
+end)

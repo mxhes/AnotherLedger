@@ -32,16 +32,21 @@ shows while it is stopped.
 
 - **Header**: the session clock (red while stopped), **Start / Stop**,
   **Reset**, the layout arrow, the gear (options) and close.
-- **Filter bar**: quality, minimum value in gold, text search and the sort
-  (Value, Vendor, Name, Recent). Filters are remembered.
+- **Filter bar**: quality (the button shows how many are shown, e.g.
+  `Quality 6/8`), minimum value in gold, text search and the sort (Value,
+  Vendor, Name, Recent). Filters are remembered; the small x next to the sort
+  clears them all.
 - **Daily strip**: today's best farm (see below).
 - **Tabs**: Session, Bags, Bank and History (below).
 - **List**: one row per item: icon, name and quantity, and on the right its
   value with a tag saying where it comes from: `Vendor`, `Auction` or
-  `Destroy` (disenchant, mill or prospect). With TSM, a second line says how well it sells in your region.
+  `Destroy` (disenchant, mill or prospect). With TSM, a second line says how
+  well it sells in your region.
   A price taken from the cache shows its age, e.g. `(3h)`, in orange once it
-  is old; an item with no auction price is marked `?`. New loot flashes.
-  Hover a row for the item tooltip with all its values.
+  is old; an item with no auction price is marked `?`. New loot flashes (and
+  the Session list scrolls to it, see **Scroll to new loot**). Hover a row for
+  the item tooltip with all its values; Shift-click links the item in chat,
+  Ctrl-click tries it on. Top finds work the same way.
 - **Footer**: the value and gold per hour of your **Items**, the **Raw gold**
   you looted (creatures, containers, group shares, quest rewards) and the
   **Total**. Hover it for vendor / AH / best totals.
@@ -62,8 +67,9 @@ row and price. Currencies are listed after the items.
   and value. A session is saved when you reset it, when a new login starts a
   fresh one, or (option) when you enter or leave a dungeon. A session keeps the
   prices of the day it was saved, so its value doesn't change later. Click a
-  session to list its items; hover it for places, values and gold per hour.
-  `/lp export` copies the History as CSV for a spreadsheet.
+  session to list its items, right-click it to delete it; hover it for places,
+  currencies, values and gold per hour. `/lp export` copies the History as CSV
+  for a spreadsheet. **Clear History** (options) deletes all of it.
 - **History > Zones**: which places are worth farming. All sessions grouped by
   zone and subzone, each with its time, value and gold per hour (sort by
   **Gold/h**). Click a zone to open its subzones, a subzone to list its items.
@@ -88,14 +94,15 @@ value comes mostly from items that sell poorly is marked `slow selling`.
 
 Open them with the gear, a right-click on the minimap button, or Esc >
 Options > AddOns > LootPrice. Hover any option for what it does and its
-default. Changes apply at once.
+default. Changes apply at once. **Lock window** also hides the resize grip;
+anything that deletes History asks first.
 
 | Tab | Options |
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
-| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Top finds, Raw gold row, Compact: last drops, Item icons, Font, List text, Totals text, Section titles |
-| Session and alerts | Keep session, Drop alert (gold), Alert sound, Crafted and bought, Pause when AFK, Session per instance, Export History, History kept |
+| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Top finds, Raw gold row, Compact: last drops, Item icons, Scroll to new loot, Font, List text, Totals text, Section titles |
+| Session and alerts | Keep session, Drop alert (gold), Alert sound, Crafted and bought, Pause when AFK, Session per instance, Export History, Clear History, History kept |
 
 By default crafted items and purchases (vendor, mail, trade, auction house)
 are not counted as loot; **Crafted and bought** turns that on.

@@ -277,7 +277,11 @@ Options.define({
 })
 
 Options.define({ key = "lockWindow", category = "window", type = "checkbox", label = L["Lock window"],
-  tooltip = L["The window can't be moved or resized."] })
+  tooltip = L["The window can't be moved or resized."],
+  apply = function()
+    if ns.UI and ns.UI.Window and ns.UI.Window.applyLock then ns.UI.Window.applyLock() end
+  end,
+})
 
 Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden"],
   tooltip = L["The window stays closed at login. Open it with the minimap button or /lp."] })
@@ -506,6 +510,12 @@ Options.define({
   end,
 })
 
+-- Off: new loot only flashes its row when it is in view; the list stays put.
+Options.define({
+  key = "followLoot", category = "display", type = "checkbox", label = L["Scroll to new loot"],
+  tooltip = L["New loot scrolls the Session list to its row. Off keeps the list where it is; a row in view still flashes."],
+})
+
 -- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.
 Options.define({
   key = "fontFace", category = "display",
@@ -569,7 +579,22 @@ Options.define({
   end,
 })
 
--- How many finished sessions the History tab keeps. Lowering it prunes at once.
+Options.define({
+  key = "clearHistory", category = "session", type = "button", label = L["Clear History"],
+  tooltip = L["Deletes every session of your History, after asking. This can't be undone."],
+  action = function()
+    local history = ns.chardb and ns.chardb.history
+    if type(history) ~= "table" or #history == 0 or not (ns.UI and ns.UI.Widgets) then return end
+    ns.UI.Widgets.confirm(string.format(L["Delete all %d sessions of your History? This can't be undone."], #history),
+      L["Delete"], function()
+        ns.History.clear(history)
+        refreshUI()
+      end)
+  end,
+})
+
+-- How many finished sessions the History tab keeps. Lowering it asks first
+-- (in the panel), then prunes at once.
 Options.define({
   key = "historyLimit", category = "session",
   type = "number",

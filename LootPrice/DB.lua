@@ -47,6 +47,8 @@ DB.defaults = {
     compactDrops = 4,
     -- Item icon at the left of each list row.
     showIcons = true,
+    -- New loot scrolls the Session list to its row.
+    followLoot = true,
     -- TSM region sale info under the item name and its level cutoffs: sale
     -- rate (0..1) for good / ok, average sold per day for high / medium.
     showMarket = true,

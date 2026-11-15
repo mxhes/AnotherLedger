@@ -36,6 +36,7 @@ local NO_LOOKUP = {}
 
 local L_CLICK_OPEN = L["Click to show the items"]
 local L_CLICK_CLOSE = L["Click to collapse"]
+local L_RIGHT_DELETE = L["Right-click to delete it"]
 
 -- A tooltip (ns.Tooltip) with its click hint added at the bottom.
 local function withHint(tip, text)
@@ -365,7 +366,8 @@ function View.buildHistory(list, opts, openIndex)
         -- Line 2 of the row shows the session's best value (raw gold is in the hint).
         vendorTotal = e.vendor, ahTotal = e.ah, bestLineTotal = best,
         icon = "Interface\\Icons\\INV_Misc_Note_01",
-        hint = withHint(History.details(e, opts.formatDate), open and L_CLICK_CLOSE or L_CLICK_OPEN),
+        hint = withHint(withHint(History.details(e, opts.formatDate), open and L_CLICK_CLOSE or L_CLICK_OPEN),
+          L_RIGHT_DELETE),
         value = best, lastSeen = e.startedAt,
       }
       sessionRows[#sessionRows + 1] = row

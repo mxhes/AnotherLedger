@@ -177,6 +177,7 @@ function Summary.topLines(top, formatMoney)
       qty = "x" .. (tonumber(r.quantity) or 0),
       value = formatMoney(r.value),
       quality = r.quality,
+      link = r.link,
       tooltipLink = ns.UI.Rows and ns.UI.Rows.tooltipLink(r) or nil,
     }
   end
@@ -244,6 +245,8 @@ function Summary.attach(topBox, footer)
     row:EnableMouse(true)
     row:SetScript("OnEnter", function() W.showItemTooltip(row, entry.tooltipLink) end)
     row:SetScript("OnLeave", W.hideTooltip)
+    -- Shift / Ctrl-click: link in chat / try on, like a list row.
+    row:SetScript("OnMouseUp", function() ns.UI.Rows.modifiedClick(entry.link) end)
     summary.rows[i] = entry
   end
 
@@ -390,7 +393,7 @@ function Summary.attach(topBox, footer)
         w.name:SetText(l.name)
         w.qty:SetText(l.qty)
         w.value:SetText(l.value)
-        w.tooltipLink = l.tooltipLink
+        w.tooltipLink, w.link = l.tooltipLink, l.link
         w.frame:Show()
       else
         w.frame:Hide()

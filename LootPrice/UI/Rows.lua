@@ -313,6 +313,16 @@ local function showTooltip(f)
   return W.showTextTooltip(f, f.tooltipText)
 end
 
+-- A modified click (Shift: link in chat, Ctrl: try on, as the game's bags)
+-- on a real item or currency link. Returns whether the game handled it.
+-- UNVERIFIED (check in client): IsModifiedClick / HandleModifiedItemClick on Forever.
+function Rows.modifiedClick(link)
+  if type(link) ~= "string" or link == "" then return false end
+  if type(IsModifiedClick) ~= "function" or not IsModifiedClick() then return false end
+  if type(HandleModifiedItemClick) ~= "function" then return false end
+  return HandleModifiedItemClick(link) and true or false
+end
+
 local function itemIcon(itemID)
   local icon
   if C_Item and C_Item.GetItemIconByID then icon = C_Item.GetItemIconByID(itemID) end
@@ -457,10 +467,12 @@ local function createRow(parent, owner)
   -- Item tooltip while the mouse is over the row.
   f:EnableMouse(true)
   f:SetScript("OnEnter", showTooltip)
-  -- History rows open their session (list.onRowClick is set by the controller).
-  f:SetScript("OnMouseUp", function(self)
+  -- Shift / Ctrl-click: the game's link-in-chat / try-on; otherwise History
+  -- and Zones rows open (list.onRowClick is set by the controller).
+  f:SetScript("OnMouseUp", function(self, button)
+    if not self.row or Rows.modifiedClick(self.row.link) then return end
     local o = self.owner
-    if o and o.onRowClick and self.row then o.onRowClick(self.row) end
+    if o and o.onRowClick then o.onRowClick(self.row, button) end
   end)
   f:SetScript("OnLeave", ns.UI.Widgets.hideTooltip)
   return f

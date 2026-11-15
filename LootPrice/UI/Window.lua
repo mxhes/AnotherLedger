@@ -331,6 +331,7 @@ local function build(db)
   frame.footer = footer
   frame.grip = grip
   frame.compact = compactArea
+  grip:SetShown(not locked())
 
   Window.db = db
   -- The scale first: the saved position and size are in the scaled units.
@@ -359,6 +360,12 @@ function Window.applyScale()
   end
   ensureOnScreen(frame)
   save()
+end
+
+-- Option "lockWindow": the resize grip only shows while the window can be resized.
+function Window.applyLock()
+  local frame = Window.frame
+  if frame and frame.grip then frame.grip:SetShown(not locked()) end
 end
 
 -- Creates the window once; later calls return the same frame.

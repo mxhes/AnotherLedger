@@ -13,9 +13,9 @@ h.test("Options: the built-in options are registered in panel order", function()
     "keepSession", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "coinIcons", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
-    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showTopFinds", "showFooterGold", "compactDrops", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showTopFinds", "showFooterGold", "compactDrops", "showIcons", "followLoot", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
-    "exportHistory", "historyLimit" })
+    "exportHistory", "clearHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
     if s.type ~= "button" then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end

@@ -312,11 +312,17 @@ local pendingFlash = {} -- [itemID] = level
 local lastFlashed
 local flashScheduled = false
 
+-- Option "followLoot": only the Session list scrolls to new loot.
+local function followLoot()
+  if Ledger.tab ~= "session" or Ledger.mode ~= "full" then return false end
+  return not (ns.Options and ns.db) or ns.Options.get(ns.db, "followLoot") ~= false
+end
+
 local function flushFlashes()
   flashScheduled = false
   Ledger.refresh()
   if windowShown() then
-    if lastFlashed then list:ScrollToItem(lastFlashed) end
+    if lastFlashed and followLoot() then list:ScrollToItem(lastFlashed) end
     for key, level in pairs(pendingFlash) do list:Flash(key, level) end
   end
   for key in pairs(pendingFlash) do pendingFlash[key] = nil end
@@ -467,6 +473,27 @@ function Ledger.toggleHistory(index)
   Ledger.refresh()
 end
 
+local L_DELETE = ns.L["Delete"]
+local L_DELETE_ONE = ns.L["Delete this session from History? This can't be undone."]
+
+-- History tab, right-click on a session: asks, then deletes it. The opened
+-- session stays open (its index moves when a newer one goes).
+function Ledger.deleteHistory(index)
+  local history = ns.chardb and ns.chardb.history
+  if not ns.History.remove(history, index) then return end
+  local open = Ledger.historyIndex
+  if open == index then
+    Ledger.historyIndex = nil
+  elseif open and open > index then
+    Ledger.historyIndex = open - 1
+  end
+  Ledger.refresh()
+end
+
+function Ledger.requestDeleteHistory(index)
+  ns.UI.Widgets.confirm(L_DELETE_ONE, L_DELETE, function() Ledger.deleteHistory(index) end)
+end
+
 -- Data of kind `what` ("bags", "bank") changed: tabs caching it forget their
 -- copy. Returns whether the shown tab needs a refresh for it.
 function Ledger.dataChanged(what)
@@ -514,9 +541,13 @@ function Ledger.init()
   end
   list = Rows.attach(frame.listArea, applyMinWidth)
   Ledger.list = list
-  list.onRowClick = function(row)
+  list.onRowClick = function(row, button)
     if row.historyIndex then
-      Ledger.toggleHistory(row.historyIndex)
+      if button == "RightButton" then
+        Ledger.requestDeleteHistory(row.historyIndex)
+      else
+        Ledger.toggleHistory(row.historyIndex)
+      end
     elseif row.zoneKey then
       Ledger.toggleZone(row.zoneKey, row.subKey)
     end

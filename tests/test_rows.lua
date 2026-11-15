@@ -234,3 +234,16 @@ h.test("worstCase: nil / zero measured fields use the Theme fallbacks", function
   h.eq(c.labelW, S.rowSourceW); h.eq(c.amountW, S.rowVendorColW); h.eq(c.tagW, S.rowTagW); h.eq(c.qtyW, S.rowQtyW)
   h.eq(R.worstCase({ source = 0, tag = 40, amount = 98, qtyWorst = 30 }).labelW, S.rowSourceW)
 end)
+
+h.test("Rows.modifiedClick hands a real link to the game only on a modified click", function()
+  local handled
+  _G.HandleModifiedItemClick = function(link) handled = link return true end
+  _G.IsModifiedClick = function() return false end
+  h.eq(ns.UI.Rows.modifiedClick("|Hitem:1|h[A]|h"), false)
+  _G.IsModifiedClick = function() return true end
+  h.eq(ns.UI.Rows.modifiedClick(nil), false) -- History / Zones rows have no link
+  h.eq(handled, nil)
+  h.eq(ns.UI.Rows.modifiedClick("|Hitem:1|h[A]|h"), true)
+  h.eq(handled, "|Hitem:1|h[A]|h")
+  _G.HandleModifiedItemClick, _G.IsModifiedClick = nil, nil
+end)

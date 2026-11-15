@@ -93,7 +93,8 @@ end)
 h.test("History.csv: header plus one line per valid session", function()
   local list = {
     { startedAt = 1, elapsed = 3600, gold = 10000, nItems = 2, vendor = 5000, ah = 20000, best = 30000,
-      places = { "A, B", "C" }, items = {} },
+      places = { "A, B", "C" }, items = {},
+      currencies = { [3] = { id = 3, qty = 2, link = "|Hcurrency:3|h[Valor]|h" }, [1] = { id = 1, qty = 5 } } },
     "junk",
     { startedAt = 2, elapsed = 30, gold = 0, nItems = 0, vendor = 0, ah = 0, items = {} },
   }
@@ -102,8 +103,8 @@ h.test("History.csv: header plus one line per valid session", function()
   for line in (csv .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
   h.eq(#lines, 3)
   h.eq(lines[1], ns.History.CSV_HEADER)
-  h.eq(lines[2], 'day1,60.0,"A, B; C",2,0.5000,2.0000,3.0000,1.0000,4.0000')
-  h.eq(lines[3], "day2,0.5,,0,0.0000,0.0000,0.0000,0.0000,")
+  h.eq(lines[2], 'day1,60.0,"A, B; C",2,0.5000,2.0000,3.0000,1.0000,4.0000,Currency 1 x5; Valor x2')
+  h.eq(lines[3], "day2,0.5,,0,0.0000,0.0000,0.0000,0.0000,,")
 end)
 
 h.test("History.details: lines for when, where and the rates", function()
@@ -111,6 +112,13 @@ h.test("History.details: lines for when, where and the rates", function()
   local tip = ns.History.details(e, function() return "D" end)
   h.eq(tip.title, "D")
   h.eq(ns.Tooltip.text(tip), "D\n2h 0m, 3 items\nPlaces: X\nVendor: 0c  (0c/h)\nAH: 4g  (2g/h)\nBest: 4g  (2g/h)\nRaw gold: 2g  (1g/h)")
+end)
+
+h.test("History.details lists the currencies of a session", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, items = {},
+    currencies = { [9] = { id = 9, qty = 3, link = "|Hcurrency:9|h[Kej]|h" } } }
+  h.eq(ns.Tooltip.text(ns.History.details(e)):find("Currencies: Kej x3", 1, true) ~= nil, true)
+  h.eq(ns.History.currencyText({ currencies = {} }), nil)
 end)
 
 h.test("History.snapshot keeps the time and loot per place", function()

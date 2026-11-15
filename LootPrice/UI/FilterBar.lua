@@ -15,6 +15,7 @@ local L_QUALITY = L["Quality"]
 local L_MIN_HINT = L["Min g"]
 local L_SEARCH_HINT = L["Search"]
 local L_SORT_PREFIX = L["Sort: "]
+local L_CLEAR = L["Clear the filters"]
 local QUALITY_NAMES = {
   [0] = L["Poor"], L["Common"], L["Uncommon"], L["Rare"], L["Epic"], L["Legendary"],
   L["Artifact"], L["Heirloom"],
@@ -66,6 +67,26 @@ function FilterBar.toggleQuality(filter, q)
   if type(q) ~= "number" or q < MIN_QUALITY or q > MAX_QUALITY or q ~= math.floor(q) then return end
   if type(filter.qualities) ~= "table" then filter.qualities = fullSet() end
   filter.qualities[q] = not filter.qualities[q]
+end
+
+-- Quality button text: "Quality", or "Quality 5/8" while some are hidden.
+function FilterBar.qualityLabel(filter)
+  local set = type(filter) == "table" and filter.qualities
+  if type(set) ~= "table" then return L_QUALITY end
+  local on, all = 0, MAX_QUALITY - MIN_QUALITY + 1
+  for q = MIN_QUALITY, MAX_QUALITY do
+    if set[q] then on = on + 1 end
+  end
+  if on == all then return L_QUALITY end
+  return L_QUALITY .. " " .. on .. "/" .. all
+end
+
+-- Clears every filter: all qualities, no minimum, no search.
+function FilterBar.clear(filter)
+  if type(filter) ~= "table" then return end
+  filter.qualities = fullSet()
+  filter.minValue = 0
+  filter.search = ""
 end
 
 local function offers(sorts, key)
@@ -215,9 +236,29 @@ function FilterBar.attach(row, db, onChange)
   end)
   FilterBar.sortButton, FilterBar.sortDb = sort, db
 
+  -- Clear button left of the sort, only while a filter is active; the search
+  -- box stretches up to it (or to the sort while it is hidden).
   local search = makeEdit(row, L_SEARCH_HINT, 100)
-  search:SetPoint("LEFT", minBox, "RIGHT", gap + 2, 0)
-  search:SetPoint("RIGHT", sort, "LEFT", -gap - 2, 0)
+  local clear = ns.UI.Widgets.iconButton(row, "close", widths().clear, function()
+    FilterBar.clear(getFilter())
+    search:SetText("")
+    minBox:SetText("")
+    changed()
+  end)
+  clear:SetPoint("RIGHT", sort, "LEFT", -gap, 0)
+  clear.onEnter = function(self) ns.UI.Widgets.showTextTooltip(self, L_CLEAR, "ANCHOR_BOTTOMRIGHT") end
+  clear.onLeave = ns.UI.Widgets.hideTooltip
+  clear:Hide()
+  local searchTo
+  local function placeSearch(active)
+    local to = active and clear or sort
+    if to == searchTo then return end
+    searchTo = to
+    search:ClearAllPoints()
+    search:SetPoint("LEFT", minBox, "RIGHT", gap + 2, 0)
+    search:SetPoint("RIGHT", to, "LEFT", -gap - 2, 0)
+  end
+  placeSearch(false)
 
   -- Minimum value: applied on Enter / focus lost (Enter clears focus).
   minBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
@@ -246,6 +287,7 @@ function FilterBar.attach(row, db, onChange)
   search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 
   bar.quality, bar.minBox, bar.search, bar.sort, bar.underline = quality, minBox, search, sort, underline
+  bar.clear = clear
 
   -- Ledger part: re-sync the widgets from db (never calls onChange).
   local part = {}
@@ -261,7 +303,11 @@ function FilterBar.attach(row, db, onChange)
     minBox:RefreshHint()
     search:RefreshHint()
     sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts))
-    underline:SetShown(FilterBar.isActive(db))
+    local active = FilterBar.isActive(db)
+    underline:SetShown(active)
+    clear:SetShown(active)
+    placeSearch(active)
+    quality:SetText(FilterBar.qualityLabel(f))
   end
   if ns.UI.Ledger then ns.UI.Ledger.register(part) end
 

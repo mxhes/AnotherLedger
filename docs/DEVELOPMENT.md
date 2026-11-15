@@ -121,6 +121,8 @@ Each of these is one call in one place; the UI never names them.
 - **Confirmations** go through `Widgets.confirm(text, button, onAccept,
   onCancel)` (one shared popup). An option can ask before a value is stored
   with `confirm = function(value) return question or nil end` (History kept).
+- **CSV export** (`History.csv`): one line per session, amounts in gold with
+  four decimals, the last column the currencies (`Name x3; Other x1`).
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
   gold when `includeGold` is on; the last drops come from `session.recent`.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts

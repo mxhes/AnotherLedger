@@ -68,6 +68,10 @@ and remove both once it is confirmed.
   (`PLAYER_FLAGS_CHANGED`, `UnitIsAFK`).
 - [ ] Waypoint on a map that allows no pin (a cave sub-map) without TomTom:
   none is set and chat says `No waypoint could be set.`
+- [ ] Shift-click on a row or a Top find links the item in chat, Ctrl-click
+  tries it on (`IsModifiedClick`, `HandleModifiedItemClick`).
+- [ ] Right-click on a History session asks, then deletes it; **Clear History**
+  and lowering **History kept** ask first (`StaticPopup_Show`).
 - [ ] `/lp export` and **Export History**: the copy box
   (`UIPanelScrollFrameTemplate`) shows the CSV selected, Ctrl+C copies it, Esc
   closes it.

@@ -444,7 +444,8 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
   local v = ns.View.buildHistory(list, opts, 2)
   h.eq(#v.rows, 4)
   h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D  2m")
-  h.eq(tipText(v.rows[1]):match("[^\n]+$"), "Click to collapse")
+  h.eq(tipText(v.rows[1]):match("([^\n]+)\n[^\n]+$"), "Click to collapse")
+  h.eq(tipText(v.rows[1]):match("[^\n]+$"), "Right-click to delete it")
   h.eq(v.rows[2].id, 7); h.eq(v.rows[2].ahTotal, 2000) -- items, best AH value first
   h.eq(v.rows[3].id, 8)
   h.eq(v.rows[4].historyIndex, 1) -- the other session follows
