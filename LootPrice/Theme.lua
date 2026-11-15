@@ -10,7 +10,10 @@ Theme.textures = {
   -- its curve (sizes.backdropInset), so the corners read round.
   frameBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
-  resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
+  -- Daily farm strip: a gold star.
+  -- UNVERIFIED (check in client): the texture exists on Forever.
+  dailyFarm = "Interface\\Common\\ReputationStar",
+  resizeGrip ="Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
   -- Options button: a gear-like trade icon, present in every client.
   optionsIcon = "Interface\\Icons\\Trade_Engineering",
   buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
@@ -48,6 +51,8 @@ Theme.colors = {
   sectionTitle = { 1, 1, 1, 1 },
   -- Label of the line that holds a row's value (best of vendor / AH / DE).
   best = { 1.00, 0.82, 0.00, 1 },
+  -- Daily farm strip text (header row between the filters and the tabs).
+  dailyFarm = { 1.00, 0.82, 0.00, 1 },
   -- The in-game gold (ffd100).
   gold = { 1.00, 0.82, 0.00, 1 },
   -- Bright gold for lines (divider, edge, filter underline); not for text.
@@ -110,6 +115,8 @@ Theme.sizes = {
   padding = 8,
   headerHeight = 84, -- three header rows: title/buttons, filters, tabs
   headerRowHeight = 28,
+  -- Star in front of the Daily farm strip.
+  dailyFarmIcon = 16,
   -- Footer = the value table: a column-title line and the rows Items / Raw gold
   -- / Total, footerRowHeight each; footerHeight = 4 lines (the full session table).
   -- Summary.tableLayout gives the real height per view.

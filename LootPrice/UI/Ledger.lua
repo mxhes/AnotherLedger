@@ -464,6 +464,10 @@ function Ledger.init()
     Ledger.tabs = UI.Tabs.attach(frame.header.row3, Ledger.setTab)
   end)
 
+  attach(UI.DailyFarm, function()
+    UI.DailyFarm.attach(frame.header.rowFarm)
+  end)
+
   -- One sub-tab strip per tab that has sub-tabs, on header row 4.
   attach(UI.Tabs, function()
     Ledger.subtabStrips = {}

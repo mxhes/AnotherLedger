@@ -10,6 +10,7 @@ ns.UI.Window = Window
 
 local TITLE = L["Session Ledger"]
 local TOPBOX_EMPTY = 0.001     -- zero-height frames anchor badly; keep a hair
+local COLLAPSED_ROW = TOPBOX_EMPTY -- height of the hidden Daily farm row
 
 local function theme() return ns.Theme end
 
@@ -200,7 +201,12 @@ local function build(db)
   end)
   header.row1 = makeRow(header, nil, true)
   header.row2 = makeRow(header, header.row1, false)
-  header.row3 = makeRow(header, header.row2, false)
+  -- Daily farm strip between the filters and the tabs, only while there is a
+  -- pick (Window.setFarmRow); collapsed to (almost) no height while hidden.
+  header.rowFarm = makeRow(header, header.row2, false)
+  header.rowFarm:SetHeight(COLLAPSED_ROW)
+  header.rowFarm:Hide()
+  header.row3 = makeRow(header, header.rowFarm, false)
   -- Row 4: sub-tabs (History: Sessions / Zones), only while the shown tab has
   -- them (Window.setSubtabRow).
   header.row4 = makeRow(header, header.row3, false)
@@ -335,12 +341,42 @@ end
 -- follows by anchoring.
 -- UNVERIFIED (check in client): the list area reflows live when the header
 -- height changes.
+local optionalRows = { subtab = false, farm = false }
+
+-- Pure. Header height: the three fixed rows plus each optional row shown.
+function Window.headerHeight(subtab, farm)
+  local S = theme().sizes
+  local h = S.headerHeight
+  if subtab then h = h + S.headerRowHeight end
+  if farm then h = h + S.headerRowHeight end
+  return h
+end
+
+local function applyHeaderHeight()
+  local frame = Window.frame
+  if not (frame and frame.header) then return end
+  frame.header:SetHeight(Window.headerHeight(optionalRows.subtab, optionalRows.farm))
+end
+
 function Window.setSubtabRow(shown)
   local frame = Window.frame
   if not (frame and frame.header and frame.header.row4) then return end
-  local S = theme().sizes
-  frame.header:SetHeight(S.headerHeight + (shown and S.headerRowHeight or 0))
-  frame.header.row4:SetShown(shown and true or false)
+  optionalRows.subtab = shown and true or false
+  frame.header.row4:SetShown(optionalRows.subtab)
+  applyHeaderHeight()
+end
+
+-- Shows or hides the Daily farm row (between the filters and the tabs).
+-- UNVERIFIED (check in client): a row collapsed to COLLAPSED_ROW px keeps the
+-- tab row right under the filters.
+function Window.setFarmRow(shown)
+  local frame = Window.frame
+  if not (frame and frame.header and frame.header.rowFarm) then return end
+  optionalRows.farm = shown and true or false
+  local row = frame.header.rowFarm
+  row:SetHeight(optionalRows.farm and theme().sizes.headerRowHeight or COLLAPSED_ROW)
+  row:SetShown(optionalRows.farm)
+  applyHeaderHeight()
 end
 
 function Window.setTitle(text)
