@@ -2034,3 +2034,38 @@ h.test("wiring: Scroll to new loot off keeps the Session list where it is", func
   h.eq(L.list.offset > 0, true)
   h.eq(ctx.errors, {})
 end)
+
+h.test("Core.missingGold: only money no message counted", function()
+  local ctx = boot()
+  local m = ctx.ns.Core.missingGold
+  h.eq(m(100, 600, 500), 0) -- the message had it all
+  h.eq(m(100, 600, 200), 300)
+  h.eq(m(100, 50, 0), 0) -- money spent: nothing looted
+  h.eq(m(nil, 600, 0), 0)
+end)
+
+h.test("wiring: money looted without a known message counts once", function()
+  local ctx = boot()
+  local money = 10000
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local S = ctx.ns.session
+  -- A message form the parser does not know: the money change counts.
+  fire(ctx, "LOOT_OPENED")
+  money = money + 2500
+  fire(ctx, "CHAT_MSG_MONEY", "Something new: 25 Silver")
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(S.gold, 2500)
+  -- A known message: counted once, not again from the money change.
+  fire(ctx, "LOOT_OPENED")
+  money = money + 300
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 3 Silver")
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(S.gold, 2800)
+  -- Without GetMoney nothing happens.
+  ctx.env.GetMoney = nil
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(S.gold, 2800)
+  h.eq(ctx.errors, {})
+end)

@@ -100,8 +100,11 @@ Each of these is one call in one place; the UI never names them.
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
   `LOOT_MONEY_SPLIT`, the first amount of `YOU_LOOT_MONEY_GUILD` and
-  `LOOT_MONEY_SPLIT_GUILD`) and
-  `QUEST_TURNED_IN`; filters never touch it.
+  `LOOT_MONEY_SPLIT_GUILD`) and `QUEST_TURNED_IN`; filters never touch it.
+  Backstop: between `LOOT_OPENED` and one second after `LOOT_CLOSED`, a rise
+  of `GetMoney()` beyond what the messages counted is recorded too
+  (`Core.missingGold`), so a message form the parser does not know still
+  counts, and never twice.
 - **Places**: each loot and gold event notes its zone (an instance with its
   difficulty is a zone of its own) and subzone, and, outside instances, the
   map position. Time per place only counts while the clock runs. Sessions
@@ -150,7 +153,7 @@ Each of these is one call in one place; the UI never names them.
 ## Events
 
 `CHAT_MSG_LOOT`, `CHAT_MSG_MONEY`, `CHAT_MSG_CURRENCY`, `QUEST_TURNED_IN`,
-`GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
+`GET_ITEM_INFO_RECEIVED`, `LOOT_OPENED` / `LOOT_CLOSED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
 `BAG_UPDATE_DELAYED`, `BANKFRAME_OPENED` / `BANKFRAME_CLOSED`,
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,

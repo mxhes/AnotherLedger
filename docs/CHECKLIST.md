@@ -49,7 +49,10 @@ and remove both once it is confirmed.
 
 ## Raw gold
 
-- [ ] Gold from a creature and from a container lands in Raw gold.
+- [ ] Gold from a creature and from a container lands in Raw gold, once.
+- [ ] Backstop: with the money message unparsed (e.g. another client
+  language), looted gold still counts once (`LOOT_OPENED`, `LOOT_CLOSED`,
+  `GetMoney`; the money arrives before `LOOT_CLOSED` + 1 s).
 - [ ] Group play: a split (`Your share of the loot is ...`) counts once.
   **Open:** shared group gold was reported as not counted. A likely cause was
   the split with a guild share (`LOOT_MONEY_SPLIT_GUILD`, `Your share of the

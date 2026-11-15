@@ -24,6 +24,10 @@ local bankOpen = false
 -- (their "You receive item" messages are not loot). [event base] = open.
 local tradeWindows = {}
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
+-- The open loot window: { money = GetMoney() at opening, chat = copper the
+-- money messages counted since }, or nil (see "Raw gold backstop").
+local lootWindow
+local LOOT_SETTLE_SECONDS = 1 -- late PLAYER_MONEY / chat after the window closed
 
 -- ---------------------------------------------------------------------------
 -- UI notifications
@@ -342,7 +346,36 @@ end
 local function onMoneyMessage(text)
   if not moneyPatterns then moneyPatterns = ns.LootParse.compileMoney(_G) end
   local copper = ns.LootParse.parseMoney(moneyPatterns, text)
-  if copper then Core.recordGold(copper) end
+  if not copper then return end
+  if lootWindow then lootWindow.chat = lootWindow.chat + copper end
+  Core.recordGold(copper)
+end
+
+-- ---------------------------------------------------------------------------
+-- Raw gold backstop: money looted while a loot window was open that no money
+-- message accounted for (a message form LootParse does not know, another
+-- client language) is counted from the change of the player's money.
+
+-- Pure. Copper gained during a loot window beyond what the messages counted;
+-- 0 when nothing is missing or the amounts are unusable.
+function Core.missingGold(startMoney, endMoney, chatCopper)
+  local num = ns.Util.isNumber
+  if not (num(startMoney) and num(endMoney)) then return 0 end
+  local missing = (endMoney - startMoney) - (num(chatCopper) and chatCopper or 0)
+  return missing > 0 and math.floor(missing) or 0
+end
+
+local function currentMoney()
+  if type(GetMoney) ~= "function" then return nil end
+  local ok, v = pcall(GetMoney)
+  return ok and v or nil
+end
+
+-- Closes the bookkeeping of `window` and records what the messages missed.
+local function settleLoot(window)
+  if lootWindow == window then lootWindow = nil end
+  local missing = Core.missingGold(window.money, currentMoney(), window.chat)
+  if missing > 0 then Core.recordGold(missing) end
 end
 
 -- ---------------------------------------------------------------------------
@@ -530,6 +563,28 @@ end
 for _, base in ipairs({ "MERCHANT", "MAIL", "TRADE", "AUCTION_HOUSE" }) do
   events[base .. "_SHOW"] = function() tradeWindows[base] = true end
   events[base .. "_CLOSED"] = function() tradeWindows[base] = nil end
+end
+
+-- Loot window (raw gold backstop). A window that opens before the last one
+-- settled settles that one first.
+-- UNVERIFIED (check in client): LOOT_OPENED / LOOT_CLOSED and GetMoney on
+-- Forever, and that looted money arrives before LOOT_CLOSED + 1 s.
+function events.LOOT_OPENED()
+  if lootWindow then settleLoot(lootWindow) end
+  local money = currentMoney()
+  if money and ns.session then lootWindow = { money = money, chat = 0 } end
+end
+
+function events.LOOT_CLOSED()
+  local window = lootWindow
+  if not window then return end
+  if C_Timer and C_Timer.After then
+    C_Timer.After(LOOT_SETTLE_SECONDS, function()
+      if lootWindow == window then settleLoot(window) end
+    end)
+  else
+    settleLoot(window)
+  end
 end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
