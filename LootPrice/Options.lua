@@ -347,6 +347,21 @@ Options.define({
   end,
 })
 
+-- Coin icons in place of g / s / c; the window's minimum width follows (an
+-- icon is wider than a letter), so the sizes are re-applied too.
+Options.define({
+  key = "coinIcons", category = "display", type = "checkbox",
+  label = L["Coin icons instead of g / s / c"],
+  apply = function(v)
+    if ns.Money then ns.Money.setIcons(v) end
+    -- New minimum width, and the rows measure their amount column again.
+    local UI = ns.UI
+    if UI and UI.Fonts and UI.Fonts.applySizes and ns.db then UI.Fonts.applySizes(ns.db) end
+    if UI and UI.Ledger and UI.Ledger.relayout then UI.Ledger.relayout() end
+    refreshUI()
+  end,
+})
+
 Options.define({
   key = "includeGold", category = "display", type = "checkbox", label = L["Add raw gold to the combined total"], apply = refreshUI,
 })

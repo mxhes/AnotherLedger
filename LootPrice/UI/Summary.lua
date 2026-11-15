@@ -141,13 +141,19 @@ end
 -- Estimated width of the widest table line: an 11-character label
 -- ("Gegenstände"), a 15-character value ("123456g 78s 90c") and a 14-character
 -- rate ("999g 59s 59c/h") in the summary font, with 6 and 8 px gaps.
+-- With coin icons each of the three units is about two glyphs wide instead of
+-- one letter: one more glyph per unit in the value and in the rate.
+local function iconExtra()
+  return (ns.Money.iconsOn and ns.Money.iconsOn()) and 3 or 0
+end
+
 function Summary.tableWorstWidth()
-  return (11 + 15 + 14) * ns.Theme.sizes.summaryCharPx + 6 + 8
+  return (11 + 15 + 14 + 2 * iconExtra()) * ns.Theme.sizes.summaryCharPx + 6 + 8
 end
 
 -- Width of the /h column: the 14-character worst-case rate.
 local function rateColumnWidth()
-  return 14 * ns.Theme.sizes.summaryCharPx
+  return (14 + iconExtra()) * ns.Theme.sizes.summaryCharPx
 end
 
 -- ---------------------------------------------------------------------------

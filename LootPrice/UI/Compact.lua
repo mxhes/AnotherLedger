@@ -105,7 +105,7 @@ function Compact.attach(area)
   perHour:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
   if perHour.SetWordWrap then perHour:SetWordWrap(false) end
   local total = W.text(area, T.fonts.compactMid, T.colors.ink, "RIGHT")
-  total:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -6)
+  total:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -3)
   total:SetPoint("LEFT", perHour, "RIGHT", S.rowNameGap, 0)
   if total.SetWordWrap then total:SetWordWrap(false) end
   Compact.perHour, Compact.total = perHour, total

@@ -128,6 +128,7 @@ ns.Locale.register("deDE", {
   ["Gold, silver and copper"] = "Gold, Silber und Kupfer",
   ["Gold and silver"] = "Gold und Silber",
   ["Gold only"] = "Nur Gold",
+  ["Coin icons instead of g / s / c"] = "Münzsymbole statt g / s / c",
   ["Add raw gold to the combined total"] = "Rohgold zur Gesamtsumme zählen",
   ["Show currencies in the list"] = "Währungen in der Liste zeigen",
   ["Show the daily farm"] = "Tagesfarm zeigen",

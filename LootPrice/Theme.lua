@@ -44,7 +44,9 @@ Theme.fonts = {
   summaryMarker = "GameFontHighlightSmall",
   topHeader = "GameFontHighlightLarge",
   -- Compact mode: the gold per hour (large) and the session total.
-  compactBig = "GameFontNormalHuge",
+  -- Large (about 16 px), not Huge: with coin icons a Huge rate pushed the
+  -- session total out of the window.
+  compactBig = "GameFontNormalLarge",
   compactMid = "GameFontHighlight",
   tab = "GameFontHighlight", -- tab labels, white (dimmed through colors.tabText)
   topRow = "GameFontHighlight",

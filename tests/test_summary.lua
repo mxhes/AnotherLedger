@@ -141,3 +141,15 @@ h.test("tableLayout: showFooterGold off drops the Raw gold row", function()
   ns.Options, ns.db = nil, nil
   assert(ok, err)
 end)
+
+h.test("table worst case still fits the minimum width with coin icons", function()
+  local T = ns.Theme.sizes
+  local plain = S.tableWorstWidth()
+  M.setIcons(true)
+  local ok, err = pcall(function()
+    h.eq(S.tableWorstWidth() > plain, true)
+    h.eq(S.tableWorstWidth() <= T.minWidth - 2 * (T.padding + 4), true)
+  end)
+  M.setIcons(false)
+  assert(ok, err)
+end)

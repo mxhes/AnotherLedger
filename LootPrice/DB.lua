@@ -26,6 +26,8 @@ DB.defaults = {
     startHidden = false,
     defaultSort = "ah",
     goldDisplay = "full",
+    -- The game's coin icons in place of the g / s / c letters.
+    coinIcons = true,
     includeGold = true,
     refreshSeconds = 30,
     staleHours = 12,

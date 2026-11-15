@@ -1020,7 +1020,11 @@ h.test("wiring: lock, scale, start hidden, gold display, sort and stale options 
   ns.Options.set(ns.db, "staleHours", 2)
   h.eq(ns.Prices.STALE_AFTER, 7200)
   ns.Options.set(ns.db, "goldDisplay", "gold")
+  h.eq(ns.Money.format(12345678), "1234" .. ns.Money.ICONS.gold) -- coin icons by default
+  ns.Options.set(ns.db, "coinIcons", false)
   h.eq(ns.Money.format(12345678), "1234g")
+  ns.Options.set(ns.db, "coinIcons", true)
+  h.eq(ns.Money.format(12345678), "1234" .. ns.Money.ICONS.gold)
   ns.Options.set(ns.db, "windowScale", 0.8)
   -- the minimap reset button restores the default angle
   ns.db.settings.minimapAngle = 10
@@ -1863,5 +1867,25 @@ h.test("wiring: Zones follows History pruning", function()
   L.refresh()
   h.eq(#L.view.rows, 1)
   h.eq(L.view.rows[1].zoneKey, "Azure Span")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the coin icons option re-lays the window out and redraws the amounts", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  h.eq(ns.Money.iconsOn(), true) -- the default, applied at login
+  local relayouts, orig = 0, ns.UI.Ledger.relayout
+  ns.UI.Ledger.relayout = function(...) relayouts = relayouts + 1; return orig(...) end
+  ns.Options.set(ns.db, "coinIcons", false)
+  h.eq(ns.Money.iconsOn(), false)
+  h.eq(relayouts, 1)
+  local amount = ns.UI.Ledger.list.pool[1].amount:GetText()
+  h.eq(amount ~= "", true)
+  h.eq(amount:find("|T", 1, true), nil)
+  ns.Options.set(ns.db, "coinIcons", true)
+  h.eq(ns.UI.Ledger.list.pool[1].amount:GetText():find("|T", 1, true) ~= nil, true)
+  ns.UI.Ledger.relayout = orig
   h.eq(ctx.errors, {})
 end)

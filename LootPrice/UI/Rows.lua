@@ -136,7 +136,7 @@ end
 
 -- Worst-case sample strings measured at runtime (plain text: color escapes
 -- are not drawn, so they do not count toward the width).
-local SAMPLE_AMOUNT = "123456g 78s 90c"
+local SAMPLE_AMOUNT = 1234567890 -- copper: "123456g 78s 90c" (or with coin icons)
 local SAMPLE_TAG = "(999d)"
 local SAMPLE_QTY = "x9999"
 
@@ -569,7 +569,7 @@ function Rows.attach(area, onMeasure)
       -- The widest source tag with its frame, so the tags line up.
       source = srcW and srcW + 2 * T.sizes.rowTagPad or nil,
       tag = width(SAMPLE_TAG),
-      amount = width(SAMPLE_AMOUNT),
+      amount = width(ns.Money.format(SAMPLE_AMOUNT)),
       qtyWorst = width(SAMPLE_QTY, qtyProbe),
     }
     local old = self.measured

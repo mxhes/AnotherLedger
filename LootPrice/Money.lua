@@ -28,21 +28,39 @@ local function split(copper)
   return sign, g, sv, c
 end
 
+-- Option "coinIcons": the game's coin icons (inline textures, as tall as the
+-- text) in place of the g / s / c letters. Off until Options.applyAll.
+-- UNVERIFIED (check in client): the MoneyFrame icons exist on Forever.
+Money.ICONS = {
+  gold = "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t",
+  silver = "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",
+  copper = "|TInterface\\MoneyFrame\\UI-CopperIcon:0:0:2:0|t",
+}
+local LETTERS = { gold = "g", silver = "s", copper = "c" }
+local unit = LETTERS
+
+function Money.setIcons(on)
+  unit = on and Money.ICONS or LETTERS
+end
+
+function Money.iconsOn() return unit == Money.ICONS end
+
 -- Appends `piece` to `text` with a space between (text may be nil).
 local function join(text, piece)
   if text then return text .. " " .. piece end
   return piece
 end
 
--- Formats a copper amount as "1g 20s 5c", showing only non-zero units.
+-- Formats a copper amount as "1g 20s 5c" (or with coin icons), showing only
+-- non-zero units.
 function Money.format(copper)
   if copper == nil then return "n/a" end
   local sign, g, s, c = split(copper)
   local text
-  if g > 0 then text = g .. "g" end
-  if s > 0 then text = join(text, s .. "s") end
-  if c > 0 then text = join(text, c .. "c") end
-  if not text then return "0c" end
+  if g > 0 then text = g .. unit.gold end
+  if s > 0 then text = join(text, s .. unit.silver) end
+  if c > 0 then text = join(text, c .. unit.copper) end
+  if not text then return "0" .. unit.copper end
   return sign .. text
 end
 
@@ -78,10 +96,10 @@ function Money.formatColored(copper, colors)
   end
   local sign, g, s, c = split(copper)
   local text
-  if g > 0 then text = hex(colors.moneyGold) .. g .. "g|r" end
-  if s > 0 then text = join(text, hex(colors.moneySilver) .. s .. "s|r") end
-  if c > 0 then text = join(text, hex(colors.moneyCopper) .. c .. "c|r") end
-  if not text then return hex(colors.moneyCopper) .. "0c|r" end
+  if g > 0 then text = hex(colors.moneyGold) .. g .. unit.gold .. "|r" end
+  if s > 0 then text = join(text, hex(colors.moneySilver) .. s .. unit.silver .. "|r") end
+  if c > 0 then text = join(text, hex(colors.moneyCopper) .. c .. unit.copper .. "|r") end
+  if not text then return hex(colors.moneyCopper) .. "0" .. unit.copper .. "|r" end
   return sign .. text
 end
 
