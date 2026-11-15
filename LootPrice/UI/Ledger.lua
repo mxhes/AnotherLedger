@@ -31,6 +31,10 @@ local stale = false -- a refresh was skipped while the window was hidden
 
 -- Current tab key (see UI/Tabs.lua).
 Ledger.tab = ns.UI.Tabs.DEFAULT
+-- Current sub-tab key of that tab (nil: it has none), and the opened place of
+-- History Zones ({ zone, sub }).
+Ledger.subtab = nil
+Ledger.zoneOpen = {}
 
 -- A part is a table with a method Update(view, session, now) and, optionally,
 -- Tick(view, session, now) and Relayout() (Theme.sizes changed; Ledger.relayout).
@@ -96,6 +100,22 @@ local function currencyInfo(currencyID)
   return ok and info or nil
 end
 
+-- History Zones: quest items (item class 12) go to their own group.
+-- UNVERIFIED (check in client): GetItemInfoInstant returns the class ID 6th
+-- and Enum.ItemClass.Questitem is 12 on Forever.
+local QUEST_CLASS = 12
+local function readIsQuest(itemID)
+  local fn = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+  if type(fn) ~= "function" then return false end
+  local classID = select(6, fn(itemID))
+  return classID == QUEST_CLASS
+end
+
+local function isQuest(itemID)
+  local ok, quest = pcall(readIsQuest, itemID)
+  return ok and quest or false
+end
+
 -- Prices are looked up once per item variant and redraw: the same item can
 -- show up more than once (History) and every lookup asks every source.
 local priceMemo = {}
@@ -126,7 +146,8 @@ function Ledger.marketCutoffs(db)
   return marketCutoffs
 end
 
-local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate }
+local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate,
+  isQuest = isQuest }
 local context = { opts = viewOpts, ledger = Ledger }
 
 local function currentContext(now)
@@ -150,7 +171,7 @@ end
 function Ledger.buildView(now)
   if not ns.session then return nil end
   for k in pairs(priceMemo) do priceMemo[k] = nil end
-  return ns.UI.Tabs.get(Ledger.tab).build(currentContext(now))
+  return ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
 end
 
 local function windowShown()
@@ -263,11 +284,23 @@ end
 -- ---------------------------------------------------------------------------
 -- Tabs and data changes
 
+-- The saved (or default) sub-tab of tab `key`, or nil when it has none.
+local function savedSubtab(key)
+  local saved = ns.db and type(ns.db.subtab) == "table" and ns.db.subtab[key] or nil
+  local sub = ns.UI.Tabs.subtab(key, saved)
+  return sub and sub.key or nil
+end
+
 local function applyTab(key)
   local Tabs = ns.UI.Tabs
   local spec = Tabs.get(key)
   if ns.UI.Window.setTitle then ns.UI.Window.setTitle(spec.title) end
   if Ledger.tabs then Ledger.tabs:SetSelected(key) end
+  local strips = Ledger.subtabStrips or {}
+  for k, strip in pairs(strips) do strip.frame:SetShown(k == key) end
+  if strips[key] then strips[key]:SetSelected(Ledger.subtab) end
+  if ns.UI.Window.setSubtabRow then ns.UI.Window.setSubtabRow(Tabs.subtabs(key) ~= nil) end
+  if ns.UI.FilterBar and ns.UI.FilterBar.setSorts then ns.UI.FilterBar.setSorts(Tabs.sorts(key, Ledger.subtab)) end
   local header = ns.UI.Header and ns.UI.Header.instance
   if header then header:SetSessionControls(spec.sessionControls == true) end
 end
@@ -276,10 +309,46 @@ end
 function Ledger.setTab(key)
   if not ns.UI.Tabs.valid(key) then key = ns.UI.Tabs.DEFAULT end
   Ledger.tab = key
+  Ledger.subtab = savedSubtab(key)
   Ledger.historyIndex = nil
+  Ledger.zoneOpen = {}
   if ns.db then ns.db.tab = key end
   applyTab(key)
   if list then list.offset = 0 end
+  Ledger.refresh()
+end
+
+-- Switches the sub-tab of the shown tab and remembers it per tab.
+function Ledger.setSubtab(subKey)
+  local sub = ns.UI.Tabs.subtab(Ledger.tab, subKey)
+  if not sub then return end
+  Ledger.subtab = sub.key
+  Ledger.historyIndex = nil
+  Ledger.zoneOpen = {}
+  if ns.db then
+    if type(ns.db.subtab) ~= "table" then ns.db.subtab = {} end
+    ns.db.subtab[Ledger.tab] = sub.key
+  end
+  applyTab(Ledger.tab)
+  if list then list.offset = 0 end
+  Ledger.refresh()
+end
+
+-- History Zones: a zone row opens its subzones (and closes another zone), a
+-- subzone row its items; clicking the opened one again collapses it.
+function Ledger.toggleZone(zoneKey, subKey)
+  local open = Ledger.zoneOpen
+  if subKey == nil then
+    if open.zone == zoneKey then
+      Ledger.zoneOpen = {}
+    else
+      Ledger.zoneOpen = { zone = zoneKey }
+    end
+  elseif open.sub == subKey then
+    Ledger.zoneOpen = { zone = zoneKey }
+  else
+    Ledger.zoneOpen = { zone = zoneKey, sub = subKey }
+  end
   Ledger.refresh()
 end
 
@@ -305,9 +374,9 @@ end
 -- Item data arrived: only matters for an item listed on the current tab.
 function Ledger.wantsItemInfo(itemID)
   if not ns.session then return false end
-  local spec = ns.UI.Tabs.get(Ledger.tab)
-  if not spec.hasItem then return true end
-  return spec.hasItem(itemID, currentContext(time())) and true or false
+  local hasItem = ns.UI.Tabs.hasItemFn(Ledger.tab, Ledger.subtab)
+  if not hasItem then return true end
+  return hasItem(itemID, currentContext(time())) and true or false
 end
 
 -- ---------------------------------------------------------------------------
@@ -343,7 +412,11 @@ function Ledger.init()
   list = Rows.attach(frame.listArea, applyMinWidth)
   Ledger.list = list
   list.onRowClick = function(row)
-    if row.historyIndex then Ledger.toggleHistory(row.historyIndex) end
+    if row.historyIndex then
+      Ledger.toggleHistory(row.historyIndex)
+    elseif row.zoneKey then
+      Ledger.toggleZone(row.zoneKey, row.subKey)
+    end
   end
   applyMinWidth(list.measured)
   table.insert(parts, 1, rowsPart)
@@ -371,6 +444,26 @@ function Ledger.init()
     Ledger.tabs = UI.Tabs.attach(frame.header.row3, Ledger.setTab)
   end)
 
+  -- One sub-tab strip per tab that has sub-tabs, on header row 4.
+  attach(UI.Tabs, function()
+    Ledger.subtabStrips = {}
+    local row = frame.header.row4
+    if not row then return end
+    for _, key in ipairs(UI.Tabs.KEYS) do
+      local subs = UI.Tabs.subtabs(key)
+      if subs then
+        local holder = CreateFrame("Frame", nil, row)
+        holder:SetAllPoints(row)
+        local items = {}
+        for i, sub in ipairs(subs) do items[i] = { key = sub.key, label = sub.label } end
+        local strip = UI.Tabs.strip(holder, items, Ledger.setSubtab)
+        strip.frame = holder
+        holder:Hide()
+        Ledger.subtabStrips[key] = strip
+      end
+    end
+  end)
+
   -- OnUpdate only runs while the frame is shown.
   local acc = 0
   frame:SetScript("OnUpdate", function(_, dt)
@@ -385,6 +478,7 @@ function Ledger.init()
 
   local saved = ns.db and ns.db.tab
   if UI.Tabs.valid(saved) then Ledger.tab = saved end
+  Ledger.subtab = savedSubtab(Ledger.tab)
   applyTab(Ledger.tab)
 
   Ledger.refresh()

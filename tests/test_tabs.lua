@@ -63,3 +63,22 @@ h.test("Tabs.buttonWidth: the theme width, wider for a long label", function()
   h.eq(T.buttonWidth(120), 120 + 2 * S.tabTextPad)
   h.eq(T.buttonWidth(120.4), math.ceil(120.4 + 2 * S.tabTextPad))
 end)
+
+h.test("Tabs sub-tabs: default, unknown key and build dispatch", function()
+  T.define({ key = "subtest", label = "S", title = "S", build = function() return { which = "own" } end,
+    subtabs = {
+      { key = "a", label = "A", build = function() return { which = "a" } end },
+      { key = "b", label = "B", build = function() return { which = "b" } end, sorts = { "ah", "perHour" } },
+    } })
+  h.eq(T.subtab("subtest", nil).key, "a")
+  h.eq(T.subtab("subtest", "x").key, "a")
+  h.eq(T.build("subtest", "b", {}).which, "b")
+  h.eq(T.build("subtest", nil, {}).which, "a")
+  h.eq(T.sorts("subtest", "b"), { "ah", "perHour" })
+  h.eq(T.sorts("subtest", "a"), nil)
+  h.eq(T.subtabs("session"), nil)
+  h.eq(T.subtab("session", "a"), nil)
+  h.eq(T.subtabs("history")[1].key, "sessions")
+  h.eq(T.subtabs("history")[2].key, "zones")
+  h.eq(T.sorts("history", "zones")[2], "perHour")
+end)

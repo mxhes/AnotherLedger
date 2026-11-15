@@ -20,9 +20,14 @@ local QUALITY_NAMES = {
   L["Artifact"], L["Heirloom"],
 }
 -- "ah" is the saved key of the best-value sort (best of vendor, AH, DE).
-local SORT_LABELS = { ah = L["Value"], vendor = L["Vendor"], name = L["Name"], recent = L["Recent"] }
+local SORT_LABELS = { ah = L["Value"], vendor = L["Vendor"], name = L["Name"], recent = L["Recent"],
+  perHour = L["Gold/h"] }
 
 FilterBar.SORTS = { "ah", "vendor", "name", "recent" }
+-- Every sort a view may offer (a tab or sub-tab lists its own, see
+-- Tabs.sorts); "perHour" only in History Zones. A saved sort the shown view
+-- does not offer works (and is labeled) as "ah".
+FilterBar.ALL_SORTS = { "ah", "vendor", "name", "recent", "perHour" }
 
 local MIN_QUALITY, MAX_QUALITY = 0, 7
 local COPPER_PER_GOLD = 10000
@@ -63,15 +68,34 @@ function FilterBar.toggleQuality(filter, q)
   filter.qualities[q] = not filter.qualities[q]
 end
 
-function FilterBar.nextSort(current)
-  for i, key in ipairs(FilterBar.SORTS) do
-    if key == current then return FilterBar.SORTS[i % #FilterBar.SORTS + 1] end
+local function offers(sorts, key)
+  for _, k in ipairs(sorts) do
+    if k == key then return true end
   end
-  return FilterBar.SORTS[1]
+  return false
 end
 
-function FilterBar.sortLabel(key)
+-- The sort after `current` within `sorts` (default FilterBar.SORTS).
+function FilterBar.nextSort(current, sorts)
+  sorts = sorts or FilterBar.SORTS
+  -- A known sort this view does not offer shows as "ah": the next one follows "ah".
+  if offers(FilterBar.ALL_SORTS, current) and not offers(sorts, current) then current = "ah" end
+  for i, key in ipairs(sorts) do
+    if key == current then return sorts[i % #sorts + 1] end
+  end
+  return sorts[1]
+end
+
+function FilterBar.sortLabel(key, sorts)
+  if not offers(sorts or FilterBar.SORTS, key) then key = "ah" end
   return SORT_LABELS[key] or SORT_LABELS.ah
+end
+
+-- The sorts the shown view offers (nil = FilterBar.SORTS); relabels the button.
+function FilterBar.setSorts(sorts)
+  FilterBar.activeSorts = sorts
+  local button, db = FilterBar.sortButton, FilterBar.sortDb
+  if button and db then button:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, sorts)) end
 end
 
 function FilterBar.isActive(db)
@@ -87,7 +111,7 @@ function FilterBar.repair(db)
   if type(f.minValue) ~= "number" or f.minValue ~= f.minValue or f.minValue < 0 then f.minValue = 0 end
   if type(f.search) ~= "string" then f.search = "" end
   local okSort = false
-  for _, key in ipairs(FilterBar.SORTS) do
+  for _, key in ipairs(FilterBar.ALL_SORTS) do
     if key == db.sort then okSort = true end
   end
   if not okSort then db.sort = FilterBar.SORTS[1] end
@@ -183,13 +207,14 @@ function FilterBar.attach(row, db, onChange)
   local minBox = makeEdit(row, L_MIN_HINT, widths().min)
   minBox:SetPoint("LEFT", quality, "RIGHT", gap + 4, 0)
 
-  local sort = makeButton(row, L_SORT_PREFIX .. FilterBar.sortLabel(db.sort), widths().sort)
+  local sort = makeButton(row, L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts), widths().sort)
   sort:SetPoint("RIGHT", row, "RIGHT", 0, 0)
   sort:SetScript("OnClick", function()
-    db.sort = FilterBar.nextSort(db.sort)
-    sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort))
+    db.sort = FilterBar.nextSort(db.sort, FilterBar.activeSorts)
+    sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts))
     changed()
   end)
+  FilterBar.sortButton, FilterBar.sortDb = sort, db
 
   local search = makeEdit(row, L_SEARCH_HINT, 100)
   search:SetPoint("LEFT", minBox, "RIGHT", gap + 2, 0)

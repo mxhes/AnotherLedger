@@ -18,6 +18,10 @@ ns.UI = ns.UI or {}
 --     watches = "bags",              -- data kind whose change redraws the tab
 --     invalidate = function() end,   -- optional: drop cached data of `watches`
 --     hasItem = function(itemID, ctx) return bool end, -- is the item listed?
+--     sorts = { "ah", ... },         -- optional: the sorts the view offers
+--     subtabs = { { key, label, build, hasItem?, sorts? }, ... }, -- optional:
+--       a second tab row while this tab is shown; the first is the default and
+--       the selected one builds the view (saved in db.subtab[key]).
 --   })
 --
 -- ctx = { now, env, session, chardb, opts (View options), ledger }.
@@ -53,6 +57,41 @@ end
 
 function Tabs.title(key)
   return Tabs.get(key).title
+end
+
+-- Sub-tabs of a tab, or nil.
+function Tabs.subtabs(key)
+  local spec = specs[key]
+  return spec and type(spec.subtabs) == "table" and #spec.subtabs > 0 and spec.subtabs or nil
+end
+
+-- The sub-tab `subKey` of tab `key` (unknown -> its first), or nil without sub-tabs.
+function Tabs.subtab(key, subKey)
+  local list = Tabs.subtabs(key)
+  if not list then return nil end
+  for _, sub in ipairs(list) do
+    if sub.key == subKey then return sub end
+  end
+  return list[1]
+end
+
+-- What builds the view of tab `key`: its selected sub-tab, else the tab.
+local function viewSpec(key, subKey)
+  return Tabs.subtab(key, subKey) or Tabs.get(key)
+end
+
+function Tabs.build(key, subKey, ctx)
+  return viewSpec(key, subKey).build(ctx)
+end
+
+-- The hasItem check of the shown view, or nil (every item counts).
+function Tabs.hasItemFn(key, subKey)
+  return viewSpec(key, subKey).hasItem
+end
+
+-- The sorts the shown view offers, or nil (FilterBar.SORTS).
+function Tabs.sorts(key, subKey)
+  return viewSpec(key, subKey).sorts
 end
 
 -- Drops the cached data of every tab watching `what` ("bags", "bank", ...).
@@ -116,17 +155,51 @@ local function savedHistory(ctx)
   return type(history) == "table" and history or {}
 end
 
+local function buildSessions(ctx)
+  local history, ledger = savedHistory(ctx), ctx.ledger
+  if ledger.historyIndex and not history[ledger.historyIndex] then ledger.historyIndex = nil end
+  return ns.View.buildHistory(history, ctx.opts, ledger.historyIndex)
+end
+
+local function sessionsHasItem(itemID, ctx)
+  local entry = savedHistory(ctx)[ctx.ledger.historyIndex or 0]
+  return type(entry) == "table" and ns.Session.hasItemID(entry.items, itemID)
+end
+
+-- Zones: every saved session plus the running one (with its open stretch).
+local function zoneEntries(ctx)
+  local entries = {}
+  for i, e in ipairs(savedHistory(ctx)) do entries[i] = e end
+  local s = ctx.session
+  if type(s) == "table" then
+    entries[#entries + 1] = { live = true, items = s.items, places = s.places, gold = s.gold,
+      zones = ns.Session.zoneSnapshot(s, ctx.now) }
+  end
+  return entries
+end
+
 Tabs.define({
   key = "history", label = L["History"], title = L["Session History"],
-  build = function(ctx)
-    local history, ledger = savedHistory(ctx), ctx.ledger
-    if ledger.historyIndex and not history[ledger.historyIndex] then ledger.historyIndex = nil end
-    return ns.View.buildHistory(history, ctx.opts, ledger.historyIndex)
-  end,
-  hasItem = function(itemID, ctx)
-    local entry = savedHistory(ctx)[ctx.ledger.historyIndex or 0]
-    return type(entry) == "table" and ns.Session.hasItemID(entry.items, itemID)
-  end,
+  build = buildSessions,
+  hasItem = sessionsHasItem,
+  subtabs = {
+    { key = "sessions", label = L["Sessions"], build = buildSessions, hasItem = sessionsHasItem },
+    {
+      key = "zones", label = L["Zones"],
+      sorts = { "ah", "perHour", "vendor", "name", "recent" },
+      build = function(ctx)
+        local ledger = ctx.ledger
+        if type(ledger.zoneOpen) ~= "table" then ledger.zoneOpen = {} end
+        return ns.View.buildZones(zoneEntries(ctx), ctx.opts, ledger.zoneOpen)
+      end,
+      hasItem = function(itemID, ctx)
+        for _, e in ipairs(zoneEntries(ctx)) do
+          if type(e) == "table" and ns.Session.hasItemID(e.items, itemID) then return true end
+        end
+        return false
+      end,
+    },
+  },
 })
 
 -- ---------------------------------------------------------------------------

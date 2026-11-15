@@ -72,3 +72,15 @@ h.test("repair fixes wrong-typed saved state in place", function()
   h.eq(db2.sort, "name")
   h.eq(F.repair(nil), nil)
 end)
+
+h.test("FilterBar sort cycling respects the allowed sorts", function()
+  local ZONES = { "ah", "perHour", "vendor", "name", "recent" }
+  h.eq(F.nextSort("recent", ZONES), "ah")
+  h.eq(F.nextSort("ah", ZONES), "perHour")
+  h.eq(F.nextSort("perHour"), "vendor") -- shown as Value elsewhere: the next one follows it
+  h.eq(F.nextSort("ah"), "vendor")
+  h.eq(F.sortLabel("perHour"), F.sortLabel("ah"))
+  h.eq(F.sortLabel("perHour", ZONES) ~= F.sortLabel("ah", ZONES), true)
+  h.eq(F.repair({ sort = "perHour" }).sort, "perHour")
+  h.eq(F.repair({ sort = "bogus" }).sort, "ah")
+end)

@@ -62,6 +62,7 @@ DB.defaults = {
   },
   sort = "ah",
   tab = "session", -- last shown tab: session / bags / bank / history
+  subtab = {}, -- last shown sub-tab per tab: { history = "sessions" / "zones" }
   -- LibDBIcon's saved state (hide, minimapPos) when that library draws the
   -- minimap button (UI/Broker.lua).
   minimapIcon = {},

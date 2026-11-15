@@ -201,6 +201,10 @@ local function build(db)
   header.row1 = makeRow(header, nil, true)
   header.row2 = makeRow(header, header.row1, false)
   header.row3 = makeRow(header, header.row2, false)
+  -- Row 4: sub-tabs (History: Sessions / Zones), only while the shown tab has
+  -- them (Window.setSubtabRow).
+  header.row4 = makeRow(header, header.row3, false)
+  header.row4:Hide()
 
   local title = ns.UI.Widgets.text(header.row1, T.fonts.title, T.colors.ink)
   title:SetPoint("LEFT", header.row1, "LEFT", 0, 0)
@@ -325,6 +329,18 @@ function Window.applySizes()
     ensureOnScreen(frame)
     save()
   end
+end
+
+-- Shows or hides header row 4 (sub-tabs); the list area below the header
+-- follows by anchoring.
+-- UNVERIFIED (check in client): the list area reflows live when the header
+-- height changes.
+function Window.setSubtabRow(shown)
+  local frame = Window.frame
+  if not (frame and frame.header and frame.header.row4) then return end
+  local S = theme().sizes
+  frame.header:SetHeight(S.headerHeight + (shown and S.headerRowHeight or 0))
+  frame.header.row4:SetShown(shown and true or false)
 end
 
 function Window.setTitle(text)
