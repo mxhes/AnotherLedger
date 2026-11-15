@@ -88,7 +88,8 @@ Theme.colors = {
   flashNormal = { 1.00, 0.90, 0.60, 0.22 },
   flashStrong = { 1.00, 0.80, 0.35, 0.45 },
   -- Dark warm leather brown.
-  panelTint = { 0.15, 0.10, 0.06, 0.97 },
+  -- Fully opaque: the Opacity option scales this alpha, so 100% is solid.
+  panelTint = { 0.15, 0.10, 0.06, 1 },
   -- Border tint (a shade lighter and warmer than the panel so the frame reads).
   panelBorder = { 0.55, 0.42, 0.24, 1 },
   -- Real game coin colors.

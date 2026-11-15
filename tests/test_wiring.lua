@@ -778,6 +778,9 @@ h.test("wiring: the window look options apply to the background and border", fun
   local bg, border
   frame.SetBackdropColor = function(_, r, g, b, a) bg = { r, g, b, a } end
   frame.SetBackdropBorderColor = function(_, r, g, b, a) border = { r, g, b, a } end
+  ns.Options.set(ns.db, "alpha", 1)
+  h.eq(bg[4], 1) -- 100% opacity is fully opaque
+  h.eq(border[4], 1)
   ns.Options.set(ns.db, "alpha", 0)
   h.eq(bg[4], 0)
   h.eq(border[4], 0)
