@@ -1699,6 +1699,53 @@ h.test("wiring: switching while hidden draws the compact view when shown", funct
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: compact clock sits right of the title and wins the mouse over it", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local H = ctx.ns.UI.Header.instance
+  local tb = ctx.ns.UI.Window.frame.header.titleButton
+  slash(ctx, "compact")
+  h.eq(H.timerAnchor, "options")
+  h.eq(H.clockButton:GetFrameLevel() > tb:GetFrameLevel(), true)
+  slash(ctx, "compact")
+  h.eq(H.timerAnchor, "toggle")
+  -- dragging the clock still moves the window
+  local moved = 0
+  ctx.ns.UI.Window.frame.StartMoving = function() moved = moved + 1 end
+  H.clockButton._scripts.OnDragStart(H.clockButton)
+  h.eq(moved, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: compact ticks the clock and shows the session title on any tab", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, H = ctx.ns.UI.Ledger, ctx.ns.UI.Header.instance
+  L.setTab("bags")
+  slash(ctx, "compact")
+  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("session"))
+  local before = H.timer:GetText()
+  ctx.now = ctx.now + 5
+  L.tick()
+  h.eq(H.timer:GetText() ~= before, true)
+  slash(ctx, "compact")
+  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("bags"))
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a mode switch during combat hide does not save the window hidden", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  ctx.ns.Options.set(ctx.ns.db, "combatHide", true)
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  h.eq(ctx.ns.UI.Window.frame:IsShown(), false)
+  slash(ctx, "compact")
+  h.eq(ctx.ns.db.window.hidden, false)
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(ctx.ns.UI.Window.frame:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: no daily farm strip on a character without History", function()
   local ctx = boot()
   startWorld(ctx, false)

@@ -24,6 +24,16 @@ function Compact.dropText(row, formatMoney)
   return { name = t.name, qty = t.qty, amount = t.amount, source = t.source, sourceText = t.sourceText }
 end
 
+-- Pure. Window height the compact body needs: chrome, the title row, the top
+-- block, four drop rows and the Daily farm line (Theme.sizes.compactMinHeight
+-- must not be smaller).
+function Compact.requiredHeight()
+  local S = ns.Theme.sizes
+  local inset = S.padding + 4
+  return 2 * inset + S.headerRowHeight + S.padding / 2
+    + S.compactDropsTop + (MAX_DROPS + 1) * S.compactRowHeight + S.compactGap
+end
+
 -- Pure. The big number: gold per hour, or an em dash under a minute.
 function Compact.rateText(perHour, formatMoney)
   if perHour == nil then return DASH end
@@ -79,6 +89,9 @@ function part:Update(view)
   end
 end
 
+-- The rate and total change with the clock (Ledger.tick rebuilds view.compact).
+part.Tick = part.Update
+
 -- Attaches to the window's compact area (Window.frame.compact).
 function Compact.attach(area)
   if Compact.area then return Compact end
@@ -87,10 +100,14 @@ function Compact.attach(area)
   local S = T.sizes
   Compact.area = area
 
+  -- The rate never shrinks; the total takes what is left right of it.
   local perHour = W.text(area, T.fonts.compactBig, T.colors.gold, "LEFT")
   perHour:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
+  if perHour.SetWordWrap then perHour:SetWordWrap(false) end
   local total = W.text(area, T.fonts.compactMid, T.colors.ink, "RIGHT")
-  total:SetPoint("BOTTOMRIGHT", area, "TOPRIGHT", 0, -22)
+  total:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -6)
+  total:SetPoint("LEFT", perHour, "RIGHT", S.rowNameGap, 0)
+  if total.SetWordWrap then total:SetWordWrap(false) end
   Compact.perHour, Compact.total = perHour, total
 
   local line = W.line(area, T.colors.divider)
@@ -107,7 +124,7 @@ function Compact.attach(area)
   for i = 1, MAX_DROPS do
     local f = CreateFrame("Frame", nil, area)
     f:SetHeight(S.compactRowHeight)
-    local y = -46 - (i - 1) * S.compactRowHeight
+    local y = -S.compactDropsTop - (i - 1) * S.compactRowHeight
     f:SetPoint("TOPLEFT", area, "TOPLEFT", 0, y)
     f:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, y)
     local tag = W.text(f, T.fonts.rowSmall, T.colors.ink, "RIGHT")

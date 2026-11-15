@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "History.lua", "Waypoint.lua", "UI/DailyFarm.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "History.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
 local DF = ns.UI.DailyFarm
 
 local function farm()
@@ -65,4 +65,12 @@ h.test("DailyFarm.label puts the rate first so a narrow window cuts the place", 
   f.slow = { names = { "Ore" } }
   local slow = DF.label(f)
   h.eq(slow:find(ns.L["slow selling"], 1, true) > slow:find("A (Z)", 1, true), true)
+end)
+
+h.test("Compact fits its body at the minimum window height", function()
+  local C = ns.UI.Compact
+  h.eq(C ~= nil, true)
+  local S = ns.Theme.sizes
+  h.eq(S.compactMinHeight >= C.requiredHeight(), true)
+  h.eq(S.compactHeight >= S.compactMinHeight, true)
 end)

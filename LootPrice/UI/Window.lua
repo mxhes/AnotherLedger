@@ -131,7 +131,8 @@ local function save()
   local slot = sizeSlot(w)
   slot.width = frame:GetWidth()
   slot.height = frame:GetHeight()
-  w.hidden = not frame:IsShown()
+  -- Hidden only for combat (combat hide): keep the player's own state.
+  if not Window.hiddenByCombat then w.hidden = not frame:IsShown() end
 end
 
 -- Pure. (x, y) = CENTER offset of a w x h window from the screen center on a
@@ -292,6 +293,7 @@ local function build(db)
   local compactArea = CreateFrame("Frame", nil, frame)
   compactArea:SetPoint("TOPLEFT", header.row1, "BOTTOMLEFT", 0, -T.sizes.padding / 2)
   compactArea:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -inset, inset)
+  compactArea:SetClipsChildren(true)
   compactArea:Hide()
 
   -- Resize grip, bottom right.

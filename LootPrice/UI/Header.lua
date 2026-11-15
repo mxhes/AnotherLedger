@@ -133,7 +133,12 @@ function Header.attach(row, handlers)
   paused:Hide()
   local clockButton = CreateFrame("Button", nil, row)
   clockButton:SetAllPoints(timer)
+  -- Above the title's double-click button, and still a drag handle.
+  clockButton:SetFrameLevel(row:GetFrameLevel() + 5)
   clockButton:RegisterForClicks("LeftButtonUp")
+  clockButton:RegisterForDrag("LeftButton")
+  clockButton:SetScript("OnDragStart", function() ns.UI.Window.beginDrag() end)
+  clockButton:SetScript("OnDragStop", function() ns.UI.Window.endDrag() end)
   clockButton:SetScript("OnClick", function()
     if header.mode ~= "compact" then return end
     local fn = handlers[Header.toggleState(header.running).action]
@@ -146,8 +151,21 @@ function Header.attach(row, handlers)
   header.pausedText, header.clockButton = paused, clockButton
 
   -- Shows the controls for the mode, the tab and the running state.
+  header.timerAnchor = "toggle"
   function header:Apply()
     local compact = self.mode == "compact"
+    -- Compact hides Start / Stop and Reset: the clock moves next to the gear
+    -- so it never covers the title.
+    local anchor = compact and "options" or "toggle"
+    if anchor ~= self.timerAnchor then
+      self.timer:ClearAllPoints()
+      if compact then
+        self.timer:SetPoint("RIGHT", options, "LEFT", -gap * 2, 0)
+      else
+        self.timer:SetPoint("RIGHT", toggle, "LEFT", -gap * 3, 0)
+      end
+      self.timerAnchor = anchor
+    end
     self.timer:SetShown(compact or self.sessionShown)
     self.toggle:SetShown(not compact and self.sessionShown)
     self.reset:SetShown(not compact and self.sessionShown)

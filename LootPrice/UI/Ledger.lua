@@ -275,14 +275,20 @@ end
 -- Clock tick: rates and clock only; a full refresh when the prices are due.
 function Ledger.tick()
   local session = ns.session
-  if not (list and session and session.running and ns.UI.Tabs.get(Ledger.tab).ticks) then return end
+  -- Compact mode always shows the session clock and rate, whatever the tab.
+  local compact = Ledger.mode == "compact"
+  if not (list and session and session.running and (compact or ns.UI.Tabs.get(Ledger.tab).ticks)) then return end
   local now = time()
   local view = Ledger.view
   if not view or stale or now - lastRefresh >= refreshSeconds() then
     Ledger.refresh()
     return
   end
-  ns.View.applyRates(view, ns.Session.elapsed(session, now))
+  if ns.UI.Tabs.get(Ledger.tab).ticks then ns.View.applyRates(view, ns.Session.elapsed(session, now)) end
+  if compact then
+    viewOpts.now = now
+    view.compact = ns.View.buildCompact(session, viewOpts)
+  end
   for _, part in ipairs(parts) do
     if part.Tick then
       local ok, err = pcall(part.Tick, part, view, session, now)
@@ -394,7 +400,15 @@ function Ledger.setMode(mode)
   if ns.UI.Window.applyMode then ns.UI.Window.applyMode(mode) end
   local header = ns.UI.Header and ns.UI.Header.instance
   if header and header.SetMode then header:SetMode(mode) end
+  Ledger.applyModeTitle()
   Ledger.refresh()
+end
+
+-- Compact shows the session whatever the tab: its title; full: the tab's.
+function Ledger.applyModeTitle()
+  local W, Tabs = ns.UI.Window, ns.UI.Tabs
+  if not W.setTitle then return end
+  W.setTitle(Tabs.title(Ledger.mode == "compact" and "session" or Ledger.tab))
 end
 
 function Ledger.toggleMode()
@@ -579,6 +593,7 @@ function Ledger.init()
   UI.Window.applyMode(mode)
   local header = UI.Header and UI.Header.instance
   if header and header.SetMode then header:SetMode(mode) end
+  Ledger.applyModeTitle()
 
   Ledger.refresh()
   return frame

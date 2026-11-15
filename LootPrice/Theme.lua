@@ -142,10 +142,12 @@ Theme.sizes = {
   iconButtonPad = 3,
   -- Compact mode: default size and minimum; the title's double-click area.
   compactWidth = 250,
-  compactHeight = 190,
+  compactHeight = 210,
   compactMinWidth = 220,
-  compactMinHeight = 140,
+  compactMinHeight = 190, -- >= UI.Compact.requiredHeight() (186)
   compactRowHeight = 16,
+  compactDropsTop = 46, -- first drop row under the rate, total and divider
+  compactGap = 4,
   titleButtonWidth = 140,
   -- Star in front of the Daily farm strip.
   dailyFarmIcon = 16,
