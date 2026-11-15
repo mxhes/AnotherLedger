@@ -101,8 +101,6 @@ and remove both once it is confirmed.
   `Widgets.pickColor`) above the options panel; dragging recolors the window,
   tooltips and options live, Cancel restores the old color, right-click sets
   the default, **Reset colors** resets all; the colors survive `/reload`.
-- [ ] History and Zones show no footer and the list fills the space; Session
-  and Bags still show theirs.
 - [ ] The **LootPrice** page under Esc > Options > AddOns
   (`Settings.RegisterCanvasLayoutCategory`) shows the same tabs and values as
   the panel.
