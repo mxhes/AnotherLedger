@@ -8,7 +8,7 @@ local L = ns.L
 --
 --   Options.define({
 --     key     = "alpha",              -- db.settings[key] (default in DB.defaults.settings)
---     type    = "slider",             -- slider | dropdown | checkbox | number | text | button (see OptionsPanel.WIDGETS)
+--     type    = "slider",             -- slider | dropdown | checkbox | number | text | color | button (see OptionsPanel.WIDGETS)
 --     category = "window",            -- section of the panel (Options.CATEGORIES)
 --     label   = "Opacity",            -- short; the details go in tooltip
 --     tooltip = "Fades the window...", -- shown on hover with the default (Options.tooltip)
@@ -18,6 +18,7 @@ local L = ns.L
 --     (labels go through ns.L, Locale.lua: L["Opacity"])
 --     (number: whole number >= 0, or -1 = unlimited; typed into a text box)
 --     (text: any non-empty text; button: has no value, `action` runs on click)
+--     (color: "rrggbb"; `colors` = the Theme.colors keys it sets)
 --     format  = function(v) ... end,  -- optional display text of the value
 --     apply   = function(value) ... end, -- optional: make the value take effect
 --     confirm = function(value) ... end, -- optional: a question (text) the panel
@@ -34,7 +35,7 @@ local Options = {
 local num = ns.Util.isNumber
 
 -- Vertical size (px) of one option block in the panel, by type.
-Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46, text = 46, button = 28, header = 26 }
+Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46, text = 46, color = 28, button = 28, header = 26 }
 Options.GAP = 8
 
 function Options.define(spec)
@@ -62,6 +63,7 @@ Options.CATEGORIES = {
   { id = "prices", label = L["Prices"] },
   { id = "display", label = L["Display"] },
   { id = "session", label = L["Session and alerts"] },
+  { id = "colors", label = L["Colors"] },
 }
 
 -- What the panel shows, top to bottom: for every section a header entry
@@ -144,6 +146,11 @@ function Options.normalize(spec, value)
       if c.value == value then return value end
     end
     return default
+  elseif spec.type == "color" then
+    if type(value) ~= "string" then return default end
+    local hex = value:match("^%s*#?(%x%x%x%x%x%x)%s*$")
+    if not hex then return default end
+    return hex:lower()
   end
   return default
 end
@@ -190,6 +197,7 @@ function Options.valueText(spec, value)
   if spec.type == "checkbox" then return value and L["On"] or L["Off"] end
   if spec.type == "number" and num(value) and value < 0 then return L["Unlimited"] end
   if spec.type == "number" and value == 0 and spec.zeroText then return spec.zeroText end
+  if spec.type == "color" and type(value) == "string" then return "#" .. value:upper() end
   if spec.type == "dropdown" then
     for _, c in ipairs(Options.choices(spec)) do
       if c.value == value then return c.label end
@@ -207,6 +215,7 @@ function Options.tooltip(spec)
   if spec.type ~= "button" then
     Tip.note(tip, L["Default: "] .. Options.valueText(spec, Options.normalize(spec, nil)))
   end
+  if spec.type == "color" then Tip.hint(tip, L["Click: pick a color. Right-click: default."]) end
   return tip
 end
 
@@ -612,6 +621,63 @@ Options.define({
       ns.History.prune(ns.chardb.history, v)
     end
     refreshUI()
+  end,
+})
+
+-- ---------------------------------------------------------------------------
+-- Colors (category "colors"): each option sets one or more Theme.colors in
+-- place (Theme.setColor), then the UI recolors live: the texts, lines and
+-- backdrops made by UI/Widgets.lua (Widgets.recolor), the window look and a
+-- refresh for the rest. Tooltips read the colors when they are shown.
+
+local function applyColors(targets)
+  return function(v)
+    local changed = {}
+    for _, key in ipairs(targets) do
+      local c = ns.Theme and ns.Theme.setColor(key, v)
+      if c then changed[c] = true end
+    end
+    local UI = ns.UI
+    if UI and UI.Widgets and UI.Widgets.recolor then UI.Widgets.recolor(changed) end
+    applyWindowLook()
+    refreshUI()
+  end
+end
+
+-- key, label, tooltip, Theme.colors keys (the first one's default is the
+-- option's default, DB.defaults.settings).
+local COLOR_OPTIONS = {
+  { "colorText", L["Text"], L["Color of the normal text: amounts, quantities, the clock and the buttons."],
+    { "ink", "buttonText" } },
+  { "colorTitles", L["Titles and totals"], L["Color of the Total row, the compact window's gold per hour and the titles of windows and tooltips."],
+    { "gold", "tipTitle", "tipSection" } },
+  { "colorHints", L["Hints"], L["Color of quiet texts: column titles, hints and tooltip notes."],
+    { "hint", "columnTitle", "tipNote" } },
+  { "colorVendor", L["Vendor"], L["Color of the Vendor tag and of vendor values in tooltips."], { "tagVendor" } },
+  { "colorAuction", L["Auction"], L["Color of the Auction tag and of auction house values in tooltips."], { "tagAh" } },
+  { "colorDestroy", L["Destroy"], L["Color of the Destroy tag (disenchant, mill, prospect) and of its values in tooltips."],
+    { "tagDe" } },
+  { "colorTipLabels", L["Tooltip labels"], L["Color of the labels on the left of LootPrice tooltips."], { "tipLabel" } },
+  { "colorBackground", L["Window background"], L["Background of the window and the options. Opacity and Brightness still apply to the window."],
+    { "panelTint" } },
+  { "colorBorder", L["Window border"], L["Edge of the window and the options."], { "panelBorder" } },
+  { "colorButtons", L["Button background"], L["Fill of the buttons."], { "buttonFill" } },
+}
+Options.COLOR_OPTIONS = COLOR_OPTIONS
+
+for _, o in ipairs(COLOR_OPTIONS) do
+  Options.define({ key = o[1], category = "colors", type = "color", label = o[2], tooltip = o[3],
+    colors = o[4], apply = applyColors(o[4]) })
+end
+
+Options.define({
+  key = "resetColors", category = "colors", type = "button", label = L["Reset colors"],
+  tooltip = L["Sets every color back to its default."],
+  action = function()
+    if not ns.db then return end
+    for _, o in ipairs(COLOR_OPTIONS) do Options.set(ns.db, o[1], Options.defaultFor(o[1])) end
+    local panel = ns.UI and ns.UI.OptionsPanel
+    if panel and panel.refreshAll then panel.refreshAll() end
   end,
 })
 

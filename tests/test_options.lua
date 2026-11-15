@@ -15,7 +15,9 @@ h.test("Options: the built-in options are registered in panel order", function()
     "goldDisplay", "coinIcons", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
     "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showTopFinds", "showFooterGold", "compactDrops", "showIcons", "followLoot", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
-    "exportHistory", "clearHistory", "historyLimit" })
+    "exportHistory", "clearHistory", "historyLimit",
+    "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
+    "colorBackground", "colorBorder", "colorButtons", "resetColors" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
     if s.type ~= "button" then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end
@@ -202,7 +204,7 @@ h.test("Options.entries: a header per section, every option exactly once, in sec
       h.eq(e.category, section, e.key) -- listed under its own section
     end
   end
-  h.eq(headers, { "Window", "Prices", "Display", "Session and alerts" })
+  h.eq(headers, { "Window", "Prices", "Display", "Session and alerts", "Colors" })
   for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
 end)
 
@@ -217,7 +219,7 @@ h.test("Options.sections: one per category in order, every option once, in its o
       h.eq(spec.category, s.id, spec.key)
     end
   end
-  h.eq(ids, { "window", "prices", "display", "session" }) -- no empty Other
+  h.eq(ids, { "window", "prices", "display", "session", "colors" }) -- no empty Other
   for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
 end)
 
@@ -305,4 +307,50 @@ h.test("Options: the sale rate and volume cutoffs stay in order", function()
   O.set(d, "soldHigh", -1) -- empty = never High volume: Medium stays free
   h.eq(d.settings.soldMedium, 200)
   ns.db = nil
+end)
+
+h.test("Options: color defaults match the theme colors they set", function()
+  for _, o in ipairs(O.COLOR_OPTIONS) do
+    local default = O.defaultFor(o[1])
+    for _, key in ipairs(o[4]) do
+      h.eq(ns.Theme.colorToHex(ns.Theme.colors[key]), default, o[1] .. " -> " .. key)
+    end
+  end
+end)
+
+h.test("Options: default colors are white text, cream vendor, blue AH, grey destroy", function()
+  local d = function(k) return O.defaultFor(k) end
+  h.eq(d("colorText"), "ffffff")
+  h.eq(d("colorVendor"), "eddeb8")
+  h.eq(d("colorAuction"), "80d1ff")
+  h.eq(d("colorDestroy"), "b3b3b3")
+  h.eq(ns.Theme.colors.tipValue, { 1, 1, 1, 1 })
+end)
+
+h.test("Options.normalize: a color takes rrggbb (any case, # allowed), else the default", function()
+  local spec = O.spec("colorVendor")
+  h.eq(O.normalize(spec, "FF8000"), "ff8000")
+  h.eq(O.normalize(spec, " #00aaFF "), "00aaff")
+  for _, bad in ipairs({ "fff", "zzzzzz", "ff80001", 5, false }) do
+    h.eq(O.normalize(spec, bad), "eddeb8", tostring(bad))
+  end
+  h.eq(O.valueText(spec, "ff8000"), "#FF8000")
+end)
+
+h.test("Options.set on a color changes the theme color in place, alpha kept", function()
+  local db = { settings = {} }
+  local panel = ns.Theme.colors.panelTint
+  local alpha = panel[4]
+  O.set(db, "colorBackground", "ff0000")
+  h.eq(ns.Theme.colors.panelTint == panel, true)
+  h.eq({ panel[1], panel[2], panel[3], panel[4] }, { 1, 0, 0, alpha })
+  O.set(db, "colorText", "000000")
+  h.eq(ns.Theme.colors.ink[1], 0)
+  h.eq(ns.Theme.colors.buttonText[1], 0)
+  local saved = ns.db
+  ns.db = db
+  O.spec("resetColors").action()
+  ns.db = saved
+  h.eq(db.settings.colorBackground, "261a0f")
+  h.eq(ns.Theme.colorToHex(ns.Theme.colors.ink), "ffffff")
 end)

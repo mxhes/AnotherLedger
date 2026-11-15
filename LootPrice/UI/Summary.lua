@@ -77,8 +77,12 @@ function Summary.notesText(view)
 end
 
 -- Which rows, columns and lines the table shows for `view`, and its height.
+-- History and Zones (view.history) have no footer: nothing shows, height 0.
 function Summary.tableLayout(view)
   view = view or NONE
+  if view.history then
+    return { rows = {}, rates = false, titles = false, notes = false, height = 0 }
+  end
   local s = ns.Theme.sizes
   local inventory = view.kind == "inventory"
   local layout = { rates = not inventory, titles = not inventory }
@@ -113,7 +117,8 @@ function Summary.rowTexts(view, formatMoney)
 end
 
 -- Hover tooltip: vendor / AH / best of the items and of items + gold, each
--- followed by its rate where the view has rates. Returns { {left, right}, ... }.
+-- followed by its rate where the view has rates. Returns { {left, right[, source]}, ... };
+-- `source` ("vendor" / "ah") colors the label (Theme.sourceColor).
 function Summary.tooltipLines(view, formatMoney)
   view = view or NONE
   local layout = Summary.tableLayout(view)
@@ -121,15 +126,15 @@ function Summary.tooltipLines(view, formatMoney)
   local function section(title, t)
     t = t or NONE
     lines[#lines + 1] = { title, "" }
-    local function line(label, amount, perHour)
+    local function line(label, amount, perHour, source)
       local right = amountText(amount, formatMoney)
       if layout.rates then
         right = right .. "  " .. Summary.rateText(perHour, formatMoney) .. (perHour ~= nil and L_PER_HOUR or "")
       end
-      lines[#lines + 1] = { label, right }
+      lines[#lines + 1] = { label, right, source }
     end
-    line(L_VENDOR, t.vendor, t.vendorPerHour)
-    line(L_AH, t.ah, t.ahPerHour)
+    line(L_VENDOR, t.vendor, t.vendorPerHour, "vendor")
+    line(L_AH, t.ah, t.ahPerHour, "ah")
     line(L_BEST, t.best, t.bestPerHour)
   end
   section(L_LABEL_ITEMS, view.totals)
@@ -314,8 +319,10 @@ function Summary.attach(topBox, footer)
   tbl:SetScript("OnEnter", function(self)
     if not GameTooltip then return end
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    local C = T.colors
     for _, l in ipairs(Summary.tooltipLines(summary.view)) do
-      GameTooltip:AddDoubleLine(l[1], l[2], 1, 1, 1, 1, 1, 1)
+      local lc = (l[3] and T.sourceColor(l[3])) or C.tipValue
+      GameTooltip:AddDoubleLine(l[1], l[2], lc[1], lc[2], lc[3], C.tipValue[1], C.tipValue[2], C.tipValue[3])
     end
     GameTooltip:Show()
   end)
@@ -330,6 +337,7 @@ function Summary.attach(topBox, footer)
   end
   function summary:SetLayout(layout)
     local stack, y = {}, 0
+    tbl:SetShown(layout.height > 0)
     titles.frame:SetShown(layout.titles)
     titles.value:SetShown(layout.titles)
     titles.rate:SetShown(layout.titles)
@@ -389,7 +397,7 @@ function Summary.attach(topBox, footer)
       local w, l = self.rows[i], lines[i]
       if l then
         local r, g, b = T.qualityColor(l.quality)
-        w.name:SetTextColor(r, g, b, 1)
+        W.setTextRGB(w.name, r, g, b, 1)
         w.name:SetText(l.name)
         w.qty:SetText(l.qty)
         w.value:SetText(l.value)

@@ -197,11 +197,11 @@ function History.details(e, formatDate)
   end
   local currencies = History.currencyText(e)
   if currencies then Tip.labelled(tip, L_CURRENCIES, currencies) end
-  local function money(label, amount)
-    Tip.money(tip, label, amount, History.perHour(amount, e.elapsed))
+  local function money(label, amount, source)
+    Tip.money(tip, label, amount, History.perHour(amount, e.elapsed), source)
   end
-  money(L_VENDOR, e.vendor)
-  money(L_AH, e.ah)
+  money(L_VENDOR, e.vendor, "vendor")
+  money(L_AH, e.ah, "ah")
   money(L_BEST, History.bestOf(e))
   money(L_GOLD, e.gold)
   return tip

@@ -49,7 +49,8 @@ shows while it is stopped.
   Ctrl-click tries it on. Top finds work the same way.
 - **Footer**: the value and gold per hour of your **Items**, the **Raw gold**
   you looted (creatures, containers, group shares, quest rewards) and the
-  **Total**. Hover it for vendor / AH / best totals.
+  **Total**. Hover it for vendor / AH / best totals. History and Zones have no
+  footer; their list runs to the bottom of the window.
 - **Top finds**: the three most valuable finds of the session.
 
 Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options).
@@ -103,6 +104,12 @@ anything that deletes History asks first.
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
 | Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Top finds, Raw gold row, Compact: last drops, Item icons, Scroll to new loot, Font, List text, Totals text, Section titles |
 | Session and alerts | Keep session, Drop alert (gold), Alert sound, Crafted and bought, Pause when AFK, Session per instance, Export History, Clear History, History kept |
+| Colors | Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
+
+**Colors**: click a swatch to pick a color in the game's color picker (the
+window changes while you pick, Cancel puts the old color back); right-click it
+for the default. By default text is white, and vendor values are cream, auction
+values blue and destroy values grey, in the list and in the tooltips.
 
 By default crafted items and purchases (vendor, mail, trade, auction house)
 are not counted as loot; **Crafted and bought** turns that on.

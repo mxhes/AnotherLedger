@@ -497,7 +497,10 @@ end
 function Window.setFooterHeight(h)
   local frame = Window.frame
   if not frame then return end
-  frame.footer:SetHeight(tonumber(h) or ns.Theme.sizes.footerHeight)
+  h = tonumber(h) or ns.Theme.sizes.footerHeight
+  -- No footer (History, Zones): a hair, not 0, or the list anchored on it
+  -- does not draw (zero-height frames anchor badly).
+  frame.footer:SetHeight(h > 0 and h or TOPBOX_EMPTY)
 end
 
 -- Resizes the Top finds box; 0 collapses it. listArea reflows by anchoring.

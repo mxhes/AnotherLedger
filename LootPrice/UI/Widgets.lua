@@ -13,9 +13,71 @@ local MENU_FRAME = "LootPriceMenu" -- global name of the legacy dropdown frame
 -- ---------------------------------------------------------------------------
 -- Colors
 
+-- Every region colored from a theme color is remembered with that color
+-- table (weak keys), so a color option can recolor it live: Theme.setColor
+-- changes the table in place, Widgets.recolor applies it again.
+--   text     -> { "text", color }
+--   line     -> { "line", color, alpha }
+--   button   -> { "button" }        (repainted in its current state)
+--   input    -> { "input" }
+--   backdrop -> { "backdrop", opaque }
+local tracked = setmetatable({}, { __mode = "k" })
+Widgets.tracked = tracked
+
 -- Sets the text color of a FontString from a theme color {r, g, b[, a]}.
 function Widgets.setTextColor(fontString, color)
   fontString:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+  tracked[fontString] = { "text", color }
+end
+
+-- A color not from the theme (item quality): set, and no longer recolored.
+function Widgets.setTextRGB(fontString, r, g, b, a)
+  fontString:SetTextColor(r, g, b, a or 1)
+  tracked[fontString] = nil
+end
+
+local function tint(tex, color, alpha)
+  tex:SetVertexColor(color[1], color[2], color[3], alpha or color[4] or 1)
+end
+
+local function inputColors(e)
+  local T = ns.Theme
+  local fill, edge = T.colors.inputFill, T.colors.buttonEdge
+  if e.SetBackdropColor then
+    e:SetBackdropColor(fill[1], fill[2], fill[3], fill[4] or 1)
+    e:SetBackdropBorderColor(edge[1], edge[2], edge[3], edge[4] or 1)
+  end
+end
+
+local function backdropColors(frame, opaque)
+  local T = ns.Theme
+  local bg, border = T.colors.panelTint, T.colors.panelBorder
+  frame:SetBackdropColor(bg[1], bg[2], bg[3], opaque and 1 or bg[4])
+  frame:SetBackdropBorderColor(border[1], border[2], border[3], opaque and 1 or border[4])
+end
+
+local paint -- defined with the buttons below
+
+-- Applies the theme colors again to every remembered region. `changed` (a set
+-- of color tables) limits texts and lines to those colors, so a text another
+-- part colored differently keeps its color; buttons, inputs and backdrops are
+-- always repainted. Window.applyLook (opacity / brightness) runs after this.
+function Widgets.recolor(changed)
+  for region, t in pairs(tracked) do
+    local kind = t[1]
+    if kind == "text" then
+      local c = t[2]
+      if not changed or changed[c] then region:SetTextColor(c[1], c[2], c[3], c[4] or 1) end
+    elseif kind == "line" then
+      if not changed or changed[t[2]] then tint(region, t[2], t[3]) end
+    elseif kind == "button" then
+      paint(region, region.look or "normal")
+    elseif kind == "input" then
+      inputColors(region)
+    elseif kind == "backdrop" then
+      backdropColors(region, t[2])
+    end
+  end
 end
 
 -- ---------------------------------------------------------------------------
@@ -35,7 +97,8 @@ end
 function Widgets.line(parent, color, layer, alpha)
   local tex = parent:CreateTexture(nil, layer or "ARTWORK")
   tex:SetTexture(ns.Theme.textures.rowHighlight)
-  tex:SetVertexColor(color[1], color[2], color[3], alpha or color[4] or 1)
+  tint(tex, color, alpha)
+  tracked[tex] = { "line", color, alpha }
   return tex
 end
 
@@ -71,7 +134,7 @@ local function buttonBackdrop(frame)
   })
 end
 
-local function paint(b, state)
+function paint(b, state)
   b.look = state
   local c = Widgets.buttonColors(state, b.warn)
   if b.SetBackdropColor then
@@ -107,6 +170,7 @@ local function wireStates(b)
   b:SetScript("OnEnable", function(self) paint(self, "normal") end)
   b:SetScript("OnDisable", function(self) paint(self, "disabled") end)
   paint(b, "normal")
+  tracked[b] = { "button" }
 end
 
 -- Text button. `opts.warn` gives the red warning look (Reset).
@@ -204,17 +268,16 @@ function Widgets.input(parent, width)
   local e = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
   e:SetSize(width, T.sizes.buttonHeight)
   buttonBackdrop(e)
-  local fill, edge = T.colors.inputFill, T.colors.buttonEdge
-  if e.SetBackdropColor then
-    e:SetBackdropColor(fill[1], fill[2], fill[3], fill[4] or 1)
-    e:SetBackdropBorderColor(edge[1], edge[2], edge[3], edge[4] or 1)
-  end
+  inputColors(e)
+  tracked[e] = { "input" }
   e.kind = "input"
   return e
 end
 
 -- The dark leather backdrop of the ledger window and the options panel.
-function Widgets.applyBackdrop(frame)
+-- `opaque`: full alpha (the options panel; the window's opacity option is
+-- applied by Window.applyLook).
+function Widgets.applyBackdrop(frame, opaque)
   local T = ns.Theme
   local inset = T.sizes.backdropInset
   frame:SetBackdrop({
@@ -225,9 +288,8 @@ function Widgets.applyBackdrop(frame)
     edgeSize = T.sizes.backdropEdge,
     insets = { left = inset, right = inset, top = inset, bottom = inset },
   })
-  local bg, border = T.colors.panelTint, T.colors.panelBorder
-  frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
-  frame:SetBackdropBorderColor(border[1], border[2], border[3], border[4])
+  backdropColors(frame, opaque)
+  tracked[frame] = { "backdrop", opaque and true or false }
 end
 
 -- ---------------------------------------------------------------------------
@@ -271,6 +333,37 @@ end
 
 function Widgets.tooltipOwnedBy(owner)
   return GameTooltip ~= nil and GameTooltip:IsOwned(owner) and true or false
+end
+
+-- ---------------------------------------------------------------------------
+-- Color picker: the game's ColorPickerFrame, opened on `hex` ("rrggbb").
+-- `onChange(hex)` runs while the color is dragged and with the old color on
+-- Cancel. Returns whether the picker opened (false without it, in the tests).
+-- UNVERIFIED (check in client): SetupColorPickerAndShow (retail 10.2.5+) and
+-- GetColorRGB; the legacy fields (func, cancelFunc) are the older fallback.
+function Widgets.pickColor(hex, onChange)
+  local cp = ColorPickerFrame
+  if type(cp) ~= "table" or type(cp.GetColorRGB) ~= "function" then return false end
+  local T = ns.Theme
+  local r, g, b = T.hexToRGB(hex)
+  if not r then r, g, b = 1, 1, 1 end
+  local function changed()
+    local nr, ng, nb = cp:GetColorRGB()
+    onChange(T.colorToHex({ nr, ng, nb }))
+  end
+  local function cancel() onChange(hex) end
+  if type(cp.SetupColorPickerAndShow) == "function" then
+    cp:SetupColorPickerAndShow({ r = r, g = g, b = b, hasOpacity = false,
+      swatchFunc = changed, cancelFunc = cancel })
+  else
+    cp.hasOpacity, cp.opacityFunc = false, nil
+    cp.func, cp.cancelFunc = changed, cancel
+    cp.previousValues = { r = r, g = g, b = b }
+    cp:SetColorRGB(r, g, b)
+    cp:Hide()
+    cp:Show()
+  end
+  return true
 end
 
 -- ---------------------------------------------------------------------------

@@ -2069,3 +2069,58 @@ h.test("wiring: money looted without a known message counts once", function()
   h.eq(S.gold, 2800)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: History and Zones have no footer, Session gets it back", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, footer = ctx.ns.UI.Ledger, ctx.ns.UI.Window.frame.footer
+  local summary = ctx.ns.UI.Summary.instance
+  L.refresh()
+  h.eq(footer:GetHeight(), 72)
+  L.setTab("history")
+  -- a hair, never 0: a zero-height footer leaves the list above it undrawn
+  h.eq(footer:GetHeight() > 0 and footer:GetHeight() < 0.01, true)
+  h.eq(summary.table:IsShown(), false)
+  L.setSubtab("zones")
+  h.eq(L.view.kind, "zones")
+  h.eq(footer:GetHeight() > 0 and footer:GetHeight() < 0.01, true)
+  L.setTab("session")
+  h.eq(footer:GetHeight(), 72)
+  h.eq(summary.table:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a color option recolors texts, buttons and the window live", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.UI.Ledger.refresh()
+  local label = ns.UI.Summary.instance.cells.items.label
+  local total = ns.UI.Summary.instance.cells.total.label
+  local colors = {}
+  local function watch(fs, name)
+    fs.SetTextColor = function(_, r, g, b) colors[name] = ns.Theme.colorToHex({ r, g, b }) end
+  end
+  watch(label, "items")
+  watch(total, "total")
+  local frame = ns.UI.Window.frame
+  local bg
+  frame.SetBackdropColor = function(_, r, g, b) bg = ns.Theme.colorToHex({ r, g, b }) end
+  ns.Options.set(ns.db, "colorText", "ff0000")
+  h.eq(colors.items, "ff0000")
+  h.eq(colors.total, nil) -- the Total row is a title color, untouched
+  ns.Options.set(ns.db, "colorTitles", "00ff00")
+  h.eq(colors.total, "00ff00")
+  ns.Options.set(ns.db, "colorBackground", "102030")
+  h.eq(bg, "102030")
+  h.eq(ctx.env.LootPriceDB.settings.colorText, "ff0000")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: saved colors are applied at login", function()
+  local ctx = boot({ db = { settings = { colorAuction = "123456", colorText = "nonsense" } } })
+  startWorld(ctx, false)
+  h.eq(ctx.ns.Theme.colorToHex(ctx.ns.Theme.colors.tagAh), "123456")
+  h.eq(ctx.ns.Theme.colorToHex(ctx.ns.Theme.colors.ink), "ffffff")
+  h.eq(ctx.errors, {})
+end)

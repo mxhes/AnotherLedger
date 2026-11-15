@@ -63,8 +63,10 @@ Theme.fontFiles = {
 -- Dark leather look: a dark warm brown panel with light text and the real,
 -- bright game coin / quality colors. tests/test_theme.lua pins the contrast.
 Theme.colors = {
-  -- Body text: light cream.
-  ink = { 0.93, 0.87, 0.72, 1 },
+  -- Body text: white. The colors the "Colors" options change (Options.lua,
+  -- COLOR_OPTIONS) are overwritten in place by Theme.setColor; their defaults
+  -- in DB.defaults.settings match these values (tests/test_options.lua).
+  ink = { 1, 1, 1, 1 },
   -- Age tag of stale prices: bright orange (ff8a4a).
   stale = { 1.00, 0.54, 0.29, 1 },
   -- Section title (Top finds): white.
@@ -98,15 +100,16 @@ Theme.colors = {
   marketGood = { 0.45, 0.85, 0.35, 1 },
   marketOk = { 0.95, 0.80, 0.40, 1 },
   marketBad = { 0.95, 0.38, 0.32, 1 },
-  -- Source tags of a row's value (frame and text).
-  tagVendor = { 0.88, 0.78, 0.56, 1 },
+  -- Source tags of a row's value (frame and text) and the Vendor / AH /
+  -- Destroy labels of tooltips: cream, blue, grey.
+  tagVendor = { 0.93, 0.87, 0.72, 1 },
   tagAh = { 0.50, 0.82, 1.00, 1 },
-  tagDe = { 0.83, 0.61, 1.00, 1 },
+  tagDe = { 0.70, 0.70, 0.70, 1 },
   -- Bronze dark buttons (Widgets.buttonColors) and input boxes.
   buttonFill = { 0.10, 0.07, 0.04, 0.95 },
   buttonEdge = { 0.55, 0.42, 0.24, 1 },
   buttonEdgeHover = { 1.00, 0.82, 0.20, 1 },
-  buttonText = { 0.93, 0.87, 0.72, 1 },
+  buttonText = { 1, 1, 1, 1 },
   buttonTextDisabled = { 0.50, 0.46, 0.38, 1 },
   buttonWarnEdge = { 0.62, 0.24, 0.17, 1 },
   buttonWarnEdgeHover = { 0.90, 0.36, 0.26, 1 },
@@ -265,6 +268,39 @@ function Theme.scaleColor(c, k)
   if type(k) ~= "number" or k ~= k then k = 1 end
   local function ch(v) return math.min(1, math.max(0, (v or 0) * k)) end
   return { ch(c[1]), ch(c[2]), ch(c[3]), c[4] or 1 }
+end
+
+-- Pure. "rrggbb" (a leading "#" allowed, any case) -> r, g, b in 0..1; nil
+-- for anything else.
+function Theme.hexToRGB(hex)
+  if type(hex) ~= "string" then return nil end
+  local r, g, b = hex:match("^#?(%x%x)(%x%x)(%x%x)$")
+  if not r then return nil end
+  return tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255
+end
+
+-- Pure. A color {r, g, b[, a]} -> "rrggbb" (lower case; alpha left out).
+function Theme.colorToHex(c)
+  local function byte(v) return math.min(255, math.max(0, math.floor((v or 0) * 255 + 0.5))) end
+  return string.format("%02x%02x%02x", byte(c[1]), byte(c[2]), byte(c[3]))
+end
+
+-- Sets the r, g, b of Theme.colors[key] from "rrggbb", in place (every UI part
+-- holding the table sees the new color; alpha kept). Returns the table, or
+-- nil for an unknown key or bad hex.
+function Theme.setColor(key, hex)
+  local c = Theme.colors[key]
+  local r, g, b = Theme.hexToRGB(hex)
+  if type(c) ~= "table" or not r then return nil end
+  c[1], c[2], c[3] = r, g, b
+  return c
+end
+
+-- The color of a value source ("vendor" / "ah" / "de"), or nil.
+local SOURCE_COLORS = { vendor = "tagVendor", ah = "tagAh", de = "tagDe" }
+function Theme.sourceColor(source)
+  local key = SOURCE_COLORS[source]
+  return key and Theme.colors[key] or nil
 end
 
 -- WCAG 2 contrast ratio (1..21) between two sRGB colors (components 0..1).

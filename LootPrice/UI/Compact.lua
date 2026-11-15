@@ -43,7 +43,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Widgets
 
-local function setColor(fs, c) fs:SetTextColor(c[1], c[2], c[3], c[4] or 1) end
+local function setColor(fs, c) ns.UI.Widgets.setTextColor(fs, c) end
 
 local part = {}
 
@@ -64,7 +64,7 @@ function part:Update(view)
       local t = Compact.dropText(row)
       local r, g, b = T.qualityColor(row.quality)
       w.name:SetText(t.name .. " " .. t.qty)
-      w.name:SetTextColor(r, g, b, 1)
+      ns.UI.Widgets.setTextRGB(w.name, r, g, b, 1)
       w.amount:SetText(t.amount)
       if t.source then
         local col = T.colors[ns.UI.Rows.SOURCE_COLOR[t.source]] or T.colors.ink

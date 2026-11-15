@@ -106,9 +106,11 @@ function Rows.rowText(row, formatMoney)
   }
 end
 
--- Tooltip lines of a row: every known value ("Vendor: 1s (50c each)"), the
--- counted one first in the theme's best color. Per unit only with qty > 1.
+-- Tooltip lines of a row: every known value ("Vendor: 1s (50c each)"). Per
+-- unit only with qty > 1. Without `formatMoney` (the colored coins) the label
+-- takes its source color (Theme.sourceColor); plain text otherwise.
 function Rows.tooltipLines(row, formatMoney)
+  local colored = formatMoney == nil
   formatMoney = formatMoney or ns.Money.formatColored
   local lines = {}
   if type(row) ~= "table" or row.isCurrency then return lines end
@@ -116,7 +118,10 @@ function Rows.tooltipLines(row, formatMoney)
   for _, src in ipairs(Rows.SOURCES) do
     local total, each = row[src .. "Total"], row[src .. "Each"]
     if type(total) == "number" then
-      local line = SOURCE_LABEL[src] .. formatMoney(total)
+      local label = SOURCE_LABEL[src]
+      local c = colored and ns.Theme.sourceColor(src)
+      if c then label = ns.Money.colorCode(c) .. label .. "|r" end
+      local line = label .. formatMoney(total)
       if multi and type(each) == "number" then line = line .. " (" .. formatMoney(each) .. L.EACH .. ")" end
       lines[#lines + 1] = line
     end
@@ -305,7 +310,8 @@ local function showTooltip(f)
   if W.showItemTooltip(f, f.tooltipLink) then
     local lines = f.tooltipLines
     if GameTooltip and lines and #lines > 0 then
-      for _, line in ipairs(lines) do GameTooltip:AddLine(line, 1, 1, 1) end
+      local c = ns.Theme.colors.tipValue
+      for _, line in ipairs(lines) do GameTooltip:AddLine(line, c[1], c[2], c[3]) end
       GameTooltip:Show()
     end
     return true
@@ -329,8 +335,15 @@ local function itemIcon(itemID)
   return icon or QUESTION_MARK
 end
 
+-- Through Widgets when loaded, so a color option recolors the text live.
 local function setColor(fs, c)
-  fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
+  local W = ns.UI.Widgets
+  if W and W.setTextColor then W.setTextColor(fs, c) else fs:SetTextColor(c[1], c[2], c[3], c[4] or 1) end
+end
+
+local function setRGB(fs, r, g, b)
+  local W = ns.UI.Widgets
+  if W and W.setTextRGB then W.setTextRGB(fs, r, g, b, 1) else fs:SetTextColor(r, g, b, 1) end
 end
 
 local NONE = {}
@@ -488,7 +501,7 @@ local function fillRow(f, row)
   local t = textOf(row)
   local r, g, b = T.qualityColor(row.quality)
   f.name:SetText(t.name)
-  f.name:SetTextColor(r, g, b)
+  setRGB(f.name, r, g, b)
   f.qty:SetText(t.qty)
   f.amount:SetText(t.amount)
   setColor(f.amount, T.colors.ink)

@@ -232,6 +232,46 @@ function Panel.WIDGETS.dropdown(block, spec)
   }
 end
 
+-- Color: a swatch and the label. Click opens the game's color picker (the
+-- color changes live while you drag, Cancel restores it); right-click sets
+-- the default.
+function Panel.WIDGETS.color(block, spec)
+  local T = theme()
+  local W = ns.UI.Widgets
+  local swatch = CreateFrame("Button", nil, block, "BackdropTemplate")
+  swatch:SetSize(20, 20)
+  swatch:SetPoint("TOPLEFT", block, "TOPLEFT", 2, -4)
+  if swatch.SetBackdrop then
+    swatch:SetBackdrop({ edgeFile = T.textures.buttonEdge, edgeSize = 1 })
+    local e = T.colors.buttonEdgeHover
+    swatch:SetBackdropBorderColor(e[1], e[2], e[3], 1)
+  end
+  local fill = swatch:CreateTexture(nil, "ARTWORK")
+  fill:SetTexture(T.textures.rowHighlight)
+  fill:SetPoint("TOPLEFT", swatch, "TOPLEFT", 1, -1)
+  fill:SetPoint("BOTTOMRIGHT", swatch, "BOTTOMRIGHT", -1, 1)
+  local text = label(block, T.fonts.small, T.colors.ink)
+  text:SetPoint("LEFT", swatch, "RIGHT", 6, 0)
+  text:SetText(spec.label)
+
+  local function show(value)
+    local r, g, b = T.hexToRGB(value)
+    if r then fill:SetVertexColor(r, g, b, 1) end
+  end
+  if swatch.RegisterForClicks then swatch:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+  swatch:SetScript("OnClick", function(_, button)
+    if button == "RightButton" then
+      show(set(spec, ns.Options.defaultFor(spec.key)))
+      return
+    end
+    W.pickColor(get(spec), function(hex) show(set(spec, hex)) end)
+  end)
+  return {
+    refresh = function() show(get(spec)) end,
+    controls = { swatch },
+  }
+end
+
 -- ---------------------------------------------------------------------------
 -- Panel
 
@@ -344,12 +384,8 @@ local function build()
   local tabbed = Panel.buildTabbed(frame, pad, pad + TITLE_HEIGHT)
   frame.tabbed = tabbed
   frame:SetSize(width, 2 * pad + TITLE_HEIGHT + tabbed.height)
-  ns.UI.Widgets.applyBackdrop(frame)
   -- Always fully opaque: the opacity option is for the ledger window.
-  local c = T.colors.panelTint
-  frame:SetBackdropColor(c[1], c[2], c[3], 1)
-  local bc = T.colors.panelBorder
-  frame:SetBackdropBorderColor(bc[1], bc[2], bc[3], 1)
+  ns.UI.Widgets.applyBackdrop(frame, true)
 
   local title = label(frame, T.fonts.title, T.colors.gold)
   title:SetPoint("TOPLEFT", frame, "TOPLEFT", pad, -pad)

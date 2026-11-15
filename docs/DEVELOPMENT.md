@@ -61,10 +61,10 @@ Each of these is one call in one place; the UI never names them.
   `Options.define({ key, category, type, label, tooltip, ..., apply })` in
   `Options.lua`. `label` is short (24 characters at most, a test checks it);
   `tooltip` says what it does and is shown on hover with the default.
-  `category` is `window`, `prices`, `display` or `session`. Types: `slider`
+  `category` is `window`, `prices`, `display`, `session` or `colors`. Types: `slider`
   (`min`, `max`, `step`, `format`), `dropdown` (`choices` list or function),
   `checkbox`, `number` (whole number, empty = unlimited, optional `zeroText`),
-  `text`, `button` (`action`). Values are validated by type and fall back to
+  `text`, `color` (`"rrggbb"`), `button` (`action`). Values are validated by type and fall back to
   the default; `apply` runs on change and for the saved value at login. Read it
   with `Options.get(ns.db, key)`. A new kind of control is one factory in
   `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its height in `Options.HEIGHTS`.
@@ -87,6 +87,22 @@ Each of these is one call in one place; the UI never names them.
   `ns.UI.Widgets.showTextTooltip(owner, tip)`. Colors are `Theme.colors.tip*`.
 
 ## How things work
+
+- **Colors**: `Options.COLOR_OPTIONS` lists each color option with the
+  `Theme.colors` keys it sets; its default in `DB.defaults.settings` must equal
+  those theme colors (a test checks). `Theme.setColor` overwrites the r, g, b
+  of the color table in place, so code that reads `Theme.colors` at draw time
+  (tooltips, rows on refresh) follows by itself. Regions colored once at
+  creation are remembered by `UI/Widgets.lua` (`setTextColor`, `line`,
+  buttons, inputs, `applyBackdrop`) and `Widgets.recolor(changed)` paints them
+  again; then `Window.applyLook` and a refresh run. A text colored with a
+  non-theme color (item quality) goes through `Widgets.setTextRGB`, which
+  drops it from the list. Vendor / AH / Destroy labels in tooltips use
+  `Theme.sourceColor(source)` (`Tooltip.money(..., source)`, `Rows.tooltipLines`,
+  `Summary.tooltipLines`). The swatch opens the game picker through
+  `Widgets.pickColor`.
+- **Footer**: `Summary.tableLayout` gives height 0 and no lines for History and
+  Zones (`view.history`); the table frame hides and the list reaches the bottom.
 
 - **Item keys**: `LootParse.itemKey(link)` is the item ID for plain items and
   `"<id>:<sorted bonus IDs>"` for variants; every item map, the price cache and

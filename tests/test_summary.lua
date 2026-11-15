@@ -104,14 +104,15 @@ h.test("tooltipLines: items and items + gold with rates; inventory without", fun
     combined = { vendor = 3, ah = 4, best = 4 } }
   local l = S.tooltipLines(view, M.format)
   h.eq(l[1], { "Items", "" })
-  h.eq(l[2], { "Vendor: ", M.format(1) .. "  " .. M.format(10) .. "/h" })
+  h.eq(l[2], { "Vendor: ", M.format(1) .. "  " .. M.format(10) .. "/h", "vendor" })
+  h.eq(l[3][3], "ah")
   h.eq(l[4], { "Best: ", M.format(2) .. "  " .. M.format(20) .. "/h" })
   h.eq(l[5], { "Total", "" })
-  h.eq(l[6], { "Vendor: ", M.format(3) .. "  " .. "\226\128\148" })
+  h.eq(l[6], { "Vendor: ", M.format(3) .. "  " .. "\226\128\148", "vendor" })
   h.eq(#l, 8)
   local inv = S.tooltipLines({ kind = "inventory", totals = { vendor = 1, ah = 2, best = 2 } }, M.format)
   h.eq(#inv, 4)
-  h.eq(inv[2], { "Vendor: ", M.format(1) })
+  h.eq(inv[2], { "Vendor: ", M.format(1), "vendor" })
   h.eq(#S.tooltipLines({ noCombined = true, totals = view.totals, combined = view.combined }, M.format), 4)
 end)
 
@@ -152,4 +153,14 @@ h.test("table worst case still fits the minimum width with coin icons", function
   end)
   M.setIcons(false)
   assert(ok, err)
+end)
+
+h.test("tableLayout: History and Zones have no footer", function()
+  for _, kind in ipairs({ "history", "zones" }) do
+    local l = S.tableLayout({ kind = kind, history = true, totals = { unpriced = 2, filtered = true } })
+    h.eq(l.height, 0, kind)
+    h.eq(l.rows, {}, kind)
+    h.eq(l.titles, false, kind)
+    h.eq(l.notes, false, kind)
+  end
 end)

@@ -8,7 +8,8 @@ local L = ns.L
 -- (Widgets.showTextTooltip runs them); Tooltip.text flattens it to plain text.
 --
 --   pair     label left, text right           (tan label, white text)
---   money    label left, coins right [(x/h)]  (coins in the game colors)
+--   money    label left, coins right [(x/h)]  (coins in the game colors; a
+--            Vendor / AH line's label in its source color)
 --   rate     label left, coins/h right
 --   labelled "Label: text" on one wrapping line
 --   para     a white paragraph that wraps (an option's description)
@@ -30,8 +31,10 @@ end
 
 function Tooltip.pair(tip, label, text) return add(tip, { kind = "pair", label = label, text = text }) end
 
-function Tooltip.money(tip, label, copper, perHour)
-  return add(tip, { kind = "money", label = label, copper = copper, perHour = perHour })
+-- `source` ("vendor" / "ah" / "de", optional): the label takes that source's
+-- color (Theme.sourceColor) instead of the label color.
+function Tooltip.money(tip, label, copper, perHour, source)
+  return add(tip, { kind = "money", label = label, copper = copper, perHour = perHour, source = source })
 end
 
 -- `strong`: the label is a name (a runner-up place), drawn in the value color.
@@ -97,8 +100,8 @@ function Tooltip.render(tip)
   for _, line in ipairs(tip.lines) do
     local kind = line.kind
     if DOUBLE[kind] then
-      op({ op = "double", left = line.label, right = rightText(line, fmt),
-        lc = line.strong and C.tipValue or C.tipLabel, rc = C.tipValue })
+      local lc = line.strong and C.tipValue or (line.source and ns.Theme.sourceColor(line.source)) or C.tipLabel
+      op({ op = "double", left = line.label, right = rightText(line, fmt), lc = lc, rc = C.tipValue })
     elseif kind == "labelled" then
       op({ op = "line", text = ns.Money.colorCode(C.tipLabel) .. line.label .. "|r" .. line.text,
         color = C.tipValue, wrap = true })
