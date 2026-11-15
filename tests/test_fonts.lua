@@ -119,7 +119,7 @@ h.test("Fonts: choices offer the default and the fonts the client loads", functi
     local c = ns.UI.Fonts.choices()
     h.eq(c[1], { value = "default", label = "WoW default" })
     h.eq(#c, 3)
-    h.eq(c[3].label, "Arial Narrow")
+    h.eq(c[2].label, "Arial Narrow") -- sorted by name
     -- the option accepts a listed font and falls back to the default for others
     ns.UI.Fonts.choices() -- cached
     h.eq(ns.Options.normalize(ns.Options.spec("fontFace"), "Fonts\\ARIALN.TTF"), "Fonts\\ARIALN.TTF")
@@ -199,5 +199,52 @@ h.test("Fonts.install: without Arial Narrow the source tag keeps the game font",
     h.eq(created.LootPriceSourceTag.file, "Fonts\\FRIZQT__.TTF")
   end)
   _G.CreateFont, _G.GameFontHighlightSmall = nil, nil
+  assert(ok, err)
+end)
+
+h.test("Fonts.choices: SetFont returning nothing counts as loaded (retail)", function()
+  local ns = load()
+  local created = {}
+  _G.CreateFont = function(name)
+    local f = { name = name }
+    function f:SetFont() end -- retail: no return value
+    created[name] = f
+    return f
+  end
+  local ok, err = pcall(function()
+    local c = ns.UI.Fonts.choices()
+    local labels = {}
+    for _, e in ipairs(c) do labels[#labels + 1] = e.label end
+    h.eq(labels[1], "WoW default")
+    h.eq(#c >= 5, true) -- the four built-in fonts are offered
+  end)
+  _G.CreateFont = nil
+  assert(ok, err)
+end)
+
+h.test("Fonts.choices: the game's own fonts are offered, named, deduplicated and sorted", function()
+  local ns = load()
+  local created, newFont = fakeClient({ ["Fonts\\FRIZQT__.TTF"] = true, ["Fonts\\ARIALN.TTF"] = true,
+    ["Fonts\\skurri.ttf"] = true, ["Fonts\\MORPHEUS.ttf"] = true,
+    ["Fonts\\K_Damage.TTF"] = true, ["Fonts\\Special.ttf"] = true })
+  _G.CreateFont = newFont
+  local objs = {
+    GameFontNormal = "Fonts\\FRIZQT__.TTF",
+    CombatTextFont = "Fonts\\K_Damage.TTF",
+    QuestFont = "Fonts\\Special.ttf",
+  }
+  for name, file in pairs(objs) do _G[name] = { GetFont = function() return file, 12, "" end } end
+  local ok, err = pcall(function()
+    local c = ns.UI.Fonts.choices()
+    local labels, seen = {}, {}
+    for i, e in ipairs(c) do
+      labels[i] = e.label
+      h.eq(seen[e.value:lower()], nil, "duplicate " .. e.value)
+      seen[e.value:lower()] = true
+    end
+    h.eq(labels, { "WoW default", "Arial Narrow", "Damage", "Friz Quadrata", "Morpheus", "Skurri", "Special" })
+  end)
+  for name in pairs(objs) do _G[name] = nil end
+  _G.CreateFont = nil
   assert(ok, err)
 end)

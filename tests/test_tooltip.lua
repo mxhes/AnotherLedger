@@ -64,3 +64,10 @@ h.test("Tooltip.render: the click hints are green, after one blank line", functi
   Tip.hint(t, "Click")
   h.eq(Tip.render(t), { { op = "line", text = "Click", color = C.tipHint } })
 end)
+
+h.test("Tooltip.para: a white wrapping paragraph", function()
+  local t = Tip.new("T")
+  Tip.para(t, "Long text")
+  h.eq(Tip.text(t), "T\nLong text")
+  h.eq(Tip.render(t)[2], { op = "line", text = "Long text", color = C.tipValue, wrap = true })
+end)

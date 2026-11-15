@@ -40,7 +40,8 @@ end
 
 Fonts.DEFAULT_FACE = "default"
 
--- Well-known game fonts; only the ones the client really loads are offered.
+-- Well-known game fonts, in every client since the first one; only the ones
+-- the client really loads are offered.
 local BUILT_IN = {
   { "Friz Quadrata", "Fonts\\FRIZQT__.TTF" },
   { "Arial Narrow", "Fonts\\ARIALN.TTF" },
@@ -48,14 +49,40 @@ local BUILT_IN = {
   { "Morpheus", "Fonts\\MORPHEUS.ttf" },
 }
 
+-- Game font objects whose files are offered too: the game draws with them,
+-- so the files exist (also the ones of other languages and newer clients).
+-- UNVERIFIED (check in client): these font objects exist on Forever; missing
+-- ones are skipped.
+local GAME_FONT_OBJECTS = {
+  "GameFontNormal", "ChatFontNormal", "NumberFontNormal", "QuestFont", "SystemFont_Med1",
+  "GameFontNormalHuge", "CombatTextFont", "ZoneTextFont", "SubZoneTextFont", "DestinyFontLarge",
+  "MailFont_Large", "InvoiceFont_Med", "SpellFont_Small", "Fancy16Font", "FriendsFont_Normal",
+}
+
+-- Names of known font files (lower-case base name, no extension).
+local FILE_NAMES = {
+  frizqt__ = "Friz Quadrata", frizqt___cyr = "Friz Quadrata (Cyrillic)", arialn = "Arial Narrow",
+  skurri = "Skurri", skurri_cyr = "Skurri (Cyrillic)", morpheus = "Morpheus",
+  morpheus_cyr = "Morpheus (Cyrillic)", nim_____ = "Nimrod", k_damage = "Damage",
+  k_pagetext = "Page text", ["2002"] = "2002", ["2002b"] = "2002 Bold",
+}
+
+-- Pure. A display name for a font file path: a known name, else its base name.
+function Fonts.fileLabel(path)
+  local base = tostring(path):match("([^\\/]+)$") or tostring(path)
+  base = base:gsub("%.[^.]+$", "")
+  return FILE_NAMES[base:lower()] or base
+end
+
 local faceChoices
 
--- Can the client use this font file? SetFont returns false when it cannot.
+-- Can the client use this font file? SetFont returns false when it cannot; on
+-- retail it returns nothing at all, which counts as loaded.
 local function loads(path)
   local create = _G.CreateFont
   if type(create) ~= "function" then return false end
   Fonts.probe = Fonts.probe or create("LootPriceFontProbe")
-  return Fonts.probe:SetFont(path, 12, "") and true or false
+  return Fonts.probe:SetFont(path, 12, "") ~= false
 end
 
 -- { { value, label }, ... } for the dropdown: the WoW default, the built-in
@@ -72,6 +99,13 @@ function Fonts.choices()
   for _, font in ipairs(BUILT_IN) do
     if loads(font[2]) then add(font[1], font[2]) end
   end
+  for _, name in ipairs(GAME_FONT_OBJECTS) do
+    local obj = _G[name]
+    if type(obj) == "table" and type(obj.GetFont) == "function" then
+      local ok, file = pcall(obj.GetFont, obj)
+      if ok and type(file) == "string" and file ~= "" then add(Fonts.fileLabel(file), file) end
+    end
+  end
   local libStub = _G.LibStub
   local lsm
   if libStub then
@@ -87,6 +121,10 @@ function Fonts.choices()
       if type(path) == "string" and loads(path) then add(name, path) end
     end
   end
+  -- WoW default first, the fonts by name.
+  local first = table.remove(list, 1)
+  table.sort(list, function(a, b) return a.label:lower() < b.label:lower() end)
+  table.insert(list, 1, first)
   faceChoices = list
   return list
 end

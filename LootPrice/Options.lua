@@ -10,10 +10,12 @@ local L = ns.L
 --     key     = "alpha",              -- db.settings[key] (default in DB.defaults.settings)
 --     type    = "slider",             -- slider | dropdown | checkbox | number | text | button (see OptionsPanel.WIDGETS)
 --     category = "window",            -- section of the panel (Options.CATEGORIES)
---     label   = "Window opacity",
+--     label   = "Opacity",            -- short; the details go in tooltip
+--     tooltip = "Fades the window...", -- shown on hover with the default (Options.tooltip)
+--     zeroText = "Off",               -- number: text of 0 (optional)
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = L["A"] }, ... }, -- dropdown (or a function returning that list)
---     (labels go through ns.L, Locale.lua: L["Window opacity"])
+--     (labels go through ns.L, Locale.lua: L["Opacity"])
 --     (number: whole number >= 0, or -1 = unlimited; typed into a text box)
 --     (text: any non-empty text; button: has no value, `action` runs on click)
 --     format  = function(v) ... end,  -- optional display text of the value
@@ -183,13 +185,27 @@ end
 -- plain value.
 function Options.valueText(spec, value)
   if spec.format then return spec.format(value) end
-  if spec.type == "number" and num(value) and value < 0 then return "Unlimited" end
+  if spec.type == "checkbox" then return value and L["On"] or L["Off"] end
+  if spec.type == "number" and num(value) and value < 0 then return L["Unlimited"] end
+  if spec.type == "number" and value == 0 and spec.zeroText then return spec.zeroText end
   if spec.type == "dropdown" then
     for _, c in ipairs(Options.choices(spec)) do
       if c.value == value then return c.label end
     end
   end
   return tostring(value)
+end
+
+-- The hover tooltip of an option (ns.Tooltip): its label as title, what it
+-- does, and its default value (not for a button).
+function Options.tooltip(spec)
+  local Tip = ns.Tooltip
+  local tip = Tip.new(spec.label)
+  if spec.tooltip then Tip.para(tip, spec.tooltip) end
+  if spec.type ~= "button" then
+    Tip.note(tip, L["Default: "] .. Options.valueText(spec, Options.normalize(spec, nil)))
+  end
+  return tip
 end
 
 -- Panel layout: top offset of each option block and the total height. With
@@ -222,7 +238,8 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Built-in options. Apply callbacks look the UI up at call time, so they are
--- harmless before the window exists (and in the tests).
+-- harmless before the window exists (and in the tests). Labels are short; the
+-- details are in `tooltip` (shown on hover in the panel, Options.tooltip).
 
 local function refreshUI()
   if ns.UI and ns.UI.refresh then ns.UI.refresh() end
@@ -236,43 +253,51 @@ end
 
 -- Window background and border.
 Options.define({
-  key = "alpha", category = "window", type = "slider", label = L["Window opacity"],
+  key = "alpha", category = "window", type = "slider", label = L["Opacity"],
+  tooltip = L["Fades the window's background and border. Text and rows stay fully visible."],
   min = 0, max = 1, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
 -- 100 % is the theme color; above that the dark panel gets lighter.
 Options.define({
-  key = "brightness", category = "window", type = "slider", label = L["Window brightness"],
+  key = "brightness", category = "window", type = "slider", label = L["Brightness"],
+  tooltip = L["Makes the dark background lighter or darker. 100% is the normal look, 0% is black."],
   min = 0, max = 2, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
 Options.define({
-  key = "windowScale", category = "window", type = "slider", label = L["Window scale"],
+  key = "windowScale", category = "window", type = "slider", label = L["Scale"],
+  tooltip = L["Size of the whole window. It keeps its center on the screen."],
   min = 0.7, max = 1.5, step = 0.05, format = percent,
   apply = function()
     if ns.UI and ns.UI.Window and ns.UI.Window.applyScale then ns.UI.Window.applyScale() end
   end,
 })
 
-Options.define({ key = "lockWindow", category = "window", type = "checkbox", label = L["Lock window (no moving or resizing)"] })
+Options.define({ key = "lockWindow", category = "window", type = "checkbox", label = L["Lock window"],
+  tooltip = L["The window can't be moved or resized."] })
 
-Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden at login"] })
+Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden"],
+  tooltip = L["The window stays closed at login. Open it with the minimap button or /lp."] })
 
 Options.define({
   key = "combatHide", category = "window",
   type = "checkbox",
-  label = L["Hide in combat, show again afterwards"],
+  label = L["Hide in combat"],
+  tooltip = L["Hides the window when combat starts and shows it again afterwards, but only if it was open. A window you closed yourself stays closed."],
   apply = function(v)
     if not v and ns.UI and ns.UI.Window and ns.UI.Window.combatShow then ns.UI.Window.combatShow() end
   end,
 })
 
-Options.define({ key = "keepSession", category = "session", type = "checkbox", label = L["Keep the session across logins"] })
+Options.define({ key = "keepSession", category = "session", type = "checkbox", label = L["Keep session"],
+  tooltip = L["The session and its clock carry over to your next login instead of starting fresh. Same as /lp keep."] })
 
 Options.define({
   key = "priceSource", category = "prices",
   type = "dropdown",
   label = L["AH price source"],
+  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator."],
   -- "Auto" plus every registered price source (Sources/Sources.lua).
   choices = function() return ns.Sources.choices() end,
   apply = refreshUI,
@@ -280,33 +305,43 @@ Options.define({
 
 -- The TSM price string, read live by Sources/TSM.lua (same as /lp tsm).
 Options.define({
-  key = "tsmSource", category = "prices", type = "text", label = L["TSM price source (e.g. DBMarket)"], apply = refreshUI,
+  key = "tsmSource", category = "prices", type = "text", label = L["TSM price"],
+  tooltip = L["The TSM price used for AH values, e.g. DBMarket or DBMinBuyout. Same as /lp tsm."],
+  apply = refreshUI,
 })
 
 -- TSM region sale info under the item name (Sources/TSM.lua TSM.market) and
 -- the cutoffs of its levels (View.marketLevels).
 Options.define({
-  key = "showMarket", category = "prices", type = "checkbox", label = L["Show TSM sale info under the name"], apply = refreshUI,
+  key = "showMarket", category = "prices", type = "checkbox", label = L["TSM sale info"],
+  tooltip = L["With TSM loaded, shows under each item name how well it sells in your region (well / okay / poorly) and how many sell per day."],
+  apply = refreshUI,
 })
 
 local function rate(v) return string.format("%.2f", v) end
-Options.define({ key = "saleRateGood", category = "prices", type = "slider", label = L["Sale rate: sells well from"],
+Options.define({ key = "saleRateGood", category = "prices", type = "slider", label = L["Sells well from"],
+  tooltip = L["Region sale rate (0 to 1) from which an item counts as selling well."],
   min = 0, max = 1, step = 0.01, format = rate, apply = refreshUI })
-Options.define({ key = "saleRateOk", category = "prices", type = "slider", label = L["Sale rate: sells okay from"],
+Options.define({ key = "saleRateOk", category = "prices", type = "slider", label = L["Sells okay from"],
+  tooltip = L["Region sale rate from which an item counts as selling okay. Below it, it sells poorly."],
   min = 0, max = 1, step = 0.01, format = rate, apply = refreshUI })
-Options.define({ key = "soldHigh", category = "prices", type = "number", label = L["Sold per day: high volume from"],
+Options.define({ key = "soldHigh", category = "prices", type = "number", label = L["High volume from"],
+  tooltip = L["Average number sold per day in your region from which an item is High volume. Empty = never."],
   apply = refreshUI })
-Options.define({ key = "soldMedium", category = "prices", type = "number", label = L["Sold per day: medium volume from"],
+Options.define({ key = "soldMedium", category = "prices", type = "number", label = L["Medium volume from"],
+  tooltip = L["Average number sold per day from which an item is Medium volume. Below it, Low volume."],
   apply = refreshUI })
 
 Options.define({
-  key = "refreshSeconds", category = "prices", type = "slider", label = L["Price refresh interval"],
+  key = "refreshSeconds", category = "prices", type = "slider", label = L["Price refresh"],
+  tooltip = L["How often prices and age tags are looked up again while the clock runs. The Daily farm is worked out again at the same pace."],
   min = 10, max = 120, step = 5, format = function(v) return v .. " s" end,
 })
 
 -- After this long a cached AH price shows its age tag in orange.
 Options.define({
-  key = "staleHours", category = "prices", type = "slider", label = L["Mark cached prices as old after"],
+  key = "staleHours", category = "prices", type = "slider", label = L["Old price after"],
+  tooltip = L["A cached AH price older than this shows its age tag in orange."],
   min = 1, max = 72, step = 1, format = function(v) return v .. " h" end,
   apply = function(v)
     if ns.Prices then ns.Prices.STALE_AFTER = v * 3600 end
@@ -319,7 +354,8 @@ Options.define({
 Options.define({
   key = "defaultSort", category = "display",
   type = "dropdown",
-  label = L["Sort order (at login)"],
+  label = L["Sort at login"],
+  tooltip = L["The list's order at every login. The sort button still changes it for the rest of the session."],
   choices = {
     { value = "ah", label = L["Best value"] },
     { value = "vendor", label = L["Vendor value"] },
@@ -335,7 +371,8 @@ Options.define({
 Options.define({
   key = "goldDisplay", category = "display",
   type = "dropdown",
-  label = L["Amounts of 1 gold and more"],
+  label = L["Large amounts"],
+  tooltip = L["How amounts of 1 gold and more are shown: all coins, gold and silver, or gold only. Smaller amounts always show in full."],
   choices = {
     { value = "full", label = L["Gold, silver and copper"] },
     { value = "silver", label = L["Gold and silver"] },
@@ -351,7 +388,8 @@ Options.define({
 -- icon is wider than a letter), so the sizes are re-applied too.
 Options.define({
   key = "coinIcons", category = "display", type = "checkbox",
-  label = L["Coin icons instead of g / s / c"],
+  label = L["Coin icons"],
+  tooltip = L["Shows the game's coin icons instead of the letters g, s and c, wherever amounts appear."],
   apply = function(v)
     if ns.Money then ns.Money.setIcons(v) end
     -- New minimum width, and the rows measure their amount column again.
@@ -363,76 +401,93 @@ Options.define({
 })
 
 Options.define({
-  key = "includeGold", category = "display", type = "checkbox", label = L["Add raw gold to the combined total"], apply = refreshUI,
+  key = "includeGold", category = "display", type = "checkbox", label = L["Raw gold in Total"],
+  tooltip = L["Adds the gold you looted to the Total row of the footer. Off leaves the Total row out."],
+  apply = refreshUI,
 })
 
 -- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
 Options.define({
-  key = "alertGold", category = "session", type = "number", label = L["Alert for drops worth (gold, 0 = off)"],
+  key = "alertGold", category = "session", type = "number", label = L["Drop alert (gold)"],
+  tooltip = L["A chat line when one drop is worth at least this much gold. 0 or empty turns it off."],
+  zeroText = L["Off"],
 })
 
-Options.define({ key = "alertSound", category = "session", type = "checkbox", label = L["Play a sound with the alert"] })
+Options.define({ key = "alertSound", category = "session", type = "checkbox", label = L["Alert sound"],
+  tooltip = L["Plays a sound with the drop alert."] })
 
 -- Off: "You create" messages and items received while a merchant, mailbox,
 -- trade or auction house window is open are not loot.
 Options.define({
-  key = "countCrafted", category = "session", type = "checkbox", label = L["Count crafted items and purchases"],
+  key = "countCrafted", category = "session", type = "checkbox", label = L["Crafted and bought"],
+  tooltip = L["Counts items you craft, and items you get at a vendor, mailbox, trade or the auction house, as loot."],
 })
 
-Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause the clock while AFK"] })
+Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause when AFK"],
+  tooltip = L["Stops the clock while you are AFK and starts it again when you are back."] })
 
 Options.define({
   key = "instanceSession", category = "session", type = "checkbox",
-  label = L["New session for each dungeon or raid"],
+  label = L["Session per instance"],
+  tooltip = L["Saves the session to History and starts a new one whenever you enter or leave a dungeon or raid."],
 })
 
 Options.define({
-  key = "showCurrencies", category = "display", type = "checkbox", label = L["Show currencies in the list"], apply = refreshUI,
+  key = "showCurrencies", category = "display", type = "checkbox", label = L["Currencies"],
+  tooltip = L["Lists looted currencies after the items."],
+  apply = refreshUI,
 })
 
 -- Daily farm strip at the top of the window (View.dailyFarm): the saved place
 -- with the best gold per hour; only places with this much recorded time count.
 Options.define({
-  key = "dailyFarm", category = "display", type = "checkbox", label = L["Show the daily farm"], apply = refreshUI,
+  key = "dailyFarm", category = "display", type = "checkbox", label = L["Daily farm"],
+  tooltip = L["Shows the Daily strip: the place in your History with the best gold per hour at today's prices."],
+  apply = refreshUI,
 })
 
 Options.define({
-  key = "dailyFarmMinutes", category = "display", type = "slider", label = L["Daily farm: minimum time in a place"],
+  key = "dailyFarmMinutes", category = "display", type = "slider", label = L["Daily farm: min. time"],
+  tooltip = L["How long you must have farmed a place before the Daily strip can pick it."],
   min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
 })
 
 -- Off: the Top finds block under the footer stays collapsed.
 Options.define({
-  key = "showTopFinds", category = "display", type = "checkbox", label = L["Show Top finds"], apply = refreshUI,
+  key = "showTopFinds", category = "display", type = "checkbox", label = L["Top finds"],
+  tooltip = L["Shows the session's three most valuable finds under the footer."],
+  apply = refreshUI,
 })
 
 -- Off: the footer table has no Raw gold row (Total still follows includeGold).
 Options.define({
-  key = "showFooterGold", category = "display", type = "checkbox", label = L["Show the Raw gold row in the footer"],
+  key = "showFooterGold", category = "display", type = "checkbox", label = L["Raw gold row"],
+  tooltip = L["Shows the Raw gold row in the footer table."],
   apply = refreshUI,
 })
 
 -- Compact mode: how many of the last drops it lists (0 hides the block).
 Options.define({
-  key = "compactDrops", category = "display", type = "slider", label = L["Compact mode: last drops shown"],
+  key = "compactDrops", category = "display", type = "slider", label = L["Compact: last drops"],
+  tooltip = L["How many of the last drops the compact window lists. 0 hides them."],
   min = 0, max = 4, step = 1, apply = refreshUI,
 })
 
 -- Off: the list rows have no icon and their text starts at the left edge.
 Options.define({
-  key = "showIcons", category = "display", type = "checkbox", label = L["Show item icons"],
+  key = "showIcons", category = "display", type = "checkbox", label = L["Item icons"],
+  tooltip = L["Shows the item icon at the start of each list row. Off starts the text at the left edge."],
   apply = function()
     if ns.UI and ns.UI.Ledger and ns.UI.Ledger.relayout then ns.UI.Ledger.relayout() end
   end,
 })
 
--- Round button on the minimap (UI/Minimap.lua).
--- Font sizes (UI/Fonts.lua): applied live, the window re-lays itself out.
 -- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.
 Options.define({
   key = "fontFace", category = "display",
   type = "dropdown",
   label = L["Font"],
+  tooltip = L["Typeface of all LootPrice text. WoW default uses the game font of your client's language. Other addons are not affected."],
   choices = function()
     if ns.UI and ns.UI.Fonts then return ns.UI.Fonts.choices() end
     return { { value = "default", label = L["WoW default"] } }
@@ -442,36 +497,49 @@ Options.define({
   end,
 })
 
-local function px(v) return v .. " px" end
+-- Font sizes (UI/Fonts.lua): a dropdown of whole px sizes; applied live, the
+-- window re-lays itself out.
+local function sizeChoices(min, max)
+  local list = {}
+  for v = min, max do list[#list + 1] = { value = v, label = v .. " px" } end
+  return list
+end
 -- Re-applies every size and re-lays the window out when one changed.
 local function applySizes()
   if ns.UI and ns.UI.Ledger and ns.UI.Ledger.applySizes then ns.UI.Ledger.applySizes() end
 end
-Options.define({ key = "fontSizeRows", category = "display", type = "slider", label = L["List text size"],
-  min = 8, max = 18, step = 1, format = px, apply = applySizes })
-Options.define({ key = "fontSizeTotals", category = "display", type = "slider", label = L["Totals text size"],
-  min = 8, max = 18, step = 1, format = px, apply = applySizes })
-Options.define({ key = "fontSizeTitles", category = "display", type = "slider", label = L["Section title size"],
-  min = 10, max = 24, step = 1, format = px, apply = applySizes })
+Options.define({ key = "fontSizeRows", category = "display", type = "dropdown", label = L["List text"],
+  tooltip = L["Size of the list text. The rows grow and shrink with it."],
+  choices = sizeChoices(8, 18), apply = applySizes })
+Options.define({ key = "fontSizeTotals", category = "display", type = "dropdown", label = L["Totals text"],
+  tooltip = L["Size of the footer table and Top finds."],
+  choices = sizeChoices(8, 18), apply = applySizes })
+Options.define({ key = "fontSizeTitles", category = "display", type = "dropdown", label = L["Section titles"],
+  tooltip = L["Size of section titles such as Top finds."],
+  choices = sizeChoices(10, 24), apply = applySizes })
 
+-- Round button on the minimap (UI/Minimap.lua).
 Options.define({
   key = "minimapButton", category = "window",
   type = "checkbox",
-  label = L["Show minimap button"],
+  label = L["Minimap button"],
+  tooltip = L["Shows the LootPrice button on the minimap. Left-click shows or hides the window, right-click opens these options."],
   apply = function(v)
     if ns.UI and ns.UI.Minimap then ns.UI.Minimap.setShown(v) end
   end,
 })
 
 Options.define({
-  key = "minimapReset", category = "window", type = "button", label = L["Reset minimap button position"],
+  key = "minimapReset", category = "window", type = "button", label = L["Reset minimap button"],
+  tooltip = L["Moves the minimap button back to the bottom left of the minimap."],
   action = function()
     if ns.UI and ns.UI.Minimap then ns.UI.Minimap.resetPosition() end
   end,
 })
 
 Options.define({
-  key = "exportHistory", category = "session", type = "button", label = L["Export History as CSV"],
+  key = "exportHistory", category = "session", type = "button", label = L["Export History"],
+  tooltip = L["Opens a copy box with your History as CSV, for a spreadsheet. Same as /lp export."],
   action = function()
     if ns.UI and ns.UI.Export then ns.UI.Export.history() end
   end,
@@ -481,7 +549,8 @@ Options.define({
 Options.define({
   key = "historyLimit", category = "session",
   type = "number",
-  label = L["History sessions kept (empty = unlimited)"],
+  label = L["History kept"],
+  tooltip = L["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it deletes the oldest at once."],
   apply = function(v)
     if ns.History and ns.chardb and type(ns.chardb.history) == "table" then
       ns.History.prune(ns.chardb.history, v)

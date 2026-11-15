@@ -46,7 +46,9 @@ local function openChoiceMenu(anchor, spec, onPick)
 end
 
 -- ---------------------------------------------------------------------------
--- Widget factories: (block, spec) -> { refresh = function() end }
+-- Widget factories: (block, spec) -> { refresh = function() end, controls = { frame, ... } }
+-- `controls` are the frames that take the mouse; hovering them (or the block)
+-- shows the option's tooltip (Options.tooltip).
 
 Panel.WIDGETS = {}
 
@@ -84,6 +86,7 @@ function Panel.WIDGETS.slider(block, spec)
       syncing = false
       show(value)
     end,
+    controls = { slider },
   }
 end
 
@@ -119,6 +122,7 @@ function Panel.WIDGETS.number(block, spec)
 
   return {
     refresh = function() show(get(spec)) end,
+    controls = { box },
   }
 end
 
@@ -162,6 +166,7 @@ function Panel.WIDGETS.text(block, spec)
 
   return {
     refresh = function() show(get(spec)) end,
+    controls = { box },
   }
 end
 
@@ -172,7 +177,7 @@ function Panel.WIDGETS.button(block, spec)
   button:SetScript("OnClick", function()
     if spec.action then spec.action() end
   end)
-  return { refresh = function() end }
+  return { refresh = function() end, controls = { button } }
 end
 
 function Panel.WIDGETS.checkbox(block, spec)
@@ -188,6 +193,7 @@ function Panel.WIDGETS.checkbox(block, spec)
   end)
   return {
     refresh = function() box:SetChecked(get(spec) == true) end,
+    controls = { box },
   }
 end
 
@@ -210,11 +216,31 @@ function Panel.WIDGETS.dropdown(block, spec)
 
   return {
     refresh = function() show(get(spec)) end,
+    controls = { button },
   }
 end
 
 -- ---------------------------------------------------------------------------
 -- Panel
+
+-- Hover on an option's block and its controls shows the option's tooltip.
+-- Bronze buttons (Widgets.button) take their hover hooks as fields; other
+-- controls keep their template's scripts and get ours hooked after them.
+local function wireTooltip(widget, block, spec)
+  local W = ns.UI.Widgets
+  local function show(owner) W.showTextTooltip(owner, ns.Options.tooltip(spec), "ANCHOR_RIGHT") end
+  block:EnableMouse(true)
+  block:SetScript("OnEnter", show)
+  block:SetScript("OnLeave", W.hideTooltip)
+  for _, c in ipairs(widget.controls or {}) do
+    if c.kind == "bronze" then
+      c.onEnter, c.onLeave = show, W.hideTooltip
+    elseif c.HookScript then
+      c:HookScript("OnEnter", show)
+      c:HookScript("OnLeave", W.hideTooltip)
+    end
+  end
+end
 
 -- Builds one widget per option into `parent`, `pad` from the left and `top`
 -- from the top, in the columns of `layout` (Options.layout). Returns
@@ -228,7 +254,10 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
       block:SetSize(columnWidth, ns.Options.HEIGHTS[spec.type])
       local x = pad + ((layout.cols[spec.key] or 1) - 1) * (columnWidth + COLUMN_GAP)
       block:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.tops[spec.key]))
-      widgets[spec.key] = factory(block, spec)
+      local widget = factory(block, spec)
+      widget.block = block
+      if spec.type ~= "header" then wireTooltip(widget, block, spec) end
+      widgets[spec.key] = widget
     end
   end
   return widgets

@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Options.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Options.lua" })
 local O = ns.Options
 
 local function db(settings)
@@ -151,7 +151,8 @@ end)
 h.test("Options.valueText: formatter, choice label, plain value", function()
   h.eq(O.valueText(O.spec("alpha"), 0.35), "35%")
   h.eq(O.valueText(O.spec("priceSource"), "tsm"), "TSM")
-  h.eq(O.valueText({ type = "checkbox" }, true), "true")
+  h.eq(O.valueText({ type = "checkbox" }, true), "On")
+  h.eq(O.valueText({ type = "checkbox" }, false), "Off")
 end)
 
 h.test("Options: number option normalizes to a whole number, negatives mean unlimited", function()
@@ -250,4 +251,44 @@ h.test("Options: compact mode shows 4 last drops by default (0..4)", function()
   h.eq(O.get(db(), "compactDrops"), 4)
   h.eq(O.normalize(O.spec("compactDrops"), 9), 4)
   h.eq(O.normalize(O.spec("compactDrops"), -1), 0)
+end)
+
+h.test("Options: the text sizes are dropdowns of px sizes", function()
+  for key, range in pairs({ fontSizeRows = { 8, 18 }, fontSizeTotals = { 8, 18 }, fontSizeTitles = { 10, 24 } }) do
+    local s = O.spec(key)
+    h.eq(s.type, "dropdown")
+    local c = O.choices(s)
+    h.eq(#c, range[2] - range[1] + 1)
+    h.eq(c[1], { value = range[1], label = range[1] .. " px" })
+    h.eq(c[#c].value, range[2])
+  end
+  local rows = O.spec("fontSizeRows")
+  h.eq(O.normalize(rows, 15), 15) -- a size saved by the old slider stays
+  h.eq(O.normalize(rows, 30), 12) -- outside the list: the default
+  h.eq(O.valueText(rows, 12), "12 px")
+end)
+
+h.test("Options: every option has a short label and a tooltip", function()
+  for _, s in ipairs(O.list()) do
+    h.eq(type(s.tooltip) == "string" and s.tooltip ~= "", true, s.key .. " tooltip")
+    h.eq(#s.label <= 24, true, s.key .. " label is short: " .. s.label)
+  end
+end)
+
+h.test("Options.tooltip: title, what it does, the default", function()
+  local text = ns.Tooltip.text
+  local lock = O.tooltip(O.spec("lockWindow"))
+  h.eq(lock.title, "Lock window")
+  h.eq(text(lock), "Lock window\nThe window can't be moved or resized.\nDefault: Off")
+  h.eq(text(O.tooltip(O.spec("alpha"))):match("[^\n]+$"), "Default: 100%")
+  h.eq(text(O.tooltip(O.spec("defaultSort"))):match("[^\n]+$"), "Default: Best value")
+  h.eq(text(O.tooltip(O.spec("fontSizeTitles"))):match("[^\n]+$"), "Default: 16 px")
+  h.eq(text(O.tooltip(O.spec("alertGold"))):match("[^\n]+$"), "Default: Off")
+  h.eq(text(O.tooltip(O.spec("historyLimit"))):match("[^\n]+$"), "Default: 50")
+  -- a button has no default
+  h.eq(text(O.tooltip(O.spec("exportHistory"))):find("Default", 1, true), nil)
+  -- the description wraps, the default is a quiet note
+  local ops = ns.Tooltip.render(lock)
+  h.eq(ops[2].wrap, true)
+  h.eq(ops[3].color, ns.Theme.colors.tipNote)
 end)

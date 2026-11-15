@@ -628,6 +628,33 @@ h.test("wiring: the options panel builds a widget for every registered option", 
   h.eq(ctx.ns.UI.Ledger.frame.header ~= nil, true)
 end)
 
+h.test("wiring: hovering an option shows its tooltip with the default", function()
+  local ctx = boot()
+  local lines, hooks = {}, 0
+  ctx.env.GameTooltip = {
+    SetOwner = function() end, Show = function() end, Hide = function() end, ClearLines = function() end,
+    SetText = function() end, IsOwned = function() return false end,
+    AddLine = function(_, t) lines[#lines + 1] = t end, AddDoubleLine = function() end,
+  }
+  startWorld(ctx, false)
+  local P, O = ctx.ns.UI.OptionsPanel, ctx.ns.Options
+  P.toggle()
+  local w = P.frame.widgets.lockWindow
+  h.eq(w.block ~= nil, true)
+  w.block._scripts.OnEnter(w.block)
+  h.eq(lines[1], O.spec("lockWindow").label)
+  h.eq(lines[2], O.spec("lockWindow").tooltip)
+  h.eq(lines[3], ctx.ns.L["Default: "] .. ctx.ns.L["Off"])
+  -- the control itself shows it too (a dropdown's bronze button)
+  lines = {}
+  local dd = P.frame.widgets.fontSizeRows
+  h.eq(type(dd.controls[1].onEnter), "function")
+  dd.controls[1].onEnter(dd.controls[1])
+  h.eq(lines[1], O.spec("fontSizeRows").label)
+  h.eq(lines[#lines], ctx.ns.L["Default: "] .. "12 px")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: the options panel has a tab per category, one page shown at a time", function()
   local ctx = boot()
   startWorld(ctx, false)

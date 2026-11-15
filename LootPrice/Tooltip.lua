@@ -11,6 +11,7 @@ local L = ns.L
 --   money    label left, coins right [(x/h)]  (coins in the game colors)
 --   rate     label left, coins/h right
 --   labelled "Label: text" on one wrapping line
+--   para     a white paragraph that wraps (an option's description)
 --   section  a gold sub-heading
 --   note     a quiet tan line
 --   warn     a red line (slow sellers)
@@ -40,6 +41,7 @@ end
 
 function Tooltip.labelled(tip, label, text) return add(tip, { kind = "labelled", label = label, text = text }) end
 function Tooltip.section(tip, text) return add(tip, { kind = "section", text = text }) end
+function Tooltip.para(tip, text) return add(tip, { kind = "para", text = text }) end
 function Tooltip.note(tip, text) return add(tip, { kind = "note", text = text }) end
 function Tooltip.warn(tip, text) return add(tip, { kind = "warn", text = text }) end
 function Tooltip.hint(tip, text) return add(tip, { kind = "hint", text = text }) end
@@ -100,6 +102,8 @@ function Tooltip.render(tip)
     elseif kind == "labelled" then
       op({ op = "line", text = ns.Money.colorCode(C.tipLabel) .. line.label .. "|r" .. line.text,
         color = C.tipValue, wrap = true })
+    elseif kind == "para" then
+      op({ op = "line", text = line.text, color = C.tipValue, wrap = true })
     elseif kind == "section" then
       op({ op = "line", text = line.text, color = C.tipSection })
     elseif kind == "note" then
