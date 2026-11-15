@@ -28,7 +28,20 @@ function Session.new(now)
     places = {},
     zones = {},
     gold = 0,
+    -- The last loot events (compact mode's "Last drops"), newest first.
+    recent = {},
   }
+end
+
+-- Last drops: { key, qty, at } of the last RECENT_MAX counted loot events,
+-- newest first. Not part of History; cleared with the session.
+Session.RECENT_MAX = 4
+
+function Session.noteRecent(session, key, qty, now)
+  if not (num(key) or type(key) == "string") or not posInt(qty) then return end
+  if type(session.recent) ~= "table" then session.recent = {} end
+  table.insert(session.recent, 1, { key = key, qty = qty, at = now })
+  for i = #session.recent, Session.RECENT_MAX + 1, -1 do session.recent[i] = nil end
 end
 
 function Session.elapsed(session, now)
@@ -285,6 +298,7 @@ function Session.reset(session, now)
   session.currencies = {}
   session.places = {}
   session.zones = {}
+  session.recent = {}
   if type(session.at) == "table" then session.at.since = session.running and now or nil end
   session.gold = 0
   session.startedAt = now
@@ -350,6 +364,7 @@ function Session.login(saved, keep, now)
     if type(saved.currencies) ~= "table" then saved.currencies = {} end
     if type(saved.places) ~= "table" then saved.places = {} end
     if type(saved.zones) ~= "table" then saved.zones = {} end
+    if type(saved.recent) ~= "table" then saved.recent = {} end
     local at = saved.at
     if type(at) ~= "table" or type(at.zone) ~= "string" or type(at.sub) ~= "string" then saved.at = nil end
     Session.resume(saved, now)

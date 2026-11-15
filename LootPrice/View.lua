@@ -715,6 +715,46 @@ function View.dailyFarm(entries, opts, minSeconds)
   return { best = best, runnersUp = runnersUp, slow = opts.market and slowItems(rowsOf[best]) or nil }
 end
 
+-- ---------------------------------------------------------------------------
+-- Compact mode: the glance between pulls. Never filtered (the filter bar is
+-- not shown there): total = every item's best value + raw gold (with
+-- opts.includeGold), its rate over the session clock (nil under a minute), the
+-- running state and the last drops, each row worth that drop's own quantity.
+--   { total, perHour, running, drops = { row, ... } }
+
+View.COMPACT_DROPS = 4
+
+local compactOpts = {}
+
+function View.buildCompact(session, opts)
+  opts = opts or {}
+  for k in pairs(compactOpts) do compactOpts[k] = nil end
+  for k, v in pairs(opts) do compactOpts[k] = v end
+  compactOpts.filter = nil
+  local items = type(session.items) == "table" and session.items or {}
+  local _, t = collect(items, compactOpts)
+  local gold = 0
+  if opts.includeGold ~= false and ns.Session and ns.Session.goldTotal then
+    gold = math.max(0, ns.Session.goldTotal(session))
+  end
+  local total = t.best + gold
+  local elapsed = ns.Session.elapsed(session, opts.now or 0)
+  local limit = num(opts.compactDrops) and opts.compactDrops or View.COMPACT_DROPS
+  local drops = {}
+  if type(session.recent) == "table" then
+    for _, ev in ipairs(session.recent) do
+      if #drops >= limit then break end
+      local it = type(ev) == "table" and items[ev.key]
+      if type(it) == "table" and num(it.id) and num(ev.qty) and ev.qty > 0 then
+        drops[#drops + 1] = makeRow({ id = it.id, key = it.key or ev.key, link = it.link, price = it.price,
+          qty = ev.qty, lastSeen = ev.at }, compactOpts)
+      end
+    end
+  end
+  return { total = total, perHour = ns.History.perHour(total, elapsed), running = session.running and true or false,
+    drops = drops }
+end
+
 -- Session tab: rows, totals, raw gold, combined totals, rates and top finds.
 -- Currencies follow the item rows (they have no value).
 function View.build(session, opts)

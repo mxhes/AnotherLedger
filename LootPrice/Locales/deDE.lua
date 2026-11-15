@@ -131,6 +131,7 @@ ns.Locale.register("deDE", {
   ["Show the daily farm"] = "Tagesfarm zeigen",
   ["Daily farm: minimum time in a place"] = "Tagesfarm: Mindestzeit an einem Ort",
   ["Show Top finds"] = "Beste Funde zeigen",
+  ["Compact mode: last drops shown"] = "Kompakt: letzte Funde",
   ["Show the Raw gold row in the footer"] = "Zeile Rohgold in der Fußzeile zeigen",
   ["per hour"] = "pro Stunde",
   [" (marked ?)"] = " (mit ? markiert)",

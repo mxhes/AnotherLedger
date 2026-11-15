@@ -397,6 +397,12 @@ Options.define({
   apply = refreshUI,
 })
 
+-- Compact mode: how many of the last drops it lists (0 hides the block).
+Options.define({
+  key = "compactDrops", category = "display", type = "slider", label = L["Compact mode: last drops shown"],
+  min = 0, max = 4, step = 1, apply = refreshUI,
+})
+
 -- Off: the list rows have no icon and their text starts at the left edge.
 Options.define({
   key = "showIcons", category = "display", type = "checkbox", label = L["Show item icons"],

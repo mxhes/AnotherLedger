@@ -324,3 +324,18 @@ h.test("Session.notePlacePos sums positions per map on the current place", funct
   S.notePlacePos(s, 2022, 0.5, 0.5)
   h.eq(s.zones.Z.subs.A.pos[2022].n, 1)
 end)
+
+h.test("Session.noteRecent keeps the last drops, newest first, capped", function()
+  local s = S.new(0)
+  h.eq(s.recent, {})
+  for i = 1, 6 do S.noteRecent(s, i, i * 10, 100 + i) end
+  h.eq(#s.recent, S.RECENT_MAX)
+  h.eq(s.recent[1].key, 6); h.eq(s.recent[1].qty, 60); h.eq(s.recent[1].at, 106)
+  h.eq(s.recent[4].key, 3)
+  S.noteRecent(s, nil, 1, 1); S.noteRecent(s, 7, 0, 1)
+  h.eq(s.recent[1].key, 6)
+  S.reset(s, 200)
+  h.eq(s.recent, {})
+  local saved = S.new(0); saved.recent = "bad"
+  h.eq(S.login(saved, true, 10).recent, {})
+end)

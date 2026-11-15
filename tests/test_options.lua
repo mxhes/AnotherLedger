@@ -13,7 +13,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "keepSession", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
-    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showTopFinds", "showFooterGold", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showTopFinds", "showFooterGold", "compactDrops", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
@@ -244,4 +244,10 @@ end)
 h.test("Options: Top finds and the Raw gold footer row show by default", function()
   h.eq(O.get(db(), "showTopFinds"), true)
   h.eq(O.get(db(), "showFooterGold"), true)
+end)
+
+h.test("Options: compact mode shows 4 last drops by default (0..4)", function()
+  h.eq(O.get(db(), "compactDrops"), 4)
+  h.eq(O.normalize(O.spec("compactDrops"), 9), 4)
+  h.eq(O.normalize(O.spec("compactDrops"), -1), 0)
 end)

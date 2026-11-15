@@ -41,6 +41,8 @@ DB.defaults = {
     -- Top finds block and the Raw gold row of the footer table.
     showTopFinds = true,
     showFooterGold = true,
+    -- Compact mode: how many last drops it lists (0..4).
+    compactDrops = 4,
     -- Item icon at the left of each list row.
     showIcons = true,
     -- TSM region sale info under the item name and its level cutoffs: sale

@@ -779,3 +779,46 @@ h.test("View.dailyFarm keeps a spot from corrupt sums on the map (0..1)", functi
   local p = V.dailyFarm({ e }, { lookup = zlookup }, 0).best.pos
   h.eq(p.mapID, 2022); h.eq(p.x, 1); h.eq(p.y, 0)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Compact view
+
+local function compactSession()
+  local s = { items = {}, gold = 500, running = true, runningSince = 0, elapsedBase = 0, recent = {} }
+  s.items[1] = { id = 1, key = 1, link = link("Ore"), qty = 6, lastSeen = 5 }
+  s.items[3] = { id = 3, key = 3, link = link("Gem"), qty = 1, lastSeen = 6 }
+  s.recent = { { key = 1, qty = 2, at = 9 }, { key = 3, qty = 1, at = 8 }, { key = 1, qty = 4, at = 7 },
+    { key = 99, qty = 1, at = 6 } }
+  return s
+end
+
+h.test("View.buildCompact: unfiltered total with raw gold and its rate", function()
+  local s = compactSession()
+  local opts = { lookup = zlookup, now = 3600, filter = { search = "nothing matches" } }
+  local c = V.buildCompact(s, opts)
+  h.eq(c.total, 6 * 100 + 1000 + 500)
+  h.eq(c.perHour, 2100)
+  h.eq(c.running, true)
+  opts.includeGold = false
+  h.eq(V.buildCompact(s, opts).total, 1600)
+end)
+
+h.test("View.buildCompact: each drop worth its own quantity, newest first", function()
+  local c = V.buildCompact(compactSession(), { lookup = zlookup, now = 3600 })
+  h.eq(#c.drops, 3) -- the gone item 99 is skipped
+  h.eq(c.drops[1].quantity, 2); h.eq(c.drops[1].value, 200)
+  h.eq(c.drops[2].id, 3); h.eq(c.drops[2].value, 1000)
+  h.eq(c.drops[3].quantity, 4); h.eq(c.drops[3].value, 400)
+end)
+
+h.test("View.buildCompact: compactDrops limits the list, no rate under a minute", function()
+  h.eq(#V.buildCompact(compactSession(), { lookup = zlookup, now = 3600, compactDrops = 1 }).drops, 1)
+  h.eq(#V.buildCompact(compactSession(), { lookup = zlookup, now = 3600, compactDrops = 0 }).drops, 0)
+  h.eq(V.buildCompact(compactSession(), { lookup = zlookup, now = 30 }).perHour, nil)
+  local stopped = compactSession(); stopped.running = false; stopped.runningSince = nil; stopped.elapsedBase = 7200
+  local c = V.buildCompact(stopped, { lookup = zlookup, now = 99999 })
+  h.eq(c.running, false); h.eq(c.perHour, 1050)
+  local empty = V.buildCompact({ items = {}, gold = 0, running = true, runningSince = 0, elapsedBase = 0 },
+    { lookup = zlookup, now = 3600 })
+  h.eq(empty.total, 0); h.eq(#empty.drops, 0)
+end)
