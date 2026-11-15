@@ -96,11 +96,13 @@ value comes mostly from items that sell poorly is marked `slow selling`.
 Open them with the gear, a right-click on the minimap button, or Esc >
 Options > AddOns > LootPrice. Hover any option for what it does and its
 default. Changes apply at once. **Lock window** also hides the resize grip;
+with **Snap to grid** the window snaps onto the lines of the Edit Mode grid
+when you drop it close to one;
 anything that deletes History asks first.
 
 | Tab | Options |
 | --- | --- |
-| Window | Opacity, Brightness, Scale, Lock window, Start hidden, Hide in combat, Minimap button, Reset minimap button |
+| Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
 | Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Top finds, Raw gold row, Compact: last drops, Item icons, Scroll to new loot, Font, List text, Totals text, Section titles |
 | Session and alerts | Keep session, Drop alert (gold), Alert sound, Crafted and bought, Pause when AFK, Session per instance, Export History, Clear History, History kept |

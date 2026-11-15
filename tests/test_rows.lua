@@ -247,3 +247,13 @@ h.test("Rows.modifiedClick hands a real link to the game only on a modified clic
   h.eq(handled, "|Hitem:1|h[A]|h")
   _G.HandleModifiedItemClick, _G.IsModifiedClick = nil, nil
 end)
+
+h.test("sourceBoxWidth: every box as wide as the widest tag, own text before measuring", function()
+  local Rows, S = ns.UI.Rows, ns.Theme.sizes
+  h.eq(Rows.sourceBoxWidth(50, 20), 50)
+  h.eq(Rows.sourceBoxWidth(50, 44), 50)
+  h.eq(Rows.sourceBoxWidth(nil, 20), 20 + 2 * S.rowTagPad)
+  h.eq(Rows.sourceBoxWidth(nil, nil), S.rowSourceW + 2 * S.rowTagPad)
+  -- never narrower than its own text
+  h.eq(Rows.sourceBoxWidth(10, 20), 20 + 2 * S.rowTagPad)
+end)

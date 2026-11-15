@@ -2127,3 +2127,24 @@ h.test("wiring: saved colors are applied at login", function()
   h.eq(ctx.ns.Theme.colorToHex(ctx.ns.Theme.colors.ink), "ffffff")
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: dropping the window near an Edit Mode grid line snaps it there", function()
+  local ctx = boot()
+  ctx.env.EditModeManagerFrame = { Grid = { gridSpacing = 100 } }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local frame = ns.UI.Window.frame
+  frame:SetSize(300, 200)
+  ctx.env.UIParent:SetSize(1920, 1080)
+  frame.GetCenter = function() return 103, -96 end -- 3 / 4 px off the lines
+  local placed
+  frame.SetPoint = function(_, p, rel, rp, x, y) placed = { p, rp, x, y } end
+  frame.header._scripts.OnDragStop()
+  h.eq(placed, { "CENTER", "CENTER", 100, -100 })
+  -- option off: the window stays where it was dropped
+  placed = nil
+  ns.Options.set(ns.db, "snapToGrid", false)
+  frame.header._scripts.OnDragStop()
+  h.eq(placed, nil)
+  h.eq(ctx.errors, {})
+end)

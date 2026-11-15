@@ -89,3 +89,17 @@ h.test("Window.headerHeight: compact is the title row only", function()
   h.eq(W.headerHeight(true, true, "compact"), S.headerRowHeight)
   h.eq(W.headerHeight(true, false, "full"), S.headerHeight + S.headerRowHeight)
 end)
+
+h.test("snapToGrid snaps the nearest edge or center onto a grid line within reach", function()
+  local snap = ns.UI.Window.snapToGrid
+  -- left edge at -195 -> -200; top edge at 150 + 100 = 250 is 50 off: stays
+  h.eq({ snap(5, 150, 400, 200, 100, 12) }, { 0, 150 })
+  -- center 3 off a line
+  h.eq({ snap(103, -8, 300, 300, 100, 12) }, { 100, 0 })
+  -- right edge 210 + 45 = 255 -> 250 (closer than left edge 165 and center 210)
+  h.eq({ snap(210, 0, 90, 90, 50, 12) }, { 205, 0 })
+  -- too far: unchanged; no spacing: unchanged
+  h.eq({ snap(30, 30, 10, 10, 100, 12) }, { 30, 30 })
+  h.eq({ snap(3, 3, 10, 10, nil, 12) }, { 3, 3 })
+  h.eq({ snap(3, 3, 10, 10, 0, 12) }, { 3, 3 })
+end)

@@ -205,6 +205,9 @@ Theme.sizes = {
   summaryCharPx = 6.6,
   markerCharPx = 5.5,
   gripSize = 16,
+  -- Option "snapToGrid": how close (px) an edge or the center has to be to an
+  -- Edit Mode grid line to snap onto it.
+  gridSnapDistance = 12,
   -- Ledger row geometry (Rows.worstCase / Rows.blockLayout). Text inset with the
   -- icon (Rows.textLeft) = rowIconInset + iconSize + rowIconGap; rowRightInset is
   -- the right edge of the Vendor / Best block.

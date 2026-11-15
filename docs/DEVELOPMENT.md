@@ -148,7 +148,15 @@ Each of these is one call in one place; the UI never names them.
   (`LootPrice<Key>`) in `Ledger.init`; typeface and px sizes change live and
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
   (`Theme.fontFiles`). On retail `SetFont` returns nothing, so only an explicit
-  `false` means a font cannot load.
+  `false` means a font cannot load. Every framed source tag box is as wide as
+  the widest tag (`Rows.sourceBoxWidth`, from `list.measured.source`), so the
+  boxes line up and each text sits centered.
+- **Snap to grid** (`snapToGrid`): `Window.endDrag` runs the pure
+  `Window.snapToGrid` with the Edit Mode grid spacing (lines through the screen
+  center and every spacing from it, in UIParent units, converted to the
+  frame's scale) and `Theme.sizes.gridSnapDistance`; each axis moves its
+  nearest edge or center onto a line within that distance. Unknown spacing =
+  no snap.
 - **Redraws**: the clock and rates every second (running clock, ticking tabs or
   compact); prices and age tags at the **Price refresh** interval; everything at
   once on loot, gold, bag / bank changes, filters, sorts and options. Several

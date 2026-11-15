@@ -157,6 +157,8 @@ ns.Locale.register("deDE", {
   ["Brightness"] = "Helligkeit",
   ["Scale"] = "Größe",
   ["Lock window"] = "Fenster sperren",
+  ["Snap to grid"] = "Am Raster ausrichten",
+  ["When you let go of the window near a line of the Edit Mode grid, its edge or center snaps onto that line. Uses the grid spacing set in Edit Mode."] = "Lässt du das Fenster nahe einer Linie des Bearbeitungsmodus-Rasters los, rastet seine Kante oder Mitte auf dieser Linie ein. Nutzt den Rasterabstand aus dem Bearbeitungsmodus.",
   ["Start hidden"] = "Versteckt starten",
   ["Hide in combat"] = "Im Kampf ausblenden",
   ["Minimap button"] = "Minikarten-Knopf",

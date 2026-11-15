@@ -96,6 +96,13 @@ and remove both once it is confirmed.
   `SOUNDKIT.UI_EPICLOOT_TOAST`.
 - [ ] **AH price source** switches the prices live and survives `/reload`.
 - [ ] **Start hidden**, **Lock window** and **Scale** work after `/reload`.
+- [ ] **Snap to grid**: dropping the window near an Edit Mode grid line snaps
+  its edge or center onto it, also at another Scale and after changing the grid
+  spacing in Edit Mode (`EditModeManagerFrame.Grid.gridSpacing` /
+  `GetAccountSettingValue(Enum.EditModeAccountSetting.GridSpacing)`; UNVERIFIED
+  in `UI/Window.lua`).
+- [ ] **Source tags** (Vendor / Auction / Destroy) in the list all have the
+  same box width with the text centered in it.
 - [ ] **Colors**: clicking a swatch opens the game's color picker
   (`ColorPickerFrame:SetupColorPickerAndShow`, `GetColorRGB`; UNVERIFIED in
   `Widgets.pickColor`) above the options panel; dragging recolors the window,

@@ -292,6 +292,9 @@ Options.define({ key = "lockWindow", category = "window", type = "checkbox", lab
   end,
 })
 
+Options.define({ key = "snapToGrid", category = "window", type = "checkbox", label = L["Snap to grid"],
+  tooltip = L["When you let go of the window near a line of the Edit Mode grid, its edge or center snaps onto that line. Uses the grid spacing set in Edit Mode."] })
+
 Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden"],
   tooltip = L["The window stays closed at login. Open it with the minimap button or /lp."] })
 

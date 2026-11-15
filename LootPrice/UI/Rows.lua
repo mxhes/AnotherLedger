@@ -230,6 +230,16 @@ function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW)
   }
 end
 
+-- Width of a row's framed source tag box: the widest tag (`sourceW`, measured
+-- with its frame) for every row, so the boxes line up and the texts sit
+-- centered; before that is measured, the own text (`textW`) plus the frame.
+function Rows.sourceBoxWidth(sourceW, textW)
+  local S = ns.Theme.sizes
+  local own = (positive(textW) and textW or S.rowSourceW) + 2 * S.rowTagPad
+  if positive(sourceW) then return math.max(sourceW, own) end
+  return own
+end
+
 -- Width of the name FontString: its natural width, but at most what is left
 -- of the name column once the quantity (and its gap) is reserved, so a long
 -- name is clipped (ellipsis) and the quantity stays visible.
@@ -512,8 +522,11 @@ local function fillRow(f, row)
     f.src:SetText(t.sourceText)
     setColor(f.src, c)
     if f.srcBox.SetBackdropBorderColor then f.srcBox:SetBackdropBorderColor(c[1], c[2], c[3], 0.8) end
+    -- Every box gets the width of the widest tag (with its frame), so the
+    -- boxes line up and each text sits centered in its box.
+    local m = (f.owner and f.owner.measured) or NONE
     local sw = f.src:GetStringWidth()
-    f.srcBox:SetWidth((positive(sw) and sw or T.sizes.rowSourceW) + 2 * T.sizes.rowTagPad)
+    f.srcBox:SetWidth(Rows.sourceBoxWidth(m.source, sw))
     f.srcBox:Show()
   else
     f.srcBox:SetWidth(1)

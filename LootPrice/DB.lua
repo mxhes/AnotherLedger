@@ -22,6 +22,7 @@ DB.defaults = {
     minimapButton = true,
     minimapAngle = 225,
     lockWindow = false,
+    snapToGrid = true,
     windowScale = 1,
     startHidden = false,
     defaultSort = "ah",

@@ -184,6 +184,65 @@ local function restore(frame)
   ensureOnScreen(frame)
 end
 
+-- Pure. One axis of Window.snapToGrid: `pos` = center offset, `half` = half
+-- the size. Moves the edge or center nearest to a grid line (a multiple of
+-- `spacing` from the screen center) onto it, if that is at most `dist` away.
+local function snapAxis(pos, half, spacing, dist)
+  local best
+  for _, c in ipairs({ pos - half, pos, pos + half }) do
+    local d = math.floor(c / spacing + 0.5) * spacing - c
+    if not best or math.abs(d) < math.abs(best) then best = d end
+  end
+  if math.abs(best) <= dist then return pos + best end
+  return pos
+end
+
+-- Pure. (x, y) = CENTER offset of a w x h window from the screen center. The
+-- Edit Mode grid has lines through the screen center and every `spacing` from
+-- it; each axis snaps its nearest edge or center onto a line within `dist`.
+-- Returns the (maybe) moved offset; no valid spacing = unchanged.
+function Window.snapToGrid(x, y, w, h, spacing, dist)
+  if type(spacing) ~= "number" or spacing ~= spacing or spacing <= 0 then return x, y end
+  dist = dist or 0
+  return snapAxis(x, w / 2, spacing, dist), snapAxis(y, h / 2, spacing, dist)
+end
+
+-- Spacing of the Edit Mode grid in UIParent units, or nil when unknown.
+-- UNVERIFIED (check in client): EditModeManagerFrame.Grid.gridSpacing and
+-- EditModeManagerFrame:GetAccountSettingValue(Enum.EditModeAccountSetting.GridSpacing) on Forever.
+local function gridSpacing()
+  local em = EditModeManagerFrame
+  if type(em) ~= "table" then return nil end
+  local s = type(em.Grid) == "table" and em.Grid.gridSpacing
+  if type(s) ~= "number" and type(em.GetAccountSettingValue) == "function"
+    and type(Enum) == "table" and type(Enum.EditModeAccountSetting) == "table"
+    and Enum.EditModeAccountSetting.GridSpacing ~= nil then
+    local ok, v = pcall(em.GetAccountSettingValue, em, Enum.EditModeAccountSetting.GridSpacing)
+    if ok then s = v end
+  end
+  if type(s) == "number" and s > 0 then return s end
+  return nil
+end
+
+-- Option "snapToGrid": after a drag, snap the window onto the Edit Mode grid.
+local function snapFrame(frame)
+  if not (ns.Options and ns.db and ns.Options.get(ns.db, "snapToGrid")) then return end
+  local spacing = gridSpacing()
+  local x, y = centerOffset(frame)
+  if not spacing or not x then return end
+  -- The grid is in UIParent units, the offsets in the frame's own (scaled) units.
+  local fs = frame:GetEffectiveScale()
+  if not fs or fs == 0 then fs = 1 end
+  local k = UIParent:GetEffectiveScale() / fs
+  local nx, ny = Window.snapToGrid(x, y, frame:GetWidth(), frame:GetHeight(),
+    spacing * k, theme().sizes.gridSnapDistance * k)
+  if nx ~= x or ny ~= y then
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER", nx, ny)
+    ensureOnScreen(frame)
+  end
+end
+
 -- Dragging the header (or a header part that catches the mouse, like the
 -- Daily farm strip) moves the window unless it is locked.
 function Window.beginDrag()
@@ -196,6 +255,7 @@ function Window.endDrag()
   if not frame then return end
   frame:StopMovingOrSizing()
   frame:SetUserPlaced(false) -- db.window is the only position store
+  snapFrame(frame)
   save()
 end
 
