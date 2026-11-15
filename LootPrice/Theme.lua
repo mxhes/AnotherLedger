@@ -12,6 +12,8 @@ Theme.textures = {
   -- Options button: a gear-like trade icon, present in every client.
   optionsIcon = "Interface\\Icons\\Trade_Engineering",
   buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
+  -- Thin rounded edge of the tab buttons (tinted with colors.tabBorder*).
+  tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
 }
 
 Theme.fonts = {
@@ -25,6 +27,7 @@ Theme.fonts = {
   summary = "GameFontHighlight",
   summaryMarker = "GameFontHighlightSmall",
   topHeader = "GameFontHighlightLarge",
+  tab = "GameFontHighlight", -- tab labels, white (dimmed through colors.tabText)
   topRow = "GameFontHighlight",
   button = "GameFontHighlightSmall", -- white; the disabled state stays gray
   buttonHighlight = "GameFontHighlightSmall",
@@ -66,6 +69,16 @@ Theme.colors = {
   hint = { 0.68, 0.63, 0.55, 1 },
   -- Column titles of the footer table (Value, /h): the hint color.
   columnTitle = { 0.68, 0.63, 0.55, 1 },
+  -- Tab buttons: no fill of their own (they show the window background, so its
+  -- opacity / brightness options apply), a thin tan edge on top and both sides,
+  -- open at the bottom; the selected tab has a bright gold edge and a gold glow
+  -- falling from its top edge. tabBorder is also the line under the tab row.
+  tabBorder = { 0.62, 0.56, 0.45, 1 },
+  tabBorderHover = { 0.86, 0.76, 0.52, 1 },
+  tabBorderSelected = { 1.00, 0.82, 0.00, 1 },
+  tabGlow = { 1.00, 0.84, 0.10, 0.55 },
+  tabText = { 0.86, 0.86, 0.86, 1 },
+  tabTextSelected = { 1, 1, 1, 1 },
   scrollTrack = { 0.93, 0.87, 0.72, 0.10 },
   scrollThumb = { 0.93, 0.87, 0.72, 0.45 },
 }
@@ -97,6 +110,12 @@ Theme.sizes = {
   -- Notes line under the table (filtered / unpriced / bank scan age), when shown.
   footerNoteHeight = 16,
   buttonHeight = 20,
+  -- Tab buttons (header row 3, 28 px high): body height, edge size and the
+  -- height of the selected tab's glow.
+  tabHeight = 24,
+  tabEdge = 12,
+  tabGlowHeight = 12,
+  tabLine = 1, -- the line under the tab row (open below the selected tab)
   buttonGap = 2,
   timerWidth = 54,
   topHeaderHeight = 22,
@@ -153,7 +172,7 @@ Theme.sizes = {
 Theme.widths = {
   header = { toggle = 38, reset = 40, hide = 20, options = 20 },
   filter = { quality = 70, min = 44, sort = 78 },
-  tab = 72, -- tab buttons hanging below the window
+  tab = 72, -- tab buttons in header row 3
 }
 
 -- Pure. A color with r, g, b multiplied by `k` (clamped to 0..1); alpha kept.

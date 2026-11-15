@@ -5,7 +5,7 @@ local h = ...
 local NUMBERS = {
   GetWidth = 300, GetHeight = 300, GetStringWidth = 50, GetStringHeight = 10,
   GetEffectiveScale = 1, GetScale = 1, GetLeft = 0, GetRight = 300, GetTop = 300,
-  GetBottom = 0, GetFrameLevel = 1, GetValue = 0, GetAlpha = 1, GetNumPoints = 0,
+  GetBottom = 0, GetValue = 0, GetAlpha = 1, GetNumPoints = 0,
 }
 
 local function newFake(env, name)
@@ -29,6 +29,8 @@ local function newFake(env, name)
   function methods.GetWidth(self) return self._w or 300 end
   function methods.GetHeight(self) return self._h or 300 end
   function methods.GetName() return name end
+  function methods.SetFrameLevel(self, l) self._level = l end
+  function methods.GetFrameLevel(self) return self._level or 1 end
   setmetatable(f, { __index = function(_, k)
     if methods[k] then return methods[k] end
     if NUMBERS[k] then
@@ -484,8 +486,19 @@ h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
   bags._scripts.OnClick(bags, "LeftButton")
   h.eq(ctx.ns.UI.Ledger.tab, "bags")
   h.eq(tabs.selected, "bags")
-  h.eq(bags.mark:IsShown(), true)
-  h.eq(tabs.buttons.session.mark:IsShown(), false)
+  h.eq(bags.isSelected, true)
+  h.eq(bags.glow:IsShown(), true)
+  h.eq(tabs.buttons.session.isSelected, false)
+  h.eq(tabs.buttons.session.glow:IsShown(), false)
+  -- the line under the tabs is open below the selected tab: a left part only
+  -- when a tab before it exists
+  h.eq(tabs.baseLeft:IsShown(), true)
+  tabs:SetSelected("session")
+  h.eq(tabs.baseLeft:IsShown(), false)
+  h.eq(tabs.baseRight:IsShown(), true)
+  -- the line is drawn on a frame above the tabs, so the tabs sit behind it
+  h.eq(tabs.lineFrame ~= nil, true)
+  h.eq(tabs.lineFrame:GetFrameLevel() > tabs.buttons.bags:GetFrameLevel(), true)
   h.eq(ctx.errors, {})
 end)
 

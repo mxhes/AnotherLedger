@@ -132,44 +132,153 @@ Tabs.define({
 -- ---------------------------------------------------------------------------
 -- Buttons
 
+-- Pure. Colors of a tab button: { border, text, glow }. No fill: the tab shows
+-- the window background behind it (its opacity and brightness options). The
+-- selected tab has the gold edge and glow; hovering lights the edge of the others.
+function Tabs.look(selected, hovered)
+  local c = ns.Theme.colors
+  if selected then
+    return { border = c.tabBorderSelected, text = c.tabTextSelected, glow = true }
+  end
+  return { border = hovered and c.tabBorderHover or c.tabBorder, text = c.tabText, glow = false }
+end
+
+-- Vertical gold glow from the top edge of `tex` (opaque) to transparent below.
+-- UNVERIFIED (check in client): Texture:SetGradient with CreateColor (retail);
+-- SetGradientAlpha is the older signature.
+local function setGlow(tex, c)
+  if tex.SetGradient and CreateColor then
+    tex:SetGradient("VERTICAL", CreateColor(c[1], c[2], c[3], 0), CreateColor(c[1], c[2], c[3], c[4]))
+  elseif tex.SetGradientAlpha then
+    tex:SetGradientAlpha("VERTICAL", c[1], c[2], c[3], 0, c[1], c[2], c[3], c[4])
+  else
+    tex:SetVertexColor(c[1], c[2], c[3], c[4] / 2)
+  end
+end
+
+-- Inset of the visible edge line inside the tab's frame (the edge texture
+-- draws its line a little inside its own square).
+local function edgeInset()
+  return math.floor(ns.Theme.sizes.tabEdge / 4)
+end
+
+-- One tab, open at the bottom: the button clips its children, and the edge
+-- (a backdrop with no fill on the `skin` frame) is tabEdge px taller than the
+-- button, so its bottom edge is cut off. A centered label and the glow of the
+-- selected tab sit on the skin.
+-- UNVERIFIED (check in client): SetClipsChildren cuts the backdrop edge cleanly.
+local function makeTab(row, label)
+  local T, W = ns.Theme, ns.UI.Widgets
+  local S = T.sizes
+  local b = CreateFrame("Button", nil, row)
+  b:SetSize(T.widths.tab, S.tabHeight)
+  b:SetClipsChildren(true)
+  local skin = CreateFrame("Frame", nil, b, "BackdropTemplate")
+  skin:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+  skin:SetSize(T.widths.tab, S.tabHeight + S.tabEdge)
+  skin:EnableMouse(false)
+  local inset = edgeInset()
+  skin:SetBackdrop({
+    edgeFile = T.textures.tabBorder,
+    edgeSize = S.tabEdge,
+    insets = { left = inset, right = inset, top = inset, bottom = inset },
+  })
+  b.skin = skin
+  local glow = skin:CreateTexture(nil, "ARTWORK")
+  glow:SetTexture(T.textures.rowHighlight)
+  glow:SetPoint("TOPLEFT", skin, "TOPLEFT", inset, -inset)
+  glow:SetPoint("TOPRIGHT", skin, "TOPRIGHT", -inset, -inset)
+  glow:SetHeight(S.tabGlowHeight)
+  setGlow(glow, T.colors.tabGlow)
+  glow:Hide()
+  b.glow = glow
+  local text = W.text(skin, T.fonts.tab, T.colors.tabText, "CENTER")
+  text:SetPoint("CENTER", b, "CENTER", 0, 0)
+  text:SetText(label)
+  b.label = text
+  b.isSelected, b.isHovered = false, false
+
+  function b:ApplyLook()
+    local look = Tabs.look(self.isSelected, self.isHovered)
+    self.skin:SetBackdropBorderColor(look.border[1], look.border[2], look.border[3], look.border[4])
+    W.setTextColor(self.label, look.text)
+    self.glow:SetShown(look.glow)
+  end
+  b:SetScript("OnEnter", function(self) self.isHovered = true; self:ApplyLook() end)
+  b:SetScript("OnLeave", function(self) self.isHovered = false; self:ApplyLook() end)
+  b:ApplyLook()
+  return b
+end
+
 -- `row` is the header row to put the buttons in; `onSelect(key)` is called when
 -- another tab's button is clicked. Returns an object with SetSelected(key).
+-- The tabs stand on a line along the bottom of the row; the line is open below
+-- the selected tab (baseLeft up to it, baseRight after it).
 function Tabs.attach(row, onSelect)
-  local T = ns.Theme
+  local T, W = ns.Theme, ns.UI.Widgets
   local tabs = { buttons = {} }
   local previous
   for _, key in ipairs(Tabs.KEYS) do
-    local b = ns.UI.Widgets.button(row, Tabs.label(key), T.widths.tab)
+    local b = makeTab(row, Tabs.label(key))
     if previous then
-      b:SetPoint("LEFT", previous, "RIGHT", T.sizes.buttonGap, 0)
+      b:SetPoint("BOTTOMLEFT", previous, "BOTTOMRIGHT", T.sizes.buttonGap, 0)
     else
-      b:SetPoint("LEFT", row, "LEFT", 0, 0)
+      b:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
     end
     b:SetScript("OnClick", function()
       if onSelect and key ~= tabs.selected then onSelect(key) end
     end)
-    -- Gold bar under the selected tab.
-    local mark = ns.UI.Widgets.line(b, T.colors.goldLine, "OVERLAY")
-    mark:SetHeight(2)
-    mark:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 3, -1)
-    mark:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -3, -1)
-    mark:Hide()
-    b.mark = mark
     tabs.buttons[key] = b
     previous = b
   end
 
-  -- The selected tab keeps its white text, gets the gold bar and a locked
-  -- highlight; clicking it again does nothing.
-  -- UNVERIFIED (check in client): Button:LockHighlight on UIPanelButtonTemplate.
+  -- The line lives on its own frame above every tab, so the tabs sit behind
+  -- it; it is open below the selected tab only.
+  local lineFrame = CreateFrame("Frame", nil, row)
+  lineFrame:SetAllPoints(row)
+  local top = row:GetFrameLevel()
+  for _, b in pairs(tabs.buttons) do top = math.max(top, b:GetFrameLevel()) end
+  lineFrame:SetFrameLevel(top + 2)
+  tabs.lineFrame = lineFrame
+
+  local function baseLine()
+    local l = W.line(lineFrame, T.colors.tabBorder, "OVERLAY")
+    l:SetHeight(T.sizes.tabLine)
+    return l
+  end
+  tabs.baseLeft, tabs.baseRight = baseLine(), baseLine()
+
+  local function placeBase(selectedButton)
+    local inset = edgeInset()
+    local left, right = tabs.baseLeft, tabs.baseRight
+    left:ClearAllPoints()
+    right:ClearAllPoints()
+    right:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
+    if not selectedButton then
+      left:Hide()
+      right:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
+      return
+    end
+    right:SetPoint("BOTTOMLEFT", selectedButton, "BOTTOMRIGHT", -inset, 0)
+    local first = selectedButton == tabs.buttons[Tabs.KEYS[1]]
+    left:SetShown(not first)
+    if not first then
+      left:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
+      left:SetPoint("BOTTOMRIGHT", selectedButton, "BOTTOMLEFT", inset, 0)
+    end
+  end
+
+  -- The selected tab gets the gold edge and glow and opens into the list;
+  -- clicking it again does nothing.
   function tabs:SetSelected(key)
     self.selected = key
     for k, b in pairs(self.buttons) do
-      local on = k == key
-      b.mark:SetShown(on)
-      if on then b:LockHighlight() else b:UnlockHighlight() end
+      b.isSelected = k == key
+      b:ApplyLook()
     end
+    placeBase(self.buttons[key])
   end
+  placeBase(nil)
 
   return tabs
 end

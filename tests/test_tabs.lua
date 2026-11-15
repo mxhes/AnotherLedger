@@ -34,3 +34,22 @@ h.test("Tabs.define adds a tab; get falls back to the default tab", function()
   h.eq(T.get("bags").watches, "bags")
   h.eq(T.get("bank").watches, "bank")
 end)
+
+h.test("Tabs.look: selected tab is gold with a glow, others dark with a tan edge", function()
+  local T = ns.Theme
+  local Tabs = ns.UI.Tabs
+  local sel = Tabs.look(true, false)
+  h.eq(sel.border, T.colors.tabBorderSelected)
+  h.eq(sel.glow, true)
+  h.eq(sel.text, T.colors.tabTextSelected)
+  local idle = Tabs.look(false, false)
+  h.eq(idle.border, T.colors.tabBorder)
+  h.eq(idle.glow, false)
+  h.eq(idle.text, T.colors.tabText)
+  -- no fill: the tab shows the window background (its opacity and brightness)
+  h.eq(idle.fill, nil)
+  h.eq(sel.fill, nil)
+  -- hovering an unselected tab lights its edge; the selected tab stays the same
+  h.eq(Tabs.look(false, true).border, T.colors.tabBorderHover)
+  h.eq(Tabs.look(true, true), sel)
+end)
