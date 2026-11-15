@@ -54,9 +54,11 @@ end
 -- ---------------------------------------------------------------------------
 -- Raw gold (CHAT_MSG_MONEY)
 
--- Guild form first: its "(%s deposited ...)" tail would otherwise be swallowed
--- by the plain "You loot %s" pattern.
-local MONEY_KEYS = { "YOU_LOOT_MONEY_GUILD", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT" }
+-- Guild forms first: their "(%s deposited ...)" tail would otherwise be
+-- swallowed by the plain "You loot %s" pattern.
+-- UNVERIFIED (check in client): LOOT_MONEY_SPLIT_GUILD ("Your share of the
+-- loot is %s. (%s deposited to guild bank)") exists on Forever.
+local MONEY_KEYS = { "YOU_LOOT_MONEY_GUILD", "LOOT_MONEY_SPLIT_GUILD", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT" }
 local MONEY_UNITS = { { "GOLD_AMOUNT", 10000 }, { "SILVER_AMOUNT", 100 }, { "COPPER_AMOUNT", 1 } }
 
 -- Turns the money message formats plus the three amount templates into

@@ -51,8 +51,10 @@ and remove both once it is confirmed.
 
 - [ ] Gold from a creature and from a container lands in Raw gold.
 - [ ] Group play: a split (`Your share of the loot is ...`) counts once.
-  **Open:** shared group gold was reported as not counted; the guild-bank form
-  (`... (Y deposited to guild bank)`) is not parsed yet.
+  **Open:** shared group gold was reported as not counted. A likely cause was
+  the split with a guild share (`LOOT_MONEY_SPLIT_GUILD`, `Your share of the
+  loot is X. (Y deposited to guild bank)`), which is parsed now; check that it
+  exists (`/dump LOOT_MONEY_SPLIT_GUILD`) and counts X.
 - [ ] A quest with a gold reward adds it to Raw gold (`QUEST_TURNED_IN`).
 - [ ] Money texts match the client's globals (`/dump YOU_LOOT_MONEY,
   LOOT_MONEY_SPLIT, GOLD_AMOUNT`), also in a client language other than

@@ -344,10 +344,11 @@ function Core.stopSession()
 end
 
 -- Saves a finished session to the History tab (per character). Empty sessions
--- are skipped; the History option decides how many are kept.
+-- and sessions with demo loot (fake, `session.demo`) are skipped; the History
+-- option decides how many are kept.
 function Core.archiveSession(session)
   local History = ns.History
-  if not ns.chardb or not History or type(session) ~= "table" then return end
+  if not ns.chardb or not History or type(session) ~= "table" or session.demo then return end
   local limit = ns.Options and ns.db and ns.Options.get(ns.db, "historyLimit") or History.DEFAULT_LIMIT
   if limit == 0 then return end
   local entry = History.snapshot(session, Core.lookupPrice, time())
@@ -358,12 +359,9 @@ end
 
 -- `message` (optional) replaces the chat line.
 function Core.resetSession(message)
-  -- Demo loot is fake: it is not worth keeping in History.
-  local Demo = ns.Demo
-  local wasDemo = Demo ~= nil and Demo.active()
-  if Demo then Demo.restoreCache(ns.db) end
+  if ns.Demo then ns.Demo.restoreCache(ns.db) end
   if not ns.session then return end
-  if not wasDemo then Core.archiveSession(ns.session) end
+  Core.archiveSession(ns.session)
   ns.Session.reset(ns.session, time())
   say(message or L["session reset."])
   refreshUI()

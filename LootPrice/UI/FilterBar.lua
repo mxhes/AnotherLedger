@@ -260,7 +260,7 @@ function FilterBar.attach(row, db, onChange)
     end
     minBox:RefreshHint()
     search:RefreshHint()
-    sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort))
+    sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts))
     underline:SetShown(FilterBar.isActive(db))
   end
   if ns.UI.Ledger then ns.UI.Ledger.register(part) end

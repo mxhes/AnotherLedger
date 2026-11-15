@@ -18,7 +18,7 @@ local L_TO_COMPACT = L["Compact window (or double-click the title)"]
 local L_TO_FULL = L["Full window (or double-click the title)"]
 local L_PAUSED = L["Paused"]
 local L_CLOCK_HINT = L["Click: start / stop the session"]
-local L_RESET_CONFIRM = L["Reset the session? All logged loot and the timer will be cleared."]
+local L_RESET_CONFIRM = L["Reset the session? It is saved to History, then the loot and the clock start again from zero."]
 local L_YES = L["Reset"]
 local L_NO = L["Cancel"]
 

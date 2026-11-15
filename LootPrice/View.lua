@@ -72,6 +72,7 @@ end
 -- soldHigh, soldMedium } (a negative cutoff is never reached). Returns the
 -- sale rate level ("good" / "ok" / "bad") and the volume level ("high" /
 -- "medium" / "low"); each is nil when its value is unknown or `t` is missing.
+-- The options keep the middle cutoff at or below the top one (Options.lua).
 local function level(v, top, mid, names)
   if not num(v) then return nil end
   if num(top) and top >= 0 and v >= top then return names[1] end

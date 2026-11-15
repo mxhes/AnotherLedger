@@ -189,6 +189,37 @@ h.test("wiring: demo then reset restores the price cache", function()
   h.eq(cache, {})
 end)
 
+h.test("wiring: demo loot never reaches History, also after a relog", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  slash(ctx, "demo")
+  h.eq(ctx.ns.session.demo, true)
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootPriceDB, ctx.env.LootPriceCharDB
+  local relog = boot({ db = db, chardb = chardb, now = 3000 })
+  startWorld(relog, false) -- keep session off: the old one would be archived
+  h.eq(relog.errors, {})
+  h.eq(#chardb.history, 0)
+  h.eq(next(relog.ns.session.items), nil)
+  h.eq(relog.ns.session.demo, nil)
+  -- Real loot after a reset is archived again.
+  fire(relog, "CHAT_MSG_LOOT", LOOT)
+  slash(relog, "reset")
+  h.eq(#chardb.history, 1)
+end)
+
+h.test("wiring: the sort button keeps the Gold/h label in Zones after a redraw", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local Ledger = ctx.ns.UI.Ledger
+  Ledger.setTab("history")
+  Ledger.setSubtab("zones")
+  ctx.env.LootPriceDB.sort = "perHour"
+  Ledger.refresh()
+  h.eq(ctx.ns.UI.FilterBar.sortButton:GetText(), "Sort: Gold/h")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: demo on a stopped session seeds nothing", function()
   local ctx = boot()
   startWorld(ctx, false)

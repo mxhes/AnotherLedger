@@ -98,7 +98,8 @@ Each of these is one call in one place; the UI never names them.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
-  `LOOT_MONEY_SPLIT`, the first amount of `YOU_LOOT_MONEY_GUILD`) and
+  `LOOT_MONEY_SPLIT`, the first amount of `YOU_LOOT_MONEY_GUILD` and
+  `LOOT_MONEY_SPLIT_GUILD`) and
   `QUEST_TURNED_IN`; filters never touch it.
 - **Places**: each loot and gold event notes its zone (an instance with its
   difficulty is a zone of its own) and subzone, and, outside instances, the

@@ -292,3 +292,17 @@ h.test("Options.tooltip: title, what it does, the default", function()
   h.eq(ops[2].wrap, true)
   h.eq(ops[3].color, ns.Theme.colors.tipNote)
 end)
+
+h.test("Options: the sale rate and volume cutoffs stay in order", function()
+  local d = db({ saleRateGood = 0.5, saleRateOk = 0.1, soldHigh = 100, soldMedium = 10 })
+  ns.db = d
+  O.set(d, "saleRateOk", 0.8) -- above "sells well": that one follows
+  h.eq(d.settings.saleRateGood, 0.8)
+  O.set(d, "saleRateGood", 0.3) -- below "sells okay": that one follows
+  h.eq(d.settings.saleRateOk, 0.3)
+  O.set(d, "soldMedium", 200)
+  h.eq(d.settings.soldHigh, 200)
+  O.set(d, "soldHigh", -1) -- empty = never High volume: Medium stays free
+  h.eq(d.settings.soldMedium, 200)
+  ns.db = nil
+end)

@@ -41,29 +41,30 @@ end
 -- nil; `now` ends a still running clock.
 function History.snapshot(session, lookup, now)
   if type(session) ~= "table" or type(session.items) ~= "table" then return nil end
-  local items, count, vendor, ah, best, unpriced = {}, 0, 0, 0, 0, 0
+  local items, count, vendor, ah, best = {}, 0, 0, 0, 0
   for key, it in pairs(session.items) do
     if type(it) == "table" and num(it.id) and num(it.qty) and it.qty > 0 then
       local itemKey = it.key or key
       local saved = copyPrice(it.price) or {}
+      local p = lookup and lookup(it.id, it.link)
+      if type(p) ~= "table" then p = {} end
+      local v = num(p.vendor) and p.vendor or saved.vendor
+      local a = num(p.ah) and p.ah or saved.ah
+      local d = num(p.de) and p.de or saved.de
+      -- The unit prices the totals are made of: an opened session lists its
+      -- items at these, so they add up to the session row.
       items[itemKey] = {
         id = it.id,
         key = itemKey,
         link = type(it.link) == "string" and it.link or nil,
         qty = it.qty,
         lastSeen = nonNeg(it.lastSeen),
-        price = copyPrice(it.price),
+        price = copyPrice({ vendor = v, ah = a, de = d }),
       }
       count = count + 1
-      local p = lookup and lookup(it.id, it.link)
-      if type(p) ~= "table" then p = {} end
-      local v = num(p.vendor) and p.vendor or saved.vendor
-      local a = num(p.ah) and p.ah or saved.ah
-      local d = num(p.de) and p.de or saved.de
       if v then vendor = vendor + v * it.qty end
-      if a then ah = ah + a * it.qty else unpriced = unpriced + 1 end
-      local b = math.max(v or 0, a or 0, d or 0)
-      best = best + b * it.qty
+      if a then ah = ah + a * it.qty end
+      best = best + math.max(v or 0, a or 0, d or 0) * it.qty
     end
   end
   local currencies, nCurrencies = {}, 0
@@ -93,7 +94,7 @@ function History.snapshot(session, lookup, now)
   if ns.Session and ns.Session.zoneSnapshot then zones = ns.Session.zoneSnapshot(session, now) end
   return {
     startedAt = nonNeg(session.startedAt), elapsed = elapsed, gold = gold,
-    nItems = count, vendor = vendor, ah = ah, best = best, unpriced = unpriced,
+    nItems = count, vendor = vendor, ah = ah, best = best,
     places = places, items = items, currencies = currencies, zones = zones,
   }
 end

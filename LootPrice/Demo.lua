@@ -101,6 +101,9 @@ function Demo.run()
     return
   end
   Demo.seedCache(ns.db, Core.cacheKey(), time())
+  -- Saved with the session: a session that holds demo loot never goes to
+  -- History, also after a /reload or relog (Core.archiveSession).
+  ns.session.demo = true
   for _, item in ipairs(Demo.ITEMS) do
     Core.recordLoot(Demo.makeLink(item[1], item[2], item[3]), item[4])
   end

@@ -64,6 +64,7 @@ local GM = {
   YOU_LOOT_MONEY = "You loot %s",
   LOOT_MONEY_SPLIT = "Your share of the loot is %s.",
   YOU_LOOT_MONEY_GUILD = "You loot %s (%s deposited to guild bank)",
+  LOOT_MONEY_SPLIT_GUILD = "Your share of the loot is %s. (%s deposited to guild bank)",
   LOOT_MONEY = "%s loots %s.",
   GOLD_AMOUNT = "%d Gold",
   SILVER_AMOUNT = "%d Silver",
@@ -90,6 +91,10 @@ h.test("parseMoney split share and guild form (first amount only)", function()
   h.eq(money("Your share of the loot is 9 Copper."), 9)
   h.eq(money("You loot 10 Gold (2 Gold deposited to guild bank)"), 100000)
   h.eq(money("You loot 1 Gold, 50 Silver (30 Silver deposited to guild bank)"), 15000)
+end)
+
+h.test("parseMoney group split with a guild share (first amount only)", function()
+  h.eq(money("Your share of the loot is 3 Gold, 5 Silver. (20 Silver deposited to guild bank)"), 30500)
 end)
 
 h.test("parseMoney ignores other players and garbage", function()

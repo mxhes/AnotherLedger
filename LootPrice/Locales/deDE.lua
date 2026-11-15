@@ -17,8 +17,8 @@ ns.Locale.register("deDE", {
   ["Reset"] = "Zurücksetzen",
   ["Cancel"] = "Abbrechen",
   ["Options"] = "Optionen",
-  ["Reset the session? All logged loot and the timer will be cleared."] =
-    "Sitzung zurücksetzen? Alle erfassten Beute und die Zeit werden gelöscht.",
+  ["Reset the session? It is saved to History, then the loot and the clock start again from zero."] =
+    "Sitzung zurücksetzen? Sie wird im Verlauf gespeichert, dann beginnen Beute und Zeit wieder bei null.",
 
   -- Filter bar
   ["Quality"] = "Qualität",

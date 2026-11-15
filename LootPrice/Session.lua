@@ -299,6 +299,7 @@ function Session.reset(session, now)
   session.places = {}
   session.zones = {}
   session.recent = {}
+  session.demo = nil
   if type(session.at) == "table" then session.at.since = session.running and now or nil end
   session.gold = 0
   session.startedAt = now

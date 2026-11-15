@@ -318,19 +318,41 @@ Options.define({
   apply = refreshUI,
 })
 
+-- The two cutoffs of a level pair stay in order: moving one past the other
+-- moves the other along (the middle level could never show otherwise). The
+-- stored value is written directly (no apply loop); a negative top cutoff
+-- (number option: empty = never) leaves the middle one free.
+local function keepOrder(topKey, midKey, changed)
+  local db = ns.db
+  if not (db and db.settings) then return end
+  local top, mid = Options.get(db, topKey), Options.get(db, midKey)
+  if not (num(top) and num(mid)) or top < 0 or mid <= top then return end
+  if changed == topKey then db.settings[midKey] = top else db.settings[topKey] = mid end
+  local panel = ns.UI and ns.UI.OptionsPanel
+  if panel and panel.refreshAll then panel.refreshAll() end
+end
+Options.keepOrder = keepOrder
+
+local function ordered(topKey, midKey, changed)
+  return function()
+    keepOrder(topKey, midKey, changed)
+    refreshUI()
+  end
+end
+
 local function rate(v) return string.format("%.2f", v) end
 Options.define({ key = "saleRateGood", category = "prices", type = "slider", label = L["Sells well from"],
   tooltip = L["Region sale rate (0 to 1) from which an item counts as selling well."],
-  min = 0, max = 1, step = 0.01, format = rate, apply = refreshUI })
+  min = 0, max = 1, step = 0.01, format = rate, apply = ordered("saleRateGood", "saleRateOk", "saleRateGood") })
 Options.define({ key = "saleRateOk", category = "prices", type = "slider", label = L["Sells okay from"],
   tooltip = L["Region sale rate from which an item counts as selling okay. Below it, it sells poorly."],
-  min = 0, max = 1, step = 0.01, format = rate, apply = refreshUI })
+  min = 0, max = 1, step = 0.01, format = rate, apply = ordered("saleRateGood", "saleRateOk", "saleRateOk") })
 Options.define({ key = "soldHigh", category = "prices", type = "number", label = L["High volume from"],
   tooltip = L["Average number sold per day in your region from which an item is High volume. Empty = never."],
-  apply = refreshUI })
+  apply = ordered("soldHigh", "soldMedium", "soldHigh") })
 Options.define({ key = "soldMedium", category = "prices", type = "number", label = L["Medium volume from"],
   tooltip = L["Average number sold per day from which an item is Medium volume. Below it, Low volume."],
-  apply = refreshUI })
+  apply = ordered("soldHigh", "soldMedium", "soldMedium") })
 
 Options.define({
   key = "refreshSeconds", category = "prices", type = "slider", label = L["Price refresh"],
