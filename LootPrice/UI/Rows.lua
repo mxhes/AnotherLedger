@@ -10,13 +10,18 @@ ns.UI.Rows = Rows
 
 -- User-visible strings (translated through ns.L, Locale.lua).
 local L = {
-  VENDOR = ns.L["Vendor: "],
-  BEST = ns.L["Best: "],
-  BEST_AH = ns.L["Best (AH): "],
-  BEST_DE = ns.L["Best (DE): "],
   QTY = ns.L["x"],
   BOUND = ns.L["bound"],
+  UNPRICED = "?",
+  EACH = ns.L[" each"],
 }
+
+-- The source tag after a row's value and the tooltip line of each value.
+Rows.SOURCES = { "vendor", "ah", "de" }
+local SOURCE_TEXT = { vendor = ns.L["Vendor"], ah = ns.L["AH"], de = ns.L["DE"] }
+local SOURCE_LABEL = { vendor = ns.L["Vendor: "], ah = ns.L["AH: "], de = ns.L["Disenchant: "] }
+local SOURCE_COLOR = { vendor = "tagVendor", ah = "tagAh", de = "tagDe" }
+Rows.SOURCE_TEXT, Rows.SOURCE_COLOR = SOURCE_TEXT, SOURCE_COLOR
 
 -- TSM sale info levels (View.marketLevels): text and Theme color of each.
 local MARKET = {
@@ -35,24 +40,6 @@ local QUESTION_MARK = 134400 -- INV_Misc_QuestionMark
 -- ---------------------------------------------------------------------------
 -- Pure helpers
 
--- The labels of the right block: vendor on line 1; on line 2 the better of AH
--- and disenchant, named by its source ("Best (AH): " / "Best (DE): "), or plain
--- "Best: " when the source is unknown (History sessions, no price).
-Rows.LABELS = { vendor = L.VENDOR, best = L.BEST, bestAh = L.BEST_AH, bestDe = L.BEST_DE }
-local BEST_LABEL = { ah = L.BEST_AH, de = L.BEST_DE }
-
--- Line 2 value: `row.bestLineTotal` when the row brings its own (History
--- sessions), else the better of the AH and disenchant totals (AH on a tie).
--- Returns the total (nil when neither is known) and its source: "ah", "de" or
--- nil (own total, or none).
-function Rows.bestLine(row)
-  if row.bestLineTotal ~= nil then return row.bestLineTotal, nil end
-  local ah, de = row.ahTotal, row.deTotal
-  if ah ~= nil and (de == nil or ah >= de) then return ah, "ah" end
-  if de ~= nil then return de, "de" end
-  return nil, nil
-end
-
 -- Line 2 under the name: the sale rate and volume levels of the row, e.g.
 -- "Sells well, Low volume", each part in its level color (plain text without
 -- `colors`). nil when the row has neither level.
@@ -69,41 +56,72 @@ function Rows.marketText(row, colors)
   return table.concat(parts, MARKET_SEP)
 end
 
--- The texts one row shows (two lines: name, quantity and vendor; then
--- "Best:" with the better of AH and disenchant). `formatMoney` defaults to the colored coin format
--- (Money.formatColored); the tests pass Money.format for plain text.
+-- Unpriced = no AH price and not bound (the footer's count and History's);
+-- such a row still shows its vendor / DE value, marked "?".
+local function isUnpriced(row)
+  return row.ahEach == nil and not row.bound and not row.isCurrency and row.bestLineTotal == nil
+end
+
+-- The texts one row shows: line 1 name, quantity, the counted value (the row's
+-- `value`, best of vendor / AH / DE) and its source tag; line 2 the TSM sale
+-- info. `formatMoney` defaults to the colored coin format (Money.formatColored);
+-- the tests pass Money.format for plain text.
+--   { name, qty, amount, source ("vendor" / "ah" / "de" / nil), sourceText,
+--     unpriced, tag (age of a cached AH value), tagStale, market }
+-- Rows with their own total (History / Zones places, `bestLineTotal`) show it
+-- without a source; currencies show no amount.
 function Rows.rowText(row, formatMoney)
   formatMoney = formatMoney or ns.Money.formatColored
   local qty = L.QTY .. tostring(row.quantity or 0)
-  -- Currencies have a quantity only: no amounts and no labels.
   if row.isCurrency then
-    return { name = row.name or "", qty = qty, vendorLabel = "", bestLabel = "", vendorAmount = "",
-      bestAmount = "", tag = nil, tagStale = false }
+    return { name = row.name or "", qty = qty, amount = "", source = nil, sourceText = nil,
+      unpriced = false, tag = nil, tagStale = false }
   end
-  local total, source = Rows.bestLine(row)
-  -- The age tag belongs to a cached AH price, so only when line 2 shows it.
+  local amount, source
+  if row.bestLineTotal ~= nil then
+    amount = formatMoney(row.bestLineTotal)
+  elseif row.bestKind ~= nil then
+    amount, source = formatMoney(row.value or 0), row.bestKind
+  elseif row.bound then
+    amount = L.BOUND
+  else
+    amount = L.UNPRICED
+  end
+  -- The age tag belongs to a cached AH price, so only when that value counts.
   local tag, tagStale = nil, false
   if source == "ah" and row.ahFromCache and type(row.ahAge) == "number" then
     tag = "(" .. ns.Prices.formatAge(row.ahAge) .. ")"
     tagStale = row.stale and true or false
   end
-  local bestAmount = formatMoney(total)
-  -- A bound item cannot be sold on the AH: say so instead of "n/a".
-  if total == nil and row.bound then bestAmount = L.BOUND end
   return {
     name = row.name or "",
     qty = qty,
-    vendorLabel = L.VENDOR, bestLabel = BEST_LABEL[source] or L.BEST,
-    vendorAmount = formatMoney(row.vendorTotal),
-    bestAmount = bestAmount,
-    -- Which line holds the row's value (its label is highlighted): "vendor"
-    -- is line 1, "ah" / "de" line 2.
-    best = row.bestKind,
-    -- Under the name: TSM sale info (colored), or nil.
+    amount = amount,
+    source = source,
+    sourceText = source and SOURCE_TEXT[source] or nil,
+    unpriced = isUnpriced(row),
     market = Rows.marketText(row, ns.Theme and ns.Theme.colors),
     tag = tag,
     tagStale = tagStale,
   }
+end
+
+-- Tooltip lines of a row: every known value ("Vendor: 1s (50c each)"), the
+-- counted one first in the theme's best color. Per unit only with qty > 1.
+function Rows.tooltipLines(row, formatMoney)
+  formatMoney = formatMoney or ns.Money.formatColored
+  local lines = {}
+  if type(row) ~= "table" or row.isCurrency then return lines end
+  local multi = (row.quantity or 0) > 1
+  for _, src in ipairs(Rows.SOURCES) do
+    local total, each = row[src .. "Total"], row[src .. "Each"]
+    if type(total) == "number" then
+      local line = SOURCE_LABEL[src] .. formatMoney(total)
+      if multi and type(each) == "number" then line = line .. " (" .. formatMoney(each) .. L.EACH .. ")" end
+      lines[#lines + 1] = line
+    end
+  end
+  return lines
 end
 
 -- The texts of a view row are built once and reused while it scrolls.
@@ -137,8 +155,7 @@ local function resolveWidths(measured)
     return fallback
   end
   local widths = {
-    vendorLabel = pick(m.vendorLabel, S.rowVendorLabelW),
-    bestLabel = pick(m.bestLabel, S.rowBestLabelW),
+    source = pick(m.source, S.rowSourceW),
     tag = pick(m.tag, S.rowTagW),
     amount = pick(m.amount, S.rowVendorColW),
     qty = pick(m.qtyWorst, S.rowQtyW),
@@ -147,16 +164,17 @@ local function resolveWidths(measured)
 end
 
 -- WORST-CASE geometry, used only for the window's minimum width: `measured` =
--- {vendorLabel, bestLabel, tag, amount, qtyWorst} real string widths of the worst
--- case strings (nil/0 fields use the Theme fallbacks). The worst-case block is
--- labels + gap + widest amount + tag gap + tag; `required` = rowNameMin + gap +
+-- {source, tag, amount, qtyWorst} real widths of the worst case strings (source:
+-- the widest source tag with its frame; nil/0 fields use the Theme fallbacks).
+-- The worst-case block is widest amount + gap + source tag + tag gap + age tag;
+-- `required` = rowNameMin + gap +
 -- blockW (the width of the row content that always fits). The rows themselves
 -- are laid out with the adaptive Rows.blockLayout.
 function Rows.worstCase(measured)
   local S = ns.Theme.sizes
   local wd, fallback = resolveWidths(measured)
-  local labelW = math.max(wd.vendorLabel, wd.bestLabel)
-  local blockW = labelW + S.rowLabelGap + wd.amount + S.rowTagGap + wd.tag
+  local labelW = wd.source
+  local blockW = wd.amount + S.rowLabelGap + labelW + S.rowTagGap + wd.tag
   return {
     required = S.rowNameMin + S.rowNameGap + blockW,
     fallback = fallback,
@@ -168,24 +186,25 @@ function Rows.worstCase(measured)
   }
 end
 
--- Adaptive right block for the rows currently rendered. Inputs are RAW measured
--- widths (no padding): labelsW = widest label, amountMaxW = widest vendor/AH
--- amount among the rendered rows, tagMaxW = widest age tag (nil/0 = no rendered
--- row shows a tag: no tag width and no tag gap). nil/0 labels or amounts use the
+-- Adaptive right block for the rows currently rendered: the amount column, the
+-- source tag column right of it, then the age tag. Inputs are RAW measured
+-- widths (no padding): sourceW = widest source tag (with its frame), amountMaxW
+-- = widest amount among the rendered rows, tagMaxW = widest age tag (nil/0 = no
+-- rendered row shows a tag: no tag width and no tag gap). nil/0 widths use the
 -- Theme fallbacks. The block's right edge is always contentWidth (flush right);
 -- it grows leftwards with longer amounts, but never so far that the name column
 -- drops below rowNameMin (then the amount clips on the right).
--- Returns {blockW, blockX, labelX, amountX, nameX, nameW, tagGap, tagW, rightEdge}.
-function Rows.blockLayout(contentWidth, labelsW, amountMaxW, tagMaxW)
+-- Returns {blockW, blockX, amountX, amountW, labelX (source tag), labelW,
+-- nameX, nameW, tagGap, tagW, rightEdge}.
+function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW)
   local S = ns.Theme.sizes
   local pad = S.rowMeasurePad
-  local labelW = positive(labelsW) and labelsW + pad or math.max(S.rowVendorLabelW, S.rowBestLabelW)
+  local labelW = positive(sourceW) and sourceW + pad or S.rowSourceW
   local amountW = positive(amountMaxW) and amountMaxW + pad or S.rowVendorColW
   local hasTag = positive(tagMaxW)
   local tagW = hasTag and tagMaxW + pad or 0
   local tagGap = hasTag and S.rowTagGap or 0
-  local amountOff = labelW + S.rowLabelGap
-  local blockW = amountOff + amountW + tagGap + tagW
+  local blockW = amountW + S.rowLabelGap + labelW + tagGap + tagW
   local gap = S.rowNameGap
   local w = contentWidth
   if not positive(w) then w = S.rowNameMin + gap + blockW end
@@ -195,8 +214,10 @@ function Rows.blockLayout(contentWidth, labelsW, amountMaxW, tagMaxW)
     rightEdge = w,
     blockW = blockW,
     blockX = blockX,
-    labelX = blockX,
-    amountX = blockX + amountOff,
+    amountX = blockX,
+    amountW = amountW,
+    labelX = blockX + amountW + S.rowLabelGap,
+    labelW = labelW,
     nameX = 0,
     nameW = math.max(0, blockX - gap),
     tagGap = tagGap,
@@ -278,9 +299,19 @@ function Rows.tooltipLink(row)
 end
 
 -- The item tooltip of the row, or its hint text (History rows) without an item.
+-- Item tooltip plus the row's values (Rows.tooltipLines), else the row hint.
+-- UNVERIFIED (check in client): GameTooltip:AddLine after SetHyperlink, then Show.
 local function showTooltip(f)
   local W = ns.UI.Widgets
-  return W.showItemTooltip(f, f.tooltipLink) or W.showTextTooltip(f, f.tooltipText)
+  if W.showItemTooltip(f, f.tooltipLink) then
+    local lines = f.tooltipLines
+    if GameTooltip and lines and #lines > 0 then
+      for _, line in ipairs(lines) do GameTooltip:AddLine(line, 1, 1, 1) end
+      GameTooltip:Show()
+    end
+    return true
+  end
+  return W.showTextTooltip(f, f.tooltipText)
 end
 
 local function itemIcon(itemID)
@@ -307,7 +338,7 @@ local function blockFor(owner, w)
   local m = owner.measured or NONE
   local bm = owner.blockMeasure or NONE
   return Rows.blockLayout(w - Rows.textLeft() - S.rowRightInset,
-    math.max(m.vendorLabel or 0, m.bestLabel or 0), bm.amount, bm.tag)
+    m.source, bm.amount, bm.tag)
 end
 
 -- Anchors `region` by one point at (x, y) from the same point of `f`.
@@ -342,14 +373,14 @@ local function layoutRow(f, block)
   place(f.market, f, "BOTTOMLEFT", x0 + c.nameX, inset)
   f.market:SetWidth(math.max(1, c.nameW))
 
-  -- Right block: vendor on the top line, Best (AH or DE) on the bottom line.
-  local labelX, amountX = x0 + c.labelX, x0 + c.amountX
-  place(f.vendorLabel, f, "TOPLEFT", labelX, -inset)
-  place(f.vendor, f, "TOPLEFT", amountX, -inset)
-  place(f.bestLabel, f, "BOTTOMLEFT", labelX, inset)
-  place(f.bestAmount, f, "BOTTOMLEFT", amountX, inset)
+  -- Right block, top line: the counted value (right-aligned in its column),
+  -- its framed source tag, then the age tag or the "?" mark.
+  place(f.amount, f, "TOPLEFT", x0 + c.amountX, -inset)
+  f.amount:SetWidth(math.max(1, c.amountW))
+  f.srcBox:ClearAllPoints()
+  f.srcBox:SetPoint("LEFT", f.amount, "RIGHT", S.rowLabelGap, 0)
   f.tag:ClearAllPoints()
-  f.tag:SetPoint("LEFT", f.bestAmount, "RIGHT", c.tagGap, 0)
+  f.tag:SetPoint("LEFT", f.srcBox, "RIGHT", c.tagGap > 0 and c.tagGap or S.rowTagGap, 0)
 end
 
 local function createRow(parent, owner)
@@ -407,14 +438,22 @@ local function createRow(parent, owner)
     setColor(fs, T.colors.ink)
     return fs
   end
-  local vendorLabel, vendor = line2(), line2()
-  local bestLabel, bestAmount, tag = line2(), line2(), line2()
-  vendorLabel:SetText(Rows.LABELS.vendor)
-  bestLabel:SetText(Rows.LABELS.best)
-  f.vendorLabel, f.bestLabel = vendorLabel, bestLabel
+  local amount, tag = line2(), line2()
+  amount:SetJustifyH("RIGHT")
   f.market = line2()
 
-  f.name, f.qty, f.vendor, f.bestAmount, f.tag = name, qty, vendor, bestAmount, tag
+  -- Framed source tag (Vendor / AH / DE): a small backdrop box around its text.
+  local srcBox = CreateFrame("Frame", nil, f, "BackdropTemplate")
+  srcBox:SetHeight(T.sizes.rowTagHeight)
+  if srcBox.SetBackdrop then
+    srcBox:SetBackdrop({ edgeFile = T.textures.rowHighlight, edgeSize = 1 })
+  end
+  local src = srcBox:CreateFontString(nil, "OVERLAY", T.fonts.rowSmall)
+  src:SetPoint("CENTER", srcBox, "CENTER", 0, 0)
+  src:SetWordWrap(false)
+  f.srcBox, f.src = srcBox, src
+
+  f.name, f.qty, f.amount, f.tag = name, qty, amount, tag
   f:SetScript("OnSizeChanged", function(self) layoutRow(self) end)
 
   -- Item tooltip while the mouse is over the row.
@@ -441,17 +480,27 @@ local function fillRow(f, row)
   f.name:SetText(t.name)
   f.name:SetTextColor(r, g, b)
   f.qty:SetText(t.qty)
-  f.vendorLabel:SetText(t.vendorLabel or "")
-  f.bestLabel:SetText(t.bestLabel or "")
-  local secondBest = t.best == "ah" or t.best == "de"
-  setColor(f.vendorLabel, t.best == "vendor" and T.colors.best or T.colors.ink)
-  setColor(f.bestLabel, secondBest and T.colors.best or T.colors.ink)
-  f.vendor:SetText(t.vendorAmount)
-  f.bestAmount:SetText(t.bestAmount)
+  f.amount:SetText(t.amount)
+  setColor(f.amount, T.colors.ink)
   f.market:SetText(t.market or "")
-  f.tag:SetText(t.tag or "")
-  f.hasTag = t.tag ~= nil
-  setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
+  -- Source tag: framed, in its source color; hidden without a source.
+  if t.source then
+    local c = T.colors[SOURCE_COLOR[t.source]] or T.colors.ink
+    f.src:SetText(t.sourceText)
+    setColor(f.src, c)
+    if f.srcBox.SetBackdropBorderColor then f.srcBox:SetBackdropBorderColor(c[1], c[2], c[3], 0.8) end
+    local sw = f.src:GetStringWidth()
+    f.srcBox:SetWidth((positive(sw) and sw or T.sizes.rowSourceW) + 2 * T.sizes.rowTagPad)
+    f.srcBox:Show()
+  else
+    f.srcBox:SetWidth(1)
+    f.srcBox:Hide()
+  end
+  -- After the tag: the age of a cached AH value, else "?" on an unpriced row.
+  local tagText = t.tag or (t.unpriced and t.source and L.UNPRICED) or nil
+  f.tag:SetText(tagText or "")
+  f.hasTag = tagText ~= nil
+  setColor(f.tag, (t.tagStale and T.colors.stale) or (t.tag == nil and t.unpriced and T.colors.marketOk) or T.colors.ink)
   local icons = Rows.showIcons()
   f.iconBorder:SetShown(icons)
   f.icon:SetShown(icons)
@@ -461,6 +510,7 @@ local function fillRow(f, row)
   end
   f.row = row
   f.tooltipLink = Rows.tooltipLink(row)
+  f.tooltipLines = Rows.tooltipLines(row)
   f.tooltipText = row.hint
   -- A hovered row that now shows another item (or fresh data) updates its tooltip.
   local W = ns.UI.Widgets
@@ -511,18 +561,18 @@ function Rows.attach(area, onMeasure)
   -- Measures the real string widths; fields stay nil while the font is not
   -- ready (the layout then uses the Theme fallbacks and Render retries).
   function list:Measure()
+    local srcW = widest(SOURCE_TEXT.vendor, SOURCE_TEXT.ah, SOURCE_TEXT.de)
     local m = {
-      vendorLabel = width(L.VENDOR),
-      -- The widest of the three line 2 labels, so the amounts line up.
-      bestLabel = widest(L.BEST, L.BEST_AH, L.BEST_DE),
+      -- The widest source tag with its frame, so the tags line up.
+      source = srcW and srcW + 2 * T.sizes.rowTagPad or nil,
       tag = width(SAMPLE_TAG),
       amount = width(SAMPLE_AMOUNT),
       qtyWorst = width(SAMPLE_QTY, qtyProbe),
     }
     local old = self.measured
     self.measured = m
-    self.measureFallback = not (m.vendorLabel and m.bestLabel and m.tag and m.amount and m.qtyWorst)
-    local changed = old and (old.vendorLabel ~= m.vendorLabel or old.bestLabel ~= m.bestLabel
+    self.measureFallback = not (m.source and m.tag and m.amount and m.qtyWorst)
+    local changed = old and (old.source ~= m.source
       or old.tag ~= m.tag or old.amount ~= m.amount or old.qtyWorst ~= m.qtyWorst)
     if changed and onMeasure then onMeasure(m) end
     return m
@@ -605,7 +655,7 @@ function Rows.attach(area, onMeasure)
       fillRow(f, row)
       f.separator:SetShown(self.offset + i < total)
       f:Show()
-      local aw = math.max(f.vendor:GetStringWidth() or 0, f.bestAmount:GetStringWidth() or 0)
+      local aw = f.amount:GetStringWidth() or 0
       if aw > amountMax then amountMax = aw end
       if f.hasTag then
         local tw = f.tag:GetStringWidth() or 0

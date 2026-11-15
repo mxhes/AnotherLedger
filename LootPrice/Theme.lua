@@ -78,6 +78,10 @@ Theme.colors = {
   marketGood = { 0.45, 0.85, 0.35, 1 },
   marketOk = { 0.95, 0.80, 0.40, 1 },
   marketBad = { 0.95, 0.38, 0.32, 1 },
+  -- Source tags of a row's value (frame and text).
+  tagVendor = { 0.88, 0.78, 0.56, 1 },
+  tagAh = { 0.50, 0.82, 1.00, 1 },
+  tagDe = { 0.83, 0.61, 1.00, 1 },
   -- Column titles of the footer table (Value, /h): the hint color.
   columnTitle = { 0.68, 0.63, 0.55, 1 },
   -- Tab buttons: no fill of their own (they show the window background, so its
@@ -168,10 +172,13 @@ Theme.sizes = {
   -- Fixed FALLBACK widths, used only while the runtime font measurement
   -- (Rows.attach) returns nothing; measured widths + rowMeasurePad replace them.
   rowQtyW = 36,
-  rowVendorLabelW = 40,
   rowLabelGap = 2,
   rowVendorColW = 84,
-  rowBestLabelW = 56, -- "Best (AH): "
+  -- Source tag after the value (Vendor / AH / DE): fallback width with its
+  -- frame, inner padding each side, frame height.
+  rowSourceW = 52,
+  rowTagPad = 3,
+  rowTagHeight = 13,
   rowTagW = 36,
   -- Padding added around each measured string width.
   rowMeasurePad = 2,
