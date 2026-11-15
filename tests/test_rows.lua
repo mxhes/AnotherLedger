@@ -96,7 +96,7 @@ h.test("rowText: the counted value with its source, colored coins by default", f
   local t = R.rowText(row)
   h.eq(t.name, "Linen Cloth"); h.eq(t.qty, "x23")
   h.eq(t.amount, ns.Money.formatColored(12650, ns.Theme.colors))
-  h.eq(t.source, "ah"); h.eq(t.sourceText, "AH"); h.eq(t.unpriced, false)
+  h.eq(t.source, "ah"); h.eq(t.sourceText, "Auction"); h.eq(t.unpriced, false)
   h.eq(R.rowText(row, fm).amount, "1g 26s 50c")
 end)
 
@@ -107,7 +107,7 @@ h.test("rowText: vendor beats a lower DE, no AH price marks it unpriced", functi
   h.eq(t.unpriced, true)
   local d = R.rowText({ name = "X", quantity = 2, value = 500, bestKind = "de", deTotal = 500, ahEach = 100,
     ahTotal = 200 }, fm)
-  h.eq(d.source, "de"); h.eq(d.sourceText, "DE"); h.eq(d.unpriced, false)
+  h.eq(d.source, "de"); h.eq(d.sourceText, "Disenchant"); h.eq(d.unpriced, false)
 end)
 
 h.test("rowText: bound, nothing, currency and rows with their own total", function()

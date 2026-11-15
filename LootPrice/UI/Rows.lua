@@ -18,7 +18,7 @@ local L = {
 
 -- The source tag after a row's value and the tooltip line of each value.
 Rows.SOURCES = { "vendor", "ah", "de" }
-local SOURCE_TEXT = { vendor = ns.L["Vendor"], ah = ns.L["AH"], de = ns.L["DE"] }
+local SOURCE_TEXT = { vendor = ns.L["Vendor"], ah = ns.L["Auction"], de = ns.L["Disenchant"] }
 local SOURCE_LABEL = { vendor = ns.L["Vendor: "], ah = ns.L["AH: "], de = ns.L["Disenchant: "] }
 local SOURCE_COLOR = { vendor = "tagVendor", ah = "tagAh", de = "tagDe" }
 Rows.SOURCE_TEXT, Rows.SOURCE_COLOR = SOURCE_TEXT, SOURCE_COLOR
@@ -448,7 +448,7 @@ local function createRow(parent, owner)
   if srcBox.SetBackdrop then
     srcBox:SetBackdrop({ edgeFile = T.textures.rowHighlight, edgeSize = 1 })
   end
-  local src = srcBox:CreateFontString(nil, "OVERLAY", T.fonts.rowSmall)
+  local src = srcBox:CreateFontString(nil, "OVERLAY", T.fonts.sourceTag)
   src:SetPoint("CENTER", srcBox, "CENTER", 0, 0)
   src:SetWordWrap(false)
   f.srcBox, f.src = srcBox, src
@@ -540,6 +540,9 @@ function Rows.attach(area, onMeasure)
   local qtyProbe = area:CreateFontString(nil, "OVERLAY", T.fonts.body)
   qtyProbe:SetAlpha(0)
   qtyProbe:SetWordWrap(false)
+  local srcProbe = area:CreateFontString(nil, "OVERLAY", T.fonts.sourceTag)
+  srcProbe:SetAlpha(0)
+  srcProbe:SetWordWrap(false)
   local function width(text, p)
     p = p or probe
     p:SetText(text)
@@ -548,10 +551,10 @@ function Rows.attach(area, onMeasure)
     return nil
   end
   -- Widest of several texts; nil while any of them cannot be measured.
-  local function widest(...)
+  local function widest(p, ...)
     local best = 0
     for i = 1, select("#", ...) do
-      local w = width((select(i, ...)))
+      local w = width((select(i, ...)), p)
       if not w then return nil end
       if w > best then best = w end
     end
@@ -561,7 +564,7 @@ function Rows.attach(area, onMeasure)
   -- Measures the real string widths; fields stay nil while the font is not
   -- ready (the layout then uses the Theme fallbacks and Render retries).
   function list:Measure()
-    local srcW = widest(SOURCE_TEXT.vendor, SOURCE_TEXT.ah, SOURCE_TEXT.de)
+    local srcW = widest(srcProbe, SOURCE_TEXT.vendor, SOURCE_TEXT.ah, SOURCE_TEXT.de)
     local m = {
       -- The widest source tag with its frame, so the tags line up.
       source = srcW and srcW + 2 * T.sizes.rowTagPad or nil,

@@ -31,6 +31,9 @@ Theme.fonts = {
   number = "GameFontHighlight",
   small = "GameFontHighlightSmall",
   rowSmall = "GameFontHighlightSmall", -- second and third line of a list row
+  -- Source tag (Vendor / Auction / Disenchant): the row's small size in a narrow
+  -- typeface (Theme.fontFiles), so the spelled-out words fit.
+  sourceTag = "GameFontHighlightSmall",
   -- Summary (footer table, Top finds): about 12 pt; column titles and the notes
   -- line stay small.
   summary = "GameFontHighlight",
@@ -45,6 +48,12 @@ Theme.fonts = {
   buttonHighlight = "GameFontHighlightSmall",
   buttonDisabled = "GameFontDisableSmall",
   file = "Fonts\\FRIZQT__.TTF",
+}
+
+-- Font objects pinned to one typeface whatever the "fontFace" option says
+-- (the game's own file when the client refuses it).
+Theme.fontFiles = {
+  sourceTag = "Fonts\\ARIALN.TTF",
 }
 
 -- Dark leather look: a dark warm brown panel with light text and the real,
@@ -140,10 +149,12 @@ Theme.sizes = {
   buttonEdge = 1,
   buttonInset = 1,
   iconButtonPad = 3,
+  -- Mode button arrow: rows of 1 px bars, 2 px wider each (Widgets.arrowBars).
+  arrowRows = 6,
   -- Compact mode: default size and minimum; the title's double-click area.
-  compactWidth = 250,
+  compactWidth = 260,
   compactHeight = 210,
-  compactMinWidth = 220,
+  compactMinWidth = 240, -- title, clock, mode, gear and close in one row
   compactMinHeight = 190, -- >= UI.Compact.requiredHeight() (186)
   compactRowHeight = 16,
   compactDropsTop = 46, -- first drop row under the rate, total and divider
@@ -230,7 +241,7 @@ Theme.sizes = {
 -- minWidth 350 is the header's budget above; the footer table needs less
 -- (Summary.tableWorstWidth, ~278 px of the 326 px content width).
 Theme.widths = {
-  header = { toggle = 38, reset = 40, hide = 20, options = 20 },
+  header = { toggle = 38, reset = 40, hide = 20, options = 20, mode = 20 },
   filter = { quality = 70, min = 44, sort = 78 },
   tab = 72, -- tab buttons in header row 3
 }

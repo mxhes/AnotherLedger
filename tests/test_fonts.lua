@@ -172,3 +172,32 @@ h.test("Fonts.applySizes: a changed size resizes the own font objects live, from
   _G.CreateFont, _G.GameFontHighlight = nil, nil
   assert(ok, err)
 end)
+
+h.test("Fonts.install: the source tag font is pinned to Arial Narrow, whatever the typeface", function()
+  local ns = load()
+  local created, newFont = fakeClient({ ["Fonts\\FRIZQT__.TTF"] = true, ["Fonts\\ARIALN.TTF"] = true, ["Fonts\\skurri.ttf"] = true })
+  _G.CreateFont = newFont
+  _G.GameFontHighlightSmall = newFont("GameFontHighlightSmall")
+  local ok, err = pcall(function()
+    ns.UI.Fonts.install({ settings = {} })
+    h.eq(created.LootPriceSourceTag.file, "Fonts\\ARIALN.TTF")
+    ns.UI.Fonts.applyFace("Fonts\\skurri.ttf")
+    h.eq(created.LootPriceSourceTag.file, "Fonts\\ARIALN.TTF")
+    h.eq(created.LootPriceSmall.file, "Fonts\\skurri.ttf")
+  end)
+  _G.CreateFont, _G.GameFontHighlightSmall = nil, nil
+  assert(ok, err)
+end)
+
+h.test("Fonts.install: without Arial Narrow the source tag keeps the game font", function()
+  local ns = load()
+  local created, newFont = fakeClient({ ["Fonts\\FRIZQT__.TTF"] = true })
+  _G.CreateFont = newFont
+  _G.GameFontHighlightSmall = newFont("GameFontHighlightSmall")
+  local ok, err = pcall(function()
+    ns.UI.Fonts.install({ settings = {} })
+    h.eq(created.LootPriceSourceTag.file, "Fonts\\FRIZQT__.TTF")
+  end)
+  _G.CreateFont, _G.GameFontHighlightSmall = nil, nil
+  assert(ok, err)
+end)

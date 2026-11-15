@@ -302,6 +302,9 @@ end
 -- after it). Used by the ledger (Tabs.attach) and the options panel.
 function Tabs.strip(row, items, onSelect)
   local T, W = ns.Theme, ns.UI.Widgets
+  -- Each tab's skin hangs below the row to hide its bottom edge; the row clips
+  -- it there, so it never covers the list's first row.
+  if row.SetClipsChildren then row:SetClipsChildren(true) end
   local tabs = { buttons = {}, first = items[1] and items[1].key }
   local previous
   for _, item in ipairs(items) do

@@ -80,6 +80,9 @@ local function paint(b, state)
   end
   if b.label then b.label:SetTextColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1) end
   if b.glyph and b.glyph.SetDesaturated then b.glyph:SetDesaturated(state == "disabled") end
+  if type(b.bars) == "table" then
+    for _, bar in ipairs(b.bars) do bar:SetVertexColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1) end
+  end
 end
 
 -- A button counts as disabled only when IsEnabled says false.
@@ -131,7 +134,46 @@ function Widgets.button(parent, label, width, opts)
   return b
 end
 
--- Square icon button in the same style: `glyph` = "gear" or "close".
+-- Pure. The bars of a stepped triangle `rows` px high pointing "up" or "down":
+-- { width, y } per row from the top, y = the bar's top edge above the center.
+-- Each row is 1 px high and 2 px wider than the one before.
+function Widgets.arrowBars(direction, rows)
+  local bars = {}
+  for i = 1, rows do
+    local step = direction == "up" and i or (rows - i + 1)
+    bars[i] = { width = 2 * step, y = rows / 2 - (i - 1) }
+  end
+  return bars
+end
+
+-- Arrow glyphs of the mode button: drawn from flat bars and tinted with the
+-- button's text color (paint), so they follow hover and disabled like a label.
+local ARROWS = { compact = "up", full = "down" }
+
+local function setArrow(b, direction)
+  local T = ns.Theme
+  local rows = T.sizes.arrowRows
+  if not b.bars then
+    b.bars = {}
+    for i = 1, rows do
+      local bar = b:CreateTexture(nil, "ARTWORK")
+      bar:SetTexture(T.textures.buttonEdge)
+      bar:SetHeight(1)
+      b.bars[i] = bar
+    end
+  end
+  for i, spec in ipairs(Widgets.arrowBars(direction, rows)) do
+    local bar = b.bars[i]
+    bar:ClearAllPoints()
+    bar:SetWidth(spec.width)
+    bar:SetPoint("TOP", b, "CENTER", 0, spec.y)
+  end
+  b.arrow = direction
+end
+
+-- Square icon button in the same style: `glyph` = "gear" or "close" (game
+-- textures), "compact" (an up arrow) or "full" (a down arrow); b:SetGlyph(glyph)
+-- swaps it.
 -- UNVERIFIED (check in client): the glyph textures (Theme.textures.iconGear /
 -- iconClose) exist on Forever.
 function Widgets.iconButton(parent, glyph, size, onClick)
@@ -144,9 +186,27 @@ function Widgets.iconButton(parent, glyph, size, onClick)
   local pad = T.sizes.iconButtonPad
   tex:SetPoint("TOPLEFT", b, "TOPLEFT", pad, -pad)
   tex:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -pad, pad)
-  tex:SetTexture(glyph == "close" and T.textures.iconClose or T.textures.iconGear)
-  if glyph ~= "close" and tex.SetTexCoord then tex:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
   b.glyph, b.label, b.onEnter, b.onLeave = tex, false, false, false
+  b.bars, b.arrow, b.look = false, false, false
+  function b:SetGlyph(name)
+    local direction = ARROWS[name]
+    if direction then
+      self.glyph:Hide()
+      setArrow(self, direction)
+      for _, bar in ipairs(self.bars) do bar:Show() end
+      if self.look then paint(self, self.look) end
+      return
+    end
+    if self.bars then for _, bar in ipairs(self.bars) do bar:Hide() end end
+    self.arrow = false
+    self.glyph:Show()
+    self.glyph:SetTexture(name == "close" and T.textures.iconClose or T.textures.iconGear)
+    if self.glyph.SetTexCoord then
+      if name == "close" then self.glyph:SetTexCoord(0, 1, 0, 1)
+      else self.glyph:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
+    end
+  end
+  b:SetGlyph(glyph)
   b.kind, b.warn = "icon", false
   wireStates(b)
   b:SetScript("OnClick", function() if onClick then onClick() end end)

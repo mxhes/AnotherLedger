@@ -31,6 +31,8 @@ local function newFake(env, name)
   function methods.GetName() return name end
   function methods.SetFrameLevel(self, l) self._level = l end
   function methods.GetFrameLevel(self) return self._level or 1 end
+  function methods.SetClipsChildren(self, v) self._clips = v end
+  function methods.SetTexture(self, t) self._texture = t end
   setmetatable(f, { __index = function(_, k)
     if methods[k] then return methods[k] end
     if NUMBERS[k] then
@@ -1607,6 +1609,31 @@ h.test("wiring: loot fills the last drops; reset and History leave them out", fu
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the mode button in the header switches compact / full and swaps its glyph", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, H, T = ctx.ns.UI.Ledger, ctx.ns.UI.Header.instance, ctx.ns.Theme
+  local b = H.modeButton
+  h.eq(b ~= nil, true)
+  h.eq(b:IsShown(), true)
+  h.eq(b.arrow, "up")
+  b._scripts.OnClick(b, "LeftButton")
+  h.eq(L.mode, "compact")
+  h.eq(b:IsShown(), true)
+  h.eq(b.arrow, "down")
+  b._scripts.OnClick(b, "LeftButton")
+  h.eq(L.mode, "full")
+  h.eq(b.arrow, "up")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the tab rows clip the tab edge so it never covers the list", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  h.eq(ctx.ns.UI.Window.frame.header.row3._clips, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: /lp compact switches the window to the compact layout and back", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -1705,7 +1732,7 @@ h.test("wiring: compact clock sits right of the title and wins the mouse over it
   local H = ctx.ns.UI.Header.instance
   local tb = ctx.ns.UI.Window.frame.header.titleButton
   slash(ctx, "compact")
-  h.eq(H.timerAnchor, "options")
+  h.eq(H.timerAnchor, "mode")
   h.eq(H.clockButton:GetFrameLevel() > tb:GetFrameLevel(), true)
   slash(ctx, "compact")
   h.eq(H.timerAnchor, "toggle")

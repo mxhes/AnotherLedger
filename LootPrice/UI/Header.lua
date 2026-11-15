@@ -14,6 +14,8 @@ local L_START = L["Start"]
 local L_STOP = L["Stop"]
 local L_RESET = L["Reset"]
 local L_OPTIONS = L["Options"]
+local L_TO_COMPACT = L["Compact window (or double-click the title)"]
+local L_TO_FULL = L["Full window (or double-click the title)"]
 local L_PAUSED = L["Paused"]
 local L_CLOCK_HINT = L["Click: start / stop the session"]
 local L_RESET_CONFIRM = L["Reset the session? All logged loot and the timer will be cleared."]
@@ -105,8 +107,18 @@ function Header.attach(row, handlers)
   options.onEnter = function(self) W.showTextTooltip(self, L_OPTIONS, "ANCHOR_BOTTOMRIGHT") end
   options.onLeave = W.hideTooltip
 
+  -- Mode button, left of the gear: switches compact / full in both layouts.
+  local modeButton = W.iconButton(row, "compact", widths().mode, function()
+    if ns.UI.Ledger and ns.UI.Ledger.toggleMode then ns.UI.Ledger.toggleMode() end
+  end)
+  modeButton:SetPoint("RIGHT", options, "LEFT", -gap, 0)
+  modeButton.onEnter = function(self)
+    W.showTextTooltip(self, header.mode == "compact" and L_TO_FULL or L_TO_COMPACT, "ANCHOR_BOTTOMRIGHT")
+  end
+  modeButton.onLeave = W.hideTooltip
+
   local reset = makeButton(row, L_RESET, widths().reset, { warn = true })
-  reset:SetPoint("RIGHT", options, "LEFT", -gap, 0)
+  reset:SetPoint("RIGHT", modeButton, "LEFT", -gap, 0)
   reset:SetScript("OnClick", function() Header.requestReset() end)
 
   -- One button: Start while stopped, Stop while running.
@@ -124,6 +136,7 @@ function Header.attach(row, handlers)
 
   header.timer, header.toggle = timer, toggle
   header.reset, header.hide, header.options = reset, hide, options
+  header.modeButton = modeButton
 
   -- Compact mode: the clock itself starts / stops the session (Reset stays in
   -- full mode); a red Paused marker and a dimmed clock while it is stopped.
@@ -156,16 +169,17 @@ function Header.attach(row, handlers)
     local compact = self.mode == "compact"
     -- Compact hides Start / Stop and Reset: the clock moves next to the gear
     -- so it never covers the title.
-    local anchor = compact and "options" or "toggle"
+    local anchor = compact and "mode" or "toggle"
     if anchor ~= self.timerAnchor then
       self.timer:ClearAllPoints()
       if compact then
-        self.timer:SetPoint("RIGHT", options, "LEFT", -gap * 2, 0)
+        self.timer:SetPoint("RIGHT", modeButton, "LEFT", -gap * 2, 0)
       else
         self.timer:SetPoint("RIGHT", toggle, "LEFT", -gap * 3, 0)
       end
       self.timerAnchor = anchor
     end
+    self.modeButton:SetGlyph(compact and "full" or "compact")
     self.timer:SetShown(compact or self.sessionShown)
     self.toggle:SetShown(not compact and self.sessionShown)
     self.reset:SetShown(not compact and self.sessionShown)

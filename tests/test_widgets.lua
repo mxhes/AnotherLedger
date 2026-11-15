@@ -20,3 +20,13 @@ h.test("Widgets.buttonColors: a warning button keeps its red tint in every state
     h.eq(c.text, state == "disabled" and C.buttonTextDisabled or C.buttonWarnText)
   end
 end)
+
+h.test("Widgets.arrowBars: a stepped triangle, narrow end where it points", function()
+  local up = W.arrowBars("up", 6)
+  h.eq(#up, 6)
+  h.eq(up[1], { width = 2, y = 3 })
+  h.eq(up[6], { width = 12, y = -2 })
+  local down = W.arrowBars("down", 6)
+  h.eq(down[1], { width = 12, y = 3 })
+  h.eq(down[6], { width = 2, y = -2 })
+end)

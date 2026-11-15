@@ -127,7 +127,7 @@ function Compact.attach(area)
     local y = -S.compactDropsTop - (i - 1) * S.compactRowHeight
     f:SetPoint("TOPLEFT", area, "TOPLEFT", 0, y)
     f:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, y)
-    local tag = W.text(f, T.fonts.rowSmall, T.colors.ink, "RIGHT")
+    local tag = W.text(f, T.fonts.sourceTag, T.colors.ink, "RIGHT")
     tag:SetPoint("RIGHT", f, "RIGHT", 0, 0)
     local amount = W.text(f, T.fonts.rowSmall, T.colors.ink, "RIGHT")
     amount:SetPoint("RIGHT", tag, "LEFT", -S.rowLabelGap - S.rowTagPad, 0)

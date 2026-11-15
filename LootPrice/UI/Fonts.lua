@@ -19,7 +19,7 @@ ns.UI.Fonts = Fonts
 -- font in px (the default of the option), fonts = Theme.fonts keys, sizes = Theme.sizes
 -- keys (pixel heights) that scale with it.
 Fonts.GROUPS = {
-  { option = "fontSizeRows", nominal = 12, fonts = { "body", "rowSmall" }, sizes = { "rowHeight", "iconSize" } },
+  { option = "fontSizeRows", nominal = 12, fonts = { "body", "rowSmall", "sourceTag" }, sizes = { "rowHeight", "iconSize" } },
   { option = "fontSizeTotals", nominal = 12, fonts = { "summary", "summaryMarker", "topRow" },
     sizes = { "footerRowHeight", "footerNoteHeight", "topRowHeight" } },
   { option = "fontSizeTitles", nominal = 16, fonts = { "topHeader" }, sizes = { "topHeaderHeight" } },
@@ -100,6 +100,7 @@ local face = nil      -- current typeface (option "fontFace")
 -- Sets the file and size of a font object, falling back to the game's own file
 -- when the client refuses the chosen one.
 local function setFace(entry, chosen)
+  if entry.pinned then chosen = entry.pinned end
   local file = (chosen and chosen ~= Fonts.DEFAULT_FACE) and chosen or entry.file
   if entry.font:SetFont(file, entry.size, entry.flags) == false then
     entry.font:SetFont(entry.file, entry.size, entry.flags)
@@ -117,7 +118,8 @@ local function ownFont(key, baseName)
   font:CopyFontObject(base)
   local file, size, flags = base:GetFont()
   if not (file and size) then return nil end
-  objects[key] = { font = font, file = file, size = size, gameSize = size, flags = flags }
+  local pinned = ns.Theme.fontFiles and ns.Theme.fontFiles[key] or nil
+  objects[key] = { font = font, file = file, size = size, gameSize = size, flags = flags, pinned = pinned }
   return name
 end
 
