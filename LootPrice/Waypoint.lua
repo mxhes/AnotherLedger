@@ -25,22 +25,29 @@ function Waypoint.text(place)
 end
 
 -- UNVERIFIED (check in client): TomTom:AddWaypoint(mapID, x, y, { title, from })
--- with x / y 0..1.
+-- with x / y 0..1 returns the waypoint's uid (nil: nothing was set, e.g. a
+-- map TomTom does not know).
 local function tomtom(env, place)
   local api = env.TomTom
   if type(api) ~= "table" or type(api.AddWaypoint) ~= "function" then return false end
   local p = place.pos
-  local ok = pcall(api.AddWaypoint, api, p.mapID, p.x, p.y, { title = Waypoint.name(place), from = "LootPrice" })
-  return ok
+  local ok, uid = pcall(api.AddWaypoint, api, p.mapID, p.x, p.y, { title = Waypoint.name(place), from = "LootPrice" })
+  return ok and uid ~= nil
 end
 
 -- UNVERIFIED (check in client): UiMapPoint.CreateFromCoordinates,
--- C_Map.SetUserWaypoint and C_SuperTrack.SetSuperTrackedUserWaypoint on Forever.
+-- C_Map.SetUserWaypoint, C_Map.CanSetUserWaypointOnMap and
+-- C_SuperTrack.SetSuperTrackedUserWaypoint on Forever. Maps that do not allow
+-- a pin (caves and other sub-maps, cities, instances) get none.
 local function mapPin(env, place)
   local point, map, track = env.UiMapPoint, env.C_Map, env.C_SuperTrack
   if type(point) ~= "table" or type(point.CreateFromCoordinates) ~= "function"
     or type(map) ~= "table" or type(map.SetUserWaypoint) ~= "function" then return false end
   local p = place.pos
+  if type(map.CanSetUserWaypointOnMap) == "function" then
+    local okCan, can = pcall(map.CanSetUserWaypointOnMap, p.mapID)
+    if not okCan or not can then return false end
+  end
   local ok = pcall(function()
     map.SetUserWaypoint(point.CreateFromCoordinates(p.mapID, p.x, p.y))
     if type(track) == "table" and type(track.SetSuperTrackedUserWaypoint) == "function" then

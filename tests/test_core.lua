@@ -345,3 +345,15 @@ h.test("Core.positionOf gives nil without a usable position", function()
     GetPlayerMapPosition = function() return nil end } }), nil)
   h.eq(Core.positionOf({ C_Map = { GetBestMapForUnit = function() error("x") end } }), nil)
 end)
+
+h.test("Core.positionOf gives nil inside any instance, also scenarios and delves", function()
+  local function env(instanceType)
+    return { GetInstanceInfo = function() return "Somewhere", instanceType, 1, "Normal" end,
+      C_Map = { GetBestMapForUnit = function() return 1 end,
+        GetPlayerMapPosition = function() return { GetXY = function() return 0.5, 0.5 end } end } }
+  end
+  h.eq(Core.positionOf(env("scenario")), nil)
+  h.eq(Core.positionOf(env("party")), nil)
+  h.eq(Core.positionOf(env("none")), 1)
+  h.eq(Core.positionOf(env(nil)), 1)
+end)

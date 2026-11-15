@@ -1491,7 +1491,7 @@ h.test("wiring: strip clicks set a waypoint, open Zones, show the /way line", fu
   local ctx = bootWithFarm({ 2022, 0.4, 0.6 })
   local L, DF = ctx.ns.UI.Ledger, ctx.ns.UI.DailyFarm
   local tom
-  ctx.env.TomTom = { AddWaypoint = function(_, m, x, y, o) tom = { m, x, y, o.title } end }
+  ctx.env.TomTom = { AddWaypoint = function(_, m, x, y, o) tom = { m, x, y, o.title }; return tom end }
   ctx.env.IsShiftKeyDown = function() return ctx.shift end
   L.setTab("session")
   h.eq(DF.farm.best.sub, "Wingrest")
@@ -1509,6 +1509,30 @@ h.test("wiring: strip clicks set a waypoint, open Zones, show the /way line", fu
   DF.button._scripts.OnClick(DF.button, "RightButton")
   h.eq(ctx.ns.UI.Export.frame.text, "/way #2022 40.0 60.0 Wingrest")
   h.eq(ctx.ns.UI.Export.frame:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: quest money counts as gold but does not move the farm spot", function()
+  local ctx = bootInZone("Waking Shores", "Wingrest")
+  ctx.pos = { 2022, 0.4, 0.6 }
+  startWorld(ctx, false)
+  fire(ctx, "QUEST_TURNED_IN", 1, 0, 5000)
+  h.eq(ctx.ns.session.gold, 5000)
+  local sub = ctx.ns.session.zones["Waking Shores"].subs.Wingrest
+  h.eq(sub.gold, 5000)
+  h.eq(sub.pos == nil or sub.pos[2022] == nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the copy box is titled for what it holds", function()
+  local ctx = bootWithFarm({ 2022, 0.4, 0.6 })
+  local DF = ctx.ns.UI.DailyFarm
+  ctx.ns.UI.Ledger.setTab("session")
+  DF.button._scripts.OnClick(DF.button, "RightButton")
+  local E = ctx.ns.UI.Export
+  h.eq(E.frame.titleText:GetText(), ctx.ns.L["Waypoint (/way)"])
+  slash(ctx, "export")
+  h.eq(E.frame.titleText:GetText(), ctx.ns.L["History export (CSV)"])
   h.eq(ctx.errors, {})
 end)
 

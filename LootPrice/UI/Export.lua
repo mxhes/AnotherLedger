@@ -32,6 +32,7 @@ local function build()
   local title = W.text(frame, T.fonts.title, T.colors.gold, "LEFT")
   title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -12)
   title:SetText(L_TITLE)
+  frame.titleText = title
 
   local close = W.closeButton(frame, T.widths.header.hide, function() frame:Hide() end)
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
@@ -66,10 +67,12 @@ local function build()
   return frame
 end
 
--- Shows `text` selected in the copy box.
-function Export.show(text)
+-- Shows `text` selected in the copy box, titled `title` (default: the History
+-- export title).
+function Export.show(text, title)
   if not Export.frame then Export.frame = build() end
   local frame = Export.frame
+  frame.titleText:SetText(title or L_TITLE)
   frame.text = text or ""
   frame.edit:SetText(frame.text)
   frame:Show()

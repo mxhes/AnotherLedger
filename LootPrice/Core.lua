@@ -193,8 +193,16 @@ end
 
 local function inUnit(v) return type(v) == "number" and v == v and v >= 0 and v <= 1 end
 
+-- Inside any instance (dungeon, raid, scenario, delve) there is no farm spot to
+-- go back to from outside: no position. Same instance test as Core.placeOf.
+local function inInstance(env)
+  if type(env.GetInstanceInfo) ~= "function" then return false end
+  local ok, _, instanceType = pcall(env.GetInstanceInfo)
+  return ok and instanceType ~= nil and instanceType ~= "none"
+end
+
 function Core.positionOf(env)
-  if type(env) ~= "table" then return nil end
+  if type(env) ~= "table" or inInstance(env) then return nil end
   local ok, mapID, x, y = pcall(readPosition, env)
   if not ok or not mapID or not inUnit(x) or not inUnit(y) or (x == 0 and y == 0) then return nil end
   return mapID, x, y
@@ -286,13 +294,15 @@ end
 
 -- Raw gold (looted or quest money), copper > 0. Redraws on success; gold that
 -- drops together with items shares their redraw.
-function Core.recordGold(copper)
+-- `noSpot`: the money was not picked up here (quest turn-in at the quest
+-- giver), so it does not move the place's farm spot.
+function Core.recordGold(copper, noSpot)
   if not ns.session then return end
   if not ns.Session.addGold(ns.session, copper, time()) then return end
   notePlace()
   Core.updatePlace()
   ns.Session.notePlaceGold(ns.session, copper)
-  notePosition()
+  if not noSpot then notePosition() end
   requestRefresh(0)
 end
 
@@ -505,7 +515,7 @@ end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
 function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
-  if ns.session then Core.recordGold(moneyReward) end
+  if ns.session then Core.recordGold(moneyReward, true) end
 end
 
 -- Only items on the shown tab matter; the event fires for every item query

@@ -140,6 +140,7 @@ ns.Locale.register("deDE", {
   ["Right-click: copy the /way line"] = "Rechtsklick: /way-Zeile kopieren",
   ["Waypoint set: "] = "Wegpunkt gesetzt: ",
   ["No waypoint could be set."] = "Es konnte kein Wegpunkt gesetzt werden.",
+  ["Waypoint (/way)"] = "Wegpunkt (/way)",
   ["Font"] = "Schrift",
   ["WoW default"] = "WoW-Standard",
   ["Show item icons"] = "Gegenstandssymbole zeigen",

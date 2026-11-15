@@ -27,6 +27,7 @@ local L_SHIFT_CLICK = L["Shift-click: open it in Zones"]
 local L_RIGHT_CLICK = L["Right-click: copy the /way line"]
 local L_WAYPOINT_SET = L["Waypoint set: "]
 local L_NO_WAYPOINT = L["No waypoint could be set."]
+local L_WAY_TITLE = L["Waypoint (/way)"]
 
 DailyFarm.shown = false
 
@@ -89,7 +90,7 @@ function DailyFarm.click(which, shift)
   local best = farm.best
   if which == "RightButton" then
     local text = ns.Waypoint.text(best)
-    if text and ns.UI.Export then ns.UI.Export.show(text) end
+    if text and ns.UI.Export then ns.UI.Export.show(text, L_WAY_TITLE) end
     return
   end
   if shift or not best.pos then
