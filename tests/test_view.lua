@@ -753,3 +753,22 @@ h.test("View.buildZones keeps the opened subzone even when the filter hides its 
   local rows = V.buildZones(twoZones(), opts, {}).rows
   h.eq(#rows, 1); h.eq(rows[1].zoneKey, "Y")
 end)
+
+h.test("View.dailyFarm gives each place the averaged spot of its main map", function()
+  local a = zentry({ [1] = 4 }, { Z = { subs = { A = { time = 3600, gold = 0, items = { [1] = 4 },
+    pos = { [2022] = { x = 0.8, y = 1.2, n = 2 }, [2023] = { x = 0.5, y = 0.5, n = 1 } } } } } })
+  local b = zentry({ [1] = 1 }, { Z = { subs = { A = { time = 600, gold = 0, items = { [1] = 1 },
+    pos = { [2022] = { x = 0.4, y = 0.6, n = 1 }, [7] = { x = "bad", y = 1, n = 1 } } } } } })
+  local f = V.dailyFarm({ a, b }, { lookup = zlookup }, 0)
+  h.eq(f.best.pos.mapID, 2022)
+  h.near(f.best.pos.x, 0.4); h.near(f.best.pos.y, 0.6)
+  -- equal counts: the lower map ID
+  local c = zentry({ [1] = 1 }, { Z = { subs = { A = { time = 600, gold = 0, items = { [1] = 1 },
+    pos = { [30] = { x = 0.2, y = 0.2, n = 1 }, [20] = { x = 0.6, y = 0.6, n = 1 } } } } } })
+  h.eq(V.dailyFarm({ c }, { lookup = zlookup }, 0).best.pos.mapID, 20)
+  local old = V.dailyFarm({ zentry({ [1] = 4 }, { Z = { subs = { A = zsub(3600, { [1] = 4 }) } } }) },
+    { lookup = zlookup }, 0)
+  h.eq(old.best.pos, nil)
+  local broken = zentry({ [1] = 4 }, { Z = { subs = { A = { time = 3600, gold = 0, items = { [1] = 4 }, pos = "x" } } } })
+  h.eq(V.dailyFarm({ broken }, { lookup = zlookup }, 0).best.pos, nil)
+end)

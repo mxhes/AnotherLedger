@@ -397,7 +397,31 @@ end
 
 local function placePerHour(value, seconds) return ns.History.perHour(value, seconds) end
 
-local function newSlot() return { time = 0, gold = 0, items = {} } end
+local function newSlot() return { time = 0, gold = 0, items = {}, pos = {} } end
+
+-- Adds the valid position sums of `src` ({ [mapID] = { x, y, n } }) to `dst`.
+local function addPos(dst, src)
+  local copy = ns.Session and ns.Session.copyPos and ns.Session.copyPos(src)
+  if not copy then return end
+  for mapID, p in pairs(copy) do
+    local d = dst[mapID]
+    if not d then d = { x = 0, y = 0, n = 0 }; dst[mapID] = d end
+    d.x, d.y, d.n = d.x + p.x, d.y + p.y, d.n + p.n
+  end
+end
+
+-- The averaged spot on the map with the most loot events (ties: lower map ID),
+-- { mapID, x, y }, or nil.
+local function spotOf(pos)
+  local bestID, best
+  for mapID, p in pairs(pos or {}) do
+    if p.n > 0 and (not best or p.n > best.n or (p.n == best.n and mapID < bestID)) then
+      bestID, best = mapID, p
+    end
+  end
+  if not best then return nil end
+  return { mapID = bestID, x = best.x / best.n, y = best.y / best.n }
+end
 
 -- Adds `qty` of the entry item `src` under `key` to an items map.
 local function addZoneItem(map, src, key, qty)
@@ -453,6 +477,7 @@ local function aggregateZones(entries, isQuest)
               if type(src) == "table" then
                 local s = slot(zone, sub)
                 if num(src.time) and src.time > 0 then s.time = s.time + src.time end
+                addPos(s.pos, src.pos)
                 if num(src.gold) and src.gold > 0 then
                   s.gold = s.gold + src.gold
                   placedGold = placedGold + src.gold
@@ -611,7 +636,9 @@ end
 -- the current prices (valued like History Zones). The filter bar is ignored;
 -- only subzones with at least `minSeconds` recorded time count.
 --   { best = place, runnersUp = { place, ... (2 at most) }, slow = { names } or nil }
---   place = { zone, sub, time, value, perHour }
+--   place = { zone, sub, time, value, perHour, pos = { mapID, x, y } or nil }
+--   (pos: the averaged loot spot on the map looted most; none in instances
+--   or in History saved before positions were recorded)
 -- slow: more than half of the best place's AH value comes from items whose
 -- sale rate is in the bad level (needs opts.market, i.e. TSM sale info).
 
@@ -668,7 +695,8 @@ function View.dailyFarm(entries, opts, minSeconds)
           -- A place that earned nothing is never worth going to (and its row
           -- would not exist in Zones to open).
           if perHour and value > 0 then
-            local p = { zone = zone, sub = sub, time = s.time, value = value, perHour = perHour }
+            local p = { zone = zone, sub = sub, time = s.time, value = value, perHour = perHour,
+              pos = spotOf(s.pos) }
             places[#places + 1] = p
             rowsOf[p] = rows
           end

@@ -27,6 +27,7 @@ History.lua
 Inventory.lua
 Options.lua
 View.lua
+Waypoint.lua
 Slash.lua
 Demo.lua
 UI\Fonts.lua
