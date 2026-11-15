@@ -14,6 +14,8 @@ local L_START = L["Start"]
 local L_STOP = L["Stop"]
 local L_RESET = L["Reset"]
 local L_OPTIONS = L["Options"]
+local L_PAUSED = L["Paused"]
+local L_CLOCK_HINT = L["Click: start / stop the session"]
 local L_RESET_CONFIRM = L["Reset the session? All logged loot and the timer will be cleared."]
 local L_YES = L["Reset"]
 local L_NO = L["Cancel"]
@@ -86,7 +88,7 @@ function Header.attach(row, handlers)
   Header.handlers = handlers
   local gap = T.sizes.buttonGap
 
-  local header = { row = row }
+  local header = { row = row, mode = "full", sessionShown = true, running = nil }
 
   -- Buttons are laid out right to left: Close, Options, Reset, Start / Stop.
   local hide = W.iconButton(row, "close", widths().hide, function()
@@ -123,12 +125,47 @@ function Header.attach(row, handlers)
   header.timer, header.toggle = timer, toggle
   header.reset, header.hide, header.options = reset, hide, options
 
+  -- Compact mode: the clock itself starts / stops the session (Reset stays in
+  -- full mode); a red Paused marker and a dimmed clock while it is stopped.
+  local paused = W.text(row, T.fonts.small, T.colors.stale, "RIGHT")
+  paused:SetPoint("RIGHT", timer, "LEFT", -gap, 0)
+  paused:SetText(L_PAUSED)
+  paused:Hide()
+  local clockButton = CreateFrame("Button", nil, row)
+  clockButton:SetAllPoints(timer)
+  clockButton:RegisterForClicks("LeftButtonUp")
+  clockButton:SetScript("OnClick", function()
+    if header.mode ~= "compact" then return end
+    local fn = handlers[Header.toggleState(header.running).action]
+    if fn then fn() end
+  end)
+  clockButton:SetScript("OnEnter", function(self)
+    if header.mode == "compact" then W.showTextTooltip(self, L_CLOCK_HINT, "ANCHOR_BOTTOMRIGHT") end
+  end)
+  clockButton:SetScript("OnLeave", W.hideTooltip)
+  header.pausedText, header.clockButton = paused, clockButton
+
+  -- Shows the controls for the mode, the tab and the running state.
+  function header:Apply()
+    local compact = self.mode == "compact"
+    self.timer:SetShown(compact or self.sessionShown)
+    self.toggle:SetShown(not compact and self.sessionShown)
+    self.reset:SetShown(not compact and self.sessionShown)
+    local stopped = compact and self.running == false
+    self.pausedText:SetShown(stopped)
+    W.setTextColor(self.timer, stopped and T.colors.buttonTextDisabled or T.colors.ink)
+  end
+
   -- The clock and the Start / Stop / Reset buttons belong to the session tab;
   -- the close button stays on every tab.
   function header:SetSessionControls(shown)
-    self.timer:SetShown(shown)
-    self.toggle:SetShown(shown)
-    self.reset:SetShown(shown)
+    self.sessionShown = shown and true or false
+    self:Apply()
+  end
+
+  function header:SetMode(mode)
+    self.mode = mode == "compact" and "compact" or "full"
+    self:Apply()
   end
 
   function header:SetElapsed(seconds)
@@ -141,6 +178,7 @@ function Header.attach(row, handlers)
     if running == self.running then return end
     self.running = running
     self.toggle:SetText(Header.toggleState(running).label)
+    self:Apply()
   end
 
   -- Ledger part: the clock is the same work on a full refresh and on a tick.

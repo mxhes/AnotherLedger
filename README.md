@@ -6,7 +6,11 @@ Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
 
 ## What it shows
 
-The Session Ledger is a draggable, resizable, scrollable window with rounded corners (a thin tan edge, like the tabs):
+The Session Ledger is a draggable, resizable, scrollable window with rounded corners (a thin tan edge, like the tabs). It has two layouts: **full** (the ledger described below, for the detailed look after a session) and **compact** (a glance between pulls). Double-click the title (or `/lp compact`) to switch; the window remembers the layout and keeps a size of its own for each (position is shared).
+
+- **Compact**: the title row with the clock, gear and close; the gold per hour in large gold type and the session total next to it; **Last drops**, the last four loot events of the session (name, quantity, what that one drop is worth and its source tag; option **Compact mode: last drops shown**, 0 hides them); and the Daily farm line (same clicks as the strip). Compact never applies the filter bar: its numbers are every item plus the raw gold (with **Add raw gold to the combined total**). Start / Stop and Reset are not shown; **click the clock** to start or stop the session, and while it is stopped the clock dims and a red `Paused` marker shows. Reset stays in the full layout.
+
+In the full layout:
 
 - **Header**: the title, the session clock, one **Start / Stop** button (it reads Start while the clock is stopped and Stop while it runs), Reset, the gear (options) and the close button. Every button of the addon has one bronze dark style: dark fill, thin bronze edge, cream text; the edge turns gold on hover and the text dims when a button is disabled. Reset keeps a red edge and text as a warning; the gear and the close button are small square icon buttons in the same style; the Min g and Search boxes have the same edge. Under it the filter bar (quality, minimum gold, search, sort) and the tab buttons: tabs open at the bottom, standing on a thin tan line, with a rounded tan edge and the window's own background (so the opacity and brightness options apply to them too); the selected one has a bright gold edge and a gold glow from its top and opens into the list (the line is open below it); hovering a tab lights its edge.
 - **Rows**: one per looted item, two lines tall (30 px with a 20 px icon at the default text size; both scale with **List text size**): the icon (unless **Show item icons** is off), the quality-colored name with the quantity (`xN`) right after it, under the name the TSM sale info (see below), and on the right of line 1 the row's counted value followed by a small framed tag naming its source: `Vendor`, `AH` or `DE` (disenchant), each in its own color. The amounts are right-aligned in one column and the tags line up after them; the column hugs the right edge and shifts left only as far as the longest amount currently shown needs. After the tag: the age of a cached AH price when that value counts, or a yellow `?` when the item has no AH price (unpriced). Long names are clipped, the quantity stays visible. Hovering a row shows the item's tooltip with every known value added (`Vendor:`, `AH:`, `Disenchant:`, per unit when you have more than one). History and Zones place rows show their own total without a tag. A thin quiet separator line runs between rows. Newly looted rows flash.
@@ -78,6 +82,7 @@ The panel has one tab per section (Window, Prices, Display, Session and alerts),
 - **Show currencies in the list** (default on).
 - **Show Top finds** (default on) and **Show the Raw gold row in the footer** (default on).
 - **Show the daily farm** (default on) and **Daily farm: minimum time in a place** (5 to 120 min, default 20): the Daily farm strip and how much recorded time a place needs to be picked.
+- **Compact mode: last drops shown** (0 to 4, default 4): how many of the last drops the compact layout lists.
 - **Show item icons** (default on): off removes the icon from the list rows; the text moves to the left edge and the window may get narrower. Applies at once.
 - **Font**: the typeface of all addon text. `WoW default` (default) keeps the game's own font for your client's language; the list also offers the built-in fonts the client loads (Arial Narrow, Skurri, Morpheus) and every font registered with LibSharedMedia when another addon provides it. Changes at once. The addon uses its own copies of the game fonts, so other addons are not affected.
 - **List text size**, **Totals text size** (totals and Top finds) and **Section title size**: the size in px of the main font of that part (defaults 12, 12 and 16; the smaller fonts of that part keep their proportion). The matching row heights scale with it. A change applies at once: the window re-lays itself out and grows when it is smaller than the new minimum. The buttons, filter bar and header keep their size.
@@ -130,6 +135,7 @@ Files load in the order of `LootPrice/LootPrice.toc`. Modules without `UI/` in t
 | `UI/Window.lua`, `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua`, `UI/OptionsPanel.lua` | the window and its parts; the options panel and the page in the game's options window |
 | `UI/Tabs.lua` | tab registry and tab buttons |
 | `UI/DailyFarm.lua` | the Daily farm strip (header row between filters and tabs) |
+| `UI/Compact.lua` | the compact layout's body: gold per hour, total, last drops, Daily farm line |
 | `UI/Fonts.lua` | the addon's own font objects: typeface option and px sizes |
 | `UI/Minimap.lua` | the minimap button (own button when LibDBIcon is not loaded) |
 | `UI/Broker.lua` | LibDataBroker data source and the LibDBIcon button |
@@ -160,6 +166,7 @@ Items that can be disenchanted also have a disenchant value (TSM's `Destroy` pri
 - `/lp` (or `/lootprice`) - toggle the window
 - `/lp show` | `/lp hide` - show or hide the window
 - `/lp start` | `/lp stop` - start or stop the session clock
+- `/lp compact` - switch between the compact and the full window
 - `/lp reset` - clear the session (asks for confirmation once the session holds 25 or more distinct items)
 - `/lp keep on|off` - keep the session across logins
 - `/lp tsm <source>` - TSM price source (e.g. `DBMarket`); prices cached under the old source stay in the cache until they refresh
@@ -169,7 +176,7 @@ Items that can be disenchanted also have a disenchant value (TSM's `Destroy` pri
 
 ## Saved state
 
-Options are in `LootPriceDB.settings` (see Options). Window position, size, visibility, last tab and filter are remembered automatically (`LootPriceDB`; the sort starts each login with **Sort order (at login)**); the session, the bank scan and History are per character (`LootPriceCharDB`). Each zone / subzone of a session and of History also keeps the summed map positions of its loot per map (`pos`, for the Daily farm waypoint). A real login starts a fresh session unless **Keep the session across logins** is on; a `/reload` always keeps it.
+Options are in `LootPriceDB.settings` (see Options). Window position, size (one per layout: `window.width` / `height` for full, `window.compact` for compact), visibility, the layout (`mode`), last tab and filter are remembered automatically (`LootPriceDB`; the sort starts each login with **Sort order (at login)**); the session, the bank scan and History are per character (`LootPriceCharDB`). Each zone / subzone of a session and of History also keeps the summed map positions of its loot per map (`pos`, for the Daily farm waypoint). A real login starts a fresh session unless **Keep the session across logins** is on; a `/reload` always keeps it.
 
 ## Filters and sorts
 
@@ -298,6 +305,7 @@ Places, automatic sessions, export
 - [ ] `GetInstanceInfo` / `GetRealZoneText` give the zone outside and `Instance (Difficulty)` inside; History rows show the main place and the tooltip all places and rates
 - [ ] Zones: `GetSubZoneText` gives the subzone shown on the minimap ("" without one); walking into another subzone fires `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS`, a new zone `ZONE_CHANGED_NEW_AREA`, and the time moves to the new place
 - [ ] Zones: a quest item (`C_Item.GetItemInfoInstant` class ID 12) lands in the "Quest items" group; History shows a fourth header row with Sessions / Zones and the list moves down by one row, other tabs do not
+- [ ] Compact layout: double-clicking the title switches (a drag on the title still moves the window and does not switch); the compact window opens at 250 x 190 and keeps its own size, full comes back at its old size; the filter row, Daily farm row, tabs, list, footer and Top finds are gone and the header is one row; the gold per hour is the largest text; four last drops with value and colored source; clicking the clock stops / starts the session, `Paused` shows in red and the clock dims while stopped; combat hide, lock and scale work in both layouts
 - [ ] Farm spots: `C_Map.GetBestMapForUnit("player")` and `C_Map.GetPlayerMapPosition(mapID, "player"):GetXY()` give the coordinates the map shows (0..1); inside any instance (also delves and scenarios) nothing is recorded; without TomTom a spot on a map that allows no pin (a cave sub-map) sets none and chat says `No waypoint could be set.`; the right-click copy box is titled `Waypoint (/way)`
 - [ ] Daily farm: with a saved place of 20+ min the strip shows between the filter bar and the tabs, the tabs and list move down one row (and back up when **Show the daily farm** is turned off); a character without History has no strip and no gap; the gold star (`Interface\Common\FavoritesIcon`, tinted) shows as one star; hover highlights it and lists the runner-ups and the clicks; click sets a TomTom waypoint (arrow and pin at the spot where you looted), without TomTom the game's map pin is set and tracked (`UiMapPoint.CreateFromCoordinates`, `C_Map.SetUserWaypoint`, `C_SuperTrack.SetSuperTrackedUserWaypoint`), a chat line names the place; shift-click opens History > Zones at that subzone, scrolled into view, also with a search active; right-click shows the `/way` line in the copy box and pasting it into chat with TomTom gives the same spot; a place farmed only before this version (or inside an instance) opens Zones on click; dragging the strip moves the window (not when locked); with TSM, a place of slow sellers shows `slow selling` in red
 - [ ] New session for each dungeon or raid: entering and leaving a dungeon each save a History entry; a loading screen in the open world does not

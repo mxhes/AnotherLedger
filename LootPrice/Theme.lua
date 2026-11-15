@@ -36,6 +36,9 @@ Theme.fonts = {
   summary = "GameFontHighlight",
   summaryMarker = "GameFontHighlightSmall",
   topHeader = "GameFontHighlightLarge",
+  -- Compact mode: the gold per hour (large) and the session total.
+  compactBig = "GameFontNormalHuge",
+  compactMid = "GameFontHighlight",
   tab = "GameFontHighlight", -- tab labels, white (dimmed through colors.tabText)
   topRow = "GameFontHighlight",
   button = "GameFontHighlightSmall", -- white; the disabled state stays gray
@@ -137,6 +140,13 @@ Theme.sizes = {
   buttonEdge = 1,
   buttonInset = 1,
   iconButtonPad = 3,
+  -- Compact mode: default size and minimum; the title's double-click area.
+  compactWidth = 250,
+  compactHeight = 190,
+  compactMinWidth = 220,
+  compactMinHeight = 140,
+  compactRowHeight = 16,
+  titleButtonWidth = 140,
   -- Star in front of the Daily farm strip.
   dailyFarmIcon = 16,
   -- Footer = the value table: a column-title line and the rows Items / Raw gold

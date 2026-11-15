@@ -913,7 +913,7 @@ h.test("wiring: /lp help lists every command, demo included", function()
   ctx.printed = {}
   slash(ctx, "help")
   local text = table.concat(ctx.printed, "\n")
-  for _, word in ipairs({ "/lp -", "show | hide", "start | stop", "/lp reset", "/lp keep", "/lp tsm", "/lp demo", "Note:" }) do
+  for _, word in ipairs({ "/lp -", "show | hide", "start | stop", "/lp reset", "/lp keep", "/lp tsm", "/lp demo", "/lp compact", "Note:" }) do
     h.eq(text:find(word, 1, true) ~= nil, true, word)
   end
 end)
@@ -1604,6 +1604,98 @@ h.test("wiring: loot fills the last drops; reset and History leave them out", fu
   slash(ctx, "reset")
   h.eq(ctx.ns.session.recent, {})
   h.eq(ctx.ns.chardb.history[1].recent, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: /lp compact switches the window to the compact layout and back", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local L, W, S = ctx.ns.UI.Ledger, ctx.ns.UI.Window, ctx.ns.Theme.sizes
+  local f = W.frame
+  h.eq(L.mode, "full")
+  local fullW, fullH = f:GetWidth(), f:GetHeight()
+  slash(ctx, "compact")
+  h.eq(L.mode, "compact"); h.eq(ctx.ns.db.mode, "compact")
+  h.eq(f.listArea:IsShown(), false); h.eq(f.footer:IsShown(), false)
+  h.eq(f.header.row2:IsShown(), false); h.eq(f.header.row3:IsShown(), false)
+  h.eq(f.compact:IsShown(), true)
+  h.eq(f.header._h, S.headerRowHeight)
+  h.eq(f:GetWidth(), S.compactWidth); h.eq(f:GetHeight(), S.compactHeight)
+  local C = ctx.ns.UI.Compact
+  h.eq(C.drops[1].name:GetText():find("x3", 1, true) ~= nil, true)
+  h.eq(C.drops[1].frame:IsShown(), true); h.eq(C.drops[2].frame:IsShown(), false)
+  h.eq(C.total:GetText() ~= "", true)
+  -- the Daily farm row and the tabs stay hidden while compact
+  W.setFarmRow(true)
+  h.eq(f.header.rowFarm:IsShown(), false)
+  slash(ctx, "compact")
+  h.eq(L.mode, "full")
+  h.eq(f.listArea:IsShown(), true); h.eq(f.compact:IsShown(), false)
+  W.setFarmRow(true) -- full mode lets the Daily farm row show again
+  h.eq(f.header.rowFarm:IsShown(), true)
+  W.setFarmRow(false)
+  h.eq(f:GetWidth(), fullW); h.eq(f:GetHeight(), fullH)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: double-clicking the title toggles the mode", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local tb = ctx.ns.UI.Window.frame.header.titleButton
+  tb._scripts.OnDoubleClick(tb, "LeftButton")
+  h.eq(ctx.ns.UI.Ledger.mode, "compact")
+  tb._scripts.OnDoubleClick(tb, "LeftButton")
+  h.eq(ctx.ns.UI.Ledger.mode, "full")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: in compact the clock starts and stops the session, Paused while stopped", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local H = ctx.ns.UI.Header.instance
+  slash(ctx, "compact")
+  h.eq(H.toggle:IsShown(), false); h.eq(H.reset:IsShown(), false); h.eq(H.timer:IsShown(), true)
+  h.eq(H.pausedText:IsShown(), false)
+  H.clockButton._scripts.OnClick(H.clockButton, "LeftButton")
+  h.eq(ctx.ns.session.running, false)
+  h.eq(H.pausedText:IsShown(), true)
+  H.clockButton._scripts.OnClick(H.clockButton, "LeftButton")
+  h.eq(ctx.ns.session.running, true)
+  h.eq(H.pausedText:IsShown(), false)
+  -- in full mode the clock is not a button
+  slash(ctx, "compact")
+  H.clockButton._scripts.OnClick(H.clockButton, "LeftButton")
+  h.eq(ctx.ns.session.running, true)
+  h.eq(H.toggle:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the mode survives a reload; a bad saved mode starts full", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  slash(ctx, "compact")
+  local reload = boot({ db = ctx.env.LootPriceDB, chardb = ctx.env.LootPriceCharDB, now = 2000 })
+  startWorld(reload, true)
+  h.eq(reload.ns.UI.Ledger.mode, "compact")
+  h.eq(reload.ns.UI.Window.frame.listArea:IsShown(), false)
+  local db = ctx.env.LootPriceDB
+  db.mode = "weird"
+  local bad = boot({ db = db, chardb = ctx.env.LootPriceCharDB, now = 3000 })
+  startWorld(bad, true)
+  h.eq(bad.ns.UI.Ledger.mode, "full")
+  h.eq(bad.errors, {})
+end)
+
+h.test("wiring: switching while hidden draws the compact view when shown", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "hide")
+  slash(ctx, "compact")
+  slash(ctx, "show")
+  ctx.ns.UI.Ledger.refresh() -- the client fires OnShow, which is hooked to this
+  h.eq(ctx.ns.UI.Compact.drops[1].name:GetText():find("x3", 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 

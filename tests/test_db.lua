@@ -12,7 +12,9 @@ h.test("DB.defaults shape", function()
     fontFace = "default", fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
     countCrafted = false, showCurrencies = true, dailyFarm = true, dailyFarmMinutes = 20, showTopFinds = true, showFooterGold = true, compactDrops = 4, showIcons = true, afkPause = false, instanceSession = false,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, soldHigh = 100, soldMedium = 10 })
-  h.eq(d.window, { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false })
+  h.eq(d.window, { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false,
+    compact = { width = 250, height = 190 } })
+  h.eq(d.mode, "full")
   h.eq(d.filter.minValue, 0)
   h.eq(d.filter.search, "")
   h.eq(d.sort, "ah")

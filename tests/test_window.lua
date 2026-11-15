@@ -72,3 +72,20 @@ h.test("Window.scaledColor scales only the alpha and clamps the scale", function
   h.eq(W.scaledColor({ 1, 1, 1, 1 }, -1), { 1, 1, 1, 0 })
   h.eq(W.scaledColor({ 1, 1, 1, 1 }, "x"), { 1, 1, 1, 1 })
 end)
+
+h.test("Window.modeParts: compact shows only the compact body", function()
+  local W = ns.UI.Window
+  local full = W.modeParts("full")
+  h.eq(full.row2, true); h.eq(full.row3, true); h.eq(full.listArea, true); h.eq(full.footer, true)
+  h.eq(full.compact, false)
+  local c = W.modeParts("compact")
+  h.eq(c.compact, true)
+  for _, k in ipairs({ "row2", "rowFarm", "row3", "row4", "listArea", "footer", "topBox" }) do h.eq(c[k], false, k) end
+  h.eq(W.modeParts("nonsense"), full)
+end)
+
+h.test("Window.headerHeight: compact is the title row only", function()
+  local W, S = ns.UI.Window, ns.Theme.sizes
+  h.eq(W.headerHeight(true, true, "compact"), S.headerRowHeight)
+  h.eq(W.headerHeight(true, false, "full"), S.headerHeight + S.headerRowHeight)
+end)

@@ -35,6 +35,8 @@ Ledger.tab = ns.UI.Tabs.DEFAULT
 -- History Zones ({ zone, sub }).
 Ledger.subtab = nil
 Ledger.zoneOpen = {}
+-- Layout mode: "full" (the ledger) or "compact" (the glance); db.mode.
+Ledger.mode = "full"
 
 -- A part is a table with a method Update(view, session, now) and, optionally,
 -- Tick(view, session, now) and Relayout() (Theme.sizes changed; Ledger.relayout).
@@ -158,6 +160,7 @@ local function currentContext(now)
   viewOpts.includeGold = not (ns.Options and db) or ns.Options.get(db, "includeGold") ~= false
   viewOpts.showCurrencies = not (ns.Options and db) or ns.Options.get(db, "showCurrencies") ~= false
   viewOpts.market = Ledger.marketCutoffs(db)
+  viewOpts.compactDrops = ns.Options and db and ns.Options.get(db, "compactDrops") or nil
   context.now = now
   context.env = _G
   context.session = ns.session
@@ -206,7 +209,11 @@ function Ledger.buildView(now)
   if not ns.session then return nil end
   for k in pairs(priceMemo) do priceMemo[k] = nil end
   local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
-  if type(view) == "table" then view.dailyFarm = dailyFarm(now) end
+  if type(view) == "table" then
+    view.dailyFarm = dailyFarm(now)
+    -- Compact mode draws its own unfiltered numbers and last drops.
+    if Ledger.mode == "compact" then view.compact = ns.View.buildCompact(ns.session, viewOpts) end
+  end
   return view
 end
 
@@ -379,6 +386,21 @@ function Ledger.setSubtab(subKey)
   if switchSubtab(subKey) then Ledger.refresh() end
 end
 
+-- Switches the layout mode ("full" / "compact"), remembers it and redraws.
+function Ledger.setMode(mode)
+  if mode ~= "compact" then mode = "full" end
+  Ledger.mode = mode
+  if ns.db then ns.db.mode = mode end
+  if ns.UI.Window.applyMode then ns.UI.Window.applyMode(mode) end
+  local header = ns.UI.Header and ns.UI.Header.instance
+  if header and header.SetMode then header:SetMode(mode) end
+  Ledger.refresh()
+end
+
+function Ledger.toggleMode()
+  Ledger.setMode(Ledger.mode == "compact" and "full" or "compact")
+end
+
 -- History Zones: a zone row opens its subzones (and closes another zone), a
 -- subzone row its items; clicking the opened one again collapses it.
 function Ledger.toggleZone(zoneKey, subKey)
@@ -528,6 +550,11 @@ function Ledger.init()
     end
   end)
 
+  attach(UI.Compact, function()
+    if frame.compact then UI.Compact.attach(frame.compact) end
+  end)
+  UI.Window.onTitleDoubleClick = Ledger.toggleMode
+
   -- OnUpdate only runs while the frame is shown.
   local acc = 0
   frame:SetScript("OnUpdate", function(_, dt)
@@ -544,6 +571,14 @@ function Ledger.init()
   if UI.Tabs.valid(saved) then Ledger.tab = saved end
   Ledger.subtab = savedSubtab(Ledger.tab)
   applyTab(Ledger.tab)
+
+  -- The saved layout mode (anything else starts full).
+  local mode = ns.db and ns.db.mode == "compact" and "compact" or "full"
+  if ns.db then ns.db.mode = mode end
+  Ledger.mode = mode
+  UI.Window.applyMode(mode)
+  local header = UI.Header and UI.Header.instance
+  if header and header.SetMode then header:SetMode(mode) end
 
   Ledger.refresh()
   return frame

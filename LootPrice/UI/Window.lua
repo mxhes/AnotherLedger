@@ -49,8 +49,21 @@ function Window.effectiveMinWidth(themeMin, required)
   return themeMin
 end
 
+-- Layout mode: "full" (the ledger) or "compact" (the glance). Ledger.setMode
+-- switches it through Window.applyMode.
+Window.MODES = { full = true, compact = true }
+Window.mode = "full"
+
+local function compact() return Window.mode == "compact" end
+
 local function minWidth()
+  if compact() then return theme().sizes.compactMinWidth end
   return Window.effectiveMinWidth(theme().sizes.minWidth, Window.requiredWidth)
+end
+
+local function minHeight()
+  local S = theme().sizes
+  return compact() and S.compactMinHeight or S.minHeight
 end
 
 -- Pure. A theme color with its alpha scaled by `scale` (0..1).
@@ -79,12 +92,19 @@ function Window.applyLook()
 end
 
 local function applyBounds(frame)
-  local T = theme()
   if frame.SetResizeBounds then
-    frame:SetResizeBounds(minWidth(), T.sizes.minHeight)
+    frame:SetResizeBounds(minWidth(), minHeight())
   elseif frame.SetMinResize then
-    frame:SetMinResize(minWidth(), T.sizes.minHeight)
+    frame:SetMinResize(minWidth(), minHeight())
   end
+end
+
+-- The saved size of the current mode: db.window.width / height for full,
+-- db.window.compact for compact.
+local function sizeSlot(w)
+  if not compact() then return w end
+  if type(w.compact) ~= "table" then w.compact = {} end
+  return w.compact
 end
 
 local clamp = ns.Util.clamp
@@ -108,8 +128,9 @@ local function save()
     w.x = x
     w.y = y
   end
-  w.width = frame:GetWidth()
-  w.height = frame:GetHeight()
+  local slot = sizeSlot(w)
+  slot.width = frame:GetWidth()
+  slot.height = frame:GetHeight()
   w.hidden = not frame:IsShown()
 end
 
@@ -142,13 +163,20 @@ local function ensureOnScreen(frame)
   end
 end
 
-local function restore(frame)
-  local T = theme()
+-- The current mode's saved size, clamped to its minimum and the screen.
+local function modeSize(frame)
+  local S = theme().sizes
   local w = winDB() or {}
+  local slot = compact() and (type(w.compact) == "table" and w.compact or {}) or w
   local sw, sh = screenSize(frame)
-  local width = clamp(tonumber(w.width) or 420, minWidth(), sw)
-  local height = clamp(tonumber(w.height) or 440, T.sizes.minHeight, sh)
-  frame:SetSize(width, height)
+  local dw, dh = 420, 440
+  if compact() then dw, dh = S.compactWidth, S.compactHeight end
+  return clamp(tonumber(slot.width) or dw, minWidth(), sw), clamp(tonumber(slot.height) or dh, minHeight(), sh)
+end
+
+local function restore(frame)
+  local w = winDB() or {}
+  frame:SetSize(modeSize(frame))
   frame:ClearAllPoints()
   frame:SetPoint("CENTER", UIParent, "CENTER", tonumber(w.x) or 0, tonumber(w.y) or 0)
   ensureOnScreen(frame)
@@ -226,6 +254,21 @@ local function build(db)
   title:SetText(TITLE)
   header.title = title
 
+  -- Double-clicking the title switches full / compact (Window.onTitleDoubleClick,
+  -- set by the Ledger); dragging it still moves the window.
+  -- UNVERIFIED (check in client): OnDoubleClick does not fire after a drag.
+  local titleButton = CreateFrame("Button", nil, header.row1)
+  titleButton:SetPoint("TOPLEFT", header.row1, "TOPLEFT", 0, 0)
+  titleButton:SetSize(T.sizes.titleButtonWidth, T.sizes.headerRowHeight)
+  titleButton:RegisterForClicks("LeftButtonUp")
+  titleButton:RegisterForDrag("LeftButton")
+  titleButton:SetScript("OnDoubleClick", function()
+    if Window.onTitleDoubleClick then Window.onTitleDoubleClick() end
+  end)
+  titleButton:SetScript("OnDragStart", function() Window.beginDrag() end)
+  titleButton:SetScript("OnDragStop", function() Window.endDrag() end)
+  header.titleButton = titleButton
+
   -- Top finds box at the very bottom, under the summaries; collapsed (hidden,
   -- ~0 high) until Summary sizes it. Stack from the bottom: topBox, footer
   -- (the three summaries), list area, header.
@@ -244,6 +287,12 @@ local function build(db)
   listArea:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
   listArea:SetPoint("BOTTOMRIGHT", footer, "TOPRIGHT", 0, 0)
   listArea:SetClipsChildren(true)
+
+  -- Compact mode body (UI/Compact.lua): under the title row, hidden in full.
+  local compactArea = CreateFrame("Frame", nil, frame)
+  compactArea:SetPoint("TOPLEFT", header.row1, "BOTTOMLEFT", 0, -T.sizes.padding / 2)
+  compactArea:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -inset, inset)
+  compactArea:Hide()
 
   -- Resize grip, bottom right.
   local grip = CreateFrame("Button", nil, frame)
@@ -277,6 +326,7 @@ local function build(db)
   frame.listArea = listArea
   frame.footer = footer
   frame.grip = grip
+  frame.compact = compactArea
 
   Window.db = db
   -- The scale first: the saved position and size are in the scaled units.
@@ -338,7 +388,7 @@ function Window.applySizes()
   if not frame then return end
   applyBounds(frame)
   local w, h = frame:GetWidth(), frame:GetHeight()
-  local nw, nh = math.max(w, minWidth()), math.max(h, theme().sizes.minHeight)
+  local nw, nh = math.max(w, minWidth()), math.max(h, minHeight())
   if nw ~= w or nh ~= h then
     frame:SetSize(nw, nh)
     ensureOnScreen(frame)
@@ -350,11 +400,24 @@ end
 -- follows by anchoring.
 -- UNVERIFIED (check in client): the list area reflows live when the header
 -- height changes.
-local optionalRows = { subtab = false, farm = false }
+local optionalRows = { subtab = false, farm = false, topBox = false }
 
--- Pure. Header height: the three fixed rows plus each optional row shown.
-function Window.headerHeight(subtab, farm)
+-- Pure. Which parts of the window a mode shows. Full: the filter and tab rows,
+-- list and footer (the Daily farm row, sub-tab row and Top finds follow their
+-- own setters); compact: only the compact body.
+function Window.modeParts(mode)
+  if mode == "compact" then
+    return { row2 = false, rowFarm = false, row3 = false, row4 = false, listArea = false, footer = false,
+      topBox = false, compact = true }
+  end
+  return { row2 = true, row3 = true, listArea = true, footer = true, compact = false }
+end
+
+-- Pure. Header height: the three fixed rows plus each optional row shown;
+-- compact mode has the title row only.
+function Window.headerHeight(subtab, farm, mode)
   local S = theme().sizes
+  if mode == "compact" then return S.headerRowHeight end
   local h = S.headerHeight
   if subtab then h = h + S.headerRowHeight end
   if farm then h = h + S.headerRowHeight end
@@ -364,14 +427,14 @@ end
 local function applyHeaderHeight()
   local frame = Window.frame
   if not (frame and frame.header) then return end
-  frame.header:SetHeight(Window.headerHeight(optionalRows.subtab, optionalRows.farm))
+  frame.header:SetHeight(Window.headerHeight(optionalRows.subtab, optionalRows.farm, Window.mode))
 end
 
 function Window.setSubtabRow(shown)
   local frame = Window.frame
   if not (frame and frame.header and frame.header.row4) then return end
   optionalRows.subtab = shown and true or false
-  frame.header.row4:SetShown(optionalRows.subtab)
+  frame.header.row4:SetShown(optionalRows.subtab and not compact())
   applyHeaderHeight()
 end
 
@@ -384,8 +447,37 @@ function Window.setFarmRow(shown)
   optionalRows.farm = shown and true or false
   local row = frame.header.rowFarm
   row:SetHeight(optionalRows.farm and theme().sizes.headerRowHeight or COLLAPSED_ROW)
-  row:SetShown(optionalRows.farm)
+  row:SetShown(optionalRows.farm and not compact())
   applyHeaderHeight()
+end
+
+-- Switches the layout mode: the old mode's size is saved, the new mode's size
+-- and minimum applied, the parts shown / hidden. Position stays.
+function Window.applyMode(mode)
+  if not Window.MODES[mode] then mode = "full" end
+  local frame = Window.frame
+  if not frame then
+    Window.mode = mode
+    return
+  end
+  if mode ~= Window.mode then save() end
+  Window.mode = mode
+  applyBounds(frame)
+  frame:SetSize(modeSize(frame))
+  local parts = Window.modeParts(mode)
+  local full = mode == "full"
+  local h = frame.header
+  h.row2:SetShown(parts.row2)
+  h.row3:SetShown(parts.row3)
+  h.rowFarm:SetShown(full and optionalRows.farm)
+  h.row4:SetShown(full and optionalRows.subtab)
+  frame.listArea:SetShown(parts.listArea)
+  frame.footer:SetShown(parts.footer)
+  frame.topBox:SetShown(full and optionalRows.topBox)
+  frame.compact:SetShown(parts.compact)
+  applyHeaderHeight()
+  ensureOnScreen(frame)
+  save()
 end
 
 function Window.setTitle(text)
@@ -405,12 +497,13 @@ function Window.setTopBoxHeight(h)
   local frame = Window.frame
   if not frame then return end
   h = tonumber(h) or 0
+  optionalRows.topBox = h > 0
   if h <= 0 then
     frame.topBox:SetHeight(TOPBOX_EMPTY)
     frame.topBox:Hide()
   else
     frame.topBox:SetHeight(h)
-    frame.topBox:Show()
+    frame.topBox:SetShown(not compact())
   end
 end
 

@@ -39,6 +39,7 @@ UI\Summary.lua
 UI\FilterBar.lua
 UI\Tabs.lua
 UI\DailyFarm.lua
+UI\Compact.lua
 UI\OptionsPanel.lua
 UI\Minimap.lua
 UI\Export.lua

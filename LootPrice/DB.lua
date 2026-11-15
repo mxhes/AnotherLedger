@@ -62,7 +62,9 @@ DB.defaults = {
     fontSizeTotals = 12,
     fontSizeTitles = 16,
   },
-  window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false },
+  window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false,
+    compact = { width = 250, height = 190 } },
+  mode = "full", -- layout: "full" (the ledger) or "compact" (the glance)
   filter = {
     qualities = { [0] = true, true, true, true, true, true, true, true },
     minValue = 0,

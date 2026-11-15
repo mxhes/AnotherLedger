@@ -110,6 +110,14 @@ Slash.define({
 Slash.define({ name = "stop", run = function() ns.Core.stopSession() end })
 
 Slash.define({
+  name = "compact",
+  help = L["/lp compact - switch between the compact and the full window"],
+  run = function()
+    if ns.UI and ns.UI.Ledger and ns.UI.Ledger.frame then ns.UI.Ledger.toggleMode() end
+  end,
+})
+
+Slash.define({
   name = "reset",
   help = L["/lp reset - clear the session"],
   run = function()
