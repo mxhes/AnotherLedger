@@ -1,6 +1,6 @@
 local h = ...
 -- (History.csv / details / snapshot places are tested at the end of this file)
-local ns = h.load({ "Util.lua", "Money.lua", "Session.lua", "History.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Session.lua", "History.lua" })
 local H = ns.History
 
 local function session(items, gold)
@@ -105,8 +105,9 @@ end)
 
 h.test("History.details: lines for when, where and the rates", function()
   local e = { startedAt = 1, elapsed = 7200, gold = 20000, nItems = 3, vendor = 0, ah = 40000, places = { "X" }, items = {} }
-  local text = ns.History.details(e, function() return "D" end)
-  h.eq(text, "D  (2h 0m, 3 items)\nPlaces: X\nVendor: 0c  (0c/h)\nAH: 4g  (2g/h)\nBest: 4g  (2g/h)\nRaw gold: 2g  (1g/h)")
+  local tip = ns.History.details(e, function() return "D" end)
+  h.eq(tip.title, "D")
+  h.eq(ns.Tooltip.text(tip), "D\n2h 0m, 3 items\nPlaces: X\nVendor: 0c  (0c/h)\nAH: 4g  (2g/h)\nBest: 4g  (2g/h)\nRaw gold: 2g  (1g/h)")
 end)
 
 h.test("History.snapshot keeps the time and loot per place", function()

@@ -124,6 +124,16 @@ Theme.colors = {
   tabGlow = { 1.00, 0.84, 0.10, 0.55 },
   tabText = { 0.86, 0.86, 0.86, 1 },
   tabTextSelected = { 1, 1, 1, 1 },
+  -- Rich tooltips (Tooltip.render): gold title and sub-headings, tan labels,
+  -- white values (coins in the game colors), quiet notes, red warnings and
+  -- green click hints, like the game's own tooltips.
+  tipTitle = { 1.00, 0.82, 0.00, 1 },
+  tipSection = { 1.00, 0.82, 0.00, 1 },
+  tipLabel = { 0.80, 0.74, 0.62, 1 },
+  tipValue = { 1, 1, 1, 1 },
+  tipNote = { 0.68, 0.63, 0.55, 1 },
+  tipWarn = { 0.95, 0.38, 0.32, 1 },
+  tipHint = { 0.25, 0.90, 0.25, 1 },
   scrollTrack = { 0.93, 0.87, 0.72, 0.10 },
   scrollThumb = { 0.93, 0.87, 0.72, 0.45 },
 }

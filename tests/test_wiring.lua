@@ -740,6 +740,31 @@ h.test("wiring: the History option limits and prunes the archive", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: hovering a History session shows the colored tooltip", function()
+  local ctx = boot()
+  local ops = {}
+  ctx.env.GameTooltip = {
+    SetOwner = function() end, Show = function() end, Hide = function() end, ClearLines = function() end,
+    SetText = function() end, IsOwned = function() return false end, SetHyperlink = function() end,
+    AddLine = function(_, t, r, g, b) ops[#ops + 1] = { "line", t, r, g, b } end,
+    AddDoubleLine = function(_, l, r, lr) ops[#ops + 1] = { "double", l, r, lr } end,
+  }
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  local L = ctx.ns.UI.Ledger
+  L.setTab("history")
+  local C = ctx.ns.Theme.colors
+  local shown = ctx.ns.UI.Widgets.showTextTooltip({}, L.view.rows[1].hint)
+  h.eq(shown, true)
+  h.eq(ops[1][1], "line"); h.eq(ops[1][3], C.tipTitle[1]) -- the date, gold
+  local doubles, last = 0, ops[#ops]
+  for _, o in ipairs(ops) do if o[1] == "double" then doubles = doubles + 1 end end
+  h.eq(doubles >= 4, true) -- Vendor, AH, Best, Raw gold
+  h.eq(last[2], ctx.ns.L["Click to show the items"]); h.eq(last[4], C.tipHint[2])
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: a History session opens at the top and collapses on a second click", function()
   local ctx = boot()
   startWorld(ctx, false)

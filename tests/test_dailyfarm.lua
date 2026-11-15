@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "History.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "History.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
 local DF = ns.UI.DailyFarm
 
 local function farm()
@@ -23,15 +23,16 @@ end)
 
 h.test("DailyFarm.hint lists the place, the runner-ups and the slow sellers", function()
   local f = farm()
-  local s = DF.hint(f)
-  h.eq(s:find("Z", 1, true) ~= nil, true)
+  local tip = DF.hint(f)
+  h.eq(tip.title, "A (Z)")
+  local s = ns.Tooltip.text(tip)
   h.eq(s:find(ns.L["Also good:"], 1, true) ~= nil, true)
-  h.eq(s:find("  Y  ", 1, true) ~= nil, true) -- the runner-up is its own zone
+  h.eq(s:find("\n  Y " .. ns.Money.format(20000), 1, true) ~= nil, true) -- the runner-up is its own zone
   h.eq(s:find("~", 1, true), nil)
   h.eq(s:find(ns.L["Sells slowly: "], 1, true), nil)
   f.slow = { names = { "Ore", "Herb" } }
   f.runnersUp = {}
-  s = DF.hint(f)
+  s = ns.Tooltip.text(DF.hint(f))
   h.eq(s:find("Ore, Herb", 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Also good:"], 1, true), nil)
 end)
@@ -47,11 +48,11 @@ end)
 
 h.test("DailyFarm.hint lists the clicks: waypoint ones only with a spot", function()
   local f = farm()
-  local s = DF.hint(f)
+  local s = ns.Tooltip.text(DF.hint(f))
   h.eq(s:find(ns.L["Click to open it in Zones"], 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Click: waypoint"], 1, true), nil)
   f.best.pos = { mapID = 1, x = 0.5, y = 0.5 }
-  s = DF.hint(f)
+  s = ns.Tooltip.text(DF.hint(f))
   h.eq(s:find(ns.L["Click: waypoint"], 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Shift-click: open it in Zones"], 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Right-click: copy the /way line"], 1, true) ~= nil, true)

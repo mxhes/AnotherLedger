@@ -26,7 +26,6 @@ local L_VENDOR = L["Vendor: "]
 local L_AH = L["AH: "]
 local L_BEST = L["Best: "]
 local L_GOLD = L["Raw gold: "]
-local L_PER_HOUR = L["/h"]
 
 local function copyPrice(p)
   if type(p) ~= "table" then return nil end
@@ -153,25 +152,24 @@ end
 
 -- Multi-line tooltip text of an entry: when, how long, where, the totals and
 -- their rates. `formatDate(timestamp)` -> text; `formatMoney` defaults to Money.format.
-function History.details(e, formatDate, formatMoney)
-  formatMoney = formatMoney or ns.Money.format
-  local lines = {}
+-- The session's tooltip (ns.Tooltip): the start as title, its length and item
+-- count, the places, then each value with its gold per hour.
+function History.details(e, formatDate)
+  local Tip = ns.Tooltip
   local when = formatDate and formatDate(e.startedAt) or tostring(e.startedAt)
-  lines[#lines + 1] = when .. "  (" .. History.duration(e.elapsed) .. ", " .. e.nItems .. L_ITEMS .. ")"
+  local tip = Tip.new(when)
+  Tip.note(tip, History.duration(e.elapsed) .. ", " .. e.nItems .. L_ITEMS)
   if type(e.places) == "table" and #e.places > 0 then
-    lines[#lines + 1] = L_PLACES .. table.concat(e.places, ", ")
+    Tip.labelled(tip, L_PLACES, table.concat(e.places, ", "))
   end
   local function money(label, amount)
-    local text = label .. formatMoney(amount)
-    local rate = History.perHour(amount, e.elapsed)
-    if rate then text = text .. "  (" .. formatMoney(rate) .. L_PER_HOUR .. ")" end
-    lines[#lines + 1] = text
+    Tip.money(tip, label, amount, History.perHour(amount, e.elapsed))
   end
   money(L_VENDOR, e.vendor)
   money(L_AH, e.ah)
   money(L_BEST, History.bestOf(e))
   money(L_GOLD, e.gold)
-  return table.concat(lines, "\n")
+  return tip
 end
 
 -- ---------------------------------------------------------------------------

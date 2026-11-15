@@ -144,8 +144,6 @@ ns.Locale.register("deDE", {
   ["Daily: "] = "Heute: ",
   ["/h"] = "/h",
   ["slow selling"] = "verkauft sich langsam",
-  ["Zone: "] = "Zone: ",
-  ["Subzone: "] = "Unterzone: ",
   ["Also good:"] = "Auch gut:",
   ["Sells slowly: "] = "Verkauft sich langsam: ",
   ["Click to open it in Zones"] = "Klicken, um es unter Zonen zu öffnen",

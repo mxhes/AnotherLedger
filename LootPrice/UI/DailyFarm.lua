@@ -14,8 +14,6 @@ ns.UI.DailyFarm = DailyFarm
 local L_DAILY_FARM = L["Daily: "]
 local L_PER_HOUR = L["/h"]
 local L_SLOW = L["slow selling"]
-local L_ZONE = L["Zone: "]
-local L_SUBZONE = L["Subzone: "]
 local L_TIME = L["Time: "]
 local L_VALUE = L["Value: "]
 local L_GOLD_PER_HOUR = L["Gold per hour: "]
@@ -57,30 +55,32 @@ function DailyFarm.label(farm)
   return text
 end
 
+-- The strip's tooltip (ns.Tooltip): the place as title, its time, value and
+-- exact gold per hour, the runner-ups, the slow sellers and the clicks.
 function DailyFarm.hint(farm)
+  local Tip = ns.Tooltip
   local best = farm.best
-  local lines = { L_ZONE .. best.zone }
-  if best.sub and best.sub ~= best.zone then lines[#lines + 1] = L_SUBZONE .. best.sub end
-  lines[#lines + 1] = L_TIME .. ns.History.duration(best.time)
-  lines[#lines + 1] = L_VALUE .. ns.Money.format(best.value)
-  lines[#lines + 1] = L_GOLD_PER_HOUR .. ns.Money.format(math.floor(best.perHour + 0.5))
+  local tip = Tip.new(DailyFarm.placeName(best))
+  Tip.pair(tip, L_TIME, ns.History.duration(best.time))
+  Tip.money(tip, L_VALUE, best.value)
+  Tip.rate(tip, L_GOLD_PER_HOUR, best.perHour)
   if type(farm.runnersUp) == "table" and #farm.runnersUp > 0 then
-    lines[#lines + 1] = L_ALSO_GOOD
+    Tip.section(tip, L_ALSO_GOOD)
     for _, p in ipairs(farm.runnersUp) do
-      lines[#lines + 1] = "  " .. DailyFarm.placeName(p) .. "  " .. rate(p)
+      Tip.rate(tip, "  " .. DailyFarm.placeName(p), p.perHour, true)
     end
   end
   if farm.slow and type(farm.slow.names) == "table" then
-    lines[#lines + 1] = L_SELLS_SLOWLY .. table.concat(farm.slow.names, ", ")
+    Tip.warn(tip, L_SELLS_SLOWLY .. table.concat(farm.slow.names, ", "))
   end
   if best.pos then
-    lines[#lines + 1] = L_CLICK_WAYPOINT
-    lines[#lines + 1] = L_SHIFT_CLICK
-    lines[#lines + 1] = L_RIGHT_CLICK
+    Tip.hint(tip, L_CLICK_WAYPOINT)
+    Tip.hint(tip, L_SHIFT_CLICK)
+    Tip.hint(tip, L_RIGHT_CLICK)
   else
-    lines[#lines + 1] = L_CLICK
+    Tip.hint(tip, L_CLICK)
   end
-  return table.concat(lines, "\n")
+  return tip
 end
 
 -- Click on the strip: left sets a waypoint to the farm spot (Zones when the

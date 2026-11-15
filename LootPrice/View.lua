@@ -37,6 +37,12 @@ local NO_LOOKUP = {}
 local L_CLICK_OPEN = L["Click to show the items"]
 local L_CLICK_CLOSE = L["Click to collapse"]
 
+-- A tooltip (ns.Tooltip) with its click hint added at the bottom.
+local function withHint(tip, text)
+  ns.Tooltip.hint(tip, text)
+  return tip
+end
+
 local function allQualities(set)
   for q = MIN_QUALITY, MAX_QUALITY do
     if not set[q] then return false end
@@ -342,7 +348,7 @@ function View.buildHistory(list, opts, openIndex)
         -- Line 2 of the row shows the session's best value (raw gold is in the hint).
         vendorTotal = e.vendor, ahTotal = e.ah, bestLineTotal = best,
         icon = "Interface\\Icons\\INV_Misc_Note_01",
-        hint = History.details(e, opts.formatDate) .. "\n" .. (open and L_CLICK_CLOSE or L_CLICK_OPEN),
+        hint = withHint(History.details(e, opts.formatDate), open and L_CLICK_CLOSE or L_CLICK_OPEN),
         value = best, lastSeen = e.startedAt,
       }
       sessionRows[#sessionRows + 1] = row
@@ -519,18 +525,21 @@ local function aggregateZones(entries, isQuest)
   return zones, quest
 end
 
-local function placeHint(p, open, clickText)
-  local lines = {}
-  if p.time > 0 then lines[#lines + 1] = L_TIME .. ns.History.duration(p.time) end
-  lines[#lines + 1] = L_VALUE .. ns.Money.format(p.value)
-  if p.gold > 0 then lines[#lines + 1] = L_RAW_GOLD .. ns.Money.format(p.gold) end
+-- A place row's tooltip (ns.Tooltip): its name, time, value, raw gold, gold
+-- per hour and the click.
+local function placeHint(p, label, open, clickText)
+  local Tip = ns.Tooltip
+  local tip = Tip.new(label)
+  if p.time > 0 then Tip.pair(tip, L_TIME, ns.History.duration(p.time)) end
+  Tip.money(tip, L_VALUE, p.value)
+  if p.gold > 0 then Tip.money(tip, L_RAW_GOLD, p.gold) end
   if p.perHour then
-    lines[#lines + 1] = L_GOLD_PER_HOUR .. ns.Money.format(p.perHour)
+    Tip.rate(tip, L_GOLD_PER_HOUR, p.perHour)
   elseif p.time == 0 and p.zoneKey ~= View.QUEST_ZONE then
-    lines[#lines + 1] = L_NO_TIME
+    Tip.note(tip, L_NO_TIME)
   end
-  lines[#lines + 1] = open and L_CLICK_CLOSE or clickText
-  return table.concat(lines, "\n")
+  Tip.hint(tip, open and L_CLICK_CLOSE or clickText)
+  return tip
 end
 
 -- One place row (zone, subzone or the quest group) from its summed figures.
@@ -542,7 +551,7 @@ local function placeRow(p, label, open, indent, clickText)
     name = name, sortName = lower(label), quality = 1, quantity = p.count,
     vendorTotal = p.vendor, ahTotal = p.ah, bestLineTotal = p.value,
     value = p.value, perHour = p.perHour, placeTime = p.time, lastSeen = p.lastSeen,
-    icon = MAP_ICON, hint = placeHint(p, open, clickText),
+    icon = MAP_ICON, hint = placeHint(p, label, open, clickText),
   }
 end
 

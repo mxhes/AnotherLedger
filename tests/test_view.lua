@@ -1,5 +1,6 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
+local function tipText(row) return ns.Tooltip.text(row.hint) end
 local V = ns.View
 
 local function link(name) return "|cff0070dd|Hitem:1::|h[" .. name .. "]|h|r" end
@@ -356,8 +357,8 @@ h.test("View.buildHistory: the place joins the name, the details the hint", func
   h.eq(v.rows[1].name, "+ D  1h 0m  The Stonevault (Heroic)")
   h.eq(v.rows[1].value, 150)
   h.eq(v.totals.best, 150)
-  h.eq(v.rows[1].hint:find("Places: The Stonevault (Heroic), Dornogal", 1, true) ~= nil, true)
-  h.eq(v.rows[1].hint:find("Raw gold: 1g  (1g/h)", 1, true) ~= nil, true)
+  h.eq(tipText(v.rows[1]):find("Places: The Stonevault (Heroic), Dornogal", 1, true) ~= nil, true)
+  h.eq(tipText(v.rows[1]):find("Raw gold: 1g  (1g/h)", 1, true) ~= nil, true)
 end)
 
 h.test("View: the best of vendor, AH and disenchant is the row value", function()
@@ -425,7 +426,7 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
   local v = ns.View.buildHistory(list, opts, 2)
   h.eq(#v.rows, 4)
   h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D  2m")
-  h.eq(v.rows[1].hint:match("[^\n]+$"), "Click to collapse")
+  h.eq(tipText(v.rows[1]):match("[^\n]+$"), "Click to collapse")
   h.eq(v.rows[2].id, 7); h.eq(v.rows[2].ahTotal, 2000) -- items, best AH value first
   h.eq(v.rows[3].id, 8)
   h.eq(v.rows[4].historyIndex, 1) -- the other session follows
@@ -660,7 +661,7 @@ h.test("View.buildZones: a short stay shows its time, not 'No time recorded'", f
   local list = { zentry({ [1] = 1 }, { Z = { subs = { A = zsub(45, { [1] = 1 }) } } }) }
   local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
   h.eq(v.rows[1].perHour, nil)
-  h.eq(v.rows[1].hint:find(ns.L["No time recorded"], 1, true), nil)
+  h.eq(tipText(v.rows[1]):find(ns.L["No time recorded"], 1, true), nil)
 end)
 
 -- ---------------------------------------------------------------------------
