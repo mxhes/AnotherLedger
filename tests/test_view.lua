@@ -578,7 +578,7 @@ end)
 h.test("View.buildZones sorts by gold per hour, places without time last", function()
   local list = {
     zentry({ [2] = 1 }, { P = { subs = { A = zsub(3600, { [2] = 1 }) } } }),
-    zentry({ [3] = 1 }, nil, { Q = 2 }),
+    zentry({ [3] = 1 }, nil, { "Q" }),
   }
   local v = V.buildZones(list, { lookup = zlookup, sort = "perHour" }, {})
   h.eq(v.rows[1].zoneKey, "P")
@@ -592,8 +592,8 @@ end)
 h.test("View.buildZones puts old sessions under their only place or Unknown place, without time", function()
   local list = {
     zentry({ [1] = 1 }, { Z = { subs = { A = zsub(3600, { [1] = 1 }) } } }),
-    zentry({ [1] = 1 }, nil, { Z = 4 }),
-    zentry({ [2] = 1 }, nil, { Z = 1, Y = 1 }),
+    zentry({ [1] = 1 }, nil, { "Z" }),
+    zentry({ [2] = 1 }, nil, { "Z", "Y" }),
   }
   local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, { zone = "Z" })
   h.eq(v.rows[1].zoneKey, "Z")
@@ -644,4 +644,21 @@ h.test("collect sorts items by value under the perHour sort", function()
   local v = V.buildInventory(items, { lookup = zlookup, sort = "perHour" })
   h.eq(v.rows[1].id, 3)
   h.eq(v.rows[2].id, 2)
+end)
+
+h.test("View.buildZones places an archived old session under its only place", function()
+  local old = { startedAt = 1, running = false, elapsedBase = 60, gold = 0, places = { Elwynn = 3 },
+    items = { [1] = { id = 1, key = 1, qty = 2, lastSeen = 5 } } }
+  local e = ns.History.snapshot(old, zlookup, 100)
+  e.zones = nil -- saved before places were kept
+  local v = V.buildZones({ e }, { lookup = zlookup, sort = "ah" }, { zone = "Elwynn" })
+  h.eq(v.rows[1].zoneKey, "Elwynn")
+  h.eq(v.rows[2].subKey, V.NO_TIME_SUB)
+end)
+
+h.test("View.buildZones: a short stay shows its time, not 'No time recorded'", function()
+  local list = { zentry({ [1] = 1 }, { Z = { subs = { A = zsub(45, { [1] = 1 }) } } }) }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.rows[1].perHour, nil)
+  h.eq(v.rows[1].hint:find(ns.L["No time recorded"], 1, true), nil)
 end)

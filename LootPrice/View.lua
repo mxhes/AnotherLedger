@@ -415,9 +415,14 @@ end
 
 -- Where the loot of an entry without per-place data goes: its only place,
 -- else Unknown place; never with time.
+-- History entries store places as a list (most loot first); the running
+-- session as a map { [label] = loot events }.
 local function fallbackZone(e)
-  local list = ns.Session and ns.Session.placeList and ns.Session.placeList(e.places) or {}
-  if #list == 1 then return list[1] end
+  local places = e.places
+  if type(places) ~= "table" then return View.UNKNOWN_ZONE end
+  local list = places
+  if places[1] == nil and ns.Session and ns.Session.placeList then list = ns.Session.placeList(places) end
+  if #list == 1 and type(list[1]) == "string" then return list[1] end
   return View.UNKNOWN_ZONE
 end
 
@@ -494,7 +499,7 @@ local function placeHint(p, open, clickText)
   if p.gold > 0 then lines[#lines + 1] = L_RAW_GOLD .. ns.Money.format(p.gold) end
   if p.perHour then
     lines[#lines + 1] = L_GOLD_PER_HOUR .. ns.Money.format(p.perHour)
-  elseif p.zoneKey ~= View.QUEST_ZONE then
+  elseif p.time == 0 and p.zoneKey ~= View.QUEST_ZONE then
     lines[#lines + 1] = L_NO_TIME
   end
   lines[#lines + 1] = open and L_CLICK_CLOSE or clickText
