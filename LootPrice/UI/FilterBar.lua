@@ -43,8 +43,9 @@ local function widths() return ns.Theme.widths.filter end
 function FilterBar.parseMinGold(text)
   if type(text) ~= "string" then return 0 end
   local trimmed = text:gsub("^%s+", ""):gsub("%s+$", "")
+  -- Lua 5.1 reads "inf" / "nan" as numbers: only a finite one counts.
   local n = tonumber(trimmed)
-  if type(n) ~= "number" or n ~= n or n <= 0 then return 0 end
+  if not ns.Util.isNumber(n) or n <= 0 then return 0 end
   if n > MAX_GOLD then n = MAX_GOLD end
   return math.floor(n * COPPER_PER_GOLD + 0.5)
 end
