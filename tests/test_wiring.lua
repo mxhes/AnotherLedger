@@ -1308,6 +1308,67 @@ h.test("wiring: the Zones sub-tab groups all sessions by zone and subzone", func
   h.eq(ctx.errors, {})
 end)
 
+-- One saved session: an hour in Wingrest, five minutes in Teerakai.
+local function bootWithFarm()
+  local ctx = bootInZone("Waking Shores", "Wingrest")
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = ctx.now + 3600
+  ctx.place.sub = "Teerakai"
+  fire(ctx, "ZONE_CHANGED")
+  fire(ctx, "CHAT_MSG_LOOT", lootMsg(2592, 9))
+  ctx.now = ctx.now + 300
+  slash(ctx, "reset")
+  return ctx
+end
+
+h.test("wiring: the daily farm is picked from saved History only", function()
+  local ctx = bootWithFarm()
+  local L = ctx.ns.UI.Ledger
+  L.refresh()
+  local farm = L.view.dailyFarm
+  h.eq(farm.best.zone, "Waking Shores"); h.eq(farm.best.sub, "Wingrest") -- Teerakai is under 20 min
+  -- loot in the running session at another place: the pick stays
+  ctx.place.zone, ctx.place.sub = "Ohn'ahran Plains", "Rusza'thar Reach"
+  fire(ctx, "ZONE_CHANGED_NEW_AREA")
+  fire(ctx, "CHAT_MSG_LOOT", lootMsg(2592, 50))
+  ctx.now = ctx.now + 7200
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest")
+  -- the filter bar does not change it
+  ctx.ns.db.filter = { search = "nothing matches" }
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest")
+  -- a shorter minimum lets Teerakai in
+  ctx.ns.Options.set(ctx.ns.db, "dailyFarmMinutes", 5)
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Teerakai")
+  -- option off: no farm
+  ctx.ns.Options.set(ctx.ns.db, "dailyFarm", false)
+  L.refresh()
+  h.eq(L.view.dailyFarm, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: no daily farm without History", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  h.eq(ctx.ns.UI.Ledger.view.dailyFarm, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: showFarm opens History Zones at the place", function()
+  local ctx = bootWithFarm()
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bags")
+  L.showFarm("Waking Shores", "Wingrest")
+  h.eq(L.tab, "history"); h.eq(L.subtab, "zones")
+  h.eq(L.zoneOpen.zone, "Waking Shores"); h.eq(L.zoneOpen.sub, "Wingrest")
+  local _, sub = rowsWith(L.view, "subKey", "Wingrest")
+  h.eq(sub ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: the sub-tab row only shows on History and the choice survives a reload", function()
   local ctx = boot()
   startWorld(ctx, false)

@@ -125,6 +125,8 @@ ns.Locale.register("deDE", {
   ["Gold only"] = "Nur Gold",
   ["Add raw gold to the combined total"] = "Rohgold zur Gesamtsumme zählen",
   ["Show currencies in the list"] = "Währungen in der Liste zeigen",
+  ["Show the daily farm"] = "Tagesfarm zeigen",
+  ["Daily farm: minimum time in a place"] = "Tagesfarm: Mindestzeit an einem Ort",
   ["Font"] = "Schrift",
   ["WoW default"] = "WoW-Standard",
   ["Show item icons"] = "Gegenstandssymbole zeigen",

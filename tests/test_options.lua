@@ -13,7 +13,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "keepSession", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
-    "showCurrencies", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
@@ -120,6 +120,14 @@ h.test("Options.normalize: text is trimmed and falls back when empty, tsmSource 
   h.eq(O.normalize(O.spec("defaultSort"), "zzz"), "ah")
   h.eq(O.normalize(O.spec("goldDisplay"), "gold"), "gold")
   h.eq(O.normalize(O.spec("alertGold"), -1), -1)
+end)
+
+h.test("Options: daily farm is on by default with a 20 minute minimum (5..120)", function()
+  h.eq(O.get(db(), "dailyFarm"), true)
+  h.eq(O.get(db(), "dailyFarmMinutes"), 20)
+  h.eq(O.normalize(O.spec("dailyFarmMinutes"), 500), 120)
+  h.eq(O.normalize(O.spec("dailyFarmMinutes"), 1), 5)
+  h.eq(O.normalize(O.spec("dailyFarmMinutes"), 23), 25)
 end)
 
 h.test("Options.applyAll skips buttons", function()

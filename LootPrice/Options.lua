@@ -375,6 +375,17 @@ Options.define({
   key = "showCurrencies", category = "display", type = "checkbox", label = L["Show currencies in the list"], apply = refreshUI,
 })
 
+-- Daily farm strip at the top of the window (View.dailyFarm): the saved place
+-- with the best gold per hour; only places with this much recorded time count.
+Options.define({
+  key = "dailyFarm", category = "display", type = "checkbox", label = L["Show the daily farm"], apply = refreshUI,
+})
+
+Options.define({
+  key = "dailyFarmMinutes", category = "display", type = "slider", label = L["Daily farm: minimum time in a place"],
+  min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
+})
+
 -- Off: the list rows have no icon and their text starts at the left edge.
 Options.define({
   key = "showIcons", category = "display", type = "checkbox", label = L["Show item icons"],

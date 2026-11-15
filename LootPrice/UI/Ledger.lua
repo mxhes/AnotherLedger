@@ -168,10 +168,22 @@ end
 -- ---------------------------------------------------------------------------
 -- Building and drawing
 
+-- The Daily farm of the saved History (not the running session, so farming
+-- does not move today's pick), or nil with the option off.
+local function dailyFarm()
+  local db, O = ns.db, ns.Options
+  if not (O and db) or O.get(db, "dailyFarm") == false then return nil end
+  local history = ns.chardb and ns.chardb.history
+  if type(history) ~= "table" then return nil end
+  return ns.View.dailyFarm(history, viewOpts, (O.get(db, "dailyFarmMinutes") or 20) * 60)
+end
+
 function Ledger.buildView(now)
   if not ns.session then return nil end
   for k in pairs(priceMemo) do priceMemo[k] = nil end
-  return ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
+  local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
+  if type(view) == "table" then view.dailyFarm = dailyFarm() end
+  return view
 end
 
 local function windowShown()
@@ -349,6 +361,14 @@ function Ledger.toggleZone(zoneKey, subKey)
   else
     Ledger.zoneOpen = { zone = zoneKey, sub = subKey }
   end
+  Ledger.refresh()
+end
+
+-- Daily farm click: History -> Zones with that zone and subzone opened.
+function Ledger.showFarm(zone, sub)
+  if Ledger.tab ~= "history" then Ledger.setTab("history") end
+  if Ledger.subtab ~= "zones" then Ledger.setSubtab("zones") end
+  Ledger.zoneOpen = { zone = zone, sub = sub }
   Ledger.refresh()
 end
 

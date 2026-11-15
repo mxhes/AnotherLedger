@@ -35,6 +35,9 @@ DB.defaults = {
     -- count as loot only with this on.
     countCrafted = false,
     showCurrencies = true,
+    -- Daily farm strip and the minimum recorded time of a place it may pick.
+    dailyFarm = true,
+    dailyFarmMinutes = 20,
     -- Item icon at the left of each list row.
     showIcons = true,
     -- TSM region sale info under the item name and its level cutoffs: sale
