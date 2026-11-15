@@ -38,7 +38,8 @@ h.test("Fonts.install: a scaled group gets its own font objects and taller rows"
   end)
   _G.CreateFont, _G.GameFontHighlight, _G.GameFontHighlightSmall = nil, nil, nil
   assert(ok, err)
-  h.eq(ns.Theme.sizes.rowHeight, 60)
+  h.eq(ns.Theme.sizes.rowHeight, 45) -- 30 * 18 / 12
+  h.eq(ns.Theme.sizes.iconSize, 30) -- the icon scales with the list text
   h.eq(ns.Theme.fonts.body, "LootPriceBody")
   h.eq(ns.Theme.fonts.rowSmall, "LootPriceRowSmall")
   h.near(created.LootPriceBody.size, 18)
@@ -161,10 +162,10 @@ h.test("Fonts.applySizes: a changed size resizes the own font objects live, from
     db.settings.fontSizeRows = 15
     h.eq(ns.UI.Fonts.applySizes(db), true)
     h.near(created.LootPriceBody.size, 15)
-    h.eq(ns.Theme.sizes.rowHeight, 50)
+    h.eq(ns.Theme.sizes.rowHeight, 38) -- 30 * 15 / 12, rounded
     db.settings.fontSizeRows = 9
     h.eq(ns.UI.Fonts.applySizes(db), true)
-    h.eq(ns.Theme.sizes.rowHeight, 30) -- 40 * 9 / 12, not 50 * 9 / 12
+    h.eq(ns.Theme.sizes.rowHeight, 23) -- 30 * 9 / 12 (rounded), not 38 * 9 / 12
     h.near(created.LootPriceBody.size, 9)
     h.eq(created.LootPriceSummary.size, 12) -- other groups untouched
   end)

@@ -19,7 +19,7 @@ ns.UI.Fonts = Fonts
 -- font in px (the default of the option), fonts = Theme.fonts keys, sizes = Theme.sizes
 -- keys (pixel heights) that scale with it.
 Fonts.GROUPS = {
-  { option = "fontSizeRows", nominal = 12, fonts = { "body", "rowSmall" }, sizes = { "rowHeight" } },
+  { option = "fontSizeRows", nominal = 12, fonts = { "body", "rowSmall" }, sizes = { "rowHeight", "iconSize" } },
   { option = "fontSizeTotals", nominal = 12, fonts = { "summary", "summaryMarker", "topRow" },
     sizes = { "footerRowHeight", "footerNoteHeight", "topRowHeight" } },
   { option = "fontSizeTitles", nominal = 16, fonts = { "topHeader" }, sizes = { "topHeaderHeight" } },

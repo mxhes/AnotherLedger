@@ -94,11 +94,13 @@ Theme.durations = {
 Theme.sizes = {
   minWidth = 350,
   -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 88
-  -- + 4 list rows (4 * 40) + footer 72 = 428 (tests/test_summary.lua recomputes it).
-  minHeight = 428,
+  -- + 4 list rows (4 * 30) + footer 72 = 388 (tests/test_summary.lua recomputes it).
+  minHeight = 388,
   minListRows = 4,
-  rowHeight = 40, -- three text lines: Vendor, DE (disenchant), AH
-  iconSize = 24,
+  -- Two text lines: name and Vendor, then Best (the better of AH and DE). The
+  -- icon scales with the list text size (UI/Fonts.lua) like the row height.
+  rowHeight = 30,
+  iconSize = 20,
   scrollbarWidth = 10,
   scrollThumbHeight = 24,
   padding = 8,
@@ -128,9 +130,11 @@ Theme.sizes = {
   summaryCharPx = 6.6,
   markerCharPx = 5.5,
   gripSize = 16,
-  -- Ledger row geometry (Rows.worstCase / Rows.blockLayout). textLeft = icon inset 2 + icon 24
-  -- + gap 5; rowRightInset is the right edge of the Vendor/AH block.
-  rowTextLeft = 31,
+  -- Ledger row geometry (Rows.worstCase / Rows.blockLayout). Text inset with the
+  -- icon (Rows.textLeft) = rowIconInset + iconSize + rowIconGap; rowRightInset is
+  -- the right edge of the Vendor / Best block.
+  rowIconInset = 2,
+  rowIconGap = 5,
   -- Text inset of a row without its icon (option "showIcons" off).
   rowTextLeftNoIcon = 4,
   rowRightInset = 4,
@@ -155,7 +159,7 @@ Theme.sizes = {
   rowVendorLabelW = 40,
   rowLabelGap = 2,
   rowVendorColW = 84,
-  rowAhLabelW = 20,
+  rowBestLabelW = 32,
   rowTagW = 36,
   -- Padding added around each measured string width.
   rowMeasurePad = 2,

@@ -11,16 +11,16 @@ h.test("rowText priced live", function()
   -- colored coin amounts by default, plain text with Money.format
   local g = ns.Theme.colors
   h.eq(t.vendorAmount, ns.Money.formatColored(230, g))
-  h.eq(t.ahAmount, ns.Money.formatColored(12650, g))
-  h.eq((t.ahAmount:find("|cff", 1, true)) ~= nil, true)
+  h.eq(t.bestAmount, ns.Money.formatColored(12650, g))
+  h.eq((t.bestAmount:find("|cff", 1, true)) ~= nil, true)
   local p = R.rowText({ name = "Linen Cloth", quantity = 23, vendorTotal = 230, ahTotal = 12650 }, ns.Money.format)
   h.eq(p.vendorAmount, "2s 30c")
-  h.eq(p.ahAmount, "1g 26s 50c")
+  h.eq(p.bestAmount, "1g 26s 50c")
 end)
 
 h.test("rowText unpriced AH shows n/a", function()
   local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil, ahFromCache = false, stale = false })
-  h.eq(t.ahAmount, "n/a")
+  h.eq(t.bestAmount, "n/a")
   h.eq(R.rowText({ name = "X", quantity = 1 }).vendorAmount, "n/a")
 end)
 
@@ -62,12 +62,13 @@ end)
 h.test("rowText separate columns", function()
   local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil }, ns.Money.format)
   h.eq(R.LABELS.vendor, "Vendor: ")
-  h.eq(R.LABELS.ah, "AH: ")
-  h.eq(t.ahAmount, "n/a")
+  h.eq(R.LABELS.best, "Best: ")
+  h.eq(t.bestLabel, "Best: ")
+  h.eq(t.bestAmount, "n/a")
   h.eq(t.vendorAmount, "5c")
 end)
 
-local WIDE = { vendorLabel = 50, ahLabel = 26, tag = 40, amount = 98, qtyWorst = 30 }
+local WIDE = { vendorLabel = 50, bestLabel = 26, tag = 40, amount = 98, qtyWorst = 30 }
 
 local function checkBlock(c, w)
   local S = ns.Theme.sizes
@@ -127,8 +128,8 @@ h.test("blockLayout: nil / 0 measurements use the Theme fallbacks", function()
   local S = ns.Theme.sizes
   local c = R.blockLayout(500, nil, 0, nil)
   checkBlock(c, 500)
-  h.eq(c.amountX - c.labelX, math.max(S.rowVendorLabelW, S.rowAhLabelW) + S.rowLabelGap)
-  h.eq(c.blockW, math.max(S.rowVendorLabelW, S.rowAhLabelW) + S.rowLabelGap + S.rowVendorColW)
+  h.eq(c.amountX - c.labelX, math.max(S.rowVendorLabelW, S.rowBestLabelW) + S.rowLabelGap)
+  h.eq(c.blockW, math.max(S.rowVendorLabelW, S.rowBestLabelW) + S.rowLabelGap + S.rowVendorColW)
   h.eq(R.blockLayout(500, 0 / 0, nil, nil).blockW, c.blockW)
 end)
 
@@ -163,23 +164,23 @@ h.test("worstCase: required = rowNameMin + gap + blockW", function()
   h.eq(c.qtyW, 30 + P)
   h.eq(c.blockW, 50 + P + S.rowLabelGap + 98 + P + S.rowTagGap + 40 + P)
   h.eq(c.required, S.rowNameMin + S.rowNameGap + c.blockW)
-  -- The AH label may be the wider one.
-  h.eq(R.worstCase({ vendorLabel = 20, ahLabel = 44, tag = 40, amount = 98 }).labelW, 44 + P)
+  -- The Best label may be the wider one.
+  h.eq(R.worstCase({ vendorLabel = 20, bestLabel = 44, tag = 40, amount = 98 }).labelW, 44 + P)
 end)
 
 h.test("worstCase: nil / zero measured fields use the Theme fallbacks", function()
   local S = ns.Theme.sizes
   local c = R.worstCase(nil)
   h.eq(c.fallback, true)
-  h.eq(c.labelW, math.max(S.rowVendorLabelW, S.rowAhLabelW))
+  h.eq(c.labelW, math.max(S.rowVendorLabelW, S.rowBestLabelW))
   h.eq(c.amountW, S.rowVendorColW)
   h.eq(c.tagW, S.rowTagW)
   h.eq(c.qtyW, S.rowQtyW)
-  local part = R.worstCase({ vendorLabel = 50, ahLabel = 0, tag = nil, amount = 98, qtyWorst = 30 })
+  local part = R.worstCase({ vendorLabel = 50, bestLabel = 0, tag = nil, amount = 98, qtyWorst = 30 })
   h.eq(part.fallback, true)
   h.eq(part.labelW, 50 + P)
   h.eq(part.tagW, S.rowTagW)
-  h.eq(R.worstCase({ vendorLabel = 50, ahLabel = 26, tag = 40, amount = 98 }).fallback, true)
+  h.eq(R.worstCase({ vendorLabel = 50, bestLabel = 26, tag = 40, amount = 98 }).fallback, true)
 end)
 
 h.test("nameFit clips long names, keeps the quantity visible", function()
@@ -196,19 +197,21 @@ end)
 h.test("requiredRowWidth adds the text inset and window chrome", function()
   local S = ns.Theme.sizes
   local c = R.worstCase(WIDE)
-  h.eq(R.requiredRowWidth(WIDE), S.rowNameMin + S.rowNameGap + c.blockW + S.rowTextLeft + S.rowRightInset + S.rowChrome)
+  local textLeft = S.rowIconInset + S.iconSize + S.rowIconGap
+  h.eq(R.requiredRowWidth(WIDE), S.rowNameMin + S.rowNameGap + c.blockW + textLeft + S.rowRightInset + S.rowChrome)
   h.eq(R.requiredRowWidth(WIDE) > R.requiredRowWidth(nil), true)
 end)
 
 h.test("without item icons the text starts near the left edge and the row needs less width", function()
   local S = ns.Theme.sizes
   local withIcons = R.requiredRowWidth(WIDE)
-  h.eq(R.textLeft(), S.rowTextLeft)
+  local textLeft = S.rowIconInset + S.iconSize + S.rowIconGap
+  h.eq(R.textLeft(), textLeft)
   ns.Options, ns.db = { get = function(_, key) if key == "showIcons" then return false end end }, {}
   local ok, err = pcall(function()
     h.eq(R.showIcons(), false)
     h.eq(R.textLeft(), S.rowTextLeftNoIcon)
-    h.eq(R.requiredRowWidth(WIDE), withIcons - S.rowTextLeft + S.rowTextLeftNoIcon)
+    h.eq(R.requiredRowWidth(WIDE), withIcons - textLeft + S.rowTextLeftNoIcon)
   end)
   ns.Options, ns.db = nil, nil
   assert(ok, err)
@@ -223,12 +226,29 @@ h.test("Rows.tooltipLink: the row link, else an item string, else nil", function
   h.eq(ns.UI.Rows.tooltipLink(nil), nil)
 end)
 
-h.test("rowText disenchant line only for disenchantable items", function()
-  local t = R.rowText({ name = "X", quantity = 2, deTotal = 500 }, ns.Money.format)
-  h.eq(t.deLabel, "DE: "); h.eq(t.deAmount, "5s")
-  h.eq(R.rowText({ name = "X", quantity = 2, deTotal = 500 }).deAmount,
-    ns.Money.formatColored(500, ns.Theme.colors))
-  local n = R.rowText({ name = "X", quantity = 2 })
-  h.eq(n.deLabel, ""); h.eq(n.deAmount, "")
-  h.eq(R.rowText({ name = "S", quantity = 1, deTotal = 9, deLabel = "Gold: " }).deLabel, "Gold: ")
+h.test("rowText line 2 shows the better of AH and disenchant as Best", function()
+  local fm = ns.Money.format
+  -- DE higher: line 2 is the DE value, and a cached AH age tag is not shown
+  local t = R.rowText({ name = "X", quantity = 2, ahTotal = 300, deTotal = 500,
+    ahFromCache = true, ahAge = 3600 }, fm)
+  h.eq(t.bestLabel, "Best: "); h.eq(t.bestAmount, "5s"); h.eq(t.tag, nil)
+  -- AH higher (or equal): the AH value with its age tag
+  local a = R.rowText({ name = "X", quantity = 2, ahTotal = 500, deTotal = 500,
+    ahFromCache = true, ahAge = 3600 }, fm)
+  h.eq(a.bestAmount, "5s"); h.eq(a.tag, "(1h)")
+  -- only DE known
+  h.eq(R.rowText({ name = "X", quantity = 2, deTotal = 500 }, fm).bestAmount, "5s")
+  -- neither: n/a, or "bound" for a bound item
+  h.eq(R.rowText({ name = "X", quantity = 2 }).bestAmount, "n/a")
+  h.eq(R.rowText({ name = "X", quantity = 2, bound = true }).bestAmount, "bound")
+  -- a row may bring its own line 2 total (History sessions)
+  h.eq(R.rowText({ name = "S", quantity = 1, ahTotal = 9, bestLineTotal = 700 }, fm).bestAmount, "7s")
+end)
+
+h.test("Rows.bestLine: which total line 2 shows and whether it is the AH one", function()
+  h.eq({ R.bestLine({ ahTotal = 10, deTotal = 5 }) }, { 10, true })
+  h.eq({ R.bestLine({ ahTotal = 5, deTotal = 10 }) }, { 10, false })
+  h.eq({ R.bestLine({ deTotal = 10 }) }, { 10, false })
+  h.eq(select(2, R.bestLine({})), false); h.eq((R.bestLine({})), nil)
+  h.eq({ R.bestLine({ ahTotal = 5, bestLineTotal = 8 }) }, { 8, false })
 end)

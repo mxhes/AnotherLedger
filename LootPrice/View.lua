@@ -32,7 +32,6 @@ local View = {
 local MIN_QUALITY, MAX_QUALITY = 0, 7
 local NO_LOOKUP = {}
 
-local L_GOLD = L["Gold: "]
 local L_CLICK_OPEN = L["Click to show the items"]
 local L_CLICK_CLOSE = L["Click to collapse"]
 
@@ -307,7 +306,8 @@ function View.buildHistory(list, opts, openIndex)
         id = -i, key = -i, historyIndex = i,
         name = name, sortName = lower(name),
         quality = 1, quantity = e.nItems,
-        vendorTotal = e.vendor, ahTotal = e.ah, deTotal = e.gold, deLabel = L_GOLD,
+        -- Line 2 of the row shows the session's best value (raw gold is in the hint).
+        vendorTotal = e.vendor, ahTotal = e.ah, bestLineTotal = best,
         icon = "Interface\\Icons\\INV_Misc_Note_01",
         hint = History.details(e, opts.formatDate) .. "\n" .. (open and L_CLICK_CLOSE or L_CLICK_OPEN),
         value = best, lastSeen = e.startedAt,

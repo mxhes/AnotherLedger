@@ -41,9 +41,7 @@ ns.Locale.register("deDE", {
   -- Rows and footer
   ["Vendor: "] = "Händler: ",
   ["AH: "] = "AH: ",
-  ["DE: "] = "Entz.: ",
   ["bound"] = "gebunden",
-  ["Gold: "] = "Gold: ",
   ["Total"] = "Gesamt",
   ["Best: "] = "Bester: ",
   ["Top finds"] = "Beste Funde",
