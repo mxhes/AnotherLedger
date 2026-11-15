@@ -136,6 +136,20 @@ function Core.unitValue(info)
   return (ns.View.best(info.vendor, info.ah, info.de))
 end
 
+-- What a session is worth now: every item at its best unit value plus the raw
+-- gold (copper). Reset asks first above Session.LARGE_SESSION_VALUE.
+function Core.sessionValue(session)
+  if type(session) ~= "table" then return 0 end
+  local total = ns.Session.goldTotal(session)
+  for _, it in pairs(session.items or {}) do
+    if type(it) == "table" and ns.Util.isNumber(it.qty) then
+      local unit = Core.unitValue(Core.lookupPrice(it.id, it.link))
+      if unit then total = total + unit * it.qty end
+    end
+  end
+  return total
+end
+
 -- ---------------------------------------------------------------------------
 -- Where the player is (History: zone or instance per session)
 

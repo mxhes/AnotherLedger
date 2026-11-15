@@ -17,6 +17,7 @@ local Panel = {}
 ns.UI.OptionsPanel = Panel
 
 local TITLE = L["Options"]
+local L_DELETE = L["Delete"]
 local COLUMNS = 2
 local COLUMN_WIDTH = 250
 local COLUMN_GAP = 24
@@ -105,9 +106,21 @@ function Panel.WIDGETS.number(block, spec)
   local function show(value)
     box:SetText(value < 0 and "" or tostring(value))
   end
+  -- A value the option wants confirmed (History kept: deletes sessions) waits
+  -- for the popup; the box shows the stored value until then.
   local function commit()
     local parsed = ns.Options.parseNumber(box:GetText())
-    if parsed then show(set(spec, parsed)) else show(get(spec)) end
+    if not parsed or ns.Options.normalize(spec, parsed) == get(spec) then
+      show(get(spec))
+      return
+    end
+    local question = spec.confirm and spec.confirm(ns.Options.normalize(spec, parsed))
+    if question then
+      show(get(spec))
+      ns.UI.Widgets.confirm(question, L_DELETE, function() show(set(spec, parsed)) end)
+      return
+    end
+    show(set(spec, parsed))
   end
   box:SetScript("OnEnterPressed", function(self)
     commit()

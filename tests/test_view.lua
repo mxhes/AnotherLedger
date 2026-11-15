@@ -348,6 +348,24 @@ h.test("View.buildHistory: one row per archived session with totals", function()
   h.eq(#ns.View.buildHistory(nil, {}).rows, 0)
 end)
 
+h.test("View.buildHistory: an opened session lists its items at the saved prices", function()
+  local list = {
+    { startedAt = 1, elapsed = 3600, gold = 0, nItems = 2, vendor = 20, ah = 300, best = 320, items = {
+      [1] = { id = 1, key = 1, qty = 2, lastSeen = 1, price = { vendor = 10, ah = 150 } },
+      [2] = { id = 2, key = 2, qty = 1, lastSeen = 1 }, -- saved before prices were kept
+    } },
+  }
+  local live = { [1] = { vendor = 10, ah = 999, ahSource = "TSM", ahAge = 0 },
+    [2] = { vendor = 7, ah = 20, ahSource = "cache", ahAge = 7200 } }
+  local v = ns.View.buildHistory(list, { now = 9000, lookup = function(id) return live[id] end }, 1)
+  local byID = {}
+  for _, r in ipairs(v.rows) do if r.id > 0 then byID[r.id] = r end end
+  h.eq(byID[1].ahTotal, 300) -- saved, not today's 999
+  h.eq(byID[1].ahFromCache, false); h.eq(byID[1].ahAge, nil)
+  h.eq(byID[2].ahTotal, 20) -- nothing saved: today's price with its age
+  h.eq(byID[2].ahAge, 7200)
+end)
+
 h.test("View.buildHistory: the place joins the name, the details the hint", function()
   local list = {
     { startedAt = 200, elapsed = 3600, gold = 10000, nItems = 1, vendor = 10, ah = 100, best = 150,

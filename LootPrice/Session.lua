@@ -14,7 +14,9 @@ local num, posInt = ns.Util.isNumber, ns.Util.isPositiveInt
 -- seen at loot time (a fallback for History when no live price is known).
 
 local Session = {
+  -- Reset asks first from this many items or this value (100 gold).
   LARGE_SESSION_ITEMS = 25,
+  LARGE_SESSION_VALUE = 100 * 10000,
 }
 
 function Session.new(now)
@@ -380,8 +382,11 @@ function Session.itemCount(session)
   return n
 end
 
-function Session.needsResetConfirm(session)
-  return Session.itemCount(session) >= Session.LARGE_SESSION_ITEMS
+-- Reset asks first for a session with many items or, given its `value`
+-- (copper: items at their best value plus raw gold), a valuable one.
+function Session.needsResetConfirm(session, value)
+  if Session.itemCount(session) >= Session.LARGE_SESSION_ITEMS then return true end
+  return num(value) and value >= Session.LARGE_SESSION_VALUE or false
 end
 
 ns.Session = Session

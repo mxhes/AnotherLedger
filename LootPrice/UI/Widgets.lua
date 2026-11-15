@@ -274,6 +274,29 @@ function Widgets.tooltipOwnedBy(owner)
 end
 
 -- ---------------------------------------------------------------------------
+-- Confirmation popup: one shared dialog, its text and handlers set per call.
+-- `accept` is the confirm button's text; `onCancel` (optional) runs on Cancel
+-- or Esc. Without the popup API (tests) nothing happens and nothing is done.
+
+local CONFIRM = "LOOTPRICE_CONFIRM"
+local L_CANCEL = ns.L["Cancel"]
+
+function Widgets.confirm(text, accept, onAccept, onCancel)
+  if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return false end
+  local dialog = StaticPopupDialogs[CONFIRM]
+  if not dialog then
+    dialog = { timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3, button2 = L_CANCEL }
+    StaticPopupDialogs[CONFIRM] = dialog
+  end
+  dialog.text = text
+  dialog.button1 = accept
+  dialog.OnAccept = function() if onAccept then onAccept() end end
+  dialog.OnCancel = function() if onCancel then onCancel() end end
+  StaticPopup_Show(CONFIRM)
+  return true
+end
+
+-- ---------------------------------------------------------------------------
 -- Context menu (feature-detected at call time)
 --
 -- entries = { { text, isChecked = function() -> bool, onClick = function() }, ... }

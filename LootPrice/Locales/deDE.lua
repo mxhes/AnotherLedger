@@ -237,5 +237,7 @@ ns.Locale.register("deDE", {
   ["Shows the LootPrice button on the minimap. Left-click shows or hides the window, right-click opens these options."] = "Zeigt den LootPrice-Knopf an der Minikarte. Linksklick zeigt oder versteckt das Fenster, Rechtsklick öffnet diese Optionen.",
   ["Moves the minimap button back to the bottom left of the minimap."] = "Setzt den Minikarten-Knopf zurück nach unten links an die Minikarte.",
   ["Opens a copy box with your History as CSV, for a spreadsheet. Same as /lp export."] = "Öffnet ein Kopierfeld mit deinem Verlauf als CSV für eine Tabellenkalkulation. Wie /lp export.",
-  ["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it deletes the oldest at once."] = "Wie viele Sitzungen der Verlauf behält. 0 behält keine, leer behält alle. Ein kleinerer Wert löscht die ältesten sofort.",
+  ["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."] = "Wie viele Sitzungen der Verlauf behält. 0 behält keine, leer behält alle. Ein kleinerer Wert fragt erst nach und löscht dann die ältesten.",
+  ["Delete the %d oldest sessions of your History? This can't be undone."] = "Die %d ältesten Sitzungen aus dem Verlauf löschen? Das lässt sich nicht rückgängig machen.",
+  ["Delete"] = "Löschen",
 })

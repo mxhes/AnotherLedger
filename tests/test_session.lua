@@ -177,6 +177,8 @@ h.test("Session.needsResetConfirm", function()
   for i = 1, 24 do S.add(s, i, L, 1, 1) end
   h.eq(S.itemCount(s), 24)
   h.eq(S.needsResetConfirm(s), false)
+  h.eq(S.needsResetConfirm(s, 999999), false)
+  h.eq(S.needsResetConfirm(s, 1000000), true) -- 100 gold: asks with few items too
   S.add(s, 25, L, 1, 1)
   h.eq(S.itemCount(s), 25)
   h.eq(S.needsResetConfirm(s), true)

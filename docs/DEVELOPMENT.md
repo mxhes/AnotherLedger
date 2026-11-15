@@ -113,6 +113,13 @@ Each of these is one call in one place; the UI never names them.
   averaged loot position on the map looted most (clamped to the map). The
   Ledger caches the pick until History, its options or the price interval
   change.
+- **History prices**: an entry keeps the unit prices its totals were made of
+  (`items[key].price`, archive time, loot time as fallback). An opened session
+  lists its items at those (`opts.savedPrices`), so they add up to its row;
+  Zones and the Daily farm value the same loot at today's prices.
+- **Confirmations** go through `Widgets.confirm(text, button, onAccept,
+  onCancel)` (one shared popup). An option can ask before a value is stored
+  with `confirm = function(value) return question or nil end` (History kept).
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
   gold when `includeGold` is on; the last drops come from `session.recent`.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts

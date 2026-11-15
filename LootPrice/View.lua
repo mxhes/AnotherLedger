@@ -105,15 +105,29 @@ local function makeRow(item, opts)
   local quality = info and num(info.quality) and info.quality or 1
 
   local qty = item.qty
-  local vendorEach = num(lookup.vendor) and lookup.vendor or (num(saved.vendor) and saved.vendor or nil)
-  local ahEach = num(lookup.ah) and lookup.ah or nil
-  local ahFromCache = lookup.ahSource == "cache"
-  local ahAge = num(lookup.ahAge) and lookup.ahAge or nil
-  if not ahEach and num(saved.ah) then
-    ahEach, ahFromCache = saved.ah, true
-    ahAge = num(item.lastSeen) and num(opts.now) and math.max(0, opts.now - item.lastSeen) or nil
+  local vendorEach, ahEach, deEach, ahFromCache, ahAge
+  if opts.savedPrices then
+    -- An opened History session: the prices it was saved with (its row's
+    -- totals), live ones only for what it has none of. No age tag.
+    vendorEach = num(saved.vendor) and saved.vendor or (num(lookup.vendor) and lookup.vendor or nil)
+    deEach = num(saved.de) and saved.de or (num(lookup.de) and lookup.de or nil)
+    if num(saved.ah) then
+      ahEach, ahFromCache = saved.ah, false
+    elseif num(lookup.ah) then
+      ahEach, ahFromCache = lookup.ah, lookup.ahSource == "cache"
+      ahAge = num(lookup.ahAge) and lookup.ahAge or nil
+    end
+  else
+    vendorEach = num(lookup.vendor) and lookup.vendor or (num(saved.vendor) and saved.vendor or nil)
+    ahEach = num(lookup.ah) and lookup.ah or nil
+    ahFromCache = lookup.ahSource == "cache"
+    ahAge = num(lookup.ahAge) and lookup.ahAge or nil
+    if not ahEach and num(saved.ah) then
+      ahEach, ahFromCache = saved.ah, true
+      ahAge = num(item.lastSeen) and num(opts.now) and math.max(0, opts.now - item.lastSeen) or nil
+    end
+    deEach = num(lookup.de) and lookup.de or (num(saved.de) and saved.de or nil)
   end
-  local deEach = num(lookup.de) and lookup.de or (num(saved.de) and saved.de or nil)
   local vendorTotal = vendorEach and vendorEach * qty or nil
   local ahTotal = ahEach and ahEach * qty or nil
   local deTotal = deEach and deEach * qty or nil
@@ -321,6 +335,8 @@ local function addGold(view, goldTotal, includeGold)
   return view
 end
 
+local savedOpts = {} -- opts of an opened History session (reused)
+
 -- History tab: one row per archived session (newest first), shown through the
 -- normal row layout; the DE line carries the session's raw gold. The session
 -- at `openIndex` (if any) moves to the top and its items (and currencies) are
@@ -366,7 +382,10 @@ function View.buildHistory(list, opts, openIndex)
   if opened then
     rows[1] = opened
     local entry = list[openIndex]
-    append(rows, (collect(entry.items, opts)))
+    for k in pairs(savedOpts) do savedOpts[k] = nil end
+    for k, v in pairs(opts) do savedOpts[k] = v end
+    savedOpts.savedPrices = true
+    append(rows, (collect(entry.items, savedOpts)))
     append(rows, View.currencyRows(entry.currencies, opts))
   end
   for _, r in ipairs(sessionRows) do

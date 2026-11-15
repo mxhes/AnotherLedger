@@ -60,13 +60,15 @@ row and price. Currencies are listed after the items.
   visit the banker once; after that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first, with their length, main place
   and value. A session is saved when you reset it, when a new login starts a
-  fresh one, or (option) when you enter or leave a dungeon. Click a session to
-  list its items; hover it for places, values and gold per hour. `/lp export`
-  copies the History as CSV for a spreadsheet.
+  fresh one, or (option) when you enter or leave a dungeon. A session keeps the
+  prices of the day it was saved, so its value doesn't change later. Click a
+  session to list its items; hover it for places, values and gold per hour.
+  `/lp export` copies the History as CSV for a spreadsheet.
 - **History > Zones**: which places are worth farming. All sessions grouped by
   zone and subzone, each with its time, value and gold per hour (sort by
   **Gold/h**). Click a zone to open its subzones, a subzone to list its items.
-  Quest items have their own group and don't count toward any place.
+  Quest items have their own group and don't count toward any place. Zones
+  and the Daily farm use today's prices.
 
 ## Daily farm
 
@@ -106,7 +108,7 @@ are not counted as loot; **Crafted and bought** turns that on.
 | `/lp show`, `/lp hide` | show or hide it |
 | `/lp start`, `/lp stop` | start or stop the session clock |
 | `/lp compact` | switch between the compact and the full layout |
-| `/lp reset` | clear the session (saved to History; asks first when it holds many items) |
+| `/lp reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
 | `/lp keep on` / `off` | keep the session across logins |
 | `/lp tsm <price>` | the TSM price to use, e.g. `DBMarket` |
 | `/lp export` | the History as CSV in a copy box |

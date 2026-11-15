@@ -220,6 +220,31 @@ h.test("wiring: the sort button keeps the Gold/h label in Zones after a redraw",
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: History kept asks before deleting, reset asks for a valuable session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local shown = {}
+  ctx.env.StaticPopup_Show = function(name) shown[#shown + 1] = ctx.env.StaticPopupDialogs[name] end
+  local history = ctx.env.LootPriceCharDB.history
+  for i = 1, 3 do history[i] = { startedAt = i, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} } end
+  local spec = ctx.ns.Options.spec("historyLimit")
+  h.eq(spec.confirm(5), nil) -- nothing would be deleted
+  h.eq(spec.confirm(-1), nil)
+  h.eq(spec.confirm(1):find("2 oldest", 1, true) ~= nil, true)
+
+  -- 150 gold of raw gold, one item: Reset asks first, Cancel keeps it.
+  ctx.ns.Core.recordGold(1500000)
+  slash(ctx, "reset")
+  h.eq(#shown, 1)
+  h.eq(ctx.ns.session.gold, 1500000)
+  shown[1].OnCancel()
+  h.eq(ctx.ns.session.gold, 1500000)
+  shown[1].OnAccept()
+  h.eq(ctx.ns.session.gold, 0)
+  h.eq(#history, 4)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: demo on a stopped session seeds nothing", function()
   local ctx = boot()
   startWorld(ctx, false)

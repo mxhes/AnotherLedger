@@ -19,8 +19,6 @@ local L_TO_FULL = L["Full window (or double-click the title)"]
 local L_PAUSED = L["Paused"]
 local L_CLOCK_HINT = L["Click: start / stop the session"]
 local L_RESET_CONFIRM = L["Reset the session? It is saved to History, then the loot and the clock start again from zero."]
-local L_YES = L["Reset"]
-local L_NO = L["Cancel"]
 
 -- Compact button widths live in Theme.widths.header (width budget there).
 local function widths() return ns.Theme.widths.header end
@@ -59,20 +57,9 @@ end
 
 function Header.requestReset()
   if not ns.session then return end
-  if ns.Session.needsResetConfirm(ns.session) then
-    if not StaticPopupDialogs["LOOTPRICE_RESET"] then
-      StaticPopupDialogs["LOOTPRICE_RESET"] = {
-        text = L_RESET_CONFIRM,
-        button1 = L_YES,
-        button2 = L_NO,
-        OnAccept = doReset,
-        timeout = 0,
-        whileDead = true,
-        hideOnEscape = true,
-        preferredIndex = 3,
-      }
-    end
-    StaticPopup_Show("LOOTPRICE_RESET")
+  local value = ns.Core and ns.Core.sessionValue and ns.Core.sessionValue(ns.session) or 0
+  if ns.Session.needsResetConfirm(ns.session, value) then
+    ns.UI.Widgets.confirm(L_RESET_CONFIRM, L_RESET, doReset)
   else
     doReset()
   end

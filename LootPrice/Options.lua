@@ -20,6 +20,8 @@ local L = ns.L
 --     (text: any non-empty text; button: has no value, `action` runs on click)
 --     format  = function(v) ... end,  -- optional display text of the value
 --     apply   = function(value) ... end, -- optional: make the value take effect
+--     confirm = function(value) ... end, -- optional: a question (text) the panel
+--                                        -- asks before storing value, or nil
 --   })
 --
 -- Values are validated by type (clamped, snapped, checked against the choices)
@@ -572,7 +574,14 @@ Options.define({
   key = "historyLimit", category = "session",
   type = "number",
   label = L["History kept"],
-  tooltip = L["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it deletes the oldest at once."],
+  tooltip = L["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."],
+  -- The panel asks before a lower limit deletes saved sessions.
+  confirm = function(v)
+    local history = ns.chardb and ns.chardb.history
+    local n = type(history) == "table" and #history or 0
+    if not num(v) or v < 0 or n <= v then return nil end
+    return string.format(L["Delete the %d oldest sessions of your History? This can't be undone."], n - v)
+  end,
   apply = function(v)
     if ns.History and ns.chardb and type(ns.chardb.history) == "table" then
       ns.History.prune(ns.chardb.history, v)
