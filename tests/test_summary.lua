@@ -4,10 +4,10 @@ local S = ns.UI.Summary
 local M = ns.Money
 
 h.test("rateText: money per hour, em dash without a rate", function()
-  h.eq(S.rateText(5000, M.format), "50s/h")
+  h.eq(S.rateText(5000, M.format), "50s") -- the column title says per hour
   h.eq(S.rateText(nil, M.format), "\226\128\148")
   h.eq(S.rateText(nil), "\226\128\148")
-  h.eq(S.rateText(5000), M.formatColored(5000, ns.Theme.colors) .. "/h")
+  h.eq(S.rateText(5000), M.formatColored(5000, ns.Theme.colors))
 end)
 
 h.test("topLines", function()
@@ -73,11 +73,11 @@ h.test("rowTexts: best value and rate per row, em dash without a rate", function
   local t = S.rowTexts({ totals = { best = 1000, bestPerHour = 300 }, gold = { total = 50 },
     combined = { best = 1050, bestPerHour = 320 } }, M.format)
   h.eq(t.items.value, M.format(1000))
-  h.eq(t.items.rate, M.format(300) .. "/h")
+  h.eq(t.items.rate, M.format(300))
   h.eq(t.gold.value, M.format(50))
   h.eq(t.gold.rate, "\226\128\148")
   h.eq(t.total.value, M.format(1050))
-  h.eq(t.total.rate, M.format(320) .. "/h")
+  h.eq(t.total.rate, M.format(320))
   local e = S.rowTexts({}, M.format)
   h.eq(e.items.value, "0c")
   h.eq(e.total.rate, "\226\128\148")
@@ -89,13 +89,13 @@ h.test("notesText: markers and bank note on one line", function()
   h.eq(S.notesText({ totals = {} }), nil)
   h.eq(S.notesText(nil), nil)
   local text, orange = S.notesText({ totals = { filtered = true, unpriced = 3 } })
-  h.eq(text, "filtered \194\183 3 unpriced")
+  h.eq(text, "filtered \194\183 3 unpriced (marked ?)")
   h.eq(orange, true)
   text, orange = S.notesText({ kind = "inventory", totals = {}, note = "Scanned 3h ago" })
   h.eq(text, "Scanned 3h ago")
   h.eq(orange, false)
   text, orange = S.notesText({ totals = { unpriced = 2 }, note = "Scanned 2d ago", noteStale = true })
-  h.eq(text, "2 unpriced \194\183 Scanned 2d ago")
+  h.eq(text, "2 unpriced (marked ?) \194\183 Scanned 2d ago")
   h.eq(orange, true)
 end)
 
@@ -118,4 +118,26 @@ end)
 h.test("table worst case fits the minimum window width", function()
   local T = ns.Theme.sizes
   h.eq(S.tableWorstWidth() <= T.minWidth - 2 * (T.padding + 4), true)
+end)
+
+h.test("notesText: History lists have no ? marks to point at", function()
+  h.eq(S.notesText({ history = true, totals = { unpriced = 2 } }), "2 unpriced")
+end)
+
+h.test("tooltipLines keep the per hour suffix on rates", function()
+  local lines = S.tooltipLines({ totals = { best = 1000, bestPerHour = 300 } }, M.format)
+  local found = false
+  for _, l in ipairs(lines) do if l[2]:find(M.format(300) .. "/h", 1, true) then found = true end end
+  h.eq(found, true)
+end)
+
+h.test("tableLayout: showFooterGold off drops the Raw gold row", function()
+  ns.Options, ns.db = { get = function(_, key) if key == "showFooterGold" then return false end end }, {}
+  local ok, err = pcall(function()
+    h.eq(S.tableLayout({ totals = {} }).rows, { "items", "total" })
+    h.eq(S.tableLayout({ noCombined = true, totals = {} }).rows, { "items" })
+    h.eq(S.tableLayout({ totals = {} }).height, 3 * ns.Theme.sizes.footerRowHeight)
+  end)
+  ns.Options, ns.db = nil, nil
+  assert(ok, err)
 end)

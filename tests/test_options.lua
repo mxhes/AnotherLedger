@@ -13,7 +13,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "keepSession", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
-    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "showTopFinds", "showFooterGold", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
@@ -239,4 +239,9 @@ h.test("Options.layout: a header always sits right above its first option, also 
       h.eq(L.tops[nextEntry.key], L.tops[e.key] + O.HEIGHTS.header + O.GAP, e.key)
     end
   end
+end)
+
+h.test("Options: Top finds and the Raw gold footer row show by default", function()
+  h.eq(O.get(db(), "showTopFinds"), true)
+  h.eq(O.get(db(), "showFooterGold"), true)
 end)

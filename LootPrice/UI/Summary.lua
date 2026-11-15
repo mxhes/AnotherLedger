@@ -4,7 +4,7 @@ local L = ns.L
 
 ns.UI = ns.UI or {}
 
--- The footer value table (rows Items / Raw gold / Total, columns Value and /h,
+-- The footer value table (rows Items / Raw gold / Total, columns Value and per hour,
 -- a notes line and a vendor / AH tooltip) and the Top finds block (topBox, at
 -- the bottom of the window under the footer). Client-only widgets; every WoW
 -- global is touched inside functions only. The helpers up to "Widgets" are pure.
@@ -15,7 +15,9 @@ local L_TOP = L["Top finds"]
 local L_VENDOR = L["Vendor: "]
 local L_AH = L["AH: "]
 local L_PER_HOUR = L["/h"]
+local L_PER_HOUR_TITLE = L["per hour"]
 local L_UNPRICED = L[" unpriced"]
+local L_MARKED = L[" (marked ?)"]
 local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
 local L_LABEL_GOLD = L["Raw gold"]
@@ -37,14 +39,15 @@ local function amountText(v, formatMoney)
   return (formatMoney or ns.Money.formatColored)(tonumber(v) or 0)
 end
 
--- "12g 5s/h", or an em dash while there is no rate yet.
+-- "12g 5s" (the column title says per hour), or an em dash while there is no
+-- rate yet.
 function Summary.rateText(perHour, formatMoney)
   if perHour == nil then return DASH end
-  return (formatMoney or ns.Money.formatColored)(perHour) .. L_PER_HOUR
+  return (formatMoney or ns.Money.formatColored)(perHour)
 end
 
 -- ---------------------------------------------------------------------------
--- Value table (rows Items / Raw gold / Total, columns Value and /h)
+-- Value table (rows Items / Raw gold / Total, columns Value and per hour)
 
 Summary.ROWS = { "items", "gold", "total" }
 local ROW_LABELS = { items = L_LABEL_ITEMS, gold = L_LABEL_GOLD, total = L_TOTAL }
@@ -62,7 +65,8 @@ function Summary.notesText(view)
   end
   local unpriced = tonumber(totals.unpriced) or 0
   if unpriced > 0 then
-    parts[#parts + 1] = unpriced .. L_UNPRICED
+    -- Item rows mark unpriced items "?"; History session lists have no marks.
+    parts[#parts + 1] = unpriced .. L_UNPRICED .. (view.history and "" or L_MARKED)
     orange = true
   end
   if view.note then
@@ -79,12 +83,15 @@ function Summary.tableLayout(view)
   local s = ns.Theme.sizes
   local inventory = view.kind == "inventory"
   local layout = { rates = not inventory, titles = not inventory }
+  -- Option "showFooterGold" off: no Raw gold row (Total still includes it).
+  local O, db = ns.Options, ns.db
+  local goldRow = not (O and db) or O.get(db, "showFooterGold") ~= false
   if inventory then
     layout.rows = { "items" }
   elseif view.noCombined then
-    layout.rows = { "items", "gold" }
+    layout.rows = goldRow and { "items", "gold" } or { "items" }
   else
-    layout.rows = { "items", "gold", "total" }
+    layout.rows = goldRow and { "items", "gold", "total" } or { "items", "total" }
   end
   layout.notes = Summary.notesText(view) ~= nil
   layout.height = ((layout.titles and 1 or 0) + #layout.rows) * s.footerRowHeight
@@ -117,7 +124,9 @@ function Summary.tooltipLines(view, formatMoney)
     lines[#lines + 1] = { title, "" }
     local function line(label, amount, perHour)
       local right = amountText(amount, formatMoney)
-      if layout.rates then right = right .. "  " .. Summary.rateText(perHour, formatMoney) end
+      if layout.rates then
+        right = right .. "  " .. Summary.rateText(perHour, formatMoney) .. (perHour ~= nil and L_PER_HOUR or "")
+      end
       lines[#lines + 1] = { label, right }
     end
     line(L_VENDOR, t.vendor, t.vendorPerHour)
@@ -194,7 +203,8 @@ function Summary.attach(topBox, footer)
   -- Top finds (bottom of the window, under the footer). The divider is the
   -- top edge of the topBox; the content starts below it.
   local off = S.dividerHeight + S.padding / 2
-  local header = makeText(topBox, T.fonts.topHeader, titleColor)
+  -- Section title in the header font: below the window title, not above it.
+  local header = makeText(topBox, T.fonts.title, titleColor)
   header:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -off)
   header:SetText(L_TOP)
   summary.header = header
@@ -266,7 +276,7 @@ function Summary.attach(topBox, footer)
   placeValue(titles.value, titles.frame, true)
   titles.rate = makeText(titles.frame, T.fonts.summaryMarker, T.colors.columnTitle, "RIGHT")
   titles.rate:SetPoint("RIGHT", titles.frame, "RIGHT", 0, 0)
-  titles.rate:SetText(L_PER_HOUR)
+  titles.rate:SetText(L_PER_HOUR_TITLE)
   summary.titles = titles
 
   local cells = {}
@@ -382,7 +392,10 @@ function Summary.attach(topBox, footer)
         w.frame:Hide()
       end
     end
-    local height = Summary.topBoxHeight(#lines)
+    -- Option "showTopFinds" off: the block stays collapsed.
+    local O, db = ns.Options, ns.db
+    local shown = not (O and db) or O.get(db, "showTopFinds") ~= false
+    local height = shown and Summary.topBoxHeight(#lines) or 0
     if height ~= self.height then
       self.height = height
       if ns.UI.Window and ns.UI.Window.setTopBoxHeight then

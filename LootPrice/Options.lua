@@ -386,6 +386,17 @@ Options.define({
   min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
 })
 
+-- Off: the Top finds block under the footer stays collapsed.
+Options.define({
+  key = "showTopFinds", category = "display", type = "checkbox", label = L["Show Top finds"], apply = refreshUI,
+})
+
+-- Off: the footer table has no Raw gold row (Total still follows includeGold).
+Options.define({
+  key = "showFooterGold", category = "display", type = "checkbox", label = L["Show the Raw gold row in the footer"],
+  apply = refreshUI,
+})
+
 -- Off: the list rows have no icon and their text starts at the left edge.
 Options.define({
   key = "showIcons", category = "display", type = "checkbox", label = L["Show item icons"],

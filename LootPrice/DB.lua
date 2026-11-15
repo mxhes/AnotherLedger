@@ -38,6 +38,9 @@ DB.defaults = {
     -- Daily farm strip and the minimum recorded time of a place it may pick.
     dailyFarm = true,
     dailyFarmMinutes = 20,
+    -- Top finds block and the Raw gold row of the footer table.
+    showTopFinds = true,
+    showFooterGold = true,
     -- Item icon at the left of each list row.
     showIcons = true,
     -- TSM region sale info under the item name and its level cutoffs: sale

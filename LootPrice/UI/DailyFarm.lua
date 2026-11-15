@@ -48,7 +48,8 @@ end
 
 function DailyFarm.label(farm)
   local best = farm.best
-  local text = L_DAILY_FARM .. DailyFarm.placeName(best) .. "  " .. rate(best)
+  -- Rate first: a narrow window cuts the place name, never the gold per hour.
+  local text = L_DAILY_FARM .. rate(best) .. "  " .. DailyFarm.placeName(best)
   if farm.slow then
     text = text .. "  " .. ns.Money.colorCode(ns.Theme.colors.marketBad) .. L_SLOW .. "|r"
   end
@@ -135,6 +136,8 @@ function DailyFarm.attach(row)
   icon:SetSize(T.sizes.dailyFarmIcon, T.sizes.dailyFarmIcon)
   icon:SetPoint("LEFT", button, "LEFT", 0, 0)
   icon:SetTexture(T.textures.dailyFarm)
+  local fc = T.colors.dailyFarm
+  icon:SetVertexColor(fc[1], fc[2], fc[3], fc[4] or 1)
   local text = W.text(button, T.fonts.title, T.colors.dailyFarm, "LEFT")
   text:SetPoint("LEFT", icon, "RIGHT", 4, 0)
   text:SetPoint("RIGHT", button, "RIGHT", 0, 0)

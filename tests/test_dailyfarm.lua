@@ -56,3 +56,13 @@ h.test("DailyFarm.hint lists the clicks: waypoint ones only with a spot", functi
   h.eq(s:find(ns.L["Right-click: copy the /way line"], 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Click to open it in Zones"], 1, true), nil)
 end)
+
+h.test("DailyFarm.label puts the rate first so a narrow window cuts the place", function()
+  local f = farm()
+  local s = DF.label(f)
+  h.eq(s:sub(1, #(ns.L["Daily farm: "] .. "~")), ns.L["Daily farm: "] .. "~")
+  h.eq(s:find("~", 1, true) < s:find("A (Z)", 1, true), true)
+  f.slow = { names = { "Ore" } }
+  local slow = DF.label(f)
+  h.eq(slow:find(ns.L["slow selling"], 1, true) > slow:find("A (Z)", 1, true), true)
+end)
