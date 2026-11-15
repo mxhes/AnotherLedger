@@ -523,3 +523,125 @@ h.test("View.build: rows carry the sale info levels only with cutoffs", function
   h.eq(row.rateLevel, nil)
   h.eq(row.volumeLevel, nil)
 end)
+
+-- ---------------------------------------------------------------------------
+-- History Zones
+
+local zprices = { [1] = { ah = 100 }, [2] = { vendor = 10 }, [3] = { ah = 1000 } }
+local function zlookup(id) return zprices[id] end
+
+-- A History entry: items = { [id] = qty } (all of them in `zones` when given).
+local function zentry(items, zones, places, gold)
+  local e = { startedAt = 1, elapsed = 0, gold = gold or 0, nItems = 0, vendor = 0, ah = 0,
+    items = {}, zones = zones, places = places }
+  for id, qty in pairs(items) do
+    e.items[id] = { id = id, key = id, link = link("I" .. id), qty = qty, lastSeen = 5 }
+  end
+  return e
+end
+local function zsub(time, items, gold) return { time = time, gold = gold or 0, items = items } end
+
+local function twoZones()
+  local a = zentry({ [1] = 2 }, { Z = { subs = { A = zsub(1800, { [1] = 2 }) } } })
+  local b = zentry({ [1] = 2, [2] = 1 }, {
+    Z = { subs = { A = zsub(1800, { [1] = 2 }) } },
+    Y = { subs = { B = zsub(3600, { [2] = 1 }, 50) } },
+  })
+  return { a, b }
+end
+
+h.test("View.buildZones adds up places across sessions and ranks them", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah" }, {})
+  h.eq(#v.rows, 2)
+  h.eq(v.rows[1].zoneKey, "Z")
+  h.eq(v.rows[1].value, 400)
+  h.eq(v.rows[1].placeTime, 3600)
+  h.eq(v.rows[1].perHour, 400)
+  h.eq(v.rows[2].zoneKey, "Y")
+  h.eq(v.rows[2].value, 60)
+  h.eq(v.kind, "zones")
+  h.eq(v.totals.best, 410)
+  h.eq(v.gold.total, 50)
+end)
+
+h.test("View.buildZones opens a zone into subzones and a subzone into items", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah" }, { zone = "Z" })
+  h.eq(v.rows[2].subKey, "A")
+  h.eq(v.rows[2].zoneKey, "Z")
+  h.eq(#v.rows, 3)
+  v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah" }, { zone = "Z", sub = "A" })
+  h.eq(v.rows[3].id, 1)
+  h.eq(v.rows[3].quantity, 4)
+  h.eq(v.rows[4].zoneKey, "Y")
+end)
+
+h.test("View.buildZones sorts by gold per hour, places without time last", function()
+  local list = {
+    zentry({ [2] = 1 }, { P = { subs = { A = zsub(3600, { [2] = 1 }) } } }),
+    zentry({ [3] = 1 }, nil, { Q = 2 }),
+  }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "perHour" }, {})
+  h.eq(v.rows[1].zoneKey, "P")
+  h.eq(v.rows[1].perHour, 10)
+  h.eq(v.rows[2].zoneKey, "Q")
+  h.eq(v.rows[2].perHour, nil)
+  v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.rows[1].zoneKey, "Q")
+end)
+
+h.test("View.buildZones puts old sessions under their only place or Unknown place, without time", function()
+  local list = {
+    zentry({ [1] = 1 }, { Z = { subs = { A = zsub(3600, { [1] = 1 }) } } }),
+    zentry({ [1] = 1 }, nil, { Z = 4 }),
+    zentry({ [2] = 1 }, nil, { Z = 1, Y = 1 }),
+  }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, { zone = "Z" })
+  h.eq(v.rows[1].zoneKey, "Z")
+  h.eq(v.rows[1].value, 200)
+  h.eq(v.rows[1].perHour, 100) -- only the timed loot
+  local subs = {}
+  for _, r in ipairs(v.rows) do if r.subKey then subs[r.subKey] = r end end
+  h.eq(subs.A.perHour, 100)
+  h.eq(subs[V.NO_TIME_SUB].perHour, nil)
+  h.eq(subs[V.NO_TIME_SUB].value, 100)
+  h.eq(v.rows[#v.rows].zoneKey, V.UNKNOWN_ZONE)
+  h.eq(V.UNKNOWN_ZONE, ns.Session.UNKNOWN_PLACE)
+end)
+
+h.test("View.buildZones groups quest items last, outside the totals", function()
+  local list = { zentry({ [1] = 1, [3] = 1 }, { Z = { subs = { A = zsub(3600, { [1] = 1, [3] = 1 }) } } }) }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah", isQuest = function(id) return id == 3 end }, {})
+  h.eq(#v.rows, 2)
+  h.eq(v.rows[1].value, 100)
+  h.eq(v.rows[2].zoneKey, V.QUEST_ZONE)
+  h.eq(v.rows[2].value, 1000)
+  h.eq(v.totals.best, 100)
+  v = V.buildZones(list, { lookup = zlookup, sort = "ah", isQuest = function(id) return id == 3 end },
+    { zone = V.QUEST_ZONE })
+  h.eq(v.rows[3].id, 3)
+end)
+
+h.test("View.buildZones honors includeGold", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah", includeGold = false }, {})
+  h.eq(v.rows[2].value, 10)
+  h.eq(v.noCombined, true)
+end)
+
+h.test("View.buildZones skips broken entries and takes the running session", function()
+  local live = { live = true, items = { [2] = { id = 2, key = 2, qty = 1, lastSeen = 9 } },
+    zones = { Y = { subs = { B = zsub(60, { [2] = 1 }) } } } }
+  local v = V.buildZones({ { startedAt = "x" }, live }, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(#v.rows, 1)
+  h.eq(v.rows[1].zoneKey, "Y")
+  h.eq(v.rows[1].lastSeen, 9)
+end)
+
+h.test("collect sorts items by value under the perHour sort", function()
+  local items = {
+    [2] = { id = 2, key = 2, link = link("Aa"), qty = 1, lastSeen = 0 }, -- first by name
+    [3] = { id = 3, key = 3, link = link("Zz"), qty = 1, lastSeen = 0 }, -- first by value
+  }
+  local v = V.buildInventory(items, { lookup = zlookup, sort = "perHour" })
+  h.eq(v.rows[1].id, 3)
+  h.eq(v.rows[2].id, 2)
+end)
