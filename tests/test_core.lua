@@ -389,3 +389,19 @@ h.test("Core.characterKey: Name-Realm, the name alone, or nil", function()
   h.eq(Core.characterKey({}), nil)
   h.eq(Core.characterKey({ UnitName = function() return "" end }), nil)
 end)
+
+h.test("Core.zoneSwitch: a new zone counts after the grace time, flights and detours never", function()
+  local st = {}
+  h.eq(Core.zoneSwitch(st, "Dornogal", 0, false, 120), false)
+  h.eq(st.zone, "Dornogal")
+  h.eq(Core.zoneSwitch(st, nil, 10, false, 120), false) -- no zone known: nothing changes
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 100, false, 120), false)
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 219, false, 120), false)
+  h.eq(Core.zoneSwitch(st, "Dornogal", 230, false, 120), false) -- back in time: a detour
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 400, false, 120), false)
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 600, true, 120), false) -- on a flight the wait starts over
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 610, false, 120), false)
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 730, false, 120), true)
+  h.eq(st.zone, "Isle of Dorn")
+  h.eq(Core.zoneSwitch(st, "Isle of Dorn", 900, false, 120), false)
+end)

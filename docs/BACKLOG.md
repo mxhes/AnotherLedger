@@ -14,19 +14,6 @@ run beats your usual.
 - Open: average of the zone or of the subzone; how many minutes before the
   comparison means something (like the Daily farm's minimum time).
 
-### Session per zone (M)
-An option like "Session per instance", but for a zone change: every new zone
-starts a new session, so History rows stay clean when you hop between farm spots.
-- Needs: a zone-change check next to `checkInstance` in `Core.lua`, with a
-  grace time so a short detour (flight path, a cave entrance) does not split
-  the session.
-
-### Gold per hour over time (L)
-A small graph of the rate over the session, to see when a spot dries up.
-- Needs: a rate sample every minute or so in the session (not in History, or
-  thinned out there), and a graph drawn with plain textures (bars), in the
-  compact window or a tooltip.
-
 ## Selling and items
 
 ### Vendor-trash total and "Sell junk" (S/M)
@@ -39,15 +26,10 @@ merchant, one button sells all of them.
   item. It is protected against bulk use on some clients, so sell in small
   batches with a short delay. UNVERIFIED (check in client) on Forever.
 
-### Mark items to keep vs sell (M)
-Splits the Bags total into "sellable" and "kept" (tools, consumables you use,
-gear sets), so the total answers "what can I actually sell?".
-- Needs: a keep list like the ignore list (account-wide, by item ID), a row
-  menu entry, and a second total in the Bags footer.
-
 ## Already built (from the same review)
 
 Session goal, session notes, ignore list, price per unit, compact breakdown
 tooltip, keybindings, scroll memory per tab, quality presets, clear-filter
 hint, account-wide Zones, undo for deleted sessions, session and Zones CSV
-export. Later: merging History sessions (with undo).
+export. Later: merging History sessions (with undo), session per zone, the
+gold per hour graph, the keep list (kept / sellable in Bags and Bank).

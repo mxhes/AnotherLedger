@@ -48,7 +48,7 @@ only inside functions.
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
-| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore list, History lists and undo (loads last) |
+| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/lp` command, names in `Slash.BINDINGS` |
 
 Data flow: `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh`
@@ -183,9 +183,36 @@ Each of these is one call in one place; the UI never names them.
   Zones place and the Daily farm leave them out; `Core.sessionValue`, the drop
   alert and the goals too. They stay recorded. History rows subtract them at
   their saved unit prices (`History.totals(e, ignored)`).
+- **Keep list** (`LootPriceDB.kept`, Core `keepItem` / `unkeepItem` /
+  `keptList`; both lists are made by `itemList(field)` in `Core.lua`):
+  `opts.kept` makes `View.buildInventory` set `row.kept` and
+  `totals.kept` / `totals.sellable` (only while a listed row is kept).
+  `Summary.tableLayout` then shows the rows `items`, `kept`, `sellable`;
+  `Rows.rowText` adds `(kept)` after the name. The row menu entry only shows
+  on an inventory view.
+- **Heartbeat**: one `C_Timer.NewTicker` of `HEARTBEAT_SECONDS` (5 s) runs
+  `Core.heartbeat`: the time goal, the zone delay and the rate samples.
+- **Session per zone** (`zoneSession`, `zoneSessionMinutes`): the pure
+  `Core.zoneSwitch(state, place, now, onTaxi, grace)` keeps the session's
+  zone and a pending new one (`Core.placeOf` labels, so an instance is a zone
+  too); it says yes once the player stayed `grace` seconds in the new zone, a
+  flight (`UnitOnTaxi`) or a return clears the pending zone.
+  `Core.checkZone` runs it on the zone events, loading screens and the
+  heartbeat; it splits only with the option on and the clock running (an
+  empty session is reset without a chat line). `checkInstance` sets the zone
+  after its own split, so one move never splits twice.
+- **Gold per hour graph**: `Core.sampleRate` (heartbeat) adds
+  `{ t = elapsed, v = worth }` to `session.samples` once per
+  `Session.sampleStep` of running clock (`Session.addSample`: past
+  `SAMPLES_MAX` every other sample goes and the step doubles; cleared by
+  `Session.reset`, not saved to History). `View.rateGraph` turns them into
+  per-stretch rates (`view.graph`, `compact.graph`), `View.addRateGraph`
+  into tooltip lines; `Tooltip.bars` / `Tooltip.barsText` draw the bars as
+  inline textures (`Theme.textures.graphBar`, `sizes.graphHeight` /
+  `graphWidth`). `Widgets.addTooltipLines` adds a rich tooltip to a shown
+  GameTooltip (the Session footer tooltip).
 - **Session goals** (`goalGold`, `goalMinutes`): `Core.checkGoals(withValue)`
-  after loot and gold (gold goal) and on a 5 s `C_Timer.NewTicker` (time
-  goal); the pure `Core.goalsReached` decides, `session.goalsNoted` (cleared by
+  after loot and gold (gold goal) and on the heartbeat (time goal); the pure `Core.goalsReached` decides, `session.goalsNoted` (cleared by
   `Session.reset`) keeps each goal from being announced twice. `opts.goal`
   (copper) gives `view.goal` / `compact.goal` = `{ value, goal }`: the
   unfiltered total like compact; `Summary.notesText` shows the percent.
@@ -220,7 +247,7 @@ Each of these is one call in one place; the UI never names them.
   unit value on rows with a quantity above 1.
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
   gold when `includeGold` is on; the last drops come from `session.recent`.
-  It also returns `items`, `gold`, `elapsed`, `top` and `goal` for the hover
+  It also returns `items`, `gold`, `elapsed`, `top`, `goal` and `graph` for the hover
   breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
   (`LootPrice<Key>`) in `Ledger.init`; typeface and px sizes change live and
@@ -252,10 +279,11 @@ Each of these is one call in one place; the UI never names them.
 - `LootPriceDB` (account): `settings` (options, including the minimap angle),
   `window` (position, full size `width` / `height`, compact size `compact`,
   `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort`,
-  `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list) and
+  `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
   `histories` (every character's History, see "Account-wide History").
 - `LootPriceCharDB` (character): the session (items, gold, places with time,
-  positions, recent drops and the goals already announced) and the bank scan.
+  positions, recent drops, the goals already announced and the rate samples)
+  and the bank scan.
   `history` is only written here by versions before the account-wide History.
 
 ## Events

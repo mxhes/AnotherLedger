@@ -112,6 +112,17 @@ and remove both once it is confirmed.
   there, with the window closed too (`C_Timer.NewTicker`).
 - [ ] Compact: hovering the gold per hour shows the breakdown, and the window
   can still be dragged from there.
+- [ ] Gold per hour graph: after about 3 minutes of clock the compact hover
+  and the Session footer tooltip show the bars, bottoms on one line, in gold
+  (inline textures `|T...:height:width:0:y:8:8:0:8:0:8:r:g:b|t`: the y offset
+  and the color fields); a stretch without loot is a thin line.
+- [ ] **Session per zone**: loot in a zone, fly to another (no split on the
+  way, `UnitOnTaxi`), stay 2 minutes: the session goes to History with a
+  chat line; a quick detour into the next zone and back does not split.
+  With **Session per instance** on too, entering a dungeon splits once.
+- [ ] Bags: right-click an item, **Keep (not for sale)**: the row shows
+  `(kept)`, the footer **Kept** and **Sellable**; **Sell again** and the
+  **Kept items** button in the options take it back.
 - [ ] Account-wide History: after logging in on two characters, History >
   Zones and the Daily strip show both characters' places (off with **Zones:
   all characters**); each character's Sessions list stays its own; an old

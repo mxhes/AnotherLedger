@@ -71,3 +71,19 @@ h.test("Tooltip.para: a white wrapping paragraph", function()
   h.eq(Tip.text(t), "T\nLong text")
   h.eq(Tip.render(t)[2], { op = "line", text = "Long text", color = C.tipValue, wrap = true })
 end)
+
+h.test("Tooltip.barsText: bars scaled to the highest, bottoms lined up", function()
+  local path = ns.Theme.textures.graphBar
+  local text = Tip.barsText({ 0, 50, 100 })
+  local bars = {}
+  for bh, w, y in text:gmatch("|T[^:]+:(%d+):(%d+):0:(%-?%d+):8:8:0:8:0:8:255:209:0|t") do
+    bars[#bars + 1] = { tonumber(bh), tonumber(w), tonumber(y) }
+  end
+  h.eq(bars, { { 1, 10, -17 }, { 18, 10, -9 }, { 36, 10, 0 } })
+  h.eq(text:sub(1, 2 + #path), "|T" .. path)
+  h.eq(Tip.barsText({}), "")
+  local t = Tip.new("T")
+  Tip.bars(t, { 1, 2 })
+  h.eq(Tip.text(t), "T")
+  h.eq(Tip.render(t)[2].op, "line")
+end)

@@ -22,6 +22,8 @@ local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
 local L_LABEL_GOLD = L["Raw gold"]
 local L_TOTAL = L["Total"]
+local L_KEPT = L["Kept"]
+local L_SELLABLE = L["Sellable"]
 local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
 local L_GOAL = L["Goal "]
@@ -50,8 +52,9 @@ end
 -- ---------------------------------------------------------------------------
 -- Value table (rows Items / Raw gold / Total, columns Value and per hour)
 
-Summary.ROWS = { "items", "gold", "total" }
-local ROW_LABELS = { items = L_LABEL_ITEMS, gold = L_LABEL_GOLD, total = L_TOTAL }
+Summary.ROWS = { "items", "gold", "total", "kept", "sellable" }
+local ROW_LABELS = { items = L_LABEL_ITEMS, gold = L_LABEL_GOLD, total = L_TOTAL, kept = L_KEPT,
+  sellable = L_SELLABLE }
 local SEP = " \194\183 " -- middle dot
 
 -- One line of notes under the table: the filtered / unpriced markers and the
@@ -96,7 +99,8 @@ function Summary.tableLayout(view)
   -- Option "showFooterGold" off: no Raw gold row (Total still includes it).
   local goldRow = ns.Util.setting("showFooterGold", true)
   if inventory then
-    layout.rows = { "items" }
+    -- With kept items in the list: what is kept and what is left to sell.
+    layout.rows = (view.totals or NONE).kept and { "items", "kept", "sellable" } or { "items" }
   elseif view.noCombined then
     layout.rows = goldRow and { "items", "gold" } or { "items" }
   else
@@ -119,6 +123,8 @@ function Summary.rowTexts(view, formatMoney)
     items = row(totals.best, totals.bestPerHour),
     gold = row(gold.total, gold.perHour),
     total = row(combined.best, combined.bestPerHour),
+    kept = row(totals.kept, nil),
+    sellable = row(totals.sellable, nil),
   }
 end
 
@@ -329,6 +335,14 @@ function Summary.attach(topBox, footer)
     for _, l in ipairs(Summary.tooltipLines(summary.view)) do
       local lc = (l[3] and T.sourceColor(l[3])) or C.tipValue
       GameTooltip:AddDoubleLine(l[1], l[2], lc[1], lc[2], lc[3], C.tipValue[1], C.tipValue[2], C.tipValue[3])
+    end
+    -- Session tab: the gold per hour graph under the values.
+    local graph = summary.view and summary.view.graph
+    if graph then
+      local tip = ns.Tooltip.new()
+      ns.View.addRateGraph(tip, graph)
+      GameTooltip:AddLine(" ")
+      W.addTooltipLines(tip)
     end
     GameTooltip:Show()
   end)

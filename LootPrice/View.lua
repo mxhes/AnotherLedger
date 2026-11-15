@@ -25,6 +25,8 @@ local lower = string.lower
 --   ignored = { [itemID] = name or true } (the ignore list: these items are
 --     left out of every list and total),
 --   goal = copper or nil (the session goal: Session tab and compact progress),
+--   kept = { [itemID] = name or true } (the keep list: Bags and Bank mark
+--     these rows and split their total into kept and sellable),
 -- }
 --
 -- A row's value is the best of its vendor, AH and disenchant totals; the sort
@@ -326,9 +328,20 @@ end
 -- Views
 
 -- Inventory tabs (bags, bank): rows and totals only, no clock, rates, raw gold
--- or top finds.
+-- or top finds. Items on the keep list (opts.kept) are marked (row.kept);
+-- totals.kept is their best value and totals.sellable the rest, both only
+-- while a listed row is kept.
 function View.buildInventory(items, opts)
   local rows, totals = collect(items, opts)
+  local kept = type(opts.kept) == "table" and opts.kept or NO_LOOKUP
+  local keptValue, any = 0, false
+  for _, row in ipairs(rows) do
+    if kept[row.id] then
+      row.kept, any = true, true
+      keptValue = keptValue + (row.bestTotal or 0)
+    end
+  end
+  if any then totals.kept, totals.sellable = keptValue, totals.best - keptValue end
   return { rows = rows, top = {}, totals = totals, kind = "inventory", empty = View.emptyText(rows, opts.filter) }
 end
 
@@ -871,6 +884,38 @@ function View.goalPercent(progress)
   return math.min(100, math.floor(progress.value * 100 / progress.goal))
 end
 
+-- The gold per hour graph from session.samples (Session.addSample): the rate
+-- of each stretch between two samples (copper per hour, never below 0 when
+-- prices fell). Returns the rates and the seconds one stretch covers, or nil
+-- with fewer than View.GRAPH_MIN_BARS stretches.
+View.GRAPH_MIN_BARS = 3
+
+function View.rateGraph(samples)
+  if type(samples) ~= "table" then return nil end
+  local bars, prevT, prevV = {}, 0, 0
+  for _, s in ipairs(samples) do
+    if type(s) == "table" and num(s.t) and num(s.v) and s.t > prevT then
+      bars[#bars + 1] = math.max(0, s.v - prevV) * 3600 / (s.t - prevT)
+      prevT, prevV = s.t, s.v
+    end
+  end
+  if #bars < View.GRAPH_MIN_BARS then return nil end
+  return { bars = bars, step = prevT / #bars }
+end
+
+-- Adds the graph to a tooltip (ns.Tooltip): a heading, the bars, the best
+-- stretch and how long one bar is.
+function View.addRateGraph(tip, graph)
+  if not graph then return end
+  local Tip = ns.Tooltip
+  local top = 0
+  for _, v in ipairs(graph.bars) do if v > top then top = v end end
+  Tip.section(tip, L["Gold per hour over time"])
+  Tip.bars(tip, graph.bars)
+  Tip.rate(tip, L["Best stretch: "], top)
+  Tip.note(tip, string.format(L["One bar: %s of clock time."], ns.History.duration(graph.step)))
+end
+
 function View.buildCompact(session, opts)
   opts = opts or {}
   copyOpts(compactOpts, opts)
@@ -898,7 +943,7 @@ function View.buildCompact(session, opts)
   end
   return { total = total, perHour = ns.History.perHour(total, elapsed), running = session.running and true or false,
     drops = drops, items = t.best, gold = gold, elapsed = elapsed, top = topRows(rows, 1)[1],
-    goal = View.goalProgress(total, opts.goal) }
+    goal = View.goalProgress(total, opts.goal), graph = View.rateGraph(session.samples) }
 end
 
 -- Session tab: rows, totals, raw gold, combined totals, rates and top finds.
@@ -926,6 +971,7 @@ function View.build(session, opts)
     end
     view.goal = View.goalProgress(best + (opts.includeGold ~= false and gold or 0), opts.goal)
   end
+  view.graph = View.rateGraph(session.samples)
   return View.applyRates(view, ns.Session.elapsed(session, opts.now))
 end
 

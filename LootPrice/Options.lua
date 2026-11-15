@@ -486,6 +486,19 @@ Options.define({
   tooltip = L["Saves the session to History and starts a new one whenever you enter or leave a dungeon or raid."],
 })
 
+-- Core.zoneSwitch: a new zone only counts once you stayed there this long
+-- (a flight path or a short detour does not split the session).
+Options.define({
+  key = "zoneSession", category = "session", type = "checkbox", label = L["Session per zone"],
+  tooltip = L["Saves the session to History and starts a new one when you change zones and stay in the new one (see Zone change delay). Flights don't count."],
+})
+
+Options.define({
+  key = "zoneSessionMinutes", category = "session", type = "slider", label = L["Zone change delay"],
+  tooltip = L["How long you must stay in a new zone before Session per zone starts a new session. Loot from that time still counts for the old session."],
+  min = 1, max = 15, step = 1, format = function(v) return v .. " min" end,
+})
+
 Options.define({
   key = "showCurrencies", category = "display", type = "checkbox", label = L["Currencies"],
   tooltip = L["Lists looted currencies after the items."],
@@ -550,34 +563,47 @@ Options.define({
   apply = refreshUI,
 })
 
--- The ignore list (Core.ignoredItems): a menu of the ignored items; a click
--- takes one off the list (or back on while the menu is open).
+-- An item list of Core (ignored, kept) as a menu: a click takes an item off
+-- the list (or back on while the menu is open). `empty`: the chat line
+-- without any items.
+local function itemListMenu(button, which, empty)
+  local Core, W = ns.Core, ns.UI and ns.UI.Widgets
+  if not (Core and W) then return end
+  local items, add, remove = Core[which .. "Items"], Core[which == "ignored" and "ignoreItem" or "keepItem"],
+    Core[which == "ignored" and "unignoreItem" or "unkeepItem"]
+  local list = Core[which .. "List"]()
+  if #list == 0 then
+    ns.Util.say(empty)
+    return
+  end
+  local entries = {}
+  for _, item in ipairs(list) do
+    entries[#entries + 1] = {
+      text = item.name,
+      isChecked = function() return items()[item.id] ~= nil end,
+      onClick = function()
+        if items()[item.id] ~= nil then remove(item.id) else add(item.id, item.name) end
+      end,
+    }
+  end
+  W.openMenu(button, entries, "checkbox")
+end
+
+-- The ignore list (Core.ignoredItems).
 Options.define({
   key = "ignoredItems", category = "display", type = "button", label = L["Ignored items"],
   tooltip = L["Items you ignored (right-click a row in the list) don't count anywhere. Opens the list: click an item to count it again."],
   action = function(button)
-    local Core, W = ns.Core, ns.UI and ns.UI.Widgets
-    if not (Core and W) then return end
-    local list = Core.ignoredList()
-    if #list == 0 then
-      ns.Util.say(L["no ignored items. Right-click an item in the list to ignore it."])
-      return
-    end
-    local entries = {}
-    for _, item in ipairs(list) do
-      entries[#entries + 1] = {
-        text = item.name,
-        isChecked = function() return Core.ignoredItems()[item.id] ~= nil end,
-        onClick = function()
-          if Core.ignoredItems()[item.id] ~= nil then
-            Core.unignoreItem(item.id)
-          else
-            Core.ignoreItem(item.id, item.name)
-          end
-        end,
-      }
-    end
-    W.openMenu(button, entries, "checkbox")
+    itemListMenu(button, "ignored", L["no ignored items. Right-click an item in the list to ignore it."])
+  end,
+})
+
+-- The keep list (Core.keptItems).
+Options.define({
+  key = "keptItems", category = "display", type = "button", label = L["Kept items"],
+  tooltip = L["Items you keep (right-click a row in Bags or Bank) are counted apart: the footer shows what is kept and what you can sell. Opens the list: click an item to sell it again."],
+  action = function(button)
+    itemListMenu(button, "kept", L["no kept items. Right-click an item in Bags or Bank to keep it."])
   end,
 })
 

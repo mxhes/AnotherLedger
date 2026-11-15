@@ -308,21 +308,27 @@ end
 
 -- `text` is a string, or a rich tooltip from ns.Tooltip (drawn line by line
 -- with its colors; the first line takes the tooltip's header font).
+-- Adds the lines of a rich tooltip (ns.Tooltip) to the shown GameTooltip.
+function Widgets.addTooltipLines(tip)
+  if not GameTooltip then return end
+  for _, o in ipairs(ns.Tooltip.render(tip)) do
+    if o.op == "double" then
+      local l, r = o.lc, o.rc
+      GameTooltip:AddDoubleLine(o.left, o.right, l[1], l[2], l[3], r[1], r[2], r[3])
+    else
+      local c = o.color or ns.Theme.colors.tipValue
+      GameTooltip:AddLine(o.text, c[1], c[2], c[3], o.wrap and true or false)
+    end
+  end
+end
+
 function Widgets.showTextTooltip(owner, text, anchor)
   text = ns.Tooltip.resolve(text)
   if not GameTooltip or not text then return false end
   GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
   if type(text) == "table" then
     if GameTooltip.ClearLines then GameTooltip:ClearLines() end
-    for _, o in ipairs(ns.Tooltip.render(text)) do
-      if o.op == "double" then
-        local l, r = o.lc, o.rc
-        GameTooltip:AddDoubleLine(o.left, o.right, l[1], l[2], l[3], r[1], r[2], r[3])
-      else
-        local c = o.color or ns.Theme.colors.tipValue
-        GameTooltip:AddLine(o.text, c[1], c[2], c[3], o.wrap and true or false)
-      end
-    end
+    Widgets.addTooltipLines(text)
   else
     GameTooltip:SetText(text)
   end

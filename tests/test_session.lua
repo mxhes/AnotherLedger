@@ -341,3 +341,22 @@ h.test("Session.noteRecent keeps the last drops, newest first, capped", function
   local saved = S.new(0); saved.recent = "bad"
   h.eq(S.login(saved, true, 10).recent, {})
 end)
+
+h.test("Session samples: one per step of clock, thinned and the step doubled when full", function()
+  local s = S.new(0)
+  h.eq(S.sampleDue(s, 59), false)
+  h.eq(S.sampleDue(s, 60), true)
+  for i = 1, S.SAMPLES_MAX do S.addSample(s, i * 60, i * 100) end
+  h.eq(#s.samples, S.SAMPLES_MAX)
+  h.eq(S.sampleStep(s), 60)
+  S.addSample(s, (S.SAMPLES_MAX + 1) * 60, 9999)
+  h.eq(#s.samples, 30)
+  h.eq(s.samples[1], { t = 120, v = 200 })
+  h.eq(S.sampleStep(s), 120)
+  h.eq(S.sampleDue(s, s.samples[#s.samples].t + 119), false)
+  S.addSample(s, "x", 1)
+  h.eq(#s.samples, 30)
+  S.reset(s, 10)
+  h.eq(s.samples, nil)
+  h.eq(S.sampleStep(s), 60)
+end)

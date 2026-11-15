@@ -82,6 +82,7 @@ function Compact.hint(c)
   if c.goal then
     Tip.pair(tip, L_GOAL, ns.View.goalPercent(c.goal) .. "%")
   end
+  ns.View.addRateGraph(tip, c.graph)
   return tip
 end
 

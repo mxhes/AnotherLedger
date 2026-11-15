@@ -24,11 +24,12 @@ local bankOpen = false
 -- (their "You receive item" messages are not loot). [event base] = open.
 local tradeWindows = {}
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
+local zoneState = {} -- the session's zone and a pending new one (Core.zoneSwitch)
 -- The open loot window: { money = GetMoney() at opening, chat = copper the
 -- money messages counted since }, or nil (see "Raw gold backstop").
 local lootWindow
 local LOOT_SETTLE_SECONDS = 1 -- late PLAYER_MONEY / chat after the window closed
-local GOAL_CHECK_SECONDS = 5 -- the session time goal (Core.checkGoals)
+local HEARTBEAT_SECONDS = 5 -- Core.heartbeat: time goal, zone delay, rate graph
 
 -- ---------------------------------------------------------------------------
 -- UI notifications
@@ -419,47 +420,70 @@ function Core.checkGoals(withValue)
   alertSound()
 end
 
+-- Gold per hour graph: a sample of the session's worth (like the compact
+-- total) once a sample step of running clock has passed (Session.addSample).
+function Core.sampleRate()
+  local session = ns.session
+  if type(session) ~= "table" or session.demo or not session.running then return end
+  local elapsed = ns.Session.elapsed(session, time())
+  if not ns.Session.sampleDue(session, elapsed) then return end
+  ns.Session.addSample(session, elapsed, Core.sessionValue(session, not ns.Util.setting("includeGold", true)))
+end
+
+-- Every HEARTBEAT_SECONDS (a ticker set up at login).
+function Core.heartbeat()
+  Core.checkGoals(false)
+  Core.checkZone()
+  Core.sampleRate()
+end
+
 -- ---------------------------------------------------------------------------
--- Ignore list (account-wide, LootPriceDB.ignored = { [itemID] = name }):
--- these items are left out of every list, total, alert and goal. They are
--- still recorded, so taking one off the list brings it back everywhere.
+-- Item lists (account-wide, { [itemID] = name or true } in LootPriceDB):
+--   ignored: left out of every list, total, alert and goal. They are still
+--            recorded, so taking one off the list brings it back everywhere.
+--   kept:    items you keep (tools, gear sets): Bags and Bank split their
+--            total into kept and sellable.
+-- Each list has get / add / remove / sorted functions, made by itemList.
 
-local NO_IGNORED = {}
+local NO_ITEMS = {}
 
-function Core.ignoredItems()
-  local db = ns.db
-  if not db then return NO_IGNORED end
-  if type(db.ignored) ~= "table" then db.ignored = {} end
-  return db.ignored
-end
-
-function Core.ignoreItem(itemID, name)
-  if not ns.Util.isNumber(itemID) or itemID <= 0 or not ns.db then return false end
-  Core.ignoredItems()[itemID] = type(name) == "string" and name ~= "" and name or true
-  refreshUI()
-  return true
-end
-
-function Core.unignoreItem(itemID)
-  local list = Core.ignoredItems()
-  if list[itemID] == nil then return false end
-  list[itemID] = nil
-  refreshUI()
-  return true
-end
-
--- The ignore list for the options menu: { { id, name }, ... } by name.
-function Core.ignoredList()
-  local out = {}
-  for id, name in pairs(Core.ignoredItems()) do
-    out[#out + 1] = { id = id, name = type(name) == "string" and name or (L["Item "] .. tostring(id)) }
+local function itemList(field)
+  local function items()
+    local db = ns.db
+    if not db then return NO_ITEMS end
+    if type(db[field]) ~= "table" then db[field] = {} end
+    return db[field]
   end
-  table.sort(out, function(a, b)
-    if a.name ~= b.name then return a.name < b.name end
-    return a.id < b.id
-  end)
-  return out
+  local function add(itemID, name)
+    if not ns.Util.isNumber(itemID) or itemID <= 0 or not ns.db then return false end
+    items()[itemID] = type(name) == "string" and name ~= "" and name or true
+    refreshUI()
+    return true
+  end
+  local function remove(itemID)
+    local list = items()
+    if list[itemID] == nil then return false end
+    list[itemID] = nil
+    refreshUI()
+    return true
+  end
+  -- For the options menu: { { id, name }, ... } by name.
+  local function sorted()
+    local out = {}
+    for id, name in pairs(items()) do
+      out[#out + 1] = { id = id, name = type(name) == "string" and name or (L["Item "] .. tostring(id)) }
+    end
+    table.sort(out, function(a, b)
+      if a.name ~= b.name then return a.name < b.name end
+      return a.id < b.id
+    end)
+    return out
+  end
+  return items, add, remove, sorted
 end
+
+Core.ignoredItems, Core.ignoreItem, Core.unignoreItem, Core.ignoredList = itemList("ignored")
+Core.keptItems, Core.keepItem, Core.unkeepItem, Core.keptList = itemList("kept")
 
 -- Raw gold (looted or quest money), copper > 0. Redraws on success; gold that
 -- drops together with items shares their redraw.
@@ -699,6 +723,58 @@ local function checkInstance()
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
   if not Core.instanceChanged(previous, key) then return end
   Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
+  zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
+end
+
+-- Option "zoneSession". Pure decision over `state` = { zone, pending, since }
+-- (the session's zone, a new zone the player is in and since when): returns
+-- true once the player stayed `grace` seconds in another zone; then that zone
+-- is the session's. A flight (`onTaxi`) never counts, nor does a zone left
+-- again before the grace time is over.
+function Core.zoneSwitch(state, place, now, onTaxi, grace)
+  if onTaxi then
+    state.pending, state.since = nil, nil
+    return false
+  end
+  if type(place) ~= "string" then return false end
+  if state.zone == nil then state.zone = place end
+  if place == state.zone then
+    state.pending, state.since = nil, nil
+    return false
+  end
+  if place ~= state.pending then
+    state.pending, state.since = place, now
+    return false
+  end
+  if now - state.since < grace then return false end
+  state.zone, state.pending, state.since = place, nil, nil
+  return true
+end
+
+-- Whether a session has anything recorded (items, currencies or raw gold).
+local function hasLoot(session)
+  return next(session.items or {}) ~= nil or next(session.currencies or {}) ~= nil
+    or ns.Session.goldTotal(session) > 0
+end
+
+-- Called on zone changes and by the ticker. While the clock is stopped
+-- nothing splits. An empty session just starts over (the time getting here
+-- does not count), without a chat line.
+-- UNVERIFIED (check in client): UnitOnTaxi("player") on Forever.
+function Core.checkZone()
+  local session = ns.session
+  if not (session and ns.db) then return end
+  local place = Core.placeOf(_G, difficulties)
+  local onTaxi = type(UnitOnTaxi) == "function" and UnitOnTaxi("player") and true or false
+  local grace = ns.Options.get(ns.db, "zoneSessionMinutes") * 60
+  if not Core.zoneSwitch(zoneState, place, time(), onTaxi, grace) then return end
+  if not (ns.Options.get(ns.db, "zoneSession") and session.running) then return end
+  if hasLoot(session) then
+    Core.resetSession(L["new session"] .. ": " .. place .. ".")
+  else
+    ns.Session.reset(session, time())
+    refreshUI()
+  end
 end
 
 -- Option "afkPause": stops the clock while the player is AFK and starts it
@@ -763,11 +839,13 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if setupDone then
     Core.updatePlace()
     checkInstance()
+    Core.checkZone()
     return
   end
   if not ns.db then return end
   setupDone = true
   lastInstance = select(2, Core.placeOf(_G, difficulties))
+  zoneState.zone = (Core.placeOf(_G, difficulties))
 
   -- Old cached prices are of no use and only grow the saved file.
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
@@ -786,10 +864,11 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
   ns.Options.applyAll(ns.db)
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
-  -- The time goal is checked every few seconds, window shown or not.
+  -- Every few seconds, window shown or not: the time goal, the zone delay of
+  -- "Session per zone" and the gold per hour graph.
   -- UNVERIFIED (check in client): C_Timer.NewTicker on Forever.
   if C_Timer and type(C_Timer.NewTicker) == "function" then
-    C_Timer.NewTicker(GOAL_CHECK_SECONDS, function() Core.checkGoals(false) end)
+    C_Timer.NewTicker(HEARTBEAT_SECONDS, Core.heartbeat)
   end
   refreshUI()
 end
@@ -797,7 +876,10 @@ end
 -- History Zones: the player moved to another zone or subzone (no redraw).
 -- They fire for subzone changes too.
 for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
-  events[event] = function() Core.updatePlace() end
+  events[event] = function()
+    Core.updatePlace()
+    Core.checkZone()
+  end
 end
 
 -- Combat auto hide / show (option "combatHide"): hides the window when combat

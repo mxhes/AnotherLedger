@@ -1000,3 +1000,28 @@ h.test("View.zoneTable / zonesCsv / itemsCsv: every place and item, no filter", 
   h.eq(lines[2], "Kingsblood,4,0.0040,0.2000,,0.2000,ah")
   h.eq(lines[4], "Zinc Bar,1,0.0500,,,0.0500,vendor")
 end)
+
+h.test("View.rateGraph: the rate of each stretch, nothing below 0, none with too few", function()
+  h.eq(V.rateGraph(nil), nil)
+  h.eq(V.rateGraph({ { t = 60, v = 100 }, { t = 120, v = 200 } }), nil)
+  local g = V.rateGraph({ { t = 60, v = 100 }, { t = 120, v = 300 }, "junk", { t = 180, v = 250 } })
+  h.eq(g.bars, { 6000, 12000, 0 })
+  h.eq(g.step, 60)
+  local tip = ns.Tooltip.new("x")
+  V.addRateGraph(tip, g)
+  local text = ns.Tooltip.text(tip)
+  h.eq(text:find("Gold per hour over time", 1, true) ~= nil, true)
+  h.eq(text:find("Best stretch: 1g 20s/h", 1, true) ~= nil, true)
+end)
+
+h.test("View.buildInventory: kept items are marked and counted apart", function()
+  local items = {
+    [1] = { id = 1, link = link("Pick"), qty = 1, price = { vendor = 500 } },
+    [2] = { id = 2, link = link("Ore"), qty = 10, price = { vendor = 30 } },
+  }
+  local v = V.buildInventory(items, { kept = { [1] = "Pick" } })
+  h.eq({ v.totals.best, v.totals.kept, v.totals.sellable }, { 800, 500, 300 })
+  for _, r in ipairs(v.rows) do h.eq(r.kept == true, r.id == 1) end
+  local plain = V.buildInventory(items, {})
+  h.eq(plain.totals.kept, nil)
+end)

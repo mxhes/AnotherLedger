@@ -10,6 +10,8 @@ Theme.textures = {
   -- its curve (sizes.backdropInset), so the corners read round.
   frameBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
+  -- Gold per hour graph in tooltips: one flat bar per stretch (Tooltip.barsText).
+  graphBar = "Interface\\Buttons\\WHITE8X8",
   -- Daily farm strip: a star, tinted with colors.dailyFarm.
   dailyFarm = "Interface\\Common\\FavoritesIcon",
   resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
@@ -175,6 +177,10 @@ Theme.sizes = {
   compactMinWidth = 240, -- title, clock, mode, gear and close in one row
   compactMinHeight = 190, -- >= UI.Compact.requiredHeight() (186)
   compactRowHeight = 16,
+  -- Gold per hour graph in tooltips: height of the tallest bar and the
+  -- width all bars share (each bar 2 to 10 px).
+  graphHeight = 36,
+  graphWidth = 180,
   compactDropsTop = 46, -- first drop row under the rate, total and divider
   compactGap = 4,
   titleButtonWidth = 140,

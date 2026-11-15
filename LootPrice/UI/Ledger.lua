@@ -183,6 +183,7 @@ local function currentContext(now)
   viewOpts.market = Ledger.marketCutoffs(db)
   viewOpts.compactDrops = setting("compactDrops", nil)
   viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
+  viewOpts.kept = db and type(db.kept) == "table" and db.kept or nil
   viewOpts.goal = ns.Core and ns.Core.goalCopper and ns.Core.goalCopper() or nil
   context.now = now
   context.env = _G
@@ -529,6 +530,8 @@ local L_NOTE_PROMPT = ns.L["Note for this session (empty removes it):"]
 local L_SAVE = ns.L["Save"]
 local L_IGNORE = ns.L["Ignore this item"]
 local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, Display, Ignored items takes it back."]
+local L_KEEP = ns.L["Keep (not for sale)"]
+local L_UNKEEP = ns.L["Sell again (not kept)"]
 
 -- Deletes the History session at `index` (/lp undo brings it back). The
 -- opened session stays open (its index moves when a newer one goes).
@@ -586,10 +589,20 @@ function Ledger.rowMenu(row)
     return entries
   end
   if type(row.id) == "number" and row.id > 0 and not row.isCurrency and not row.zoneKey then
-    return {
+    local entries = {
       { text = row.name, title = true },
       { text = L_IGNORE, onClick = function() Ledger.ignoreItem(row) end },
     }
+    -- Bags and Bank: the keep list (kept items count apart in the footer).
+    local Core = ns.Core
+    if Ledger.view and Ledger.view.kind == "inventory" and Core then
+      if Core.keptItems()[row.id] ~= nil then
+        entries[#entries + 1] = { text = L_UNKEEP, onClick = function() Core.unkeepItem(row.id) end }
+      else
+        entries[#entries + 1] = { text = L_KEEP, onClick = function() Core.keepItem(row.id, row.name) end }
+      end
+    end
+    return entries
   end
   return nil
 end

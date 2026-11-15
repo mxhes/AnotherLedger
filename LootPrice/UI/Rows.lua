@@ -14,6 +14,7 @@ local TEXT = {
   BOUND = ns.L["bound"],
   UNPRICED = "?",
   EACH = ns.L[" each"],
+  KEPT = ns.L["(kept)"],
 }
 
 -- The source tag after a row's value and the tooltip line of each value.
@@ -103,8 +104,14 @@ function Rows.rowText(row, formatMoney, unitPrice)
     tag = "(" .. ns.Prices.formatAge(row.ahAge) .. ")"
     tagStale = row.stale and true or false
   end
+  -- Bags / Bank: an item on the keep list says so after its name, quietly.
+  local name = row.name or ""
+  if row.kept then
+    local hint = ns.Theme and ns.Theme.colors.hint
+    name = name .. " " .. (hint and (ns.Money.colorCode(hint) .. TEXT.KEPT .. "|r") or TEXT.KEPT)
+  end
   return {
-    name = row.name or "",
+    name = name,
     qty = qty,
     amount = amount,
     source = source,

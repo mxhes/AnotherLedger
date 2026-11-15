@@ -60,6 +60,9 @@ DB.defaults = {
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
     instanceSession = false,
+    -- A new session per zone, after this many minutes in the new zone.
+    zoneSession = false,
+    zoneSessionMinutes = 2,
     -- Session goals: gold (best value + raw gold) and minutes; 0 = off.
     goalGold = 0,
     goalMinutes = 0,
@@ -103,6 +106,9 @@ DB.defaults = {
   minimapIcon = {},
   -- The ignore list: { [itemID] = item name } (Core.ignoredItems).
   ignored = {},
+  -- The keep list: { [itemID] = item name } (Core.keptItems): Bags and Bank
+  -- split their total into kept and sellable.
+  kept = {},
   -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
   histories = {},
 }

@@ -2457,3 +2457,101 @@ h.test("wiring: the options window shares the window's opacity and brightness", 
   h.near(bg[1], 0, 1e-9)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: Session per zone splits after the delay, not on flights or detours", function()
+  local ctx = boot()
+  local where = { zone = "Dornogal", taxi = false }
+  ctx.env.GetRealZoneText = function() return where.zone end
+  ctx.env.UnitOnTaxi = function() return where.taxi end
+  startWorld(ctx, false)
+  local ns, hist = ctx.ns, ctx.env.LootPriceCharDB.history
+  ns.Options.set(ns.db, "zoneSession", true)
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 4))
+  local function go(zone, seconds)
+    where.zone = zone
+    fire(ctx, "ZONE_CHANGED_NEW_AREA")
+    ctx.now = ctx.now + seconds
+    ns.Core.heartbeat()
+  end
+  go("Isle of Dorn", 60)
+  h.eq(#hist, 0)
+  go("Dornogal", 300) -- back before the delay: a detour
+  h.eq(#hist, 0)
+  where.taxi = true
+  go("Isle of Dorn", 300) -- on a flight
+  h.eq(#hist, 0)
+  where.taxi = false
+  ns.Core.heartbeat()
+  ctx.now = ctx.now + 120
+  ns.Core.heartbeat()
+  h.eq(#hist, 1)
+  h.eq(next(ns.session.items), nil)
+  h.eq(ctx.printed[#ctx.printed]:find(ns.L["new session"] .. ": Isle of Dorn.", 1, true) ~= nil, true)
+  -- An empty session just starts over in the new zone, quietly.
+  local lines = #ctx.printed
+  go("The Ringing Deeps", 0)
+  ctx.now = ctx.now + 120
+  ns.Core.heartbeat()
+  h.eq(#hist, 1)
+  h.eq(ns.session.startedAt, ctx.now)
+  h.eq(#ctx.printed, lines)
+  -- Option off: nothing splits.
+  ns.Options.set(ns.db, "zoneSession", false)
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 4))
+  go("Dornogal", 0)
+  ctx.now = ctx.now + 600
+  ns.Core.heartbeat()
+  h.eq(#hist, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the gold per hour graph samples the session and shows in the tooltips", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  for _, qty in ipairs({ 4, 4, 0 }) do
+    if qty > 0 then fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, qty)) end
+    ctx.now = ctx.now + 60
+    ns.Core.heartbeat()
+  end
+  h.eq(#ns.session.samples, 3)
+  ns.UI.Ledger.refresh()
+  h.eq(ns.UI.Ledger.view.graph.bars, { 6000, 6000, 0 })
+  local c = ns.View.buildCompact(ns.session, { now = ctx.now })
+  local text = ns.Tooltip.text(ns.UI.Compact.hint(c))
+  h.eq(text:find(ns.L["Gold per hour over time"], 1, true) ~= nil, true)
+  slash(ctx, "reset")
+  h.eq(ns.session.samples, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: keeping an item in Bags splits the footer into kept and sellable", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 2, { 2589, 5 }, { 2592, 2 } } })
+  startWorld(ctx, false)
+  local menus = captureMenus(ctx)
+  local Ledger, L = ctx.ns.UI.Ledger, ctx.ns.L
+  local summary = ctx.ns.UI.Summary.instance
+  local function menuFor(id)
+    for _, r in ipairs(Ledger.view.rows) do
+      if r.id == id then
+        Ledger.list.onRowClick(r, "RightButton", "f")
+        return menus[#menus]
+      end
+    end
+  end
+  -- The Session tab has no keep entry.
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 1))
+  h.eq(menuItem(menuFor(2589), L["Keep (not for sale)"]), nil)
+  Ledger.setTab("bags")
+  menuItem(menuFor(2589), L["Keep (not for sale)"]).click()
+  h.eq(ctx.env.LootPriceDB.kept[2589] ~= nil, true)
+  local t = Ledger.view.totals
+  h.eq({ t.kept, t.sellable }, { 125, 50 })
+  h.eq(summary.cells.kept.label:IsShown(), true)
+  h.eq(ctx.ns.UI.Window.frame.footer:GetHeight(), 70) -- three rows and the "unpriced" note
+  menuItem(menuFor(2589), L["Sell again (not kept)"]).click()
+  h.eq(Ledger.view.totals.kept, nil)
+  h.eq(summary.cells.kept.label:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)

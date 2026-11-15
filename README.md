@@ -26,8 +26,10 @@ size.
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`), the last four
 drops with their value and source, and the Daily farm line. Hover the gold per
-hour for the breakdown: time, items, raw gold, total, the best find and how far
-the goal is. Click the clock to start or stop the session; a red `Paused`
+hour for the breakdown: time, items, raw gold, total, the best find, how far
+the goal is and, after a few minutes, a small graph of your gold per hour over
+the session (one bar per stretch of clock time) to see when a spot dries up.
+The same graph shows when you hover the totals of the Session tab. Click the clock to start or stop the session; a red `Paused`
 shows while it is stopped. Before the first drop the list says so (or that the
 clock is stopped).
 
@@ -72,7 +74,11 @@ row and price. Currencies are listed after the items.
 ## Tabs
 
 - **Session**: everything looted since the session started.
-- **Bags**: what is in your bags right now, valued the same way.
+- **Bags**: what is in your bags right now, valued the same way. Right-click
+  an item and pick **Keep (not for sale)** for tools, consumables you use or
+  gear sets: the row says `(kept)` and the footer splits the total into
+  **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
+  for all characters; **Kept items** in the options lists it.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once; after that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
@@ -130,8 +136,8 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
-| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Zones: all characters, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Scroll to new loot, Font, List text, Totals text, Section titles |
-| Session and alerts | Keep session, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Crafted and bought, Pause when AFK, Session per instance, Export History, Clear History, History kept |
+| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Zones: all characters, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot, Font, List text, Totals text, Section titles |
+| Session and alerts | Keep session, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Crafted and bought, Pause when AFK, Session per instance, Session per zone, Zone change delay, Export History, Clear History, History kept |
 | Colors | Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
@@ -147,6 +153,14 @@ the total against it and a chat line says when the session is worth that much
 (counted like the compact total). **Session goal (minutes)** says in chat when
 the clock reaches that time, with what the session is worth. Each goal is
 announced once per session; **Alert sound** plays with them.
+
+**Session per zone** saves the session to History and starts a new one when
+you change zones, so History rows stay apart when you hop between farm spots.
+It waits until you stayed in the new zone for the **Zone change delay** (2
+minutes by default): a short detour or a cave entrance does not split the
+session, and flight paths never count. Loot from those minutes still belongs
+to the old session. An empty session just starts its clock over. While the
+clock is stopped nothing splits.
 
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.

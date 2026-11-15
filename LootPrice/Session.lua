@@ -296,6 +296,7 @@ function Session.stop(session, now)
 end
 
 function Session.reset(session, now)
+  session.samples, session.sampleStep = nil, nil
   session.items = {}
   session.currencies = {}
   session.places = {}
@@ -308,6 +309,41 @@ function Session.reset(session, now)
   session.startedAt = now
   session.elapsedBase = 0
   session.runningSince = session.running and now or nil
+end
+
+-- Gold per hour graph: the session's worth (copper) at clock times,
+-- session.samples = { { t = elapsed seconds, v = value }, ... }, one per
+-- session.sampleStep seconds of running clock. Past SAMPLES_MAX every other
+-- sample goes and the step doubles, so a long session stays small.
+Session.SAMPLE_SECONDS = 60
+Session.SAMPLES_MAX = 60
+
+local function sampleList(session)
+  if type(session.samples) ~= "table" then session.samples = {} end
+  return session.samples
+end
+
+function Session.sampleStep(session)
+  return num(session.sampleStep) and session.sampleStep > 0 and session.sampleStep or Session.SAMPLE_SECONDS
+end
+
+-- Whether a sample is due at `elapsed` seconds of clock.
+function Session.sampleDue(session, elapsed)
+  local list = type(session.samples) == "table" and session.samples or {}
+  local last = list[#list]
+  local lastT = type(last) == "table" and num(last.t) and last.t or 0
+  return num(elapsed) and elapsed - lastT >= Session.sampleStep(session)
+end
+
+function Session.addSample(session, elapsed, value)
+  if not (num(elapsed) and num(value)) then return end
+  local list = sampleList(session)
+  list[#list + 1] = { t = elapsed, v = value }
+  if #list <= Session.SAMPLES_MAX then return end
+  local kept = {}
+  for i = 2, #list, 2 do kept[#kept + 1] = list[i] end
+  session.samples = kept
+  session.sampleStep = Session.sampleStep(session) * 2
 end
 
 -- Logout: fold running time into elapsedBase, keep the running flag.

@@ -17,6 +17,7 @@ local L = ns.L
 --   note     a quiet tan line
 --   warn     a red line (slow sellers)
 --   hint     a green click hint; the first one comes after a blank line
+--   bars     a bar graph (values >= 0) drawn with inline textures
 local Tooltip = {}
 ns.Tooltip = Tooltip
 
@@ -55,6 +56,31 @@ function Tooltip.para(tip, text) return add(tip, { kind = "para", text = text })
 function Tooltip.note(tip, text) return add(tip, { kind = "note", text = text }) end
 function Tooltip.warn(tip, text) return add(tip, { kind = "warn", text = text }) end
 function Tooltip.hint(tip, text) return add(tip, { kind = "hint", text = text }) end
+function Tooltip.bars(tip, values) return add(tip, { kind = "bars", values = values }) end
+
+-- One line of bars, `values` >= 0 scaled to the highest: inline textures
+-- (|T path:height:width:x:y:8:8:0:8:0:8:r:g:b|t) of Theme.textures.graphBar in
+-- Theme.colors.gold. A line centers its textures, so each bar moves down by
+-- half of what it is shorter than the tallest: the bottoms line up.
+-- UNVERIFIED (check in client): the y offset of inline textures in a tooltip
+-- line (positive = up) and the vertex color fields.
+function Tooltip.barsText(values)
+  local T = ns.Theme
+  local height, width = T.sizes.graphHeight, T.sizes.graphWidth
+  local top = 0
+  for _, v in ipairs(values) do if v > top then top = v end end
+  if #values == 0 then return "" end
+  local w = math.max(2, math.min(10, math.floor(width / #values)))
+  local c = T.colors.gold
+  local rgb = math.floor(c[1] * 255 + 0.5) .. ":" .. math.floor(c[2] * 255 + 0.5) .. ":" .. math.floor(c[3] * 255 + 0.5)
+  local parts = {}
+  for i, v in ipairs(values) do
+    local h = top > 0 and math.max(1, math.floor(v * height / top + 0.5)) or 1
+    local y = 0 - math.floor((height - h) / 2) -- not -floor: Lua 5.1 would print "-0"
+    parts[i] = "|T" .. T.textures.graphBar .. ":" .. h .. ":" .. w .. ":0:" .. y .. ":8:8:0:8:0:8:" .. rgb .. "|t"
+  end
+  return table.concat(parts)
+end
 
 local function round(v) return math.floor(v + 0.5) end
 
@@ -82,7 +108,9 @@ function Tooltip.text(tip)
   local out = {}
   if tip.title then out[#out + 1] = tip.title end
   for _, line in ipairs(tip.lines) do
-    if DOUBLE[line.kind] then
+    if line.kind == "bars" then
+      -- no text form
+    elseif DOUBLE[line.kind] then
       local sep = line.label:match("%s$") and "" or " "
       out[#out + 1] = line.label .. sep .. rightText(line, fmt)
     elseif line.kind == "labelled" then
@@ -121,6 +149,8 @@ function Tooltip.render(tip)
       op({ op = "line", text = line.text, color = C.tipNote })
     elseif kind == "warn" then
       op({ op = "line", text = line.text, color = C.tipWarn, wrap = true })
+    elseif kind == "bars" then
+      op({ op = "line", text = Tooltip.barsText(line.values) })
     elseif kind == "hint" then
       if not hinted and #ops > 0 then op({ op = "line", text = " " }) end
       hinted = true
