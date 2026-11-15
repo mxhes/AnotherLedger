@@ -141,7 +141,7 @@ ns.Locale.register("deDE", {
   ["Show the Raw gold row in the footer"] = "Zeile Rohgold in der Fußzeile zeigen",
   ["per hour"] = "pro Stunde",
   [" (marked ?)"] = " (mit ? markiert)",
-  ["Daily farm: "] = "Tagesfarm: ",
+  ["Daily: "] = "Heute: ",
   ["/h"] = "/h",
   ["slow selling"] = "verkauft sich langsam",
   ["Zone: "] = "Zone: ",

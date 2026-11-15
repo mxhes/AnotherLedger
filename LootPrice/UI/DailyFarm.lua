@@ -11,7 +11,7 @@ ns.UI = ns.UI or {}
 local DailyFarm = {}
 ns.UI.DailyFarm = DailyFarm
 
-local L_DAILY_FARM = L["Daily farm: "]
+local L_DAILY_FARM = L["Daily: "]
 local L_PER_HOUR = L["/h"]
 local L_SLOW = L["slow selling"]
 local L_ZONE = L["Zone: "]
@@ -43,7 +43,8 @@ end
 function DailyFarm.placeName(p) return ns.Waypoint.name(p) end
 
 local function rate(p)
-  return "~" .. ns.Money.format(rounded(p.perHour)) .. L_PER_HOUR
+  -- No "~": it sits raised in the game font; the hover text has the exact rate.
+  return ns.Money.format(rounded(p.perHour)) .. L_PER_HOUR
 end
 
 function DailyFarm.label(farm)

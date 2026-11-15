@@ -80,8 +80,8 @@ local function paint(b, state)
   end
   if b.label then b.label:SetTextColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1) end
   if b.glyph and b.glyph.SetDesaturated then b.glyph:SetDesaturated(state == "disabled") end
-  if type(b.bars) == "table" then
-    for _, bar in ipairs(b.bars) do bar:SetVertexColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1) end
+  if type(b.arrowTex) == "table" then
+    b.arrowTex:SetVertexColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1)
   end
 end
 
@@ -134,40 +134,29 @@ function Widgets.button(parent, label, width, opts)
   return b
 end
 
--- Pure. The bars of a stepped triangle `rows` px high pointing "up" or "down":
--- { width, y } per row from the top, y = the bar's top edge above the center.
--- Each row is 1 px high and 2 px wider than the one before.
-function Widgets.arrowBars(direction, rows)
-  local bars = {}
-  for i = 1, rows do
-    local step = direction == "up" and i or (rows - i + 1)
-    bars[i] = { width = 2 * step, y = rows / 2 - (i - 1) }
-  end
-  return bars
+-- Pure. SetTexCoord(ULx, ULy, LLx, LLy, URx, URy, LRx, LRy) that turns the
+-- right-pointing arrow texture (Theme.textures.arrow) to point "up" or "down".
+function Widgets.arrowCoords(direction)
+  if direction == "up" then return 1, 0, 0, 0, 1, 1, 0, 1 end
+  return 0, 1, 1, 1, 0, 0, 1, 0
 end
 
--- Arrow glyphs of the mode button: drawn from flat bars and tinted with the
--- button's text color (paint), so they follow hover and disabled like a label.
+-- Arrow glyphs of the mode button: a smooth (anti-aliased) white arrow
+-- texture tinted with the button's text color (paint), so it follows hover and
+-- disabled like a label.
 local ARROWS = { compact = "up", full = "down" }
 
 local function setArrow(b, direction)
   local T = ns.Theme
-  local rows = T.sizes.arrowRows
-  if not b.bars then
-    b.bars = {}
-    for i = 1, rows do
-      local bar = b:CreateTexture(nil, "ARTWORK")
-      bar:SetTexture(T.textures.buttonEdge)
-      bar:SetHeight(1)
-      b.bars[i] = bar
-    end
+  if not b.arrowTex then
+    local tex = b:CreateTexture(nil, "ARTWORK")
+    tex:SetTexture(T.textures.arrow)
+    local pad = T.sizes.arrowPad
+    tex:SetPoint("TOPLEFT", b, "TOPLEFT", pad, -pad)
+    tex:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -pad, pad)
+    b.arrowTex = tex
   end
-  for i, spec in ipairs(Widgets.arrowBars(direction, rows)) do
-    local bar = b.bars[i]
-    bar:ClearAllPoints()
-    bar:SetWidth(spec.width)
-    bar:SetPoint("TOP", b, "CENTER", 0, spec.y)
-  end
+  if b.arrowTex.SetTexCoord then b.arrowTex:SetTexCoord(Widgets.arrowCoords(direction)) end
   b.arrow = direction
 end
 
@@ -187,17 +176,17 @@ function Widgets.iconButton(parent, glyph, size, onClick)
   tex:SetPoint("TOPLEFT", b, "TOPLEFT", pad, -pad)
   tex:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -pad, pad)
   b.glyph, b.label, b.onEnter, b.onLeave = tex, false, false, false
-  b.bars, b.arrow, b.look = false, false, false
+  b.arrowTex, b.arrow, b.look = false, false, false
   function b:SetGlyph(name)
     local direction = ARROWS[name]
     if direction then
       self.glyph:Hide()
       setArrow(self, direction)
-      for _, bar in ipairs(self.bars) do bar:Show() end
+      self.arrowTex:Show()
       if self.look then paint(self, self.look) end
       return
     end
-    if self.bars then for _, bar in ipairs(self.bars) do bar:Hide() end end
+    if self.arrowTex then self.arrowTex:Hide() end
     self.arrow = false
     self.glyph:Show()
     self.glyph:SetTexture(name == "close" and T.textures.iconClose or T.textures.iconGear)

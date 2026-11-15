@@ -26,7 +26,8 @@ h.test("DailyFarm.hint lists the place, the runner-ups and the slow sellers", fu
   local s = DF.hint(f)
   h.eq(s:find("Z", 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Also good:"], 1, true) ~= nil, true)
-  h.eq(s:find("  Y  ~", 1, true) ~= nil, true) -- the runner-up is its own zone
+  h.eq(s:find("  Y  ", 1, true) ~= nil, true) -- the runner-up is its own zone
+  h.eq(s:find("~", 1, true), nil)
   h.eq(s:find(ns.L["Sells slowly: "], 1, true), nil)
   f.slow = { names = { "Ore", "Herb" } }
   f.runnersUp = {}
@@ -60,8 +61,10 @@ end)
 h.test("DailyFarm.label puts the rate first so a narrow window cuts the place", function()
   local f = farm()
   local s = DF.label(f)
-  h.eq(s:sub(1, #(ns.L["Daily farm: "] .. "~")), ns.L["Daily farm: "] .. "~")
-  h.eq(s:find("~", 1, true) < s:find("A (Z)", 1, true), true)
+  -- Short prefix and no tilde (it sits raised in the game font).
+  h.eq(s:sub(1, #ns.L["Daily: "]), ns.L["Daily: "])
+  h.eq(s:find("~", 1, true), nil)
+  h.eq(s:find(ns.L["/h"], 1, true) < s:find("A (Z)", 1, true), true)
   f.slow = { names = { "Ore" } }
   local slow = DF.label(f)
   h.eq(slow:find(ns.L["slow selling"], 1, true) > slow:find("A (Z)", 1, true), true)

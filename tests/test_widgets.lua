@@ -21,12 +21,13 @@ h.test("Widgets.buttonColors: a warning button keeps its red tint in every state
   end
 end)
 
-h.test("Widgets.arrowBars: a stepped triangle, narrow end where it points", function()
-  local up = W.arrowBars("up", 6)
-  h.eq(#up, 6)
-  h.eq(up[1], { width = 2, y = 3 })
-  h.eq(up[6], { width = 12, y = -2 })
-  local down = W.arrowBars("down", 6)
-  h.eq(down[1], { width = 12, y = 3 })
-  h.eq(down[6], { width = 2, y = -2 })
+h.test("Widgets.arrowCoords: turns the right-pointing arrow texture up or down", function()
+  -- SetTexCoord(ULx, ULy, LLx, LLy, URx, URy, LRx, LRy): the source's right
+  -- edge (x = 1, the tip) lands on the top edge for up, the bottom for down.
+  local up = { W.arrowCoords("up") }
+  h.eq(up, { 1, 0, 0, 0, 1, 1, 0, 1 })
+  h.eq(up[1], 1); h.eq(up[5], 1) -- UL and UR sample x = 1
+  local down = { W.arrowCoords("down") }
+  h.eq(down, { 0, 1, 1, 1, 0, 0, 1, 0 })
+  h.eq(down[3], 1); h.eq(down[7], 1) -- LL and LR sample x = 1
 end)

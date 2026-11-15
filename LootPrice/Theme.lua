@@ -21,6 +21,10 @@ Theme.textures = {
   iconGear = "Interface\\Icons\\Trade_Engineering",
   iconClose = "Interface\\Buttons\\UI-StopButton",
   buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
+  -- Mode button arrow: a plain white triangle pointing right (turned up / down
+  -- by Widgets.arrowCoords, tinted with the button text color).
+  -- UNVERIFIED (check in client): the texture exists on Forever and is white.
+  arrow = "Interface\\ChatFrame\\ChatFrameExpandArrow",
   -- Thin rounded edge of the tab buttons (tinted with colors.tabBorder*).
   tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
 }
@@ -149,8 +153,8 @@ Theme.sizes = {
   buttonEdge = 1,
   buttonInset = 1,
   iconButtonPad = 3,
-  -- Mode button arrow: rows of 1 px bars, 2 px wider each (Widgets.arrowBars).
-  arrowRows = 6,
+  -- Mode button arrow: inset of the arrow texture inside its 20 px square.
+  arrowPad = 4,
   -- Compact mode: default size and minimum; the title's double-click area.
   compactWidth = 260,
   compactHeight = 210,
