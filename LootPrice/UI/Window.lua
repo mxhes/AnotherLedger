@@ -209,8 +209,8 @@ function Window.snapToGrid(x, y, w, h, spacing, dist)
 end
 
 -- Spacing of the Edit Mode grid in UIParent units, or nil when unknown.
--- UNVERIFIED (check in client): EditModeManagerFrame.Grid.gridSpacing and
--- EditModeManagerFrame:GetAccountSettingValue(Enum.EditModeAccountSetting.GridSpacing) on Forever.
+-- EditModeManagerFrame.Grid.gridSpacing, else
+-- EditModeManagerFrame:GetAccountSettingValue(Enum.EditModeAccountSetting.GridSpacing).
 local function gridSpacing()
   local em = EditModeManagerFrame
   if type(em) ~= "table" then return nil end

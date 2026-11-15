@@ -347,7 +347,6 @@ end
 
 -- A modified click (Shift: link in chat, Ctrl: try on, as the game's bags)
 -- on a real item or currency link. Returns whether the game handled it.
--- UNVERIFIED (check in client): IsModifiedClick / HandleModifiedItemClick on Forever.
 function Rows.modifiedClick(link)
   if type(link) ~= "string" or link == "" then return false end
   if type(IsModifiedClick) ~= "function" or not IsModifiedClick() then return false end

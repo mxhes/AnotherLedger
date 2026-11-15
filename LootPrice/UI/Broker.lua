@@ -95,8 +95,6 @@ end
 
 -- Creates the data object and the LibDBIcon button (once, at login, before the
 -- options are applied). Returns whether LibDBIcon now owns the minimap button.
--- UNVERIFIED (check in client): LibDataBroker-1.1 / LibDBIcon-1.0 APIs as used
--- here (NewDataObject, Register, Show, Hide, Refresh) with the packaged libs.
 function Broker.init()
   if Broker.object or not ns.db then return Broker.icon ~= nil end
   local ldb = libStub("LibDataBroker-1.1")

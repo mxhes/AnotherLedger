@@ -67,7 +67,6 @@ end
 
 -- Bind types (14th GetItemInfo return) of items that can never be sold on the
 -- auction house: on pickup, quest, account, warband, warband until equipped.
--- UNVERIFIED (check in client): the bindType values on Forever.
 local UNAUCTIONABLE = { [1] = true, [4] = true, [7] = true, [8] = true, [9] = true }
 
 local function readItemInfo(itemID, link)
@@ -87,8 +86,7 @@ local function itemInfo(itemID, link)
   return ok and info or nil
 end
 
--- UNVERIFIED (check in client): C_CurrencyInfo.GetCurrencyInfo(id) returns
--- { name, iconFileID, quality } on Forever.
+-- C_CurrencyInfo.GetCurrencyInfo(id) returns { name, iconFileID, quality }.
 local function readCurrencyInfo(currencyID)
   local api = C_CurrencyInfo
   if not (api and api.GetCurrencyInfo) then return nil end
@@ -103,8 +101,7 @@ local function currencyInfo(currencyID)
 end
 
 -- History Zones: quest items (item class 12) go to their own group.
--- UNVERIFIED (check in client): GetItemInfoInstant returns the class ID 6th
--- and Enum.ItemClass.Questitem is 12 on Forever.
+-- GetItemInfoInstant returns the class ID 6th; Enum.ItemClass.Questitem is 12.
 local QUEST_CLASS = 12
 local function readIsQuest(itemID)
   local fn = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant

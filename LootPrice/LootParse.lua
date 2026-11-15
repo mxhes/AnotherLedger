@@ -56,8 +56,8 @@ end
 
 -- Guild forms first: their "(%s deposited ...)" tail would otherwise be
 -- swallowed by the plain "You loot %s" pattern.
--- UNVERIFIED (check in client): LOOT_MONEY_SPLIT_GUILD ("Your share of the
--- loot is %s. (%s deposited to guild bank)") exists on Forever.
+-- LOOT_MONEY_SPLIT_GUILD: "Your share of the loot is %s. (%s deposited to
+-- guild bank)".
 local MONEY_KEYS = { "YOU_LOOT_MONEY_GUILD", "LOOT_MONEY_SPLIT_GUILD", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT" }
 local MONEY_UNITS = { { "GOLD_AMOUNT", 10000 }, { "SILVER_AMOUNT", 100 }, { "COPPER_AMOUNT", 1 } }
 
@@ -126,8 +126,6 @@ end
 
 local CURRENCY_KEYS = { "CURRENCY_GAINED_MULTIPLE_BONUS", "CURRENCY_GAINED_MULTIPLE", "CURRENCY_GAINED" }
 
--- UNVERIFIED (check in client): the CURRENCY_GAINED* globals and that
--- CHAT_MSG_CURRENCY carries them on Forever.
 function LootParse.compileCurrency(G)
   local compiled = {}
   for _, key in ipairs(CURRENCY_KEYS) do
@@ -165,8 +163,7 @@ end
 -- plain item, "<itemID>:<bonus IDs, sorted>" for an item with bonus IDs
 -- (gear of different item levels, sockets, ...). Accepts a link or an item
 -- string ("item:..."); returns key, itemID or nil.
--- UNVERIFIED (check in client): the bonus ID count is the 13th field after
--- the item ID in a Forever item link, as on retail.
+-- The bonus ID count is the 13th field after the item ID in an item link.
 local NUM_BONUS_FIELD = 13
 function LootParse.itemKey(link)
   if type(link) ~= "string" then return nil end

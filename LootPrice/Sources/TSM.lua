@@ -4,9 +4,8 @@ ns.Sources = ns.Sources or {}
 
 local TSM = {}
 
--- TSM's item string for a link (bonus IDs included), else "i:<itemID>".
--- UNVERIFIED (check in client): TSM_API.ToItemString(link) exists and returns
--- the variant's item string.
+-- TSM's item string for a link (bonus IDs included, TSM_API.ToItemString),
+-- else "i:<itemID>".
 function TSM.itemString(api, itemID, link)
   if type(link) == "string" and type(api.ToItemString) == "function" then
     local ok, s = pcall(api.ToItemString, link)
@@ -24,7 +23,6 @@ function TSM.new(env, getSource)
     if type(api) ~= "table" or type(api.GetCustomPriceValue) ~= "function" then return nil end
     local okS, source = pcall(getSource)
     if not okS or source == nil then return nil end
-    -- UNVERIFIED (check in client): GetCustomPriceValue(source, "i:<itemID>") signature.
     local ok, value = pcall(api.GetCustomPriceValue, source, TSM.itemString(api, itemID, link))
     if ok and type(value) == "number" then return value end
     return nil

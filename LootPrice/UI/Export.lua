@@ -44,7 +44,6 @@ local function build()
   hint:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 10)
   hint:SetText(L_HINT)
 
-  -- UNVERIFIED (check in client): UIPanelScrollFrameTemplate exists on Forever.
   local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -36)
   scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 30)

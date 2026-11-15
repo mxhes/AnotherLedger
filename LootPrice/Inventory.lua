@@ -16,8 +16,7 @@ local Inventory = {
 local num, count = ns.Util.isNumber, ns.Util.nonNegative
 
 -- Bag container ids: backpack 0, the carried bags and (where the client has
--- one) the reagent bag. UNVERIFIED (check in client): NUM_BAG_SLOTS /
--- NUM_REAGENTBAG_SLOTS values on Forever.
+-- one) the reagent bag.
 function Inventory.bagIDs(env)
   local ids = { 0 }
   local bags = count(env.NUM_BAG_SLOTS)
@@ -38,8 +37,6 @@ end
 -- bank itself (BANK_CONTAINER, -1), the bank bag slots after the carried bags
 -- and the reagent bank (REAGENTBANK_CONTAINER, -3) where it exists. The
 -- account-wide warband bank is not scanned.
--- UNVERIFIED (check in client): which of the two layouts Forever has, and
--- BANK_CONTAINER / NUM_BANKBAGSLOTS / REAGENTBANK_CONTAINER values.
 function Inventory.bankIDs(env)
   local E = bagIndex(env)
   if E and num(E.CharacterBankTab_1) then
@@ -93,8 +90,7 @@ end
 
 -- Reads every slot of the given containers through C_Container. A missing API
 -- or a failing call gives an empty / partial result, never an error.
--- UNVERIFIED (check in client): C_Container.GetContainerItemInfo returns
--- { itemID, stackCount, hyperlink } on Forever.
+-- C_Container.GetContainerItemInfo returns { itemID, stackCount, hyperlink }.
 function Inventory.scan(env, containerIDs, now)
   local api = env.C_Container
   if type(api) ~= "table" or type(api.GetContainerNumSlots) ~= "function"

@@ -66,12 +66,10 @@ end
 -- Both engine calls may be missing on the Forever client, hence pcall.
 function Core.evalKey(env)
   local region, modeID
-  -- UNVERIFIED (check in client): GetCurrentRegionName exists and returns a region string.
   if type(env.GetCurrentRegionName) == "function" then
     local ok, v = pcall(env.GetCurrentRegionName)
     if ok then region = v end
   end
-  -- UNVERIFIED (check in client): C_GameRules.GetCurrentGameModeRecordID exists on Forever.
   local rules = env.C_GameRules
   if type(rules) == "table" and type(rules.GetCurrentGameModeRecordID) == "function" then
     local ok, v = pcall(rules.GetCurrentGameModeRecordID)
@@ -173,7 +171,7 @@ end
 -- GetDifficultyInfo(difficultyID), else the last one seen in that instance
 -- (`remembered`, by instance name). While loading, the client may report no
 -- difficulty; without the fallbacks one dungeon would show up as two places.
--- UNVERIFIED (check in client): GetDifficultyInfo(id) returns the name first.
+-- GetDifficultyInfo(id) returns the name first.
 local function difficultyOf(env, name, difficultyID, difficultyName, remembered)
   local text = type(difficultyName) == "string" and difficultyName ~= "" and difficultyName or nil
   if not text and type(env.GetDifficultyInfo) == "function" and difficultyID then
@@ -588,8 +586,6 @@ end
 
 -- "Name-Realm" of the logged-in character, or nil while the client does not
 -- know it (then History stays per character, as before).
--- UNVERIFIED (check in client): UnitName("player") and GetRealmName() are
--- set at PLAYER_ENTERING_WORLD on Forever.
 function Core.characterKey(env)
   local name = type(env.UnitName) == "function" and env.UnitName("player") or nil
   if type(name) ~= "string" or name == "" then return nil end
@@ -760,7 +756,6 @@ end
 -- Called on zone changes and by the ticker. While the clock is stopped
 -- nothing splits. An empty session just starts over (the time getting here
 -- does not count), without a chat line.
--- UNVERIFIED (check in client): UnitOnTaxi("player") on Forever.
 function Core.checkZone()
   local session = ns.session
   if not (session and ns.db) then return end
@@ -866,7 +861,6 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
   -- Every few seconds, window shown or not: the time goal, the zone delay of
   -- "Session per zone" and the gold per hour graph.
-  -- UNVERIFIED (check in client): C_Timer.NewTicker on Forever.
   if C_Timer and type(C_Timer.NewTicker) == "function" then
     C_Timer.NewTicker(HEARTBEAT_SECONDS, Core.heartbeat)
   end
@@ -911,7 +905,6 @@ function events.PLAYER_FLAGS_CHANGED(unit)
 end
 
 -- Merchant, mailbox, trade and auction house windows (see tradeWindows).
--- UNVERIFIED (check in client): these event names exist on Forever.
 for _, base in ipairs({ "MERCHANT", "MAIL", "TRADE", "AUCTION_HOUSE" }) do
   events[base .. "_SHOW"] = function() tradeWindows[base] = true end
   events[base .. "_CLOSED"] = function() tradeWindows[base] = nil end
@@ -919,8 +912,7 @@ end
 
 -- Loot window (raw gold backstop). A window that opens before the last one
 -- settled settles that one first.
--- UNVERIFIED (check in client): LOOT_OPENED / LOOT_CLOSED and GetMoney on
--- Forever, and that looted money arrives before LOOT_CLOSED + 1 s.
+-- Looted money arrives before LOOT_CLOSED + 1 s.
 function events.LOOT_OPENED()
   if lootWindow then settleLoot(lootWindow) end
   local money = currentMoney()

@@ -26,6 +26,14 @@ merchant, one button sells all of them.
   item. It is protected against bulk use on some clients, so sell in small
   batches with a short delay. UNVERIFIED (check in client) on Forever.
 
+## Release
+
+### CurseForge (S)
+Publish the addon on CurseForge, so the CI packager uploads every tagged
+release.
+- Needs: the CurseForge project, `## X-Curse-Project-ID` in
+  `LootPrice/LootPrice.toc`, and the `CF_API_KEY` CI variable in GitLab.
+
 ## Already built (from the same review)
 
 Session goal, session notes, ignore list, price per unit, compact breakdown

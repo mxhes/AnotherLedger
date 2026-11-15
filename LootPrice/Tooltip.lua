@@ -62,8 +62,7 @@ function Tooltip.bars(tip, values) return add(tip, { kind = "bars", values = val
 -- (|T path:height:width:x:y:8:8:0:8:0:8:r:g:b|t) of Theme.textures.graphBar in
 -- Theme.colors.gold. A line centers its textures, so each bar moves down by
 -- half of what it is shorter than the tallest: the bottoms line up.
--- UNVERIFIED (check in client): the y offset of inline textures in a tooltip
--- line (positive = up) and the vertex color fields.
+-- The y offset of an inline texture is positive upwards.
 function Tooltip.barsText(values)
   local T = ns.Theme
   local height, width = T.sizes.graphHeight, T.sizes.graphWidth

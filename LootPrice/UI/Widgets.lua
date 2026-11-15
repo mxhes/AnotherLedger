@@ -348,8 +348,8 @@ end
 -- Color picker: the game's ColorPickerFrame, opened on `hex` ("rrggbb").
 -- `onChange(hex)` runs while the color is dragged and with the old color on
 -- Cancel. Returns whether the picker opened (false without it, in the tests).
--- UNVERIFIED (check in client): SetupColorPickerAndShow (retail 10.2.5+) and
--- GetColorRGB; the legacy fields (func, cancelFunc) are the older fallback.
+-- SetupColorPickerAndShow and GetColorRGB; the legacy fields (func,
+-- cancelFunc) are the older fallback.
 function Widgets.pickColor(hex, onChange)
   local cp = ColorPickerFrame
   if type(cp) ~= "table" or type(cp.GetColorRGB) ~= "function" then return false end
@@ -400,8 +400,8 @@ end
 
 -- Text popup: the shared dialog with an edit box, filled with `initial`;
 -- `onAccept(text)` gets what was typed (Enter or the `accept` button).
--- UNVERIFIED (check in client): the popup's edit box is GetEditBox() (newer
--- clients) or the editBox / EditBox field.
+-- The popup's edit box is GetEditBox() (newer clients) or the editBox /
+-- EditBox field.
 local PROMPT = "LOOTPRICE_PROMPT"
 Widgets.PROMPT_MAX_LETTERS = 60
 
@@ -454,7 +454,6 @@ end
 --   kind = (optional, else the menu's kind), title = true (a heading) }, ... }
 -- kind = "checkbox" (independent toggles, the menu stays open), "radio"
 -- (pick one, the menu closes) or "button" (an action, the menu closes).
--- UNVERIFIED (check in client): MenuUtil root:CreateTitle / CreateButton.
 
 local function entryKind(entry, kind)
   if entry.title then return "title" end

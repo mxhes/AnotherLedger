@@ -36,8 +36,8 @@ end
 
 -- UiMapPoint.CreateFromCoordinates, C_Map.SetUserWaypoint,
 -- C_Map.CanSetUserWaypointOnMap and C_SuperTrack.SetSuperTrackedUserWaypoint.
--- UNVERIFIED (check in client): maps that do not allow a pin (caves and other
--- sub-maps, cities, instances) get none.
+-- Maps that do not allow a pin (caves and other sub-maps, cities, instances)
+-- get none.
 local function mapPin(env, place)
   local point, map, track = env.UiMapPoint, env.C_Map, env.C_SuperTrack
   if type(point) ~= "table" or type(point.CreateFromCoordinates) ~= "function"
