@@ -7,7 +7,8 @@ local num, posInt = ns.Util.isNumber, ns.Util.isPositiveInt
 --   { startedAt, running, runningSince, elapsedBase, gold,
 --     items = { [key] = { id, key, link, qty, lastSeen, price } },
 --     currencies = { [currencyID] = { id, link, qty, lastSeen } },
---     places = { [place label] = loot events there } }
+--     places = { [place label] = loot events there },
+--     zones = per place loot / gold / time, at = current place (see below) }
 -- `key` is LootParse.itemKey: the item ID for a plain item, a string with the
 -- bonus IDs for item variants. `price` = { vendor, ah, de } is the unit price
 -- seen at loot time (a fallback for History when no live price is known).
@@ -25,6 +26,7 @@ function Session.new(now)
     items = {},
     currencies = {},
     places = {},
+    zones = {},
     gold = 0,
   }
 end
@@ -114,6 +116,112 @@ function Session.placeList(places)
   return out
 end
 
+-- ---------------------------------------------------------------------------
+-- Per place (History Zones): loot, raw gold and time per zone and subzone.
+--   session.zones = { [zone] = { subs = { [sub] = { time, gold, items = { [key] = qty } } } } }
+--   session.at = { zone, sub, since } -- the current place; `since` only while
+--   the clock runs. Loot before any place is known goes to UNKNOWN_PLACE.
+
+Session.UNKNOWN_PLACE = "?"
+
+local function placeSlot(session, zone, sub)
+  if type(session.zones) ~= "table" then session.zones = {} end
+  local z = session.zones[zone]
+  if type(z) ~= "table" then
+    z = { subs = {} }
+    session.zones[zone] = z
+  end
+  local s = z.subs[sub]
+  if type(s) ~= "table" then
+    s = { time = 0, gold = 0, items = {} }
+    z.subs[sub] = s
+  end
+  return s
+end
+
+local function currentSlot(session)
+  local at = session.at
+  if type(at) == "table" then return placeSlot(session, at.zone, at.sub) end
+  return placeSlot(session, Session.UNKNOWN_PLACE, Session.UNKNOWN_PLACE)
+end
+
+-- Seconds of the open stretch at the current place.
+local function openStretch(session, now)
+  local at = session.at
+  if type(at) ~= "table" or not num(at.since) or not num(now) then return 0 end
+  return math.max(0, now - at.since)
+end
+
+-- Adds the open stretch to the current place and restarts it at `now`.
+local function closeStretch(session, now)
+  local at = session.at
+  if type(at) ~= "table" or not num(at.since) then return end
+  local slot = placeSlot(session, at.zone, at.sub)
+  slot.time = slot.time + openStretch(session, now)
+  at.since = now
+end
+
+-- The player is now at `zone` / `sub` (sub nil or "" = the zone itself);
+-- zone nil = unknown. The time so far goes to the place that was left.
+function Session.enterPlace(session, zone, sub, now)
+  if type(zone) ~= "string" or zone == "" then zone = nil end
+  if type(sub) ~= "string" or sub == "" then sub = zone end
+  local at = session.at
+  if type(at) == "table" and at.zone == zone and at.sub == sub then return end
+  closeStretch(session, now)
+  if not zone then
+    session.at = nil
+    return
+  end
+  session.at = { zone = zone, sub = sub, since = session.running and now or nil }
+end
+
+function Session.notePlaceLoot(session, key, qty)
+  if not (num(key) or type(key) == "string") or not posInt(qty) then return end
+  local items = currentSlot(session).items
+  items[key] = (items[key] or 0) + qty
+end
+
+function Session.notePlaceGold(session, copper)
+  if not posInt(copper) then return end
+  local slot = currentSlot(session)
+  slot.gold = slot.gold + copper
+end
+
+-- A copy of session.zones with the open stretch counted up to `now`; the
+-- session itself is not changed.
+function Session.zoneSnapshot(session, now)
+  local out = {}
+  if type(session) ~= "table" or type(session.zones) ~= "table" then return out end
+  for zone, z in pairs(session.zones) do
+    if type(z) == "table" and type(z.subs) == "table" then
+      local subs = {}
+      for sub, s in pairs(z.subs) do
+        if type(s) == "table" then
+          local items = {}
+          if type(s.items) == "table" then
+            for key, qty in pairs(s.items) do
+              if num(qty) and qty > 0 then items[key] = qty end
+            end
+          end
+          subs[sub] = { time = num(s.time) and s.time or 0, gold = num(s.gold) and s.gold or 0, items = items }
+        end
+      end
+      out[zone] = { subs = subs }
+    end
+  end
+  local at = session.at
+  local extra = openStretch(session, now)
+  if extra > 0 then
+    local z = out[at.zone] or { subs = {} }
+    out[at.zone] = z
+    local s = z.subs[at.sub] or { time = 0, gold = 0, items = {} }
+    z.subs[at.sub] = s
+    s.time = s.time + extra
+  end
+  return out
+end
+
 -- Raw gold income in copper (looted and quest money, one total).
 function Session.addGold(session, copper, now)
   if not session.running then return false end
@@ -130,11 +238,14 @@ function Session.start(session, now)
   if session.running then return end
   session.running = true
   session.runningSince = now
+  if type(session.at) == "table" then session.at.since = now end
 end
 
 function Session.stop(session, now)
   if not session.running then return end
   session.elapsedBase = Session.elapsed(session, now)
+  closeStretch(session, now)
+  if type(session.at) == "table" then session.at.since = nil end
   session.running = false
   session.runningSince = nil
 end
@@ -143,6 +254,8 @@ function Session.reset(session, now)
   session.items = {}
   session.currencies = {}
   session.places = {}
+  session.zones = {}
+  if type(session.at) == "table" then session.at.since = session.running and now or nil end
   session.gold = 0
   session.startedAt = now
   session.elapsedBase = 0
@@ -154,6 +267,8 @@ function Session.suspend(session, now)
   if session.running then
     session.elapsedBase = Session.elapsed(session, now)
     session.runningSince = nil
+    closeStretch(session, now)
+    if type(session.at) == "table" then session.at.since = nil end
   end
 end
 
@@ -161,6 +276,7 @@ end
 function Session.resume(session, now)
   if session.running then
     session.runningSince = now
+    if type(session.at) == "table" then session.at.since = now end
   end
 end
 
@@ -203,6 +319,9 @@ function Session.login(saved, keep, now)
     -- Older sessions have no currencies / places; malformed ones are dropped.
     if type(saved.currencies) ~= "table" then saved.currencies = {} end
     if type(saved.places) ~= "table" then saved.places = {} end
+    if type(saved.zones) ~= "table" then saved.zones = {} end
+    local at = saved.at
+    if type(at) ~= "table" or type(at.zone) ~= "string" or type(at.sub) ~= "string" then saved.at = nil end
     Session.resume(saved, now)
     return saved
   end
