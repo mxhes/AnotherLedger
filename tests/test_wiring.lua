@@ -1273,3 +1273,95 @@ h.test("wiring: loot and gold are recorded per zone and subzone", function()
   h.eq(e.zones["Waking Shores"].subs.Wingrest.time, 40)
   h.eq(ctx.errors, {})
 end)
+
+local function rowsWith(view, field, value)
+  for i, r in ipairs(view.rows) do
+    if r[field] == value then return i, r end
+  end
+end
+
+h.test("wiring: the Zones sub-tab groups all sessions by zone and subzone", function()
+  local ctx = bootInZone("Waking Shores", "Wingrest")
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  ctx.place.zone, ctx.place.sub = "Ohn'ahran Plains", "Teerakai"
+  fire(ctx, "ZONE_CHANGED_NEW_AREA")
+  fire(ctx, "CHAT_MSG_LOOT", lootMsg(2592, 2)) -- running session
+  local L = ctx.ns.UI.Ledger
+  L.setTab("history")
+  h.eq(L.subtab, "sessions")
+  L.setSubtab("zones")
+  h.eq(#L.view.rows, 2)
+  h.eq(L.view.kind, "zones")
+  local i, zone = rowsWith(L.view, "zoneKey", "Waking Shores")
+  h.eq(zone.subKey, nil)
+  L.list.onRowClick(zone)
+  local sub = L.view.rows[i + 1]
+  h.eq(sub.subKey, "Wingrest")
+  L.list.onRowClick(sub)
+  h.eq(L.view.rows[i + 2].id, 2589)
+  h.eq(L.view.rows[i + 2].quantity, 3)
+  L.list.onRowClick(L.view.rows[i]) -- the zone again: collapsed
+  h.eq(#L.view.rows, 2)
+  h.eq(ctx.ns.db.subtab.history, "zones")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the sub-tab row only shows on History and the choice survives a reload", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  local row4 = ctx.ns.UI.Window.frame.header.row4
+  L.setTab("session")
+  h.eq(row4:IsShown(), false)
+  L.setTab("history")
+  h.eq(row4:IsShown(), true)
+  L.setSubtab("zones")
+  local reload = boot({ db = ctx.env.LootPriceDB, chardb = ctx.env.LootPriceCharDB, now = 2000 })
+  startWorld(reload, true)
+  h.eq(reload.ns.UI.Ledger.tab, "history")
+  h.eq(reload.ns.UI.Ledger.subtab, "zones")
+  h.eq(reload.ns.UI.Ledger.view.kind, "zones")
+  h.eq(reload.errors, {})
+end)
+
+h.test("wiring: quest items sit in their own group in Zones only", function()
+  local ctx = bootInZone("Waking Shores", "Wingrest")
+  ctx.env.C_Item.GetItemInfoInstant = function(id)
+    return id, "t", "st", "", 1, id == 2592 and 12 or 7, 0
+  end
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_LOOT", lootMsg(2592, 2))
+  local L = ctx.ns.UI.Ledger
+  L.setTab("session")
+  local sessionBest = L.view.totals.best
+  L.setTab("history")
+  L.setSubtab("zones")
+  local last = L.view.rows[#L.view.rows]
+  h.eq(last.zoneKey, ctx.ns.View.QUEST_ZONE)
+  h.eq(last.quantity, 1)
+  h.eq(L.view.totals.best, sessionBest - last.value)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Zones follows History pruning", function()
+  local ctx = bootInZone("Waking Shores", "Wingrest")
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  ctx.place.zone = "Azure Span"
+  fire(ctx, "ZONE_CHANGED_NEW_AREA")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  local L = ctx.ns.UI.Ledger
+  L.setTab("history")
+  L.setSubtab("zones")
+  h.eq(#L.view.rows, 2)
+  ctx.ns.Options.set(ctx.ns.db, "historyLimit", 1)
+  L.refresh()
+  h.eq(#L.view.rows, 1)
+  h.eq(L.view.rows[1].zoneKey, "Azure Span")
+  h.eq(ctx.errors, {})
+end)
