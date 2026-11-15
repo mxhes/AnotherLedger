@@ -604,6 +604,83 @@ function View.buildZones(entries, opts, open)
   return View.applyRates(view, timeSum)
 end
 
+-- ---------------------------------------------------------------------------
+-- Daily farm: the subzone of the saved History with the best gold per hour at
+-- the current prices (valued like History Zones). The filter bar is ignored;
+-- only subzones with at least `minSeconds` recorded time count.
+--   { best = place, runnersUp = { place, ... (2 at most) }, slow = { names } or nil }
+--   place = { zone, sub, time, value, perHour }
+-- slow: more than half of the best place's AH value comes from items whose
+-- sale rate is in the bad level (needs opts.market, i.e. TSM sale info).
+
+View.FARM_RUNNERS_UP = 2
+View.FARM_SLOW_NAMES = 5
+
+local farmOpts = {}
+
+local function farmSort(a, b)
+  if a.perHour ~= b.perHour then return a.perHour > b.perHour end
+  if a.time ~= b.time then return a.time > b.time end
+  if a.zone ~= b.zone then return a.zone < b.zone end
+  return a.sub < b.sub
+end
+
+local function slowItems(rows)
+  local slowAh, allAh, bad = 0, 0, {}
+  for _, r in ipairs(rows) do
+    local ah = r.ahTotal or 0
+    allAh = allAh + ah
+    if r.rateLevel == "bad" and ah > 0 then
+      slowAh = slowAh + ah
+      bad[#bad + 1] = r
+    end
+  end
+  if allAh <= 0 or slowAh * 2 <= allAh then return nil end
+  table.sort(bad, function(a, b)
+    if a.ahTotal ~= b.ahTotal then return a.ahTotal > b.ahTotal end
+    return (a.sortName or "") < (b.sortName or "")
+  end)
+  local names = {}
+  for i = 1, math.min(#bad, View.FARM_SLOW_NAMES) do names[i] = bad[i].name end
+  return { names = names }
+end
+
+function View.dailyFarm(entries, opts, minSeconds)
+  if type(entries) ~= "table" then return nil end
+  opts = opts or {}
+  if not num(minSeconds) then minSeconds = 0 end
+  for k in pairs(farmOpts) do farmOpts[k] = nil end
+  for k, v in pairs(opts) do farmOpts[k] = v end
+  farmOpts.filter, farmOpts.sort = nil, nil
+  local withGold = opts.includeGold ~= false
+
+  local places, rowsOf = {}, {}
+  local zones = aggregateZones(entries, opts.isQuest)
+  for zone, subs in pairs(zones) do
+    if zone ~= View.UNKNOWN_ZONE then
+      for sub, s in pairs(subs) do
+        if sub ~= View.NO_TIME_SUB and s.time > 0 and s.time >= minSeconds then
+          local rows, t = collect(s.items, farmOpts)
+          local value = t.best + (withGold and s.gold or 0)
+          local perHour = placePerHour(value, s.time)
+          if perHour then
+            local p = { zone = zone, sub = sub, time = s.time, value = value, perHour = perHour }
+            places[#places + 1] = p
+            rowsOf[p] = rows
+          end
+        end
+      end
+    end
+  end
+  if #places == 0 then return nil end
+  table.sort(places, farmSort)
+
+  local runnersUp = {}
+  for i = 2, math.min(#places, View.FARM_RUNNERS_UP + 1) do runnersUp[#runnersUp + 1] = places[i] end
+  local best = places[1]
+  return { best = best, runnersUp = runnersUp, slow = opts.market and slowItems(rowsOf[best]) or nil }
+end
+
 -- Session tab: rows, totals, raw gold, combined totals, rates and top finds.
 -- Currencies follow the item rows (they have no value).
 function View.build(session, opts)

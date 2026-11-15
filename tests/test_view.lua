@@ -662,3 +662,74 @@ h.test("View.buildZones: a short stay shows its time, not 'No time recorded'", f
   h.eq(v.rows[1].perHour, nil)
   h.eq(v.rows[1].hint:find(ns.L["No time recorded"], 1, true), nil)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Daily farm
+
+local function farmEntries()
+  return {
+    zentry({ [1] = 4, [3] = 1 }, {
+      Z = { subs = { A = zsub(3600, { [1] = 4 }), Short = zsub(60, { [3] = 1 }) } },
+      Y = { subs = { B = zsub(1800, {}, 300) } },
+    }),
+  }
+end
+
+h.test("View.dailyFarm picks the subzone with the best gold per hour", function()
+  local f = V.dailyFarm(farmEntries(), { lookup = zlookup }, 1200)
+  h.eq(f.best.zone, "Y"); h.eq(f.best.sub, "B")
+  h.eq(f.best.perHour, 600); h.eq(f.best.time, 1800); h.eq(f.best.value, 300)
+  h.eq(#f.runnersUp, 1)
+  h.eq(f.runnersUp[1].sub, "A"); h.eq(f.runnersUp[1].perHour, 400)
+end)
+
+h.test("View.dailyFarm skips places under the minimum time, quest items and no-time loot", function()
+  -- "Short" (60 s, 1000c/min) would win without the minimum.
+  local f = V.dailyFarm(farmEntries(), { lookup = zlookup }, 1200)
+  for _, p in ipairs(f.runnersUp) do h.eq(p.sub ~= "Short", true) end
+  h.eq(V.dailyFarm(farmEntries(), { lookup = zlookup }, 0).best.sub, "Short")
+  local quest = V.dailyFarm(farmEntries(), { lookup = zlookup, isQuest = function(id) return id == 1 end }, 1200)
+  h.eq(quest.best.sub, "B"); h.eq(#quest.runnersUp, 1); h.eq(quest.runnersUp[1].perHour, 0)
+  h.eq(V.dailyFarm({ zentry({ [1] = 9 }, nil, { "Z" }) }, { lookup = zlookup }, 0), nil)
+end)
+
+h.test("View.dailyFarm returns nil without qualifying places", function()
+  h.eq(V.dailyFarm({}, { lookup = zlookup }, 1200), nil)
+  h.eq(V.dailyFarm(farmEntries(), { lookup = zlookup }, 7200), nil)
+  h.eq(V.dailyFarm(nil, {}, 0), nil)
+end)
+
+h.test("View.dailyFarm keeps at most two runner-ups, ties go to more time", function()
+  local e = zentry({ [1] = 8 }, { Z = { subs = {
+    A = zsub(3600, { [1] = 2 }), B = zsub(7200, { [1] = 4 }), C = zsub(1800, { [1] = 1 }), D = zsub(1800, {}),
+  } } })
+  local f = V.dailyFarm({ e }, { lookup = zlookup }, 0)
+  h.eq(f.best.sub, "B") -- 200/h like A and C, most time
+  h.eq(#f.runnersUp, 2)
+  h.eq(f.runnersUp[1].sub, "A"); h.eq(f.runnersUp[2].sub, "C")
+end)
+
+h.test("View.dailyFarm ignores the filter and raw gold follows includeGold", function()
+  local filter = { search = "nothing" }
+  local f = V.dailyFarm(farmEntries(), { lookup = zlookup, filter = filter }, 1200)
+  h.eq(f.best.sub, "B"); h.eq(f.runnersUp[1].perHour, 400)
+  f = V.dailyFarm(farmEntries(), { lookup = zlookup, includeGold = false }, 1200)
+  h.eq(f.best.sub, "A")
+end)
+
+h.test("View.dailyFarm flags slow selling only with market data", function()
+  local lookup = function(id)
+    if id == 1 then return { ah = 100, saleRate = 0.01 } end
+    return { ah = 50, saleRate = 0.9 }
+  end
+  local e = zentry({ [1] = 2, [2] = 1 }, { Z = { subs = { A = zsub(3600, { [1] = 2, [2] = 1 }) } } })
+  local t = { rateGood = 0.5, rateOk = 0.1 }
+  local f = V.dailyFarm({ e }, { lookup = lookup, market = t }, 0)
+  h.eq(#f.slow.names, 1); h.eq(f.slow.names[1], "I1")
+  h.eq(V.dailyFarm({ e }, { lookup = lookup }, 0).slow, nil)
+  local fast = function() return { ah = 100, saleRate = 0.9 } end
+  h.eq(V.dailyFarm({ e }, { lookup = fast, market = t }, 0).slow, nil)
+  local unpriced = V.dailyFarm({ zentry({ [9] = 1 }, { Z = { subs = { A = zsub(3600, { [9] = 1 }) } } }) },
+    { lookup = function() return nil end, market = t }, 0)
+  h.eq(unpriced.best.value, 0); h.eq(unpriced.slow, nil)
+end)
