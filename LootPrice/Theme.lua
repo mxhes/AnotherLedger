@@ -273,6 +273,23 @@ Theme.widths = {
   tab = 72, -- tab buttons in header row 3
 }
 
+-- Options window (UI/OptionsPanel.lua): two columns of options. Buttons,
+-- dropdowns and sliders are `control` wide, not the whole column; the
+-- column fits the longest label with its value ("Zone change delay: 15 min",
+-- German too). The block heights per option type are Options.HEIGHTS.
+Theme.options = {
+  columnWidth = 210,
+  columnGap = 16,
+  titleHeight = 22, -- the window title above the tab row
+  tabGap = 8, -- between the tab row and the options
+  control = 150, -- width of a button, dropdown or slider
+  controlTop = 17, -- a control under its label
+  checkbox = 20,
+  swatch = 16,
+  numberBox = 80,
+  boxHeight = 18,
+}
+
 -- Pure. A color with r, g, b multiplied by `k` (clamped to 0..1); alpha kept.
 function Theme.scaleColor(c, k)
   if type(k) ~= "number" or k ~= k then k = 1 end

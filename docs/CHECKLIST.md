@@ -159,6 +159,10 @@ and remove both once it is confirmed.
 - [ ] Options panel: the number and text boxes have the window's input look
   (no game input frame); **Opacity** and **Brightness** change the options
   window as well (re-check on the current build).
+- [ ] Options panel, smaller layout (460 x 444): every label and slider value
+  fits its column (German too, e.g. `Verzögerung Zonenwechsel: 15 min`),
+  checkboxes, swatches, buttons and dropdowns don't overlap the next row,
+  and the slider thumb is still easy to grab.
 - [ ] **Colors**: clicking a swatch opens the game's color picker
   (`ColorPickerFrame:SetupColorPickerAndShow`, `GetColorRGB`; UNVERIFIED in
   `Widgets.pickColor`) above the options panel; dragging recolors the window,

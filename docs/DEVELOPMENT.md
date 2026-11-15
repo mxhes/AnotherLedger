@@ -70,6 +70,7 @@ Each of these is one call in one place; the UI never names them.
   the default; `apply` runs on change and for the saved value at login. Read it
   with `Options.get(ns.db, key)`. A new kind of control is one factory in
   `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its height in `Options.HEIGHTS`.
+  The panel's column width, gaps and control sizes are `Theme.options`.
 - **Price source**: a file in `Sources/` (in the `.toc` after
   `Sources\Sources.lua`) ending with `ns.Sources.register({ key, label,
   create = function(env, setting) return { name, get = function(itemID, link) ... end } end })`.

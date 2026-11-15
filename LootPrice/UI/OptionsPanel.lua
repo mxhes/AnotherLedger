@@ -19,12 +19,9 @@ ns.UI.OptionsPanel = Panel
 local TITLE = L["Options"]
 local L_DELETE = L["Delete"]
 local COLUMNS = 2
-local COLUMN_WIDTH = 250
-local COLUMN_GAP = 24
-local TITLE_HEIGHT = 24
-local TAB_GAP = 10 -- between the tab row and the options of the selected tab
 
 local function theme() return ns.Theme end
+local function sizes() return ns.Theme.options end
 
 local function get(spec) return ns.Options.get(ns.db, spec.key) end
 local function set(spec, value) return ns.Options.set(ns.db, spec.key, value) end
@@ -58,9 +55,10 @@ function Panel.WIDGETS.slider(block, spec)
   local title = label(block, T.fonts.small, T.colors.ink)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
 
+  local O = sizes()
   local slider = CreateFrame("Slider", nil, block, "OptionsSliderTemplate")
-  slider:SetPoint("TOPLEFT", block, "TOPLEFT", 4, -22)
-  slider:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -22)
+  slider:SetPoint("TOPLEFT", block, "TOPLEFT", 4, -O.controlTop)
+  slider:SetWidth(O.control)
   slider:SetMinMaxValues(spec.min, spec.max)
   slider:SetValueStep(spec.step or 0.05)
   if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
@@ -95,7 +93,7 @@ end
 local function inputBox(block, width)
   local T = theme()
   local box = ns.UI.Widgets.input(block, width)
-  box:SetHeight(20)
+  box:SetHeight(sizes().boxHeight)
   box:SetAutoFocus(false)
   box:SetFontObject(T.fonts.small)
   box:SetTextInsets(4, 4, 0, 0)
@@ -108,8 +106,8 @@ function Panel.WIDGETS.number(block, spec)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local box = inputBox(block, 80)
-  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -22)
+  local box = inputBox(block, sizes().numberBox)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -sizes().controlTop)
   box:SetMaxLetters(10)
 
   -- Unlimited shows as an empty box.
@@ -167,9 +165,10 @@ function Panel.WIDGETS.text(block, spec)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local box = inputBox(block, 80)
-  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -22)
-  box:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -22)
+  local top = sizes().controlTop
+  local box = inputBox(block, sizes().numberBox)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -top)
+  box:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -top)
   box:SetMaxLetters(200)
 
   local function show(value) box:SetText(tostring(value)) end
@@ -191,9 +190,8 @@ function Panel.WIDGETS.text(block, spec)
 end
 
 function Panel.WIDGETS.button(block, spec)
-  local button = ns.UI.Widgets.button(block, spec.label)
-  button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -2)
-  button:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, -2)
+  local button = ns.UI.Widgets.button(block, spec.label, sizes().control)
+  button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -1)
   button:SetScript("OnClick", function(self)
     if spec.action then spec.action(self) end
   end)
@@ -203,8 +201,8 @@ end
 function Panel.WIDGETS.checkbox(block, spec)
   local T = theme()
   local box = CreateFrame("CheckButton", nil, block, "UICheckButtonTemplate")
-  box:SetSize(24, 24)
-  box:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -2)
+  box:SetSize(sizes().checkbox, sizes().checkbox)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -1)
   local text = label(block, T.fonts.small, T.colors.ink)
   text:SetPoint("LEFT", box, "RIGHT", 4, 0)
   text:SetText(spec.label)
@@ -223,9 +221,8 @@ function Panel.WIDGETS.dropdown(block, spec)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local button = ns.UI.Widgets.button(block)
-  button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -20)
-  button:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, -20)
+  local button = ns.UI.Widgets.button(block, nil, sizes().control)
+  button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -sizes().controlTop)
 
   local function show(value)
     button:SetText(ns.Options.valueText(spec, value))
@@ -247,8 +244,8 @@ function Panel.WIDGETS.color(block, spec)
   local T = theme()
   local W = ns.UI.Widgets
   local swatch = CreateFrame("Button", nil, block, "BackdropTemplate")
-  swatch:SetSize(20, 20)
-  swatch:SetPoint("TOPLEFT", block, "TOPLEFT", 2, -4)
+  swatch:SetSize(sizes().swatch, sizes().swatch)
+  swatch:SetPoint("TOPLEFT", block, "TOPLEFT", 2, -3)
   if swatch.SetBackdrop then
     swatch:SetBackdrop({ edgeFile = T.textures.buttonEdge, edgeSize = 1 })
     local e = T.colors.buttonEdgeHover
@@ -312,7 +309,7 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
     if factory then
       local block = CreateFrame("Frame", nil, parent)
       block:SetSize(columnWidth, ns.Options.HEIGHTS[spec.type])
-      local x = pad + ((layout.cols[spec.key] or 1) - 1) * (columnWidth + COLUMN_GAP)
+      local x = pad + ((layout.cols[spec.key] or 1) - 1) * (columnWidth + sizes().columnGap)
       block:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.tops[spec.key]))
       local widget = factory(block, spec)
       widget.block = block
@@ -330,7 +327,7 @@ function Panel.tabbedHeight(sections, columns)
   for _, section in ipairs(sections) do
     tallest = math.max(tallest, ns.Options.layout(section.specs, columns).height)
   end
-  return theme().sizes.headerRowHeight + TAB_GAP + tallest
+  return theme().sizes.headerRowHeight + sizes().tabGap + tallest
 end
 
 -- The selected tab, shared by the panel and the options page and kept for the
@@ -343,6 +340,7 @@ Panel.tab = nil
 -- { widgets = { [key] = widget }, select = function(id), height }.
 function Panel.buildTabbed(parent, pad, top)
   local S = theme().sizes
+  local O = sizes()
   local sections = ns.Options.sections()
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(S.headerRowHeight)
@@ -354,12 +352,12 @@ function Panel.buildTabbed(parent, pad, top)
   for _, section in ipairs(sections) do
     items[#items + 1] = { key = section.id, label = section.label }
     local page = CreateFrame("Frame", nil, parent)
-    page:SetPoint("TOPLEFT", row, "BOTTOMLEFT", -pad, -TAB_GAP)
-    page:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", pad, -TAB_GAP)
-    page:SetHeight(tabbed.height - S.headerRowHeight - TAB_GAP)
+    page:SetPoint("TOPLEFT", row, "BOTTOMLEFT", -pad, -O.tabGap)
+    page:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", pad, -O.tabGap)
+    page:SetHeight(tabbed.height - S.headerRowHeight - O.tabGap)
     page:Hide()
     local layout = ns.Options.layout(section.specs, COLUMNS)
-    for key, w in pairs(Panel.populate(page, pad, 0, section.specs, layout, COLUMN_WIDTH)) do
+    for key, w in pairs(Panel.populate(page, pad, 0, section.specs, layout, O.columnWidth)) do
       tabbed.widgets[key] = w
     end
     tabbed.pages[section.id] = page
@@ -381,17 +379,18 @@ end
 
 local function build()
   local T = theme()
+  local O = sizes()
   local pad = T.sizes.padding + 4
-  local width = 2 * pad + COLUMNS * COLUMN_WIDTH + (COLUMNS - 1) * COLUMN_GAP
+  local width = 2 * pad + COLUMNS * O.columnWidth + (COLUMNS - 1) * O.columnGap
 
   local frame = CreateFrame("Frame", "LootPriceOptions", UIParent, "BackdropTemplate")
   frame:SetFrameStrata("DIALOG")
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
-  local tabbed = Panel.buildTabbed(frame, pad, pad + TITLE_HEIGHT)
+  local tabbed = Panel.buildTabbed(frame, pad, pad + O.titleHeight)
   frame.tabbed = tabbed
-  frame:SetSize(width, 2 * pad + TITLE_HEIGHT + tabbed.height)
+  frame:SetSize(width, 2 * pad + O.titleHeight + tabbed.height)
   -- Same background as the ledger window: its opacity and brightness too.
   ns.UI.Widgets.applyBackdrop(frame)
   if ns.UI.Window and ns.UI.Window.paintLook then ns.UI.Window.paintLook(frame) end
@@ -464,7 +463,7 @@ local function buildPage()
   title:SetText(PAGE_NAME)
 
   -- The tab row spans the two columns (the canvas may be wider).
-  local tabbed = Panel.buildTabbed(page, pad, pad + TITLE_HEIGHT)
+  local tabbed = Panel.buildTabbed(page, pad, pad + sizes().titleHeight)
   page.tabbed = tabbed
   page.widgets = tabbed.widgets
   function page:RefreshAll()

@@ -34,9 +34,10 @@ local Options = {
 
 local num = ns.Util.isNumber
 
--- Vertical size (px) of one option block in the panel, by type.
-Options.HEIGHTS = { slider = 46, dropdown = 48, checkbox = 28, number = 46, text = 46, color = 28, button = 28, header = 26 }
-Options.GAP = 8
+-- Vertical size (px) of one option block in the panel, by type (the controls
+-- in it: Theme.options).
+Options.HEIGHTS = { slider = 38, dropdown = 40, checkbox = 22, number = 38, text = 38, color = 22, button = 22, header = 22 }
+Options.GAP = 6
 
 function Options.define(spec)
   assert(type(spec) == "table" and type(spec.key) == "string", "option needs a key")
