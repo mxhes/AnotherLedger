@@ -29,20 +29,13 @@ local L_WAY_TITLE = L["Waypoint (/way)"]
 
 DailyFarm.shown = false
 
--- Rates of 1 gold and more are rounded to whole gold so the strip stays short
--- in a narrow window (the hover text has the full amounts).
-local GOLD = 10000
-local function rounded(copper)
-  if copper >= GOLD then return math.floor(copper / GOLD + 0.5) * GOLD end
-  return copper
-end
-
 -- "Subzone (Zone)", or the zone alone when the place is the zone itself.
 function DailyFarm.placeName(p) return ns.Waypoint.name(p) end
 
 local function rate(p)
-  -- No "~": it sits raised in the game font; the hover text has the exact rate.
-  return ns.Money.format(rounded(p.perHour)) .. L_PER_HOUR
+  -- Whole gold keeps the strip short in a narrow window; no "~" (it sits
+  -- raised in the game font). The hover text has the exact rate.
+  return ns.Money.format(ns.Money.roundRate(p.perHour)) .. L_PER_HOUR
 end
 
 function DailyFarm.label(farm)
@@ -130,9 +123,6 @@ function DailyFarm.attach(row)
   local button = CreateFrame("Button", nil, row)
   button:SetAllPoints(row)
   button:SetHighlightTexture(T.textures.buttonHighlight, "ADD")
-  button:RegisterForDrag("LeftButton")
-  button:SetScript("OnDragStart", function() ns.UI.Window.beginDrag() end)
-  button:SetScript("OnDragStop", function() ns.UI.Window.endDrag() end)
   local icon = button:CreateTexture(nil, "ARTWORK")
   icon:SetSize(T.sizes.dailyFarmIcon, T.sizes.dailyFarmIcon)
   icon:SetPoint("LEFT", button, "LEFT", 0, 0)
@@ -143,18 +133,25 @@ function DailyFarm.attach(row)
   text:SetPoint("LEFT", icon, "RIGHT", 4, 0)
   text:SetPoint("RIGHT", button, "RIGHT", 0, 0)
   DailyFarm.button, DailyFarm.text = button, text
+  DailyFarm.wire(button)
 
+  ns.UI.Ledger.register(part)
+  return button
+end
+
+-- The clicks, hover text and window drag of a Daily farm button (the strip
+-- and the compact line behave the same).
+function DailyFarm.wire(button)
+  local W = ns.UI.Widgets
   button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  button:RegisterForDrag("LeftButton")
+  button:SetScript("OnDragStart", function() ns.UI.Window.beginDrag() end)
+  button:SetScript("OnDragStop", function() ns.UI.Window.endDrag() end)
   button:SetScript("OnClick", function(_, which)
     DailyFarm.click(which, type(IsShiftKeyDown) == "function" and IsShiftKeyDown() and true or false)
   end)
   button:SetScript("OnEnter", function(self)
     if DailyFarm.farm then W.showTextTooltip(self, DailyFarm.hint(DailyFarm.farm), "ANCHOR_BOTTOMLEFT") end
   end)
-  button:SetScript("OnLeave", function()
-    if GameTooltip then GameTooltip:Hide() end
-  end)
-
-  ns.UI.Ledger.register(part)
-  return button
+  button:SetScript("OnLeave", W.hideTooltip)
 end

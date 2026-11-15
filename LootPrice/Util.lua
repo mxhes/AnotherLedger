@@ -40,6 +40,16 @@ function Util.shortAge(seconds)
   return math.max(1, floor(seconds / 60)) .. "m"
 end
 
+-- The saved value of option `key` (Options.get), or `fallback` before the
+-- saved variables are loaded or without the option registry (some tests).
+function Util.setting(key, fallback)
+  local O = ns.Options
+  if not (O and ns.db) then return fallback end
+  local v = O.get(ns.db, key)
+  if v == nil then return fallback end
+  return v
+end
+
 local PREFIX = "|cff33ff99LootPrice|r: "
 
 -- Chat line with the addon prefix.

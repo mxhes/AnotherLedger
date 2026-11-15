@@ -5,9 +5,9 @@ local L = ns.L
 ns.UI = ns.UI or {}
 
 -- Compact mode body (the glance between pulls): gold per hour in large type
--- with the session total next to it, the last drops (name, value and source
--- tag, Task "one counted value" style) and the Daily farm line. Draws
--- view.compact (View.buildCompact); only while the window is in compact mode.
+-- with the session total next to it, the last drops (name, the counted value
+-- and its source tag) and the Daily farm line. Draws view.compact
+-- (View.buildCompact); only while the window is in compact mode.
 -- Client-only; every WoW global is touched inside functions only. dropText is
 -- pure.
 local Compact = {}
@@ -15,6 +15,9 @@ ns.UI.Compact = Compact
 
 local L_PER_HOUR = L["/h"]
 local L_LAST_DROPS = L["Last drops"]
+local L_SESSION = L["Session"]
+local L_NO_DROPS = L["No drops yet."]
+local L_PAUSED = L["Paused: click the clock to start."]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_DROPS = 4
 
@@ -36,7 +39,7 @@ end
 
 -- Pure. The big number: gold per hour, or an em dash under a minute.
 function Compact.rateText(perHour, formatMoney)
-  if perHour == nil then return DASH end
+  if perHour == nil then return DASH .. L_PER_HOUR end
   return (formatMoney or ns.Money.formatColored)(math.floor(perHour + 0.5)) .. L_PER_HOUR
 end
 
@@ -53,10 +56,15 @@ function part:Update(view)
   if not c then return end
   local T = ns.Theme
   Compact.perHour:SetText(Compact.rateText(c.perHour))
-  Compact.total:SetText(ns.Money.formatColored(c.total or 0))
+  Compact.total:SetText(ns.Money.colorCode(T.colors.hint) .. L_SESSION .. "|r " .. ns.Money.formatColored(c.total or 0))
 
+  -- Without drops the title line says why the list is empty.
   local drops = c.drops or {}
-  Compact.dropsTitle:SetShown(#drops > 0)
+  if #drops > 0 then
+    Compact.dropsTitle:SetText(L_LAST_DROPS)
+  else
+    Compact.dropsTitle:SetText(c.running and L_NO_DROPS or L_PAUSED)
+  end
   for i = 1, MAX_DROPS do
     local w = Compact.drops[i]
     local row = drops[i]
@@ -144,16 +152,7 @@ function Compact.attach(area)
   farm:SetHeight(S.compactRowHeight)
   farm:SetPoint("BOTTOMLEFT", area, "BOTTOMLEFT", 0, 0)
   farm:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", 0, 0)
-  farm:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  farm:SetScript("OnClick", function(_, which)
-    local DF = ns.UI.DailyFarm
-    if DF then DF.click(which, type(IsShiftKeyDown) == "function" and IsShiftKeyDown() and true or false) end
-  end)
-  farm:SetScript("OnEnter", function(self)
-    local DF = ns.UI.DailyFarm
-    if DF and DF.farm then W.showTextTooltip(self, DF.hint(DF.farm), "ANCHOR_BOTTOMLEFT") end
-  end)
-  farm:SetScript("OnLeave", W.hideTooltip)
+  if ns.UI.DailyFarm then ns.UI.DailyFarm.wire(farm) end
   local farmText = W.text(farm, T.fonts.small, T.colors.dailyFarm, "LEFT")
   farmText:SetPoint("LEFT", farm, "LEFT", 0, 0)
   farmText:SetPoint("RIGHT", farm, "RIGHT", 0, 0)

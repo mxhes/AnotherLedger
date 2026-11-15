@@ -122,7 +122,9 @@ Tabs.define({
   invalidate = function() bagItems = nil end,
   build = function(ctx)
     if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
-    return ns.View.buildInventory(bagItems, ctx.opts)
+    local view = ns.View.buildInventory(bagItems, ctx.opts)
+    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
+    return view
   end,
   hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
 })
@@ -139,8 +141,10 @@ Tabs.define({
   build = function(ctx)
     local bank = savedBank(ctx)
     local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
-    local hours = ns.Options and ns.db and ns.Options.get(ns.db, "staleHours")
+    local hours = ns.Util.setting("staleHours", nil)
     view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank and bank.scannedAt, hours and hours * 3600)
+    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
+      bank and L["Your bank is empty."] or L["Open your bank once to scan it."])
     return view
   end,
   hasItem = function(itemID, ctx)
@@ -183,7 +187,8 @@ Tabs.define({
   build = buildSessions,
   hasItem = sessionsHasItem,
   subtabs = {
-    { key = "sessions", label = L["Sessions"], build = buildSessions, hasItem = sessionsHasItem },
+    { key = "sessions", label = L["Sessions"], build = buildSessions, hasItem = sessionsHasItem,
+      sorts = { "ah", "recent", "perHour" } }, -- the sorts View.buildHistory knows
     {
       key = "zones", label = L["Zones"],
       sorts = { "ah", "perHour", "vendor", "name", "recent" },

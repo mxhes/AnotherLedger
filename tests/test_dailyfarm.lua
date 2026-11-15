@@ -78,3 +78,8 @@ h.test("Compact fits its body at the minimum window height", function()
   h.eq(S.compactMinHeight >= C.requiredHeight(), true)
   h.eq(S.compactHeight >= S.compactMinHeight, true)
 end)
+
+h.test("Compact.rateText: money per hour, a dash per hour without a rate", function()
+  h.eq(ns.UI.Compact.rateText(nil), "\226\128\148/h")
+  h.eq(ns.UI.Compact.rateText(5000.4, ns.Money.format), ns.Money.format(5000) .. "/h")
+end)

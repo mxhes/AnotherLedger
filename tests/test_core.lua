@@ -26,11 +26,26 @@ h.test("Core.placeOf: zone outside, instance with difficulty inside", function()
   h.eq({ Core.placeOf({ GetRealZoneText = function() return "Dornogal" end,
     GetInstanceInfo = function() return "Khaz Algar", "none" end }) }, { "Dornogal" })
   h.eq({ Core.placeOf({ GetInstanceInfo = function() return "The Stonevault", "party", 23, "Mythic" end }) },
-    { "The Stonevault (Mythic)", "The Stonevault:23" })
+    { "The Stonevault (Mythic)", "The Stonevault" })
   h.eq({ Core.placeOf({ GetInstanceInfo = function() return "Arena", "arena", 0, "" end }) },
-    { "Arena", "Arena:0" })
+    { "Arena", "Arena" })
   h.eq({ Core.placeOf({ GetInstanceInfo = function() error("x") end }) }, {})
   h.eq({ Core.placeOf({}) }, {})
+end)
+
+h.test("Core.placeOf: a missing difficulty name never splits one dungeon into two places", function()
+  -- GetDifficultyInfo fills in a missing name
+  local env = { GetInstanceInfo = function() return "Razorfen Downs", "party", 1, "" end,
+    GetDifficultyInfo = function(id) return id == 1 and "Normal" or nil end }
+  h.eq(Core.placeOf(env), "Razorfen Downs (Normal)")
+  -- without it, the last name seen in that instance
+  local remembered = {}
+  local name = "Normal"
+  env = { GetInstanceInfo = function() return "Razorfen Downs", "party", 1, name end }
+  h.eq(Core.placeOf(env, remembered), "Razorfen Downs (Normal)")
+  name = nil
+  h.eq(Core.placeOf(env, remembered), "Razorfen Downs (Normal)")
+  h.eq(Core.placeOf(env), "Razorfen Downs")
 end)
 
 h.test("Core loads without a client and exposes helpers", function()

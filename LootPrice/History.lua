@@ -5,7 +5,7 @@ local L = ns.L
 -- Archive of finished sessions (per character, newest first). Pure: no WoW
 -- globals. An entry is a snapshot taken when a session is thrown away (Reset,
 -- a fresh login without "keep session", or the new-session-per-instance option):
---   { startedAt, elapsed, gold, nItems, vendor, ah, best, unpriced,
+--   { startedAt, elapsed, gold, nItems, vendor, ah, best,
 --     places = { "label", ... } (most loot first),
 --     items = { [key] = { id, key, link, qty, lastSeen, price } },
 --     currencies = { [currencyID] = { id, link, qty } },
@@ -22,6 +22,7 @@ local num, nonNeg = ns.Util.isNumber, ns.Util.nonNegative
 
 local L_PLACES = L["Places: "]
 local L_ITEMS = L[" items"]
+local L_ONE_ITEM = L["1 item"]
 local L_VENDOR = L["Vendor: "]
 local L_AH = L["AH: "]
 local L_BEST = L["Best: "]
@@ -166,6 +167,33 @@ function History.currencyText(e, sep)
   return table.concat(list, sep or ", ")
 end
 
+-- "1 item", "12 items".
+function History.itemCount(n)
+  if n == 1 then return L_ONE_ITEM end
+  return tostring(n) .. L_ITEMS
+end
+
+local L_TODAY, L_YESTERDAY = L["Today"], L["Yesterday"]
+local WEEKDAYS = { L["Sun"], L["Mon"], L["Tue"], L["Wed"], L["Thu"], L["Fri"], L["Sat"] }
+-- The date of an older session (the German client writes 15.11.2026).
+local L_DATE_FORMAT = L["%Y-%m-%d"]
+
+-- The short start of a session for its row: "Today 20:21", "Yesterday 9:05",
+-- a weekday within the last six days ("Sat 14:55"), else the date alone.
+-- `dateFn` is the client's date (os.date): dateFn(format, timestamp).
+function History.shortDate(ts, now, dateFn)
+  if not (num(ts) and num(now)) or type(dateFn) ~= "function" then return tostring(ts) end
+  local function day(t) return dateFn("%Y-%m-%d", t) end
+  local clock = dateFn("%H:%M", ts)
+  if day(ts) == day(now) then return L_TODAY .. " " .. clock end
+  if day(ts) == day(now - 86400) then return L_YESTERDAY .. " " .. clock end
+  if ts < now and now - ts < 6 * 86400 then
+    local weekday = WEEKDAYS[(tonumber(dateFn("%w", ts)) or 0) + 1]
+    return weekday .. " " .. clock
+  end
+  return dateFn(L_DATE_FORMAT, ts)
+end
+
 -- "1h 12m", "12m", "45s".
 function History.duration(seconds)
   if not num(seconds) or seconds < 0 then seconds = 0 end
@@ -191,7 +219,7 @@ function History.details(e, formatDate)
   local Tip = ns.Tooltip
   local when = formatDate and formatDate(e.startedAt) or tostring(e.startedAt)
   local tip = Tip.new(when)
-  Tip.note(tip, History.duration(e.elapsed) .. ", " .. e.nItems .. L_ITEMS)
+  Tip.note(tip, History.duration(e.elapsed) .. ", " .. History.itemCount(e.nItems))
   if type(e.places) == "table" and #e.places > 0 then
     Tip.labelled(tip, L_PLACES, table.concat(e.places, ", "))
   end

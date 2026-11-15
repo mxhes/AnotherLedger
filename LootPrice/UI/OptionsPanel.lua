@@ -90,16 +90,26 @@ function Panel.WIDGETS.slider(block, spec)
   }
 end
 
+-- An input box in the window's own look (Widgets.input, like the search box),
+-- not the game's InputBoxTemplate.
+local function inputBox(block, width)
+  local T = theme()
+  local box = ns.UI.Widgets.input(block, width)
+  box:SetHeight(20)
+  box:SetAutoFocus(false)
+  box:SetFontObject(T.fonts.small)
+  box:SetTextInsets(4, 4, 0, 0)
+  return box
+end
+
 function Panel.WIDGETS.number(block, spec)
   local T = theme()
   local title = label(block, T.fonts.small, T.colors.ink)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local box = CreateFrame("EditBox", nil, block, "InputBoxTemplate")
-  box:SetSize(80, 20)
+  local box = inputBox(block, 80)
   box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -22)
-  box:SetAutoFocus(false)
   box:SetMaxLetters(10)
 
   -- Unlimited shows as an empty box.
@@ -157,11 +167,9 @@ function Panel.WIDGETS.text(block, spec)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local box = CreateFrame("EditBox", nil, block, "InputBoxTemplate")
-  box:SetHeight(20)
+  local box = inputBox(block, 80)
   box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -22)
   box:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -22)
-  box:SetAutoFocus(false)
   box:SetMaxLetters(200)
 
   local function show(value) box:SetText(tostring(value)) end

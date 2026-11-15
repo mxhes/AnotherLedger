@@ -210,12 +210,12 @@ ns.Locale.register("deDE", {
   ["Region sale rate from which an item counts as selling okay. Below it, it sells poorly."] = "Regionale Verkaufsrate, ab der ein Gegenstand als mäßig verkäuflich gilt. Darunter verkauft er sich schlecht.",
   ["Average number sold per day in your region from which an item is High volume. Empty = never."] = "Durchschnittlich pro Tag in deiner Region verkauft, ab der ein Gegenstand hohe Menge hat. Leer = nie.",
   ["Average number sold per day from which an item is Medium volume. Below it, Low volume."] = "Durchschnittlich pro Tag verkauft, ab der ein Gegenstand mittlere Menge hat. Darunter geringe Menge.",
-  ["How often prices and age tags are looked up again while the clock runs. The Daily farm is worked out again at the same pace."] = "Wie oft Preise und Altersangaben neu abgefragt werden, während die Uhr läuft. Die Tagesfarm wird im selben Takt neu berechnet.",
-  ["A cached AH price older than this shows its age tag in orange."] = "Ein gespeicherter AH-Preis, der älter ist, zeigt sein Alter in Orange.",
+  ["How often prices and age tags are looked up again while the window is open. The Daily farm is worked out again at the same pace."] = "Wie oft Preise und Altersangaben neu abgefragt werden, solange das Fenster offen ist. Die Tagesfarm wird im selben Takt neu berechnet.",
+  ["A cached AH price older than this shows its age tag in orange. The Bank tab's scan note turns orange after the same time."] = "Ein gespeicherter AH-Preis, der älter ist, zeigt sein Alter in Orange. Der Scan-Hinweis im Bank-Tab wird nach derselben Zeit orange.",
   ["The list's order at every login. The sort button still changes it for the rest of the session."] = "Die Reihenfolge der Liste bei jedem Login. Der Sortierknopf ändert sie weiter für den Rest der Sitzung.",
   ["How amounts of 1 gold and more are shown: all coins, gold and silver, or gold only. Smaller amounts always show in full."] = "Wie Beträge ab 1 Gold angezeigt werden: alle Münzen, Gold und Silber oder nur Gold. Kleinere Beträge erscheinen immer vollständig.",
   ["Shows the game's coin icons instead of the letters g, s and c, wherever amounts appear."] = "Zeigt die Münzsymbole des Spiels statt der Buchstaben g, s und c, überall wo Beträge stehen.",
-  ["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the place values of Zones and the Daily farm. Off leaves the Total row out."] = "Zählt das erbeutete Gold in den Summen mit: Gesamt-Zeile unten, kompaktes Fenster, Text des Minimap-Knopfs, Ortswerte in Zonen und die Tagesfarm. Aus lässt die Gesamt-Zeile weg.",
+  ["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the History sessions, the place values of Zones and the Daily farm. Off leaves the Total row out."] = "Zählt das erbeutete Gold in den Summen mit: Gesamt-Zeile unten, kompaktes Fenster, Text des Minimap-Knopfs, die Sitzungen im Verlauf, Ortswerte in Zonen und die Tagesfarm. Aus lässt die Gesamt-Zeile weg.",
   ["A chat line when one drop is worth at least this much gold. 0 or empty turns it off."] = "Eine Chatzeile, wenn ein Fund mindestens so viel Gold wert ist. 0 oder leer schaltet es aus.",
   ["Plays a sound with the drop alert."] = "Spielt einen Ton zum Fund-Alarm.",
   ["Counts items you craft, and items you get at a vendor, mailbox, trade or the auction house, as loot."] = "Zählt hergestellte Gegenstände und Gegenstände von Händler, Briefkasten, Handel oder Auktionshaus als Beute.",
@@ -271,4 +271,32 @@ ns.Locale.register("deDE", {
   ["Fill of the buttons."] = "Füllung der Knöpfe.",
   ["Sets every color back to its default."] = "Setzt alle Farben auf ihren Standard zurück.",
   ["Click: pick a color. Right-click: default."] = "Klick: Farbe wählen. Rechtsklick: Standard.",
+
+  -- Price sources
+  ["Auto"] = "Auto",
+  [", then "] = ", dann ",
+
+  -- History rows and dates
+  ["1 item"] = "1 Gegenstand",
+  ["Today"] = "Heute",
+  ["Yesterday"] = "Gestern",
+  ["Sun"] = "So",
+  ["Mon"] = "Mo",
+  ["Tue"] = "Di",
+  ["Wed"] = "Mi",
+  ["Thu"] = "Do",
+  ["Fri"] = "Fr",
+  ["Sat"] = "Sa",
+  ["%Y-%m-%d"] = "%d.%m.%Y",
+
+  -- Empty lists and the stopped clock
+  ["Nothing matches the filters."] = "Nichts passt zu den Filtern.",
+  ["The clock is stopped: loot is not counted. Press Start."] = "Die Uhr steht: Beute wird nicht gezählt. Drücke Start.",
+  ["No loot yet."] = "Noch keine Beute.",
+  ["No saved sessions yet. A session is saved when you reset it."] = "Noch keine gespeicherten Sitzungen. Eine Sitzung wird beim Zurücksetzen gespeichert.",
+  ["Your bags are empty."] = "Deine Taschen sind leer.",
+  ["Your bank is empty."] = "Deine Bank ist leer.",
+  ["the clock is stopped: loot is not counted. /lp start or the Start button starts it."] = "die Uhr steht: Beute wird nicht gezählt. /lp start oder der Start-Knopf startet sie.",
+  ["No drops yet."] = "Noch keine Beute.",
+  ["Paused: click the clock to start."] = "Pausiert: Klick auf die Uhr startet.",
 })

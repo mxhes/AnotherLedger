@@ -17,6 +17,7 @@ local ADDON, ns = ...
 -- source touches no other file.
 ns.Sources = ns.Sources or {}
 local Sources = ns.Sources
+local L = ns.L
 
 Sources.AUTO = "auto" -- option value: ask every source, in order
 
@@ -57,8 +58,8 @@ end
 function Sources.choices()
   local labels = {}
   for i, spec in ipairs(specs) do labels[i] = spec.label or spec.key end
-  local auto = "Auto"
-  if #labels > 0 then auto = auto .. " (" .. table.concat(labels, ", then ") .. ")" end
+  local auto = L["Auto"]
+  if #labels > 0 then auto = auto .. " (" .. table.concat(labels, L[", then "]) .. ")" end
   local choices = { { value = Sources.AUTO, label = auto } }
   for i, spec in ipairs(specs) do
     choices[#choices + 1] = { value = spec.key, label = labels[i] }

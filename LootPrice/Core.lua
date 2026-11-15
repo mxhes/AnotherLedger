@@ -165,18 +165,36 @@ end
 -- ---------------------------------------------------------------------------
 -- Where the player is (History: zone or instance per session)
 
--- Pure over `env`. Returns the place label ("Zone", or "Instance (Difficulty)")
--- and an instance key (nil outside instances).
+-- The difficulty name of an instance: GetInstanceInfo's, else
+-- GetDifficultyInfo(difficultyID), else the last one seen in that instance
+-- (`remembered`, by instance name). While loading, the client may report no
+-- difficulty; without the fallbacks one dungeon would show up as two places.
+-- UNVERIFIED (check in client): GetDifficultyInfo(id) returns the name first.
+local function difficultyOf(env, name, difficultyID, difficultyName, remembered)
+  local text = type(difficultyName) == "string" and difficultyName ~= "" and difficultyName or nil
+  if not text and type(env.GetDifficultyInfo) == "function" and difficultyID then
+    local ok, v = pcall(env.GetDifficultyInfo, difficultyID)
+    if ok and type(v) == "string" and v ~= "" then text = v end
+  end
+  if remembered then
+    if text then remembered[name] = text else text = remembered[name] end
+  end
+  return text
+end
+
+local difficulties = {} -- instance name -> last difficulty name seen
+
+-- Pure over `env` (and `remembered`, a table the caller keeps; optional).
+-- Returns the place label ("Zone", or "Instance (Difficulty)") and an instance
+-- key (the instance name; nil outside instances).
 -- GetInstanceInfo gives name, instanceType, difficultyID, difficultyName.
-function Core.placeOf(env)
+function Core.placeOf(env, remembered)
   if type(env.GetInstanceInfo) == "function" then
     local ok, name, instanceType, difficultyID, difficultyName = pcall(env.GetInstanceInfo)
     if ok and type(name) == "string" and name ~= "" and instanceType ~= nil and instanceType ~= "none" then
-      local key = name .. ":" .. tostring(difficultyID)
-      if type(difficultyName) == "string" and difficultyName ~= "" then
-        return name .. " (" .. difficultyName .. ")", key
-      end
-      return name, key
+      local difficulty = difficultyOf(env, name, difficultyID, difficultyName, remembered)
+      if difficulty then return name .. " (" .. difficulty .. ")", name end
+      return name, name
     end
   end
   local zone
@@ -236,15 +254,22 @@ local function notePosition()
   if ns.session then ns.Session.notePlacePos(ns.session, Core.positionOf(_G)) end
 end
 
--- History Zones: tells the session where the player is now (zone and subzone).
+-- History Zones: tells the session where the player is now (zone and
+-- subzone). Returns the place label (Core.placeOf), or nil.
 function Core.updatePlace()
-  if not ns.session then return end
-  local zone = Core.placeOf(_G)
+  if not ns.session then return nil end
+  local zone = Core.placeOf(_G, difficulties)
   ns.Session.enterPlace(ns.session, zone, Core.subzoneOf(_G, zone), time())
+  return zone
 end
 
-local function notePlace()
-  if ns.session then ns.Session.notePlace(ns.session, (Core.placeOf(_G))) end
+-- One loot or gold event: the place is current, counted for History and,
+-- unless `noSpot`, the spot on the map remembered.
+local function notePlace(noSpot)
+  local place = Core.updatePlace()
+  if not ns.session then return end
+  ns.Session.notePlace(ns.session, place)
+  if not noSpot then notePosition() end
 end
 
 -- ---------------------------------------------------------------------------
@@ -265,19 +290,29 @@ local function tradeWindowOpen()
   return next(tradeWindows) ~= nil
 end
 
+-- Loot, gold and currencies are not counted while the clock is stopped: one
+-- chat line per stop says so (cleared when the clock runs again).
+local pausedNoted = false
+local function notCounted()
+  if not ns.session or ns.session.running then return false end
+  if not pausedNoted then
+    pausedNoted = true
+    say(L["the clock is stopped: loot is not counted. /lp start or the Start button starts it."])
+  end
+  return true
+end
+
 function Core.recordLoot(link, qty, kind)
   if not ns.session then return end
-  local countCrafted = ns.Options and ns.db and ns.Options.get(ns.db, "countCrafted")
+  local countCrafted = ns.Util.setting("countCrafted", false)
   if not Core.countsAsLoot(kind, countCrafted, tradeWindowOpen()) then return end
   local key, itemID = ns.LootParse.itemKey(link)
-  if not key then return end
+  if not key or notCounted() then return end
   local added, item = ns.Session.add(ns.session, itemID, link, qty, time(), key)
   if not added then return end
   notePlace()
-  Core.updatePlace()
   ns.Session.notePlaceLoot(ns.session, key, qty)
   ns.Session.noteRecent(ns.session, key, qty, time())
-  notePosition()
   local info = Core.lookupPrice(itemID, link)
   ns.Session.setPrice(item, info)
   local unitValue = Core.unitValue(info)
@@ -292,7 +327,7 @@ end
 
 -- Currency income (CHAT_MSG_CURRENCY).
 function Core.recordCurrency(currencyID, link, qty)
-  if not ns.session then return end
+  if not ns.session or notCounted() then return end
   if not ns.Session.addCurrency(ns.session, currencyID, link, qty, time()) then return end
   requestRefresh(0)
 end
@@ -307,11 +342,10 @@ end
 
 -- Option "alertGold" / "alertSound": a chat line (and a sound) for a valuable drop.
 function Core.alertIfValuable(link, qty, unitValue)
-  if not (ns.Options and ns.db) then return end
-  if not Core.alertWorthy(unitValue, qty, ns.Options.get(ns.db, "alertGold")) then return end
+  if not Core.alertWorthy(unitValue, qty, ns.Util.setting("alertGold", 0)) then return end
   say(string.format(L["valuable drop: %s%s worth %s"], link, (qty or 1) > 1 and (" x" .. qty) or "",
     ns.Money.format(unitValue * qty)))
-  if ns.Options.get(ns.db, "alertSound") and type(PlaySound) == "function" then
+  if ns.Util.setting("alertSound", false) and type(PlaySound) == "function" then
     local kit = type(SOUNDKIT) == "table" and SOUNDKIT.UI_EPICLOOT_TOAST or nil
     if kit then PlaySound(kit) end
   end
@@ -322,12 +356,10 @@ end
 -- `noSpot`: the money was not picked up here (quest turn-in at the quest
 -- giver), so it does not move the place's farm spot.
 function Core.recordGold(copper, noSpot)
-  if not ns.session then return end
+  if not ns.session or not ns.Util.isPositiveInt(copper) or notCounted() then return end
   if not ns.Session.addGold(ns.session, copper) then return end
-  notePlace()
-  Core.updatePlace()
+  notePlace(noSpot)
   ns.Session.notePlaceGold(ns.session, copper)
-  if not noSpot then notePosition() end
   requestRefresh(0)
 end
 
@@ -384,6 +416,7 @@ end
 function Core.startSession()
   if not ns.session then return end
   ns.session.afkPaused = nil
+  pausedNoted = false
   Core.updatePlace()
   ns.Session.start(ns.session, time())
   say(L["session started."])
@@ -404,7 +437,7 @@ end
 function Core.archiveSession(session)
   local History = ns.History
   if not ns.chardb or not History or type(session) ~= "table" or session.demo then return end
-  local limit = ns.Options and ns.db and ns.Options.get(ns.db, "historyLimit") or History.DEFAULT_LIMIT
+  local limit = ns.Util.setting("historyLimit", History.DEFAULT_LIMIT)
   if limit == 0 then return end
   local entry = History.snapshot(session, Core.lookupPrice, time())
   if not entry then return end
@@ -430,7 +463,7 @@ function Core.instanceChanged(previous, current)
 end
 
 local function checkInstance()
-  local place, key = Core.placeOf(_G)
+  local place, key = Core.placeOf(_G, difficulties)
   local previous = lastInstance
   lastInstance = key
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
@@ -451,6 +484,7 @@ local function checkAfk()
     refreshUI()
   elseif not afk and session.afkPaused then
     session.afkPaused = nil
+    pausedNoted = false
     ns.Session.start(session, time())
     say(L["clock running again."])
     refreshUI()
@@ -503,7 +537,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   end
   if not ns.db then return end
   setupDone = true
-  lastInstance = select(2, Core.placeOf(_G))
+  lastInstance = select(2, Core.placeOf(_G, difficulties))
 
   -- Old cached prices are of no use and only grow the saved file.
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)

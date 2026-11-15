@@ -24,7 +24,7 @@ only inside functions.
 | File | Job |
 | --- | --- |
 | `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them |
-| `Util.lua` | shared helpers (number checks, clamp, age text, chat output) |
+| `Util.lua` | shared helpers (number checks, clamp, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
 | `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key); `Locales/deDE.lua` is German |
 | `Money.lua` | coin text: letters or coin icons, colored, the "large amounts" style |
 | `Theme.lua` | look and feel: colors, fonts, sizes, textures |
@@ -85,6 +85,8 @@ Each of these is one call in one place; the UI never names them.
 - **Rich tooltip**: build it with `ns.Tooltip` (`new`, `pair`, `money`, `rate`,
   `para`, `labelled`, `section`, `note`, `warn`, `hint`) and show it with
   `ns.UI.Widgets.showTextTooltip(owner, tip)`. Colors are `Theme.colors.tip*`.
+  A row's `hint` may be a function that builds the tooltip on hover
+  (`Tooltip.resolve`); History and Zones rows do that.
 
 ## How things work
 
@@ -111,8 +113,9 @@ Each of these is one call in one place; the UI never names them.
   row keys use it. Price lookups take `(itemID, link)`.
 - **Value** of a row is the best of vendor, AH and disenchant (`View.best`); it
   drives the sort `Value`, Top finds, the minimum filter and the drop alert.
-  Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) use vendor
-  or disenchant and are never unpriced. The `de` value is TSM's `Destroy` price
+  Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) are never
+  counted as unpriced; an AH price a source still reports for them counts like
+  any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
@@ -127,14 +130,34 @@ Each of these is one call in one place; the UI never names them.
   difficulty is a zone of its own) and subzone, and, outside instances, the
   map position. Time per place only counts while the clock runs. Sessions
   saved before places existed show under `No time recorded` (one place) or
-  `Unknown place` (several).
+  `Unknown place` (several); both sort last (`row.sortsLast`). The
+  difficulty name comes from `GetInstanceInfo`, else
+  `GetDifficultyInfo(difficultyID)`, else the last one seen in that instance
+  (`Core.placeOf(env, remembered)`), so a loading screen that reports none
+  does not split a dungeon in two. The instance key ("Session per instance")
+  is the instance name alone.
+- **Stopped clock**: `Core.recordLoot`, `recordGold` and `recordCurrency`
+  ignore events while the clock is stopped and say so once in chat per stop.
+- **Row lines**: line 2 of a row is `row.detail` when set (History sessions:
+  length, place, item count; Zones places: time, gold per hour, item count),
+  else the TSM sale info. Rows without `quantity` show none. `view.empty`
+  (`View.emptyText`) is the text `Rows` shows centered in an empty list.
+- **History sessions**: `View.buildHistory` sorts only with `opts.sort` set
+  (`ah`, `recent`, `perHour`; others work as `ah`). Search (start, length,
+  place) and minimum value pick sessions; the opened one always shows, its
+  items filtered by quality only. A row's value is the items' best plus raw
+  gold (`includeGold`). Row names use `opts.shortDate` (`History.shortDate`),
+  tooltips `opts.formatDate`.
+- **Zones time**: a zone's time and the footer's rates count every subzone's
+  time, also subzones whose loot the filter hides or that have none.
 - **Daily farm** (`View.dailyFarm`): saved History only, valued at current
   prices, places with at least the minimum time, quest items and the
   no-time / unknown places left out, filter bar ignored. `slow` when more than
   half the AH value comes from items with a bad sale rate. The spot is the
   averaged loot position on the map looted most (clamped to the map). The
-  Ledger caches the pick until History, its options or the price interval
-  change.
+  Ledger caches the pick until History, its options (including the price
+  source and TSM price) or the price interval change. `DailyFarm.wire(button)`
+  gives the strip and the compact line the same clicks, hover and drag.
 - **History prices**: an entry keeps the unit prices its totals were made of
   (`items[key].price`, archive time, loot time as fallback). An opened session
   lists its items at those (`opts.savedPrices`), so they add up to its row;
@@ -160,9 +183,13 @@ Each of these is one call in one place; the UI never names them.
   nearest edge or center onto a line within that distance. Unknown spacing =
   no snap.
 - **Redraws**: the clock and rates every second (running clock, ticking tabs or
-  compact); prices and age tags at the **Price refresh** interval; everything at
-  once on loot, gold, bag / bank changes, filters, sorts and options. Several
-  loot messages in one frame share one redraw.
+  compact); prices and age tags at the **Price refresh** interval on every tab
+  while the window is shown, clock running or not; everything at once on loot,
+  gold, bag / bank changes, filters, sorts and options. Several loot messages
+  in one frame share one redraw.
+- **Button text**: `Widgets.buttonColors` passes the label color through
+  `Theme.readableOn(color, fill)`: below `Theme.MIN_TEXT_CONTRAST` against the
+  button background it turns near-black or white (the arrow follows).
 - **Price cache**: prices last seen more than 30 days ago are dropped at login
   (`Prices.CACHE_MAX_AGE`). `/lp demo` seeds temporary fake prices that reset
   and logout remove.

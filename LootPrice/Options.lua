@@ -374,14 +374,14 @@ Options.define({ key = "soldMedium", category = "prices", type = "number", label
 
 Options.define({
   key = "refreshSeconds", category = "prices", type = "slider", label = L["Price refresh"],
-  tooltip = L["How often prices and age tags are looked up again while the clock runs. The Daily farm is worked out again at the same pace."],
+  tooltip = L["How often prices and age tags are looked up again while the window is open. The Daily farm is worked out again at the same pace."],
   min = 10, max = 120, step = 5, format = function(v) return v .. " s" end,
 })
 
 -- After this long a cached AH price shows its age tag in orange.
 Options.define({
   key = "staleHours", category = "prices", type = "slider", label = L["Old price after"],
-  tooltip = L["A cached AH price older than this shows its age tag in orange."],
+  tooltip = L["A cached AH price older than this shows its age tag in orange. The Bank tab's scan note turns orange after the same time."],
   min = 1, max = 72, step = 1, format = function(v) return v .. " h" end,
   apply = function(v)
     if ns.Prices then ns.Prices.STALE_AFTER = v * 3600 end
@@ -442,7 +442,7 @@ Options.define({
 
 Options.define({
   key = "includeGold", category = "display", type = "checkbox", label = L["Raw gold in Total"],
-  tooltip = L["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the place values of Zones and the Daily farm. Off leaves the Total row out."],
+  tooltip = L["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the History sessions, the place values of Zones and the Daily farm. Off leaves the Total row out."],
   apply = refreshUI,
 })
 

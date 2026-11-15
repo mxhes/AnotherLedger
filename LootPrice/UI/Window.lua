@@ -79,11 +79,7 @@ end
 function Window.paintLook(frame)
   if not frame or not frame.SetBackdropColor then return end
   local T = theme()
-  local alpha, k = 1, 1
-  if ns.Options and ns.db then
-    alpha = ns.Options.get(ns.db, "alpha") or 1
-    k = ns.Options.get(ns.db, "brightness") or 1
-  end
+  local alpha, k = ns.Util.setting("alpha", 1), ns.Util.setting("brightness", 1)
   local bg = Window.scaledColor(T.scaleColor(T.colors.panelTint, k), alpha)
   frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
   local bd = Window.scaledColor(T.scaleColor(T.colors.panelBorder, k), alpha)
@@ -117,12 +113,11 @@ local clamp = ns.Util.clamp
 
 -- Option "lockWindow": no moving, no resizing.
 local function locked()
-  return ns.Options ~= nil and ns.db ~= nil and ns.Options.get(ns.db, "lockWindow") == true
+  return ns.Util.setting("lockWindow", false) == true
 end
 
 local function scaleSetting()
-  if ns.Options and ns.db then return ns.Options.get(ns.db, "windowScale") or 1 end
-  return 1
+  return ns.Util.setting("windowScale", 1)
 end
 
 local function save()
@@ -232,7 +227,7 @@ end
 
 -- Option "snapToGrid": after a drag, snap the window onto the Edit Mode grid.
 local function snapFrame(frame)
-  if not (ns.Options and ns.db and ns.Options.get(ns.db, "snapToGrid")) then return end
+  if not ns.Util.setting("snapToGrid", false) then return end
   local spacing = gridSpacing()
   local x, y = centerOffset(frame)
   if not spacing or not x then return end

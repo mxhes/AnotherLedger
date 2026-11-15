@@ -9,7 +9,7 @@ local Rows = {}
 ns.UI.Rows = Rows
 
 -- User-visible strings (translated through ns.L, Locale.lua).
-local L = {
+local TEXT = {
   QTY = ns.L["x"],
   BOUND = ns.L["bound"],
   UNPRICED = "?",
@@ -63,16 +63,18 @@ local function isUnpriced(row)
 end
 
 -- The texts one row shows: line 1 name, quantity, the counted value (the row's
--- `value`, best of vendor / AH / DE) and its source tag; line 2 the TSM sale
--- info. `formatMoney` defaults to the colored coin format (Money.formatColored);
+-- `value`, best of vendor / AH / DE) and its source tag; line 2 the row's
+-- `detail` (History sessions, Zones places) or the TSM sale info.
+-- `formatMoney` defaults to the colored coin format (Money.formatColored);
 -- the tests pass Money.format for plain text.
 --   { name, qty, amount, source ("vendor" / "ah" / "de" / nil), sourceText,
---     unpriced, tag (age of a cached AH value), tagStale, market }
+--     unpriced, tag (age of a cached AH value), tagStale, market, isDetail }
 -- Rows with their own total (History / Zones places, `bestLineTotal`) show it
--- without a source; currencies show no amount.
+-- without a source; currencies show no amount; a row without a quantity
+-- (sessions, places) shows none.
 function Rows.rowText(row, formatMoney)
   formatMoney = formatMoney or ns.Money.formatColored
-  local qty = L.QTY .. tostring(row.quantity or 0)
+  local qty = row.quantity and (TEXT.QTY .. tostring(row.quantity)) or ""
   if row.isCurrency then
     return { name = row.name or "", qty = qty, amount = "", source = nil, sourceText = nil,
       unpriced = false, tag = nil, tagStale = false }
@@ -83,9 +85,9 @@ function Rows.rowText(row, formatMoney)
   elseif row.bestKind ~= nil then
     amount, source = formatMoney(row.value or 0), row.bestKind
   elseif row.bound then
-    amount = L.BOUND
+    amount = TEXT.BOUND
   else
-    amount = L.UNPRICED
+    amount = TEXT.UNPRICED
   end
   -- The age tag belongs to a cached AH price, so only when that value counts.
   local tag, tagStale = nil, false
@@ -100,7 +102,8 @@ function Rows.rowText(row, formatMoney)
     source = source,
     sourceText = source and SOURCE_TEXT[source] or nil,
     unpriced = isUnpriced(row),
-    market = Rows.marketText(row, ns.Theme and ns.Theme.colors),
+    market = row.detail or Rows.marketText(row, ns.Theme and ns.Theme.colors),
+    isDetail = row.detail ~= nil,
     tag = tag,
     tagStale = tagStale,
   }
@@ -122,7 +125,7 @@ function Rows.tooltipLines(row, formatMoney)
       local c = colored and ns.Theme.sourceColor(src)
       if c then label = ns.Money.colorCode(c) .. label .. "|r" end
       local line = label .. formatMoney(total)
-      if multi and type(each) == "number" then line = line .. " (" .. formatMoney(each) .. L.EACH .. ")" end
+      if multi and type(each) == "number" then line = line .. " (" .. formatMoney(each) .. TEXT.EACH .. ")" end
       lines[#lines + 1] = line
     end
   end
@@ -252,9 +255,7 @@ end
 -- Left inset of a row's text: after the icon, or near the left edge when the
 -- option "showIcons" is off.
 function Rows.showIcons()
-  local O, db = ns.Options, ns.db
-  if not (O and db) then return true end
-  return O.get(db, "showIcons") ~= false
+  return ns.Util.setting("showIcons", true)
 end
 
 function Rows.textLeft()
@@ -516,6 +517,7 @@ local function fillRow(f, row)
   f.amount:SetText(t.amount)
   setColor(f.amount, T.colors.ink)
   f.market:SetText(t.market or "")
+  setColor(f.market, t.isDetail and T.colors.hint or T.colors.ink)
   -- Source tag: framed, in its source color; hidden without a source.
   if t.source then
     local c = T.colors[SOURCE_COLOR[t.source]] or T.colors.ink
@@ -533,7 +535,7 @@ local function fillRow(f, row)
     f.srcBox:Hide()
   end
   -- After the tag: the age of a cached AH value, else "?" on an unpriced row.
-  local tagText = t.tag or (t.unpriced and t.source and L.UNPRICED) or nil
+  local tagText = t.tag or (t.unpriced and t.source and TEXT.UNPRICED) or nil
   f.tag:SetText(tagText or "")
   f.hasTag = tagText ~= nil
   setColor(f.tag, (t.tagStale and T.colors.stale) or (t.tag == nil and t.unpriced and T.colors.marketOk) or T.colors.ink)
@@ -622,6 +624,17 @@ function Rows.attach(area, onMeasure)
   content:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
   content:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -T.sizes.scrollbarWidth - 2, 0)
   list.content = content
+
+  -- What an empty list says (view.empty), centered in the list area.
+  local emptyText = area:CreateFontString(nil, "OVERLAY", T.fonts.small)
+  emptyText:SetPoint("LEFT", area, "LEFT", 12, 0)
+  emptyText:SetPoint("RIGHT", area, "RIGHT", -12, 0)
+  emptyText:SetJustifyH("CENTER")
+  emptyText:SetWordWrap(true)
+  setColor(emptyText, T.colors.hint)
+  emptyText:Hide()
+  list.emptyText = emptyText
+  list.empty = false
 
   local bar = CreateFrame("Slider", nil, area)
   bar:SetOrientation("VERTICAL")
@@ -719,10 +732,15 @@ function Rows.attach(area, onMeasure)
     bar:SetValue(self.offset)
     self.syncing = false
     bar:SetShown(maxOffset > 0)
+    local say = total == 0 and self.empty
+    if say then emptyText:SetText(say) end
+    emptyText:SetShown(say and true or false)
   end
 
-  function list:SetData(rows)
+  -- `empty`: the text shown while `rows` is empty (none when nil).
+  function list:SetData(rows, empty)
     self.data = rows or {}
+    self.empty = type(empty) == "string" and empty or false
     self:Render()
   end
 

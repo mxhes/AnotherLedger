@@ -64,6 +64,24 @@ h.test("History.valid rejects malformed entries", function()
   h.eq(H.valid({ startedAt = 1, elapsed = 1, gold = 1, nItems = 1, vendor = 1, ah = 1, items = "x" }), false)
 end)
 
+h.test("History.itemCount: one item, many items", function()
+  h.eq(ns.History.itemCount(1), "1 item")
+  h.eq(ns.History.itemCount(12), "12 items")
+  h.eq(ns.History.itemCount(0), "0 items")
+end)
+
+h.test("History.shortDate: today, yesterday, weekday, then the date", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20000 * 86400 + 12 * 3600 -- Friday 2024-10-04 12:00 UTC
+  local sd = ns.History.shortDate
+  h.eq(sd(now - 3600, now, utc), "Today 11:00")
+  h.eq(sd(now - 86400, now, utc), "Yesterday 12:00")
+  h.eq(sd(now - 3 * 86400, now, utc), "Tue 12:00")
+  h.eq(sd(now - 10 * 86400, now, utc), "2024-09-24")
+  h.eq(sd(now + 86400 * 3, now, utc), "2024-10-07") -- a clock set back: the date
+  h.eq(sd("x", now, utc), "x")
+end)
+
 h.test("History.duration", function()
   h.eq(H.duration(45), "45s"); h.eq(H.duration(125), "2m")
   h.eq(H.duration(4320), "1h 12m"); h.eq(H.duration(-3), "0s"); h.eq(H.duration(nil), "0s")

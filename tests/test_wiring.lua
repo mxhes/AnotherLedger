@@ -970,12 +970,15 @@ h.test("wiring: the clock tick updates the rates without rebuilding, prices refr
   h.eq(builds.n, 1)
   h.eq(L.view == fresh, true)
   h.near(fresh.totals.vendorPerHour, 75 * 3600 / 140) -- the rate follows the clock
-  -- a stopped clock does not tick, another tab does not tick
+  -- a stopped clock does not tick; the prices still refresh on time
   slash(ctx, "stop")
   local after = builds.n
-  ctx.now = ctx.now + 100
+  ctx.now = ctx.now + 5
   onUpdate(L.frame, 1)
   h.eq(builds.n, after)
+  ctx.now = ctx.now + 30
+  onUpdate(L.frame, 1)
+  h.eq(builds.n, after + 1)
   h.eq(ctx.errors, {})
 end)
 
@@ -1964,7 +1967,7 @@ h.test("wiring: quest items sit in their own group in Zones only", function()
   L.setSubtab("zones")
   local last = L.view.rows[#L.view.rows]
   h.eq(last.zoneKey, ctx.ns.View.QUEST_ZONE)
-  h.eq(last.quantity, 1)
+  h.eq(last.detail, "1 item")
   h.eq(L.view.totals.best, sessionBest - last.value)
   h.eq(ctx.errors, {})
 end)

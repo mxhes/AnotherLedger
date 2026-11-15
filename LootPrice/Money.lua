@@ -28,6 +28,13 @@ local function split(copper)
   return sign, g, sv, c
 end
 
+-- A rate for a short text: whole gold from 1 gold up (the hover text has the
+-- exact amount), whole copper below.
+function Money.roundRate(copper)
+  if copper >= 10000 then return floor(copper / 10000 + 0.5) * 10000 end
+  return floor(copper + 0.5)
+end
+
 -- Option "coinIcons": the game's coin icons (inline textures, as tall as the
 -- text) in place of the g / s / c letters. Off until Options.applyAll.
 Money.ICONS = {
@@ -69,14 +76,17 @@ local function byte(v)
   return floor(v * 255 + 0.5)
 end
 
--- Color escape prefix ("|cffRRGGBB") of a color table, built once per table.
--- Color tables are treated as constants (Theme.colors never change at runtime).
-local hexCache = setmetatable({}, { __mode = "k" })
+-- Color escape prefix ("|cffRRGGBB") of a color table. Cached by the color's
+-- value, not the table: the color options change Theme.colors in place
+-- (Theme.setColor), and the text must follow at once.
+local hexCache = {}
 local function hex(color)
-  local h = hexCache[color]
+  local r, g, b = byte(color[1]), byte(color[2]), byte(color[3])
+  local key = (r * 256 + g) * 256 + b
+  local h = hexCache[key]
   if not h then
-    h = string.format("|cff%02x%02x%02x", byte(color[1]), byte(color[2]), byte(color[3]))
-    hexCache[color] = h
+    h = string.format("|cff%02x%02x%02x", r, g, b)
+    hexCache[key] = h
   end
   return h
 end

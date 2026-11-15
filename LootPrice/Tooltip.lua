@@ -24,6 +24,13 @@ local L_PER_HOUR = L["/h"]
 
 function Tooltip.new(title) return { title = title, lines = {} } end
 
+-- A row may carry its tooltip as a function that builds it (built on hover,
+-- not on every redraw); this gives the tooltip itself.
+function Tooltip.resolve(tip)
+  if type(tip) == "function" then return tip() end
+  return tip
+end
+
 local function add(tip, line)
   tip.lines[#tip.lines + 1] = line
   return line
@@ -69,6 +76,7 @@ local DOUBLE = { pair = true, money = true, rate = true }
 -- Plain text: the title, then one line each (label and value joined), money in
 -- Money.format. A string passes through.
 function Tooltip.text(tip)
+  tip = Tooltip.resolve(tip)
   if type(tip) ~= "table" then return tip end
   local fmt = ns.Money.format
   local out = {}

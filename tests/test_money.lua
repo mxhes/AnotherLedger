@@ -67,6 +67,20 @@ h.test("Money.colorCode gives the color escape of a color table", function()
   h.eq(ns.Money.colorCode({ 0, 0.5, 1 }), "|cff0080ff")
 end)
 
+h.test("Money.colorCode follows a color table changed in place", function()
+  local c = { 1, 0, 0, 1 }
+  h.eq(ns.Money.colorCode(c), "|cffff0000")
+  c[1], c[3] = 0, 1
+  h.eq(ns.Money.colorCode(c), "|cff0000ff")
+end)
+
+h.test("Money.roundRate: whole gold from 1 gold up, whole copper below", function()
+  h.eq(ns.Money.roundRate(123456), 120000)
+  h.eq(ns.Money.roundRate(15000), 20000)
+  h.eq(ns.Money.roundRate(9999.6), 10000)
+  h.eq(ns.Money.roundRate(42.4), 42)
+end)
+
 h.test("Money.setIcons: the game's coin icons replace g / s / c", function()
   local M = h.load({ "Util.lua", "Money.lua" }).Money
   local I = M.ICONS

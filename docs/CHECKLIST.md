@@ -67,6 +67,17 @@ and remove both once it is confirmed.
 
 - [ ] **Session per instance**: entering and leaving a dungeon each save a
   History entry; a loading screen in the open world does not.
+- [ ] A dungeon shows as one place in Zones, `Name (Difficulty)`, also when
+  the loot of the first pull comes right after the loading screen
+  (`GetDifficultyInfo(difficultyID)` gives the name first; UNVERIFIED in
+  `Core.lua`).
+- [ ] With the clock stopped, loot and gold are not counted and the chat says
+  so once; Start counts again.
+- [ ] History rows show `Today 20:21`, `Yesterday`, a weekday, then the date
+  (German: `15.11.2026`); length, place and item count on line 2 fit in a
+  narrow window. Zones rows show time, gold per hour and item count on line 2.
+- [ ] Empty lists show their text centered (a fresh session, a stopped clock,
+  a search that matches nothing, Bank before the first visit).
 - [ ] **Pause when AFK**: `/afk` stops the clock, coming back restarts it
   (`PLAYER_FLAGS_CHANGED`, `UnitIsAFK`).
 - [ ] Waypoint on a map that allows no pin (a cave sub-map) without TomTom:
@@ -103,6 +114,11 @@ and remove both once it is confirmed.
   in `UI/Window.lua`).
 - [ ] **Source tags** (Vendor / Auction / Destroy) in the list all have the
   same box width with the text centered in it.
+- [ ] **Button background** set to a light color (yellow): button labels and
+  the layout arrow turn dark and stay readable.
+- [ ] Options panel: the number and text boxes have the window's input look
+  (no game input frame); **Opacity** and **Brightness** change the options
+  window as well (re-check on the current build).
 - [ ] **Colors**: clicking a swatch opens the game's color picker
   (`ColorPickerFrame:SetupColorPickerAndShow`, `GetColorRGB`; UNVERIFIED in
   `Widgets.pickColor`) above the options panel; dragging recolors the window,

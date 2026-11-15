@@ -26,7 +26,7 @@ local SORT_LABELS = { ah = L["Value"], vendor = L["Vendor"], name = L["Name"], r
 
 FilterBar.SORTS = { "ah", "vendor", "name", "recent" }
 -- Every sort a view may offer (a tab or sub-tab lists its own, see
--- Tabs.sorts); "perHour" only in History Zones. A saved sort the shown view
+-- Tabs.sorts); "perHour" only in History (Sessions and Zones). A saved sort the shown view
 -- does not offer works (and is labeled) as "ah".
 FilterBar.ALL_SORTS = { "ah", "vendor", "name", "recent", "perHour" }
 

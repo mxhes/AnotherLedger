@@ -87,8 +87,7 @@ function Summary.tableLayout(view)
   local inventory = view.kind == "inventory"
   local layout = { rates = not inventory, titles = not inventory }
   -- Option "showFooterGold" off: no Raw gold row (Total still includes it).
-  local O, db = ns.Options, ns.db
-  local goldRow = not (O and db) or O.get(db, "showFooterGold") ~= false
+  local goldRow = ns.Util.setting("showFooterGold", true)
   if inventory then
     layout.rows = { "items" }
   elseif view.noCombined then
@@ -408,8 +407,7 @@ function Summary.attach(topBox, footer)
       end
     end
     -- Option "showTopFinds" off: the block stays collapsed.
-    local O, db = ns.Options, ns.db
-    local shown = not (O and db) or O.get(db, "showTopFinds") ~= false
+    local shown = ns.Util.setting("showTopFinds", true)
     local height = shown and Summary.topBoxHeight(#lines) or 0
     if height ~= self.height then
       self.height = height

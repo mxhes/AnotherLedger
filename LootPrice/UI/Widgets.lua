@@ -118,6 +118,8 @@ function Widgets.buttonColors(state, warn)
     edge = hover and c.buttonEdgeHover or c.buttonEdge
   end
   local text = disabled and c.buttonTextDisabled or (warn and c.buttonWarnText or c.buttonText)
+  -- A light button background keeps its label (and arrow) readable.
+  text = ns.Theme.readableOn(text, c.buttonFill, disabled)
   return { fill = c.buttonFill, edge = edge, text = text }
 end
 
@@ -307,6 +309,7 @@ end
 -- `text` is a string, or a rich tooltip from ns.Tooltip (drawn line by line
 -- with its colors; the first line takes the tooltip's header font).
 function Widgets.showTextTooltip(owner, text, anchor)
+  text = ns.Tooltip.resolve(text)
   if not GameTooltip or not text then return false end
   GameTooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
   if type(text) == "table" then

@@ -57,7 +57,7 @@ local function libStub(name)
 end
 
 local function current()
-  local includeGold = not (ns.Options and ns.db) or ns.Options.get(ns.db, "includeGold") ~= false
+  local includeGold = ns.Util.setting("includeGold", true)
   return Broker.summary(ns.session, ns.Core.lookupPrice, time(), includeGold)
 end
 

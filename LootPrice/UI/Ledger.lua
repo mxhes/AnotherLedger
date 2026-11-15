@@ -7,8 +7,9 @@ ns.UI = ns.UI or {}
 --
 -- Two kinds of redraw keep the per-second cost low:
 --   refresh  full rebuild: prices are looked up again, rows sorted, every part
---            gets Update(view, session, now). Runs when data changes and every
---            FULL_REFRESH_SECONDS while the clock runs (prices, age tags).
+--            gets Update(view, session, now). Runs when data changes and, on
+--            every tab, every refreshSeconds while the window is shown
+--            (prices, age tags), clock running or not.
 --   tick     once a second while the clock runs: only the per-hour rates are
 --            recomputed and parts that have a Tick(view, session, now) method
 --            (clock, rate texts) are called.
@@ -20,8 +21,7 @@ local TICK_SECONDS = 1
 local FULL_REFRESH_SECONDS = ns.DB.defaults.settings.refreshSeconds -- option "refreshSeconds"
 
 local function refreshSeconds()
-  local seconds = ns.Options and ns.db and ns.Options.get(ns.db, "refreshSeconds")
-  return seconds or FULL_REFRESH_SECONDS
+  return ns.Util.setting("refreshSeconds", FULL_REFRESH_SECONDS)
 end
 
 local parts = {}
@@ -149,14 +149,19 @@ Ledger.formatDate = formatDate
 local marketCutoffs = {}
 function Ledger.marketCutoffs(db)
   local O = ns.Options
-  if not (O and db) or O.get(db, "showMarket") == false then return nil end
+  if not (O and db) or ns.Util.setting("showMarket", true) == false then return nil end
   marketCutoffs.rateGood, marketCutoffs.rateOk = O.get(db, "saleRateGood"), O.get(db, "saleRateOk")
   marketCutoffs.soldHigh, marketCutoffs.soldMedium = O.get(db, "soldHigh"), O.get(db, "soldMedium")
   return marketCutoffs
 end
 
+-- History rows: "Today 20:21", "Sat 14:55", "2026-11-02" (History.shortDate).
+local function shortDate(timestamp)
+  return ns.History.shortDate(timestamp, time(), date)
+end
+
 local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate,
-  isQuest = isQuest }
+  shortDate = shortDate, isQuest = isQuest }
 local context = { opts = viewOpts, ledger = Ledger }
 
 local function currentContext(now)
@@ -164,10 +169,11 @@ local function currentContext(now)
   viewOpts.now = now
   viewOpts.filter = db and db.filter
   viewOpts.sort = db and db.sort
-  viewOpts.includeGold = not (ns.Options and db) or ns.Options.get(db, "includeGold") ~= false
-  viewOpts.showCurrencies = not (ns.Options and db) or ns.Options.get(db, "showCurrencies") ~= false
+  local setting = ns.Util.setting
+  viewOpts.includeGold = setting("includeGold", true)
+  viewOpts.showCurrencies = setting("showCurrencies", true)
   viewOpts.market = Ledger.marketCutoffs(db)
-  viewOpts.compactDrops = ns.Options and db and ns.Options.get(db, "compactDrops") or nil
+  viewOpts.compactDrops = setting("compactDrops", nil)
   context.now = now
   context.env = _G
   context.session = ns.session
@@ -181,26 +187,29 @@ end
 -- The Daily farm of the saved History (not the running session, so farming
 -- does not move today's pick), or nil with the option off. It scans all of
 -- History, so the result is kept until History or the options it reads
--- change, or the price refresh interval has passed (prices may have moved).
+-- (value, gold, price source, sale info) change, or the price refresh interval
+-- has passed (prices may have moved).
 -- An error is reported once and leaves the rest of the window drawn.
 local farmCache = { key = nil, at = 0, value = nil }
 
 local function farmKey(history, minutes)
   local first = history[1]
   local m = viewOpts.market
+  local setting = ns.Util.setting
   return table.concat({
     tostring(history), #history, tostring(type(first) == "table" and first.startedAt),
     tostring(minutes), tostring(viewOpts.includeGold),
+    tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)),
     m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
   }, "|")
 end
 
 local function dailyFarm(now)
-  local db, O = ns.db, ns.Options
-  if not (O and db) or O.get(db, "dailyFarm") == false then return nil end
+  local setting = ns.Util.setting
+  if not (ns.Options and ns.db) or setting("dailyFarm", true) == false then return nil end
   local history = ns.chardb and ns.chardb.history
   if type(history) ~= "table" then return nil end
-  local minutes = O.get(db, "dailyFarmMinutes") or 20
+  local minutes = setting("dailyFarmMinutes", 20)
   local key = farmKey(history, minutes)
   if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
   local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)
@@ -279,19 +288,22 @@ function Ledger.applySizes()
   Ledger.relayout()
 end
 
--- Clock tick: rates and clock only; a full refresh when the prices are due.
+-- Every second: a full refresh when the prices are due (any tab, while the
+-- window is shown); else, while the clock runs, the rates and the clock only.
 function Ledger.tick()
   local session = ns.session
-  -- Compact mode always shows the session clock and rate, whatever the tab.
-  local compact = Ledger.mode == "compact"
-  if not (list and session and session.running and (compact or ns.UI.Tabs.get(Ledger.tab).ticks)) then return end
+  if not (list and session and windowShown()) then return end
   local now = time()
   local view = Ledger.view
   if not view or stale or now - lastRefresh >= refreshSeconds() then
     Ledger.refresh()
     return
   end
-  if ns.UI.Tabs.get(Ledger.tab).ticks then ns.View.applyRates(view, ns.Session.elapsed(session, now)) end
+  -- Compact mode always shows the session clock and rate, whatever the tab.
+  local compact = Ledger.mode == "compact"
+  local ticks = ns.UI.Tabs.get(Ledger.tab).ticks
+  if not (session.running and (compact or ticks)) then return end
+  if ticks then ns.View.applyRates(view, ns.Session.elapsed(session, now)) end
   if compact then
     viewOpts.now = now
     view.compact = ns.View.buildCompact(session, viewOpts)
@@ -308,14 +320,14 @@ end
 -- Loot flash: the looted row is brought into view and flashed. Several loot
 -- messages of one frame (area loot) share a single refresh.
 
-local pendingFlash = {} -- [itemID] = level
+local pendingFlash = {} -- [item key] = level
 local lastFlashed
 local flashScheduled = false
 
 -- Option "followLoot": only the Session list scrolls to new loot.
 local function followLoot()
   if Ledger.tab ~= "session" or Ledger.mode ~= "full" then return false end
-  return not (ns.Options and ns.db) or ns.Options.get(ns.db, "followLoot") ~= false
+  return ns.Util.setting("followLoot", true)
 end
 
 local function flushFlashes()
@@ -450,6 +462,8 @@ end
 -- One redraw; the opened subzone is scrolled to the top of the list (as far
 -- as the list scrolls) so its items show under it.
 function Ledger.showFarm(zone, sub)
+  -- Zones lives in the full layout: compact switches to it first.
+  if Ledger.mode == "compact" then Ledger.setMode("full") end
   if Ledger.tab ~= "history" then switchTab("history") end
   if Ledger.subtab ~= "zones" then switchSubtab("zones") end
   Ledger.zoneOpen = { zone = zone, sub = sub }
@@ -514,7 +528,7 @@ end
 
 local rowsPart = {}
 function rowsPart:Update(view)
-  list:SetData(view.rows)
+  list:SetData(view.rows, view.empty)
 end
 function rowsPart:Relayout()
   list:Relayout()

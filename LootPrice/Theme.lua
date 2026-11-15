@@ -321,6 +321,21 @@ function Theme.contrast(r1, g1, b1, r2, g2, b2)
   return (x + 0.05) / (y + 0.05)
 end
 
+-- Text on a colored fill (a button background picked in the options): `color`
+-- when it stands out enough (Theme.MIN_TEXT_CONTRAST), else a near-black or
+-- white text, whichever reads better on `fill`. `dim`: the dimmed variant
+-- (a disabled button).
+Theme.MIN_TEXT_CONTRAST = 3
+local DARK, LIGHT = { 0.08, 0.06, 0.04, 1 }, { 1, 1, 1, 1 }
+local DARK_DIM, LIGHT_DIM = { 0.08, 0.06, 0.04, 0.55 }, { 1, 1, 1, 0.55 }
+function Theme.readableOn(color, fill, dim)
+  local r, g, b = fill[1], fill[2], fill[3]
+  if Theme.contrast(color[1], color[2], color[3], r, g, b) >= Theme.MIN_TEXT_CONTRAST then return color end
+  local dark = Theme.contrast(DARK[1], DARK[2], DARK[3], r, g, b) >= Theme.contrast(1, 1, 1, r, g, b)
+  if dim then return dark and DARK_DIM or LIGHT_DIM end
+  return dark and DARK or LIGHT
+end
+
 -- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom: the familiar
 -- game colors (rare and epic brightened because the in-game ones are too dark
 -- on the dark panel).

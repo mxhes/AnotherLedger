@@ -26,12 +26,14 @@ size.
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total, the last four drops with their value and source, and the
 Daily farm line. Click the clock to start or stop the session; a red `Paused`
-shows while it is stopped.
+shows while it is stopped. Before the first drop the list says so (or that the
+clock is stopped).
 
 **Full** is the detailed ledger:
 
 - **Header**: the session clock (red while stopped), **Start / Stop**,
-  **Reset**, the layout arrow, the gear (options) and close.
+  **Reset**, the layout arrow, the gear (options) and close. While the clock
+  is stopped, loot and gold are not counted; the chat says so once.
 - **Filter bar**: quality (the button shows how many are shown, e.g.
   `Quality 6/8`), minimum value in gold, text search and the sort (Value,
   Vendor, Name, Recent). Filters are remembered; the small x next to the sort
@@ -46,7 +48,8 @@ shows while it is stopped.
   is old; an item with no auction price is marked `?`. New loot flashes (and
   the Session list scrolls to it, see **Scroll to new loot**). Hover a row for
   the item tooltip with all its values; Shift-click links the item in chat,
-  Ctrl-click tries it on. Top finds work the same way.
+  Ctrl-click tries it on. Top finds work the same way. An empty list says why:
+  no loot yet, the clock is stopped, or nothing matches the filters.
 - **Footer**: the value and gold per hour of your **Items**, the **Raw gold**
   you looted (creatures, containers, group shares, quest rewards) and the
   **Total**. Hover it for vendor / AH / best totals. History and Zones have no
@@ -64,18 +67,26 @@ row and price. Currencies are listed after the items.
 - **Bags**: what is in your bags right now, valued the same way.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once; after that the tab shows the last scan and its age.
-- **History**: your past sessions, newest first, with their length, main place
-  and value. A session is saved when you reset it, when a new login starts a
-  fresh one, or (option) when you enter or leave a dungeon. A session keeps the
-  prices of the day it was saved, so its value doesn't change later. Click a
-  session to list its items, right-click it to delete it; hover it for places,
-  currencies, values and gold per hour. `/lp export` copies the History as CSV
-  for a spreadsheet. **Clear History** (options) deletes all of it.
+- **History**: your past sessions, newest first. Each row shows when it
+  started (`Today 20:21`, `Yesterday`, a weekday, then the date), its length,
+  main place and item count, and its value (with the raw gold, unless **Raw
+  gold in Total** is off). A session is saved when you reset it, when a new
+  login starts a fresh one, or (option) when you enter or leave a dungeon. A
+  session keeps the prices of the day it was saved, so its value doesn't change
+  later. Sort the sessions by Value, Recent or Gold/h; the search (date,
+  length, place) and the minimum value pick sessions, and the footer adds up
+  the listed ones. Click a session to list its items, right-click it to delete
+  it; hover it for places, currencies, values and gold per hour. `/lp export`
+  copies the History as CSV for a spreadsheet. **Clear History** (options)
+  deletes all of it.
 - **History > Zones**: which places are worth farming. All sessions grouped by
-  zone and subzone, each with its time, value and gold per hour (sort by
+  zone and subzone, each with its time, gold per hour and item count (sort by
   **Gold/h**). Click a zone to open its subzones, a subzone to list its items.
+  A zone's time includes the subzones where nothing was looted, so its gold
+  per hour is not too high. `Unknown place` and `No time recorded` come last.
   Quest items have their own group and don't count toward any place. Zones
-  and the Daily farm use today's prices.
+  and the Daily farm use today's prices. A dungeon counts as one place even
+  when the game briefly reports no difficulty.
 
 ## Daily farm
 
@@ -86,7 +97,8 @@ pick), and a place needs 20 minutes of recorded time by default. A place whose
 value comes mostly from items that sell poorly is marked `slow selling`.
 
 - **Click**: sets a waypoint to where you looted there (TomTom, or the map pin).
-- **Shift-click**: opens History > Zones at that place.
+- **Shift-click**: opens History > Zones at that place (from the compact
+  layout too: it switches to the full one).
 - **Right-click**: shows the `/way` line to copy.
 - **Hover**: time, value, exact gold per hour, the next two places and the
   slow sellers.

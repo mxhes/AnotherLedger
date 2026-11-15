@@ -17,7 +17,9 @@ local lower = string.lower
 --   currencyInfo = function(currencyID) -> { name, icon, quality } or nil,
 --   showCurrencies = bool (default true),
 --   includeGold = bool (default true),
---   formatDate = function(timestamp) -> text (History tab),
+--   formatDate = function(timestamp) -> text (History tab: tooltips),
+--   shortDate = function(timestamp) -> text (History tab: the session rows;
+--     formatDate without it),
 --   isQuest  = function(itemID) -> bool (History Zones: the quest items group),
 --   market = { rateGood, rateOk, soldHigh, soldMedium } or nil (no sale info),
 -- }
@@ -33,15 +35,42 @@ local View = {
 
 local MIN_QUALITY, MAX_QUALITY = 0, 7
 local NO_LOOKUP = {}
+local DETAIL_SEP = " \194\183 " -- middle dot between the parts of a row's second line
 
 local L_CLICK_OPEN = L["Click to show the items"]
 local L_CLICK_CLOSE = L["Click to collapse"]
 local L_RIGHT_DELETE = L["Right-click to delete it"]
+local L_PER_HOUR = L["/h"]
+local L_NO_MATCH = L["Nothing matches the filters."]
+local L_STOPPED = L["The clock is stopped: loot is not counted. Press Start."]
+local L_NO_LOOT = L["No loot yet."]
+local L_NO_HISTORY = L["No saved sessions yet. A session is saved when you reset it."]
 
 -- A tooltip (ns.Tooltip) with its click hint added at the bottom.
 local function withHint(tip, text)
   ns.Tooltip.hint(tip, text)
   return tip
+end
+
+-- `target` emptied and filled with the fields of `opts` (a reused table: no
+-- garbage per redraw); the caller then changes what differs.
+local function copyOpts(target, opts)
+  for k in pairs(target) do target[k] = nil end
+  for k, v in pairs(opts) do target[k] = v end
+  return target
+end
+
+-- The second line of a History or Zones row: its parts joined by a dot.
+local function detailText(parts)
+  return table.concat(parts, DETAIL_SEP)
+end
+
+-- What an empty list says (view.empty): a filter hides everything, else
+-- `fallback` (the tab's own reason).
+function View.emptyText(rows, filter, fallback)
+  if #rows > 0 then return nil end
+  if View.isFiltered(filter) then return L_NO_MATCH end
+  return fallback
 end
 
 local function allQualities(set)
@@ -292,7 +321,7 @@ end
 -- or top finds.
 function View.buildInventory(items, opts)
   local rows, totals = collect(items, opts)
-  return { rows = rows, top = {}, totals = totals, kind = "inventory" }
+  return { rows = rows, top = {}, totals = totals, kind = "inventory", empty = View.emptyText(rows, opts.filter) }
 end
 
 local function perHour(amount, elapsed)
@@ -337,63 +366,94 @@ local function addGold(view, goldTotal, includeGold)
 end
 
 local savedOpts = {} -- opts of an opened History session (reused)
+local savedFilter = {} -- its filter: the qualities only (reused)
 
--- History tab: one row per archived session (newest first), shown through the
--- normal row layout; the DE line carries the session's raw gold. The session
--- at `openIndex` (if any) moves to the top and its items (and currencies) are
--- listed right under it (filter and sort apply to them), then the other
--- sessions follow. The footer adds up every saved session, with rates over
--- their summed length. opts.formatDate(timestamp) -> text.
+-- The sorts of the session list (UI/Tabs.lua offers these); any other sort
+-- works as "ah".
+local SESSION_SORT = { ah = SORTS.ah, recent = SORTS.recent, perHour = SORTS.perHour }
+
+-- One History session row. Line 1: the start ("+ Today 20:21"); line 2
+-- (`detail`): length, main place and item count. Its amount is the best
+-- value of the items plus, with includeGold, the raw gold. The tooltip is
+-- built on hover (a function, ns.Tooltip.resolve).
+local function sessionRow(e, i, open, opts)
+  local History = ns.History
+  local dateFn = opts.shortDate or opts.formatDate
+  local when = dateFn and dateFn(e.startedAt) or tostring(e.startedAt)
+  local value = History.bestOf(e) + (opts.includeGold ~= false and e.gold or 0)
+  local parts = { History.duration(e.elapsed) }
+  local place = History.place(e)
+  if place then parts[#parts + 1] = place end
+  parts[#parts + 1] = History.itemCount(e.nItems)
+  local name = (open and "- " or "+ ") .. when
+  local detail = detailText(parts)
+  local formatDate = opts.formatDate
+  return {
+    id = -i, key = -i, historyIndex = i,
+    name = name, detail = detail, sortName = lower(when .. " " .. detail),
+    quality = 1,
+    vendorTotal = e.vendor, ahTotal = e.ah, bestLineTotal = value,
+    perHour = History.perHour(value, e.elapsed),
+    icon = "Interface\\Icons\\INV_Misc_Note_01",
+    hint = function()
+      local tip = History.details(e, formatDate)
+      return withHint(withHint(tip, open and L_CLICK_CLOSE or L_CLICK_OPEN), L_RIGHT_DELETE)
+    end,
+    value = value, lastSeen = e.startedAt,
+  }
+end
+
+-- History tab: one row per archived session (newest first, or in the order
+-- of a session sort). The search and the minimum value pick sessions (the
+-- search looks at the start, length and place). The session at `openIndex`
+-- (if any) always shows, moves to the top and lists its items (and
+-- currencies) under it, filtered by quality and sorted by the item sort.
+-- The totals add up the listed sessions, with rates over their summed length.
 function View.buildHistory(list, opts, openIndex)
   opts = opts or {}
   if type(list) ~= "table" then list = {} end
   local History = ns.History
+  local filter = opts.filter
+  local needle = searchNeedle(filter)
+  local minValue = type(filter) == "table" and num(filter.minValue) and filter.minValue or 0
   local sessionRows, opened = {}, nil
-  local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = false }
+  local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) }
   local gold, elapsed = 0, 0
   for i, e in ipairs(list) do
     if History.valid(e) then
-      local when = opts.formatDate and opts.formatDate(e.startedAt) or tostring(e.startedAt)
       local open = i == openIndex
-      local best = History.bestOf(e)
-      local place = History.place(e)
-      local name = (open and "- " or "+ ") .. when .. "  " .. History.duration(e.elapsed)
-      if place then name = name .. "  " .. place end
-      local row = {
-        id = -i, key = -i, historyIndex = i,
-        name = name, sortName = lower(name),
-        quality = 1, quantity = e.nItems,
-        -- Line 2 of the row shows the session's best value (raw gold is in the hint).
-        vendorTotal = e.vendor, ahTotal = e.ah, bestLineTotal = best,
-        icon = "Interface\\Icons\\INV_Misc_Note_01",
-        hint = withHint(withHint(History.details(e, opts.formatDate), open and L_CLICK_CLOSE or L_CLICK_OPEN),
-          L_RIGHT_DELETE),
-        value = best, lastSeen = e.startedAt,
-      }
-      sessionRows[#sessionRows + 1] = row
-      if open then opened = row end
-      totals.vendor = totals.vendor + e.vendor
-      totals.ah = totals.ah + e.ah
-      totals.best = totals.best + best
-      gold = gold + e.gold
-      elapsed = elapsed + e.elapsed
+      local row = sessionRow(e, i, open, opts)
+      local shown = open or (row.value >= minValue
+        and (not needle or string.find(row.sortName, needle, 1, true) ~= nil))
+      if shown then
+        sessionRows[#sessionRows + 1] = row
+        if open then opened = row end
+        totals.vendor = totals.vendor + e.vendor
+        totals.ah = totals.ah + e.ah
+        totals.best = totals.best + History.bestOf(e)
+        gold = gold + e.gold
+        elapsed = elapsed + e.elapsed
+      end
     end
   end
+  if opts.sort then table.sort(sessionRows, SESSION_SORT[opts.sort] or SESSION_SORT.ah) end
 
   local rows = {}
   if opened then
     rows[1] = opened
     local entry = list[openIndex]
-    for k in pairs(savedOpts) do savedOpts[k] = nil end
-    for k, v in pairs(opts) do savedOpts[k] = v end
-    savedOpts.savedPrices = true
-    append(rows, (collect(entry.items, savedOpts)))
-    append(rows, View.currencyRows(entry.currencies, opts))
+    local o = copyOpts(savedOpts, opts)
+    o.savedPrices = true
+    savedFilter.qualities = type(filter) == "table" and filter.qualities or nil
+    o.filter = savedFilter
+    append(rows, (collect(entry.items, o)))
+    append(rows, View.currencyRows(entry.currencies, o))
   end
   for _, r in ipairs(sessionRows) do
     if r ~= opened then rows[#rows + 1] = r end
   end
-  local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true }
+  local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true,
+    empty = View.emptyText(rows, filter, L_NO_HISTORY) }
   addGold(view, gold, opts.includeGold)
   return View.applyRates(view, elapsed)
 end
@@ -565,16 +625,39 @@ local function placeHint(p, label, open, clickText)
 end
 
 -- One place row (zone, subzone or the quest group) from its summed figures.
-local function placeRow(p, label, open, indent, clickText)
-  local name = indent .. (open and "- " or "+ ") .. label
-  if p.time > 0 then name = name .. "  " .. ns.History.duration(p.time) end
+-- Line 1: the name; line 2 (`detail`): time, gold per hour and item count.
+-- The tooltip is built on hover. `last`: the row sorts after the others
+-- (Unknown place, No time recorded).
+local function placeRow(p, label, open, indent, clickText, last)
+  local parts = {}
+  if p.time > 0 then parts[#parts + 1] = ns.History.duration(p.time) end
+  if p.perHour then parts[#parts + 1] = ns.Money.format(ns.Money.roundRate(p.perHour)) .. L_PER_HOUR end
+  parts[#parts + 1] = ns.History.itemCount(p.count)
   return {
     id = 0, key = p.key, zoneKey = p.zoneKey, subKey = p.subKey,
-    name = name, sortName = lower(label), quality = 1, quantity = p.count,
+    name = indent .. (open and "- " or "+ ") .. label, detail = indent .. detailText(parts),
+    sortName = lower(label), quality = 1, sortsLast = last or false,
     vendorTotal = p.vendor, ahTotal = p.ah, bestLineTotal = p.value,
     value = p.value, perHour = p.perHour, placeTime = p.time, lastSeen = p.lastSeen,
-    icon = MAP_ICON, hint = placeHint(p, label, open, clickText),
+    icon = MAP_ICON, hint = function() return placeHint(p, label, open, clickText) end,
   }
+end
+
+-- The place sorts: rows marked sortsLast after the others, then the chosen
+-- order. Built once per sort key.
+local placeSorts = {}
+local function placeSort(key)
+  key = SORTS[key] and key or "ah"
+  local s = placeSorts[key]
+  if not s then
+    local inner = SORTS[key]
+    s = function(a, b)
+      if a.sortsLast ~= b.sortsLast then return b.sortsLast end
+      return inner(a, b)
+    end
+    placeSorts[key] = s
+  end
+  return s
 end
 
 local function maxSeen(rows)
@@ -589,12 +672,14 @@ end
 -- { live = true, items, zones = Session.zoneSnapshot(...), places, gold }.
 -- `open` = { zone, sub }: the opened zone lists its subzones, the opened subzone
 -- its items. opts.isQuest(itemID) -> bool moves an item to the quest group.
+-- Time spent counts whether or not the filter hides a place's loot: a zone's
+-- time (and the footer's rates) include its subzones without listed loot.
 function View.buildZones(entries, opts, open)
   opts = opts or {}
   open = open or {}
   if type(entries) ~= "table" then entries = {} end
   local withGold = opts.includeGold ~= false
-  local sort = SORTS[opts.sort] or SORTS.ah
+  local sort = placeSort(opts.sort)
   local zones, quest = aggregateZones(entries, opts.isQuest)
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(opts.filter) }
   local goldSum, timeSum = 0, 0
@@ -602,11 +687,12 @@ function View.buildZones(entries, opts, open)
   local zoneRows, opened = {}, nil
   for zone, subs in pairs(zones) do
     local zp = { key = "z:" .. zone, zoneKey = zone, time = 0, gold = 0, value = 0, vendor = 0, ah = 0,
-      count = 0, timedValue = 0, timedTime = 0 }
+      count = 0, timedValue = 0 }
     local subRows, subItems = {}, {}
     for sub, s in pairs(subs) do
       local items, t = collect(s.items, opts)
       local gold = withGold and s.gold or 0
+      zp.time, timeSum = zp.time + s.time, timeSum + s.time
       -- The opened subzone stays listed when the filter hides all its items
       -- (the Daily farm click opens it).
       local isOpen = open.zone == zone and open.sub == sub
@@ -615,21 +701,22 @@ function View.buildZones(entries, opts, open)
           gold = s.gold, value = t.best + gold, vendor = t.vendor, ah = t.ah, count = #items,
           lastSeen = maxSeen(items) }
         if sp.time > 0 then sp.perHour = placePerHour(sp.value, sp.time) end
-        subRows[#subRows + 1] = placeRow(sp, placeLabel(sub), isOpen, "    ", L_CLICK_OPEN)
+        subRows[#subRows + 1] = placeRow(sp, placeLabel(sub), isOpen, "    ", L_CLICK_OPEN,
+          sub == View.NO_TIME_SUB)
         if isOpen then subItems[subRows[#subRows]] = items end
-        zp.time, zp.gold, zp.value = zp.time + sp.time, zp.gold + s.gold, zp.value + sp.value
+        zp.gold, zp.value = zp.gold + s.gold, zp.value + sp.value
         zp.vendor, zp.ah, zp.count = zp.vendor + t.vendor, zp.ah + t.ah, zp.count + #items
-        if sp.time > 0 then zp.timedValue, zp.timedTime = zp.timedValue + sp.value, zp.timedTime + sp.time end
+        if sp.time > 0 then zp.timedValue = zp.timedValue + sp.value end
         if sp.lastSeen and (not zp.lastSeen or sp.lastSeen > zp.lastSeen) then zp.lastSeen = sp.lastSeen end
         totals.vendor, totals.ah, totals.best = totals.vendor + t.vendor, totals.ah + t.ah, totals.best + t.best
         totals.unpriced = totals.unpriced + t.unpriced
-        goldSum, timeSum = goldSum + s.gold, timeSum + s.time
+        goldSum = goldSum + s.gold
       end
     end
     if #subRows > 0 then
-      if zp.timedTime > 0 then zp.perHour = placePerHour(zp.timedValue, zp.timedTime) end
+      if zp.time > 0 then zp.perHour = placePerHour(zp.timedValue, zp.time) end
       local isOpen = open.zone == zone
-      local row = placeRow(zp, placeLabel(zone), isOpen, "", L_CLICK_SUBZONES)
+      local row = placeRow(zp, placeLabel(zone), isOpen, "", L_CLICK_SUBZONES, zone == View.UNKNOWN_ZONE)
       table.sort(subRows, sort)
       row.children, row.childItems = subRows, subItems
       zoneRows[#zoneRows + 1] = row
@@ -659,7 +746,8 @@ function View.buildZones(entries, opts, open)
     if isOpen then append(rows, questItems) end
   end
 
-  local view = { rows = rows, top = {}, totals = totals, kind = "zones", history = true }
+  local view = { rows = rows, top = {}, totals = totals, kind = "zones", history = true,
+    empty = View.emptyText(rows, opts.filter, L_NO_HISTORY) }
   addGold(view, goldSum, opts.includeGold)
   return View.applyRates(view, timeSum)
 end
@@ -711,8 +799,7 @@ function View.dailyFarm(entries, opts, minSeconds)
   if type(entries) ~= "table" then return nil end
   opts = opts or {}
   if not num(minSeconds) then minSeconds = 0 end
-  for k in pairs(farmOpts) do farmOpts[k] = nil end
-  for k, v in pairs(opts) do farmOpts[k] = v end
+  copyOpts(farmOpts, opts)
   farmOpts.filter, farmOpts.sort = nil, nil
   local withGold = opts.includeGold ~= false
 
@@ -759,8 +846,7 @@ local compactOpts = {}
 
 function View.buildCompact(session, opts)
   opts = opts or {}
-  for k in pairs(compactOpts) do compactOpts[k] = nil end
-  for k, v in pairs(opts) do compactOpts[k] = v end
+  copyOpts(compactOpts, opts)
   compactOpts.filter = nil
   local items = type(session.items) == "table" and session.items or {}
   local _, t = collect(items, compactOpts)
@@ -795,7 +881,8 @@ function View.build(session, opts)
 
   -- Raw gold is income of its own: never filtered, counted equally on every
   -- side of the combined totals.
-  local view = { rows = rows, top = top, totals = totals, kind = "session" }
+  local view = { rows = rows, top = top, totals = totals, kind = "session",
+    empty = View.emptyText(rows, opts.filter, session.running and L_NO_LOOT or L_STOPPED) }
   addGold(view, math.max(0, ns.Session.goldTotal(session)), opts.includeGold)
   return View.applyRates(view, ns.Session.elapsed(session, opts.now))
 end

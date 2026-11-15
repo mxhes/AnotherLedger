@@ -73,6 +73,14 @@ h.test("Rows.tooltipLink: the row link, else an item string, else nil", function
   h.eq(ns.UI.Rows.tooltipLink(nil), nil)
 end)
 
+h.test("rowText: a row's detail fills line 2, no quantity shows none", function()
+  local t = R.rowText({ name = "+ Today 9:00", detail = "1h 0m", bestLineTotal = 100, rateLevel = "good" },
+    ns.Money.format)
+  h.eq(t.market, "1h 0m"); h.eq(t.isDetail, true)
+  h.eq(t.qty, "")
+  h.eq(R.rowText({ name = "X", quantity = 2 }).isDetail, false)
+end)
+
 h.test("marketText: levels in order, plain or colored, nil without levels", function()
   h.eq(R.marketText({ rateLevel = "good", volumeLevel = "low" }), "Sells well, Low volume")
   h.eq(R.marketText({ volumeLevel = "medium" }), "Medium volume")

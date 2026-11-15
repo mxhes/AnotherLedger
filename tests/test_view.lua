@@ -337,8 +337,10 @@ h.test("View.buildHistory: one row per archived session with totals", function()
   }
   local v = ns.View.buildHistory(list, { formatDate = function(t) return "d" .. t end })
   h.eq(#v.rows, 2)
-  h.eq(v.rows[1].name, "+ d200  1h 0m"); h.eq(v.rows[1].historyIndex, 1)
-  h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, nil); h.eq(v.rows[1].bestLineTotal, 100)
+  h.eq(v.rows[1].name, "+ d200"); h.eq(v.rows[1].historyIndex, 1)
+  h.eq(v.rows[1].detail, "1h 0m \194\183 3 items"); h.eq(v.rows[1].quantity, nil)
+  -- the row's amount is the best value plus the raw gold
+  h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, nil); h.eq(v.rows[1].bestLineTotal, 140)
   h.eq(v.rows[2].historyIndex, 2)
   h.eq(v.totals.vendor, 15); h.eq(v.totals.ah, 120)
   h.eq(v.kind, "history")
@@ -372,8 +374,10 @@ h.test("View.buildHistory: the place joins the name, the details the hint", func
       places = { "The Stonevault (Heroic)", "Dornogal" }, items = {} },
   }
   local v = ns.View.buildHistory(list, { formatDate = function() return "D" end })
-  h.eq(v.rows[1].name, "+ D  1h 0m  The Stonevault (Heroic)")
-  h.eq(v.rows[1].value, 150)
+  h.eq(v.rows[1].name, "+ D")
+  h.eq(v.rows[1].detail, "1h 0m \194\183 The Stonevault (Heroic) \194\183 1 item")
+  h.eq(v.rows[1].value, 10150)
+  h.eq(ns.View.buildHistory(list, { includeGold = false }).rows[1].value, 150)
   h.eq(v.totals.best, 150)
   h.eq(tipText(v.rows[1]):find("Places: The Stonevault (Heroic), Dornogal", 1, true) ~= nil, true)
   h.eq(tipText(v.rows[1]):find("Raw gold: 1g  (1g/h)", 1, true) ~= nil, true)
@@ -443,7 +447,7 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
     lookup = function(id) return { vendor = 1, ah = id == 7 and 500 or 100 } end }
   local v = ns.View.buildHistory(list, opts, 2)
   h.eq(#v.rows, 4)
-  h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D  2m")
+  h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D")
   h.eq(tipText(v.rows[1]):match("([^\n]+)\n[^\n]+$"), "Click to collapse")
   h.eq(tipText(v.rows[1]):match("[^\n]+$"), "Right-click to delete it")
   h.eq(v.rows[2].id, 7); h.eq(v.rows[2].ahTotal, 2000) -- items, best AH value first
@@ -452,6 +456,63 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
   h.eq(v.totals.ah, 2020) -- totals still cover every session
   -- an index that is not in the list opens nothing
   h.eq(#ns.View.buildHistory(list, opts, 9).rows, 2)
+end)
+
+h.test("View.buildHistory: shortDate names the rows, formatDate stays in the tooltip", function()
+  local list = { { startedAt = 5, elapsed = 60, gold = 0, nItems = 1, vendor = 1, ah = 2, items = {} } }
+  local v = ns.View.buildHistory(list, { shortDate = function() return "Today 9:00" end,
+    formatDate = function() return "2026-11-15 09:00" end })
+  h.eq(v.rows[1].name, "+ Today 9:00")
+  h.eq(tipText(v.rows[1]):find("2026-11-15 09:00", 1, true) ~= nil, true)
+  h.eq(type(v.rows[1].hint), "function") -- built on hover
+end)
+
+local function threeSessions()
+  return {
+    { startedAt = 300, elapsed = 3600, gold = 0, nItems = 1, vendor = 0, ah = 100, places = { "Dornogal" }, items = {} },
+    { startedAt = 200, elapsed = 600, gold = 0, nItems = 1, vendor = 0, ah = 900, places = { "Hallowfall" }, items = {} },
+    { startedAt = 100, elapsed = 60, gold = 0, nItems = 1, vendor = 0, ah = 50, places = { "Dornogal" },
+      items = { [4] = { id = 4, key = 4, link = link("Ore"), qty = 1, lastSeen = 1 } } },
+  }
+end
+
+h.test("View.buildHistory: the sorts order the sessions, no sort keeps the list order", function()
+  local function order(sort)
+    local out = {}
+    for _, r in ipairs(ns.View.buildHistory(threeSessions(), { sort = sort }).rows) do out[#out + 1] = r.historyIndex end
+    return table.concat(out, ",")
+  end
+  h.eq(order(nil), "1,2,3")
+  h.eq(order("ah"), "2,1,3")
+  h.eq(order("recent"), "1,2,3")
+  h.eq(order("perHour"), "2,3,1")
+  h.eq(order("name"), "2,1,3") -- not a session sort: works as "ah"
+end)
+
+h.test("View.buildHistory: search and minimum value pick sessions, the opened one stays", function()
+  local v = ns.View.buildHistory(threeSessions(), { filter = { search = "dorn" } })
+  h.eq(#v.rows, 2); h.eq(v.totals.ah, 150); h.eq(v.totals.filtered, true)
+  v = ns.View.buildHistory(threeSessions(), { filter = { minValue = 500 } })
+  h.eq(#v.rows, 1); h.eq(v.rows[1].historyIndex, 2)
+  -- the opened session shows although the filter hides it; its items are
+  -- filtered by quality only (the search is for sessions)
+  v = ns.View.buildHistory(threeSessions(), { lookup = function() return { ah = 50 } end,
+    filter = { search = "hallow" } }, 3)
+  h.eq(v.rows[1].historyIndex, 3); h.eq(v.rows[2].id, 4); h.eq(v.rows[3].historyIndex, 2)
+  v = ns.View.buildHistory(threeSessions(), { filter = { search = "nowhere" } })
+  h.eq(#v.rows, 0); h.eq(v.empty, ns.L["Nothing matches the filters."])
+  h.eq(ns.View.buildHistory({}, {}).empty, ns.L["No saved sessions yet. A session is saved when you reset it."])
+end)
+
+h.test("View.emptyText: nothing for a list with rows, the filter reason before the tab's", function()
+  h.eq(V.emptyText({ {} }, { search = "x" }, "fallback"), nil)
+  h.eq(V.emptyText({}, { search = "x" }, "fallback"), ns.L["Nothing matches the filters."])
+  h.eq(V.emptyText({}, nil, "fallback"), "fallback")
+  local s = { running = false, elapsedBase = 0, items = {} }
+  h.eq(V.build(s, { now = 0 }).empty, ns.L["The clock is stopped: loot is not counted. Press Start."])
+  s.running, s.runningSince = true, 0
+  h.eq(V.build(s, { now = 0 }).empty, ns.L["No loot yet."])
+  h.eq(V.buildInventory({}, {}).empty, nil)
 end)
 
 h.test("View.applyRates recomputes only the rates and clears them for a young session", function()
@@ -593,6 +654,11 @@ h.test("View.buildZones opens a zone into subzones and a subzone into items", fu
   h.eq(v.rows[3].id, 1)
   h.eq(v.rows[3].quantity, 4)
   h.eq(v.rows[4].zoneKey, "Y")
+  -- place rows: the name alone, time, rate and item count on line 2
+  h.eq(v.rows[1].name, "- Z"); h.eq(v.rows[1].quantity, nil)
+  h.eq(v.rows[1].detail, "1h 0m \194\183 " .. ns.Money.format(400) .. "/h \194\183 1 item")
+  h.eq(v.rows[2].name, "    - A")
+  h.eq(v.rows[4].detail, "1h 0m \194\183 " .. ns.Money.format(60) .. "/h \194\183 1 item")
 end)
 
 h.test("View.buildZones sorts by gold per hour, places without time last", function()
@@ -639,6 +705,32 @@ h.test("View.buildZones groups quest items last, outside the totals", function()
   v = V.buildZones(list, { lookup = zlookup, sort = "ah", isQuest = function(id) return id == 3 end },
     { zone = V.QUEST_ZONE })
   h.eq(v.rows[3].id, 3)
+end)
+
+h.test("View.buildZones: Unknown place and No time recorded sort last", function()
+  local list = {
+    zentry({ [1] = 1 }, { Z = { subs = { A = zsub(3600, { [1] = 1 }) } } }),
+    zentry({ [3] = 1 }, nil, { "Z" }),          -- worth more, but without time
+    zentry({ [3] = 2 }, nil, { "Z", "Y" }),     -- Unknown place, worth the most
+  }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, { zone = "Z" })
+  h.eq(v.rows[1].zoneKey, "Z")
+  h.eq(v.rows[2].subKey, "A")
+  h.eq(v.rows[3].subKey, V.NO_TIME_SUB)
+  h.eq(v.rows[#v.rows].zoneKey, V.UNKNOWN_ZONE)
+end)
+
+h.test("View.buildZones: time without listed loot still counts for the zone and the footer", function()
+  local list = { zentry({ [1] = 1, [2] = 1 }, { Z = { subs = {
+    A = zsub(1800, { [1] = 1 }), B = zsub(1800, { [2] = 1 }), Idle = zsub(3600, {}) } } }) }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.rows[1].placeTime, 7200)
+  h.near(v.rows[1].perHour, 110 / 2)
+  -- the filter hides B's loot: its time stays in the zone's rate
+  v = V.buildZones(list, { lookup = zlookup, sort = "ah", filter = { minValue = 50 } }, {})
+  h.eq(v.rows[1].placeTime, 7200)
+  h.near(v.rows[1].perHour, 100 / 2)
+  h.near(v.totals.bestPerHour, 100 / 2)
 end)
 
 h.test("View.buildZones honors includeGold", function()
