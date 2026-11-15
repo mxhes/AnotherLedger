@@ -18,6 +18,7 @@ local lower = string.lower
 --   showCurrencies = bool (default true),
 --   includeGold = bool (default true),
 --   formatDate = function(timestamp) -> text (History tab),
+--   market = { rateGood, rateOk, soldHigh, soldMedium } or nil (no sale info),
 -- }
 --
 -- A row's value is the best of its vendor, AH and disenchant totals; the sort
@@ -60,6 +61,24 @@ function View.best(vendorTotal, ahTotal, deTotal)
   return best, kind
 end
 
+-- How well an item sells, from TSM region data. `t` = { rateGood, rateOk,
+-- soldHigh, soldMedium } (a negative cutoff is never reached). Returns the
+-- sale rate level ("good" / "ok" / "bad") and the volume level ("high" /
+-- "medium" / "low"); each is nil when its value is unknown or `t` is missing.
+local function level(v, top, mid, names)
+  if not num(v) then return nil end
+  if num(top) and top >= 0 and v >= top then return names[1] end
+  if num(mid) and mid >= 0 and v >= mid then return names[2] end
+  return names[3]
+end
+local RATE_LEVELS, VOLUME_LEVELS = { "good", "ok", "bad" }, { "high", "medium", "low" }
+
+function View.marketLevels(saleRate, soldPerDay, t)
+  if type(t) ~= "table" then return nil, nil end
+  return level(saleRate, t.rateGood, t.rateOk, RATE_LEVELS),
+    level(soldPerDay, t.soldHigh, t.soldMedium, VOLUME_LEVELS)
+end
+
 -- ---------------------------------------------------------------------------
 -- Rows
 
@@ -91,8 +110,10 @@ local function makeRow(item, opts)
   local ahTotal = ahEach and ahEach * qty or nil
   local deTotal = deEach and deEach * qty or nil
   local bestTotal, bestKind = View.best(vendorTotal, ahTotal, deTotal)
+  local rateLevel, volumeLevel = View.marketLevels(lookup.saleRate, lookup.soldPerDay, opts.market)
 
   return {
+    rateLevel = rateLevel, volumeLevel = volumeLevel,
     id = item.id, key = item.key or item.id, link = item.link, name = name, quality = quality, quantity = qty,
     sortName = lower(name), -- lowercased once, for the search and the name sort
     vendorEach = vendorEach, vendorTotal = vendorTotal,

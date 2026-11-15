@@ -69,6 +69,10 @@ Theme.colors = {
   moneySilver = { 0.780, 0.780, 0.812, 1 }, -- c7c7cf
   moneyCopper = { 0.929, 0.647, 0.373, 1 }, -- eda55f
   hint = { 0.68, 0.63, 0.55, 1 },
+  -- TSM sale info under the item name: good / high, ok / medium, bad / low.
+  marketGood = { 0.45, 0.85, 0.35, 1 },
+  marketOk = { 0.95, 0.80, 0.40, 1 },
+  marketBad = { 0.95, 0.38, 0.32, 1 },
   -- Column titles of the footer table (Value, /h): the hint color.
   columnTitle = { 0.68, 0.63, 0.55, 1 },
   -- Tab buttons: no fill of their own (they show the window background, so its

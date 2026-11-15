@@ -7,6 +7,8 @@ local ADDON, ns = ...
 --     label  = "TSM",                -- shown in the options dropdown
 --     create = function(env, setting) return { name = "TSM", get = function(itemID, link) ... end } end,
 --     createDisenchant = function(env, setting) ... end, -- optional, same shape
+--     createMarket = function(env, setting) -- optional: returns
+--       function(itemID, link) -> { saleRate, soldPerDay } or nil (region data)
 --   })
 --
 -- `env` is the global environment (_G in the client) and `setting(key)` reads

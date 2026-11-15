@@ -1220,3 +1220,26 @@ h.test("wiring: an event the client does not know does not stop the others", fun
   h.eq(frame._events.CHAT_MSG_LOOT, true)
   h.eq(frame._events.CHAT_MSG_CURRENCY, nil)
 end)
+
+h.test("wiring: TSM sale info shows under the name and follows its options", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("SaleRate", 1, true) then return 600 end -- 0.6
+    if src:find("SoldPerDay", 1, true) then return 50 end -- 0.5 a day
+    return 111
+  end }
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  local L, colors = ns.UI.Ledger, ns.Theme.colors
+  L.refresh()
+  local row = L.list.pool[1]
+  local hex = ns.Money.hex
+  h.eq(row.market:GetText(), hex(colors.marketGood) .. "Sells well|r, " .. hex(colors.marketBad) .. "Low volume|r")
+  ns.Options.set(ns.db, "saleRateGood", 0.7)
+  ns.Options.set(ns.db, "soldMedium", 0)
+  h.eq(row.market:GetText(), hex(colors.marketOk) .. "Sells okay|r, " .. hex(colors.marketOk) .. "Medium volume|r")
+  ns.Options.set(ns.db, "showMarket", false)
+  h.eq(row.market:GetText(), "")
+  h.eq(ctx.errors, {})
+end)

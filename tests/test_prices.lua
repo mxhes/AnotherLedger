@@ -195,3 +195,19 @@ h.test("an unchanged live price re-stamps the cache entry in place", function()
   h.eq(cache["EU-1"][5] == entry, true) -- no new table
   h.eq(entry.seenAt, 2000)
 end)
+
+h.test("lookup adds live sale rate and sold per day from the market function", function()
+  local p = P.new({ sources = {}, now = function() return 1 end, key = function() return nil end,
+    market = function() return { saleRate = 0.2, soldPerDay = 3 } end })
+  local r = p:lookup(5)
+  h.eq(r.saleRate, 0.2)
+  h.eq(r.soldPerDay, 3)
+  p = P.new({ sources = {}, now = function() return 1 end, key = function() return nil end,
+    market = function() error("boom") end })
+  h.eq(p:lookup(5).saleRate, nil)
+  p = P.new({ sources = {}, now = function() return 1 end, key = function() return nil end,
+    market = function() return { saleRate = -1, soldPerDay = "x" } end })
+  r = p:lookup(5)
+  h.eq(r.saleRate, nil)
+  h.eq(r.soldPerDay, nil)
+end)

@@ -98,9 +98,12 @@ function Core.buildPrices(env, db, now, getKey)
   local function setting(key) return db.settings[key] end
   local function selected() return db.settings.priceSource end
 
-  local sources, disenchant = {}, nil
+  local sources, disenchant, market = {}, nil, nil
   for _, spec in ipairs(Sources.list()) do
     sources[#sources + 1] = Sources.gate(spec.create(env, setting), spec.key, selected)
+    -- Sale rate / sold per day: from the first source that offers them, not
+    -- gated by the price source option (TSM data also helps next to Auctionator).
+    if not market and spec.createMarket then market = spec.createMarket(env, setting) end
     -- Disenchant value: from the first source that offers one.
     if not disenchant and spec.createDisenchant then
       disenchant = Sources.gate(spec.createDisenchant(env, setting), spec.key, selected).get
@@ -111,6 +114,7 @@ function Core.buildPrices(env, db, now, getKey)
     sources = sources,
     vendor = function(itemID, link) return Sources.Vendor.get(env, itemID, link) end,
     disenchant = disenchant,
+    market = market,
     cache = db.cache,
     key = getKey,
     now = now,

@@ -500,3 +500,26 @@ h.test("View.build: includeGold = false leaves the gold out of the combined tota
   h.eq(off.noCombined, true)
   h.eq(off.gold.total, 5000)
 end)
+
+h.test("View.marketLevels: three levels each, unknown values and no cutoffs give nil", function()
+  local t = { rateGood = 0.1, rateOk = 0.03, soldHigh = 20, soldMedium = 2 }
+  h.eq({ V.marketLevels(0.1, 20, t) }, { "good", "high" })
+  h.eq({ V.marketLevels(0.05, 2, t) }, { "ok", "medium" })
+  h.eq({ V.marketLevels(0.01, 0.5, t) }, { "bad", "low" })
+  h.eq({ V.marketLevels(nil, 5, t) }, { nil, "medium" })
+  h.eq({ V.marketLevels(0.5, 5, nil) }, {})
+  -- a negative cutoff ("unlimited") is never reached
+  h.eq(select(2, V.marketLevels(nil, 1e6, { soldHigh = -1, soldMedium = -1 })), "low")
+end)
+
+h.test("View.build: rows carry the sale info levels only with cutoffs", function()
+  local s = session({ { 5, "Ore", 3 } })
+  local lookup = function() return { ah = 100, saleRate = 0.2, soldPerDay = 1 } end
+  local t = { rateGood = 0.1, rateOk = 0.03, soldHigh = 20, soldMedium = 2 }
+  local row = V.build(s, { now = 10, sort = "ah", lookup = lookup, market = t }).rows[1]
+  h.eq(row.rateLevel, "good")
+  h.eq(row.volumeLevel, "low")
+  row = V.build(s, { now = 10, sort = "ah", lookup = lookup }).rows[1]
+  h.eq(row.rateLevel, nil)
+  h.eq(row.volumeLevel, nil)
+end)

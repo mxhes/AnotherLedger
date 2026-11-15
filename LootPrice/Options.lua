@@ -283,6 +283,22 @@ Options.define({
   key = "tsmSource", category = "prices", type = "text", label = L["TSM price source (e.g. DBMarket)"], apply = refreshUI,
 })
 
+-- TSM region sale info under the item name (Sources/TSM.lua TSM.market) and
+-- the cutoffs of its levels (View.marketLevels).
+Options.define({
+  key = "showMarket", category = "prices", type = "checkbox", label = L["Show TSM sale info under the name"], apply = refreshUI,
+})
+
+local function rate(v) return string.format("%.2f", v) end
+Options.define({ key = "saleRateGood", category = "prices", type = "slider", label = L["Sale rate: sells well from"],
+  min = 0, max = 1, step = 0.01, format = rate, apply = refreshUI })
+Options.define({ key = "saleRateOk", category = "prices", type = "slider", label = L["Sale rate: sells okay from"],
+  min = 0, max = 1, step = 0.01, format = rate, apply = refreshUI })
+Options.define({ key = "soldHigh", category = "prices", type = "number", label = L["Sold per day: high volume from"],
+  apply = refreshUI })
+Options.define({ key = "soldMedium", category = "prices", type = "number", label = L["Sold per day: medium volume from"],
+  apply = refreshUI })
+
 Options.define({
   key = "refreshSeconds", category = "prices", type = "slider", label = L["Price refresh interval"],
   min = 10, max = 120, step = 5, format = function(v) return v .. " s" end,

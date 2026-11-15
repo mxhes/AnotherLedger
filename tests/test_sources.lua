@@ -111,3 +111,29 @@ h.test("Sources.register: a new source joins the list and the choices, a repeat 
   h.eq(#S.list(), count + 1)
   h.eq(pcall(S.register, { key = "bad" }), false)
 end)
+
+h.test("TSM.market asks scaled region sale rate and sold per day", function()
+  local asked = {}
+  local env = { TSM_API = { GetCustomPriceValue = function(s, i)
+    asked[#asked + 1] = s .. "|" .. i
+    if s:find("SaleRate", 1, true) then return 123 end
+    return 4550
+  end } }
+  local m = S.TSM.market(env, 7)
+  h.near(m.saleRate, 0.123)
+  h.near(m.soldPerDay, 45.5)
+  h.eq(asked, { "DBRegionSaleRate * 1000|i:7", "DBRegionSoldPerDay * 100|i:7" })
+end)
+
+h.test("TSM.market: a rate already scaled by 1000 is brought back to 0..1; no data is nil", function()
+  local env = { TSM_API = { GetCustomPriceValue = function(s)
+    if s:find("SaleRate", 1, true) then return 250000 end
+    return nil
+  end } }
+  local m = S.TSM.market(env, 7)
+  h.near(m.saleRate, 0.25)
+  h.eq(m.soldPerDay, nil)
+  h.eq(S.TSM.market({ TSM_API = { GetCustomPriceValue = function() error("x") end } }, 7), nil)
+  h.eq(S.TSM.market({}, 7), nil)
+  h.eq(S.TSM.market(nil, 7), nil)
+end)

@@ -84,4 +84,7 @@ function Money.formatColored(copper, colors)
   return sign .. text
 end
 
+-- "|cffRRGGBB" escape of a { r, g, b } color (0..1), for colored text.
+Money.hex = hex
+
 ns.Money = Money

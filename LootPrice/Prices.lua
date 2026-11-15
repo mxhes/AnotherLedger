@@ -58,6 +58,7 @@ Instance.__index = Instance
 --   sources    = { { name, get(itemID, link) -> copper or nil }, ... } asked in order,
 --   vendor     = function(itemID, link) -> copper or nil,
 --   disenchant = function(itemID, link) -> copper or nil (optional),
+--   market     = function(itemID, link) -> { saleRate, soldPerDay } or nil (optional),
 --   cache      = saved table { [key] = { [itemKey] = { price, seenAt } } },
 -- `link` (optional) lets a source price the exact variant (bonus IDs); the
 -- cache stores prices under LootParse.itemKey (the item ID for plain items).
@@ -69,6 +70,7 @@ function Prices.new(opts)
     sources = opts.sources or {},
     vendor = opts.vendor,
     disenchant = opts.disenchant,
+    market = opts.market,
     cache = opts.cache,
     key = opts.key,
     now = opts.now,
@@ -101,7 +103,8 @@ function Instance:_remember(key, bucket, itemID, price, now)
   bucket[itemID] = { price = price, seenAt = now }
 end
 
--- Returns { vendor, de, ah, ahSource, ahAge }; every field may be missing.
+-- Returns { vendor, de, ah, ahSource, ahAge, saleRate, soldPerDay }; every
+-- field may be missing (saleRate / soldPerDay are live only, never cached).
 -- ahSource is the live source's name or "cache"; ahAge is 0 for a live price.
 function Instance:lookup(itemID, link)
   local result = {}
@@ -116,6 +119,15 @@ function Instance:lookup(itemID, link)
   if self.disenchant then
     local ok, v = pcall(self.disenchant, itemID, link)
     if ok and isPositive(v) then result.de = v end
+  end
+
+  -- Region market data (sale rate, sold per day).
+  if self.market then
+    local ok, m = pcall(self.market, itemID, link)
+    if ok and type(m) == "table" then
+      if isNumber(m.saleRate) and m.saleRate >= 0 then result.saleRate = m.saleRate end
+      if isNumber(m.soldPerDay) and m.soldPerDay >= 0 then result.soldPerDay = m.soldPerDay end
+    end
   end
 
   local now = self.now()

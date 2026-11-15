@@ -37,6 +37,13 @@ DB.defaults = {
     showCurrencies = true,
     -- Item icon at the left of each list row.
     showIcons = true,
+    -- TSM region sale info under the item name and its level cutoffs: sale
+    -- rate (0..1) for good / ok, average sold per day for high / medium.
+    showMarket = true,
+    saleRateGood = 0.5,
+    saleRateOk = 0.1,
+    soldHigh = 100,
+    soldMedium = 10,
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
     instanceSession = false,

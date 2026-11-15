@@ -18,6 +18,17 @@ local L = {
   BOUND = ns.L["bound"],
 }
 
+-- TSM sale info levels (View.marketLevels): text and Theme color of each.
+local MARKET = {
+  good = { ns.L["Sells well"], "marketGood" },
+  ok = { ns.L["Sells okay"], "marketOk" },
+  bad = { ns.L["Sells poorly"], "marketBad" },
+  high = { ns.L["High volume"], "marketGood" },
+  medium = { ns.L["Medium volume"], "marketOk" },
+  low = { ns.L["Low volume"], "marketBad" },
+}
+local MARKET_SEP = ", "
+
 local WHEEL_STEP = 2
 local QUESTION_MARK = 134400 -- INV_Misc_QuestionMark
 
@@ -40,6 +51,22 @@ function Rows.bestLine(row)
   if ah ~= nil and (de == nil or ah >= de) then return ah, "ah" end
   if de ~= nil then return de, "de" end
   return nil, nil
+end
+
+-- Line 2 under the name: the sale rate and volume levels of the row, e.g.
+-- "Sells well, Low volume", each part in its level color (plain text without
+-- `colors`). nil when the row has neither level.
+function Rows.marketText(row, colors)
+  local parts = {}
+  for _, lv in ipairs({ row.rateLevel or false, row.volumeLevel or false }) do
+    local m = lv and MARKET[lv]
+    if m then
+      local c = colors and colors[m[2]]
+      parts[#parts + 1] = c and (ns.Money.hex(c) .. m[1] .. "|r") or m[1]
+    end
+  end
+  if #parts == 0 then return nil end
+  return table.concat(parts, MARKET_SEP)
 end
 
 -- The texts one row shows (two lines: name, quantity and vendor; then
@@ -72,6 +99,8 @@ function Rows.rowText(row, formatMoney)
     -- Which line holds the row's value (its label is highlighted): "vendor"
     -- is line 1, "ah" / "de" line 2.
     best = row.bestKind,
+    -- Under the name: TSM sale info (colored), or nil.
+    market = Rows.marketText(row, ns.Theme and ns.Theme.colors),
     tag = tag,
     tagStale = tagStale,
   }
@@ -309,6 +338,9 @@ local function layoutRow(f, block)
   f.name:SetWidth(Rows.nameFit(c.nameW, qtyW, f.name:GetStringWidth()))
   f.qty:ClearAllPoints()
   f.qty:SetPoint("LEFT", f.name, "RIGHT", S.rowQtyGap, 0)
+  -- Line 2 of the name column: the sale info, clipped to the column.
+  place(f.market, f, "BOTTOMLEFT", x0 + c.nameX, inset)
+  f.market:SetWidth(math.max(1, c.nameW))
 
   -- Right block: vendor on the top line, Best (AH or DE) on the bottom line.
   local labelX, amountX = x0 + c.labelX, x0 + c.amountX
@@ -380,6 +412,7 @@ local function createRow(parent, owner)
   vendorLabel:SetText(Rows.LABELS.vendor)
   bestLabel:SetText(Rows.LABELS.best)
   f.vendorLabel, f.bestLabel = vendorLabel, bestLabel
+  f.market = line2()
 
   f.name, f.qty, f.vendor, f.bestAmount, f.tag = name, qty, vendor, bestAmount, tag
   f:SetScript("OnSizeChanged", function(self) layoutRow(self) end)
@@ -415,6 +448,7 @@ local function fillRow(f, row)
   setColor(f.bestLabel, secondBest and T.colors.best or T.colors.ink)
   f.vendor:SetText(t.vendorAmount)
   f.bestAmount:SetText(t.bestAmount)
+  f.market:SetText(t.market or "")
   f.tag:SetText(t.tag or "")
   f.hasTag = t.tag ~= nil
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)

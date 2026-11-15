@@ -115,6 +115,17 @@ local function formatDate(timestamp)
 end
 Ledger.formatDate = formatDate
 
+-- The cutoffs of the sale info levels (View.marketLevels), or nil with the
+-- option "showMarket" off.
+local marketCutoffs = {}
+function Ledger.marketCutoffs(db)
+  local O = ns.Options
+  if not (O and db) or O.get(db, "showMarket") == false then return nil end
+  marketCutoffs.rateGood, marketCutoffs.rateOk = O.get(db, "saleRateGood"), O.get(db, "saleRateOk")
+  marketCutoffs.soldHigh, marketCutoffs.soldMedium = O.get(db, "soldHigh"), O.get(db, "soldMedium")
+  return marketCutoffs
+end
+
 local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate }
 local context = { opts = viewOpts, ledger = Ledger }
 
@@ -125,6 +136,7 @@ local function currentContext(now)
   viewOpts.sort = db and db.sort
   viewOpts.includeGold = not (ns.Options and db) or ns.Options.get(db, "includeGold") ~= false
   viewOpts.showCurrencies = not (ns.Options and db) or ns.Options.get(db, "showCurrencies") ~= false
+  viewOpts.market = Ledger.marketCutoffs(db)
   context.now = now
   context.env = _G
   context.session = ns.session

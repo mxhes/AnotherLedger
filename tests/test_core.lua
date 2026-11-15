@@ -299,3 +299,19 @@ h.test("Core.alertWorthy: drop value against the gold threshold", function()
   h.eq(Core.alertWorthy(nil, 1, 10), false)
   h.eq(Core.alertWorthy(100, nil, 10), false)
 end)
+
+h.test("Core.buildPrices adds TSM sale info, also with Auctionator as the price source", function()
+  local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
+  local env = {
+    TSM_API = { GetCustomPriceValue = function(src)
+      if src:find("SaleRate", 1, true) then return 80 end
+      if src:find("SoldPerDay", 1, true) then return 1200 end
+      return nil
+    end },
+  }
+  db.settings.priceSource = "auctionator"
+  local p = Core.buildPrices(env, db, function() return 1000 end, function() return "EU-1" end)
+  local r = p:lookup(5)
+  h.near(r.saleRate, 0.08)
+  h.near(r.soldPerDay, 12)
+end)
