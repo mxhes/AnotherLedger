@@ -15,24 +15,27 @@ local NAME = "LootPrice"
 local ICON = "Interface\\Icons\\INV_Misc_Coin_01"
 local UPDATE_SECONDS = 15
 
-local L_LEFT = "Left click: show / hide the window"
-local L_RIGHT = "Right click: options"
-local L_DRAG = "Drag: move the button"
-local L_SESSION = "Session"
-local L_BEST = "Items (best value)"
-local L_GOLD = "Raw gold"
-local L_TOTAL = "Items + gold"
-local L_PER_HOUR = "/h"
+local L = ns.L
+local L_LEFT = L["Left click: show / hide the window"]
+local L_RIGHT = L["Right click: options"]
+local L_DRAG = L["Drag: move the button"]
+local L_SESSION = L["Session"]
+local L_BEST = L["Items (best value)"]
+local L_GOLD = L["Raw gold"]
+local L_TOTAL = L["Total"]
+local L_PER_HOUR = L["/h"]
 
 -- Pure. Session numbers for the broker text and tooltip: { best, gold, total,
--- perHour (total per hour or nil), elapsed }. `lookup(itemID, link)` prices an item.
-function Broker.summary(session, lookup, now)
+-- perHour (total per hour or nil), elapsed }. `lookup(itemID, link)` prices an
+-- item. `includeGold` false (option "Raw gold in Total" off): the total is the
+-- items only.
+function Broker.summary(session, lookup, now, includeGold)
   local out = { best = 0, gold = 0, total = 0, perHour = nil, elapsed = 0 }
   if type(session) ~= "table" then return out end
   local view = ns.View.build(session, { now = now, lookup = lookup, showCurrencies = false })
   out.best = view.totals.best or 0
   out.gold = view.gold.total or 0
-  out.total = out.best + out.gold
+  out.total = out.best + (includeGold == false and 0 or out.gold)
   out.elapsed = ns.Session.elapsed(session, now)
   if out.elapsed >= ns.View.MIN_RATE_SECONDS then out.perHour = out.total * 3600 / out.elapsed end
   return out
@@ -42,7 +45,7 @@ end
 function Broker.text(summary, formatMoney)
   formatMoney = formatMoney or ns.Money.format
   local text = formatMoney(summary.total)
-  if summary.perHour then text = text .. " (" .. formatMoney(summary.perHour) .. ns.L[L_PER_HOUR] .. ")" end
+  if summary.perHour then text = text .. " (" .. formatMoney(summary.perHour) .. L_PER_HOUR .. ")" end
   return text
 end
 
@@ -54,7 +57,8 @@ local function libStub(name)
 end
 
 local function current()
-  return Broker.summary(ns.session, ns.Core.lookupPrice, time())
+  local includeGold = not (ns.Options and ns.db) or ns.Options.get(ns.db, "includeGold") ~= false
+  return Broker.summary(ns.session, ns.Core.lookupPrice, time(), includeGold)
 end
 
 function Broker.update()
@@ -73,20 +77,19 @@ local function onClick(_, button)
 end
 
 local function onTooltipShow(tooltip)
-  local L = ns.L
   local fm = ns.Money.formatColored
   tooltip:AddLine(NAME)
   local ok, s = pcall(current)
   if ok then
-    tooltip:AddDoubleLine(L[L_SESSION], ns.UI.Header and ns.UI.Header.formatElapsed(s.elapsed) or "", 1, 1, 1, 1, 1, 1)
-    tooltip:AddDoubleLine(L[L_BEST], fm(s.best), 1, 1, 1, 1, 1, 1)
-    tooltip:AddDoubleLine(L[L_GOLD], fm(s.gold), 1, 1, 1, 1, 1, 1)
-    tooltip:AddDoubleLine(L[L_TOTAL], Broker.text(s, fm), 1, 1, 1, 1, 1, 1)
+    tooltip:AddDoubleLine(L_SESSION, ns.UI.Header and ns.UI.Header.formatElapsed(s.elapsed) or "", 1, 1, 1, 1, 1, 1)
+    tooltip:AddDoubleLine(L_BEST, fm(s.best), 1, 1, 1, 1, 1, 1)
+    tooltip:AddDoubleLine(L_GOLD, fm(s.gold), 1, 1, 1, 1, 1, 1)
+    tooltip:AddDoubleLine(L_TOTAL, Broker.text(s, fm), 1, 1, 1, 1, 1, 1)
   end
   tooltip:AddLine(" ")
-  tooltip:AddLine(L[L_LEFT], 0.7, 0.7, 0.7)
-  tooltip:AddLine(L[L_RIGHT], 0.7, 0.7, 0.7)
-  if Broker.icon then tooltip:AddLine(L[L_DRAG], 0.7, 0.7, 0.7) end
+  tooltip:AddLine(L_LEFT, 0.7, 0.7, 0.7)
+  tooltip:AddLine(L_RIGHT, 0.7, 0.7, 0.7)
+  if Broker.icon then tooltip:AddLine(L_DRAG, 0.7, 0.7, 0.7) end
 end
 
 -- Creates the data object and the LibDBIcon button (once, at login, before the

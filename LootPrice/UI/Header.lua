@@ -170,9 +170,13 @@ function Header.attach(row, handlers)
     self.timer:SetShown(compact or self.sessionShown)
     self.toggle:SetShown(not compact and self.sessionShown)
     self.reset:SetShown(not compact and self.sessionShown)
-    local stopped = compact and self.running == false
-    self.pausedText:SetShown(stopped)
-    W.setTextColor(self.timer, stopped and T.colors.buttonTextDisabled or T.colors.ink)
+    -- Stopped: compact shows the red Paused marker next to a dimmed clock; the
+    -- full header has no room for the word, so the clock itself turns red.
+    local stopped = self.running == false
+    self.pausedText:SetShown(compact and stopped)
+    local color = T.colors.ink
+    if stopped then color = compact and T.colors.buttonTextDisabled or T.colors.stale end
+    W.setTextColor(self.timer, color)
   end
 
   -- The clock and the Start / Stop / Reset buttons belong to the session tab;

@@ -18,8 +18,8 @@ local L = {
 
 -- The source tag after a row's value and the tooltip line of each value.
 Rows.SOURCES = { "vendor", "ah", "de" }
-local SOURCE_TEXT = { vendor = ns.L["Vendor"], ah = ns.L["Auction"], de = ns.L["Disenchant"] }
-local SOURCE_LABEL = { vendor = ns.L["Vendor: "], ah = ns.L["AH: "], de = ns.L["Disenchant: "] }
+local SOURCE_TEXT = { vendor = ns.L["Vendor"], ah = ns.L["Auction"], de = ns.L["Destroy"] }
+local SOURCE_LABEL = { vendor = ns.L["Vendor: "], ah = ns.L["AH: "], de = ns.L["Destroy: "] }
 local SOURCE_COLOR = { vendor = "tagVendor", ah = "tagAh", de = "tagDe" }
 Rows.SOURCE_TEXT, Rows.SOURCE_COLOR = SOURCE_TEXT, SOURCE_COLOR
 

@@ -105,4 +105,4 @@ and remove both once it is confirmed.
 ## Language
 
 - [ ] German client: texts are German and nothing clips (options labels,
-  tooltips, footer, `Entzaubern` / `Auktion` tags).
+  tooltips, footer, `Zerstören` / `Auktion` tags).

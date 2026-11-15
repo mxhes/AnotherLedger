@@ -106,7 +106,7 @@ h.test("tooltipLines: items and items + gold with rates; inventory without", fun
   h.eq(l[1], { "Items", "" })
   h.eq(l[2], { "Vendor: ", M.format(1) .. "  " .. M.format(10) .. "/h" })
   h.eq(l[4], { "Best: ", M.format(2) .. "  " .. M.format(20) .. "/h" })
-  h.eq(l[5], { "Items + gold", "" })
+  h.eq(l[5], { "Total", "" })
   h.eq(l[6], { "Vendor: ", M.format(3) .. "  " .. "\226\128\148" })
   h.eq(#l, 8)
   local inv = S.tooltipLines({ kind = "inventory", totals = { vendor = 1, ah = 2, best = 2 } }, M.format)

@@ -12,8 +12,8 @@ tells you where your best farm is today.
 
 Vendor prices work on their own. Auction prices need
 [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
-optional; TSM is asked first). Disenchant values and the "sells well / poorly"
-info need TSM. Waypoints use TomTom when it is installed, else the game's own
+optional; TSM is asked first). Destroy values (what disenchanting, milling or
+prospecting gives) and the "sells well / poorly" info need TSM. Waypoints use TomTom when it is installed, else the game's own
 map pin.
 
 ## The window
@@ -30,15 +30,15 @@ shows while it is stopped.
 
 **Full** is the detailed ledger:
 
-- **Header**: the session clock, **Start / Stop**, **Reset**, the layout
-  arrow, the gear (options) and close.
+- **Header**: the session clock (red while stopped), **Start / Stop**,
+  **Reset**, the layout arrow, the gear (options) and close.
 - **Filter bar**: quality, minimum value in gold, text search and the sort
-  (value, vendor value, most recent, name). Filters are remembered.
+  (Value, Vendor, Name, Recent). Filters are remembered.
 - **Daily strip**: today's best farm (see below).
 - **Tabs**: Session, Bags, Bank and History (below).
 - **List**: one row per item: icon, name and quantity, and on the right its
   value with a tag saying where it comes from: `Vendor`, `Auction` or
-  `Disenchant`. With TSM, a second line says how well it sells in your region.
+  `Destroy` (disenchant, mill or prospect). With TSM, a second line says how well it sells in your region.
   A price taken from the cache shows its age, e.g. `(3h)`, in orange once it
   is old; an item with no auction price is marked `?`. New loot flashes.
   Hover a row for the item tooltip with all its values.

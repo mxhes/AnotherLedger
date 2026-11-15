@@ -21,7 +21,6 @@ local L_MARKED = L[" (marked ?)"]
 local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
 local L_LABEL_GOLD = L["Raw gold"]
-local L_LABEL_TOTAL = L["Items + gold"]
 local L_TOTAL = L["Total"]
 local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
@@ -134,7 +133,7 @@ function Summary.tooltipLines(view, formatMoney)
     line(L_BEST, t.best, t.bestPerHour)
   end
   section(L_LABEL_ITEMS, view.totals)
-  if layout.rates and not view.noCombined then section(L_LABEL_TOTAL, view.combined) end
+  if layout.rates and not view.noCombined then section(L_TOTAL, view.combined) end
   return lines
 end
 

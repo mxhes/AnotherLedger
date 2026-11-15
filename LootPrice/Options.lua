@@ -381,10 +381,10 @@ Options.define({
   label = L["Sort at login"],
   tooltip = L["The list's order at every login. The sort button still changes it for the rest of the session."],
   choices = {
-    { value = "ah", label = L["Best value"] },
-    { value = "vendor", label = L["Vendor value"] },
+    { value = "ah", label = L["Value"] },
+    { value = "vendor", label = L["Vendor"] },
     { value = "name", label = L["Name"] },
-    { value = "recent", label = L["Most recent"] },
+    { value = "recent", label = L["Recent"] },
   },
   apply = function(v)
     if ns.db then ns.db.sort = v end
@@ -426,7 +426,7 @@ Options.define({
 
 Options.define({
   key = "includeGold", category = "display", type = "checkbox", label = L["Raw gold in Total"],
-  tooltip = L["Adds the gold you looted to the Total row of the footer. Off leaves the Total row out."],
+  tooltip = L["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the place values of Zones and the Daily farm. Off leaves the Total row out."],
   apply = refreshUI,
 })
 

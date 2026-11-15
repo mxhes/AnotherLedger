@@ -107,7 +107,7 @@ h.test("rowText: vendor beats a lower DE, no AH price marks it unpriced", functi
   h.eq(t.unpriced, true)
   local d = R.rowText({ name = "X", quantity = 2, value = 500, bestKind = "de", deTotal = 500, ahEach = 100,
     ahTotal = 200 }, fm)
-  h.eq(d.source, "de"); h.eq(d.sourceText, "Disenchant"); h.eq(d.unpriced, false)
+  h.eq(d.source, "de"); h.eq(d.sourceText, "Destroy"); h.eq(d.unpriced, false)
 end)
 
 h.test("rowText: bound, nothing, currency and rows with their own total", function()

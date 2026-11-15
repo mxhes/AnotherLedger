@@ -99,8 +99,11 @@ function Core.buildPrices(env, db, now, getKey)
   local function selected() return db.settings.priceSource end
 
   local sources, disenchant, market = {}, nil, nil
+  local keyOfName = {} -- source name (stored with a cached price) -> option key
   for _, spec in ipairs(Sources.list()) do
-    sources[#sources + 1] = Sources.gate(spec.create(env, setting), spec.key, selected)
+    local source = spec.create(env, setting)
+    keyOfName[source.name] = spec.key
+    sources[#sources + 1] = Sources.gate(source, spec.key, selected)
     -- Sale rate / sold per day: from the first source that offers them, not
     -- gated by the price source option (TSM data also helps next to Auctionator).
     if not market and spec.createMarket then market = spec.createMarket(env, setting) end
@@ -116,6 +119,11 @@ function Core.buildPrices(env, db, now, getKey)
     disenchant = disenchant,
     market = market,
     cache = db.cache,
+    -- A cached price only counts while its source may answer (AH price source).
+    cacheAllowed = function(name)
+      local key = keyOfName[name]
+      return key == nil or Sources.allowed(selected(), key)
+    end,
     key = getKey,
     now = now,
   })

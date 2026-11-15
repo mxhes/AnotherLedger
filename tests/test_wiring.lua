@@ -1317,6 +1317,15 @@ h.test("wiring: with LibDataBroker and LibDBIcon the button is LibDBIcon's", fun
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ns.UI.Broker.update()
   h.eq(type(objects.LootPrice.text), "string")
+  -- The broker total follows "Raw gold in Total".
+  ns.Core.recordGold(50000)
+  local function total(includeGold)
+    return ns.UI.Broker.summary(ns.session, ns.Core.lookupPrice, ctx.now, includeGold).total
+  end
+  h.eq(total(true) - total(false), 50000)
+  ns.Options.set(ns.db, "includeGold", false)
+  ns.UI.Broker.update()
+  h.eq(objects.LootPrice.text, ns.UI.Broker.text({ total = total(false) }, ns.Money.formatColored))
   h.eq(ctx.errors, {})
 end)
 

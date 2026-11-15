@@ -33,7 +33,7 @@ Theme.fonts = {
   number = "GameFontHighlight",
   small = "GameFontHighlightSmall",
   rowSmall = "GameFontHighlightSmall", -- second and third line of a list row
-  -- Source tag (Vendor / Auction / Disenchant): the row's small size in a narrow
+  -- Source tag (Vendor / Auction / Destroy): the row's small size in a narrow
   -- typeface (Theme.fontFiles), so the spelled-out words fit.
   sourceTag = "GameFontHighlightSmall",
   -- Summary (footer table, Top finds): about 12 pt; column titles and the notes
@@ -247,8 +247,8 @@ Theme.sizes = {
 
 -- Button / box widths of the header rows. Row 1 at the 350 px minimum is
 -- 326 px wide (350 - 2 * (padding 8 + 4)): buttons 38 (Start / Stop) + 40 (reset)
--- + 20 (options) + 20 (close) = 118 plus three 2 px gaps = 124, timer 54 + 6 px gap,
--- leaving ~142 px for the title (~95 px).
+-- + 20 (mode) + 20 (options) + 20 (close) = 138 plus four 2 px gaps = 146, timer
+-- 54 + 6 px gap, leaving ~120 px for the title (~95 px).
 -- Row 2: quality 70 + min 44 + sort 78 + three 2 px gaps (plus ~8 px of
 -- inset) = ~206, leaving ~120 px for the flexible search box.
 -- minWidth 350 is the header's budget above; the footer table needs less

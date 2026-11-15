@@ -2,9 +2,10 @@ local ADDON, ns = ...
 
 local isNumber, isPositive = ns.Util.isNumber, ns.Util.isPositive
 
--- Price lookup: live AH sources first, then the saved cache of the last price
--- each source returned (per region / game mode), plus vendor and disenchant
--- values. Pure: every client call is injected through Prices.new.
+-- Price lookup: live AH sources first, then the saved cache of the last live
+-- price (per region / game mode, with the name of the source that gave it),
+-- plus vendor and destroy (disenchant) values. Pure: every client call is
+-- injected through Prices.new.
 local Prices = {
   -- A cached price older than this is tagged stale (option "staleHours").
   STALE_AFTER = ((ns.DB and ns.DB.defaults.settings.staleHours) or 12) * 3600,
@@ -59,7 +60,10 @@ Instance.__index = Instance
 --   vendor     = function(itemID, link) -> copper or nil,
 --   disenchant = function(itemID, link) -> copper or nil (optional),
 --   market     = function(itemID, link) -> { saleRate, soldPerDay } or nil (optional),
---   cache      = saved table { [key] = { [itemKey] = { price, seenAt } } },
+--   cache      = saved table { [key] = { [itemKey] = { price, seenAt, source } } },
+--   cacheAllowed = function(sourceName) -> bool (optional): whether a cached
+--                price of that source may be used (the price source option);
+--                entries saved without a source always may,
 -- `link` (optional) lets a source price the exact variant (bonus IDs); the
 -- cache stores prices under LootParse.itemKey (the item ID for plain items).
 --   key        = function() -> cache key or nil,
@@ -72,6 +76,7 @@ function Prices.new(opts)
     disenchant = opts.disenchant,
     market = opts.market,
     cache = opts.cache,
+    cacheAllowed = opts.cacheAllowed,
     key = opts.key,
     now = opts.now,
   }, Instance)
@@ -88,19 +93,27 @@ end
 
 -- Remembers a live price; an unchanged, recently stamped entry is left alone
 -- so the saved table is not rewritten on every lookup.
-function Instance:_remember(key, bucket, itemID, price, now)
+function Instance:_remember(key, bucket, itemID, price, now, source)
   if not bucket then
     bucket = {}
     self.cache[key] = bucket
   end
   local entry = bucket[itemID]
   if validEntry(entry) and entry.price == price then
+    entry.source = source
     local age = now - entry.seenAt
     if age >= 0 and age < Prices.WRITE_INTERVAL then return end
     entry.seenAt = now
     return
   end
-  bucket[itemID] = { price = price, seenAt = now }
+  bucket[itemID] = { price = price, seenAt = now, source = source }
+end
+
+-- A cached entry from a source the price source option leaves out is not used.
+function Instance:_cacheUsable(entry)
+  if type(entry.source) ~= "string" or not self.cacheAllowed then return true end
+  local ok, allowed = pcall(self.cacheAllowed, entry.source)
+  return not ok or allowed and true or false
 end
 
 -- Returns { vendor, de, ah, ahSource, ahAge, saleRate, soldPerDay }; every
@@ -139,12 +152,12 @@ function Instance:lookup(itemID, link)
   local price, name = self:_live(itemID, link)
   if price then
     result.ah, result.ahSource, result.ahAge = price, name, 0
-    if key and self.cache then self:_remember(key, bucket, itemKey, price, now) end
+    if key and self.cache then self:_remember(key, bucket, itemKey, price, now, name) end
     return result
   end
 
   local entry = bucket and bucket[itemKey]
-  if validEntry(entry) and isPositive(entry.price) then
+  if validEntry(entry) and isPositive(entry.price) and self:_cacheUsable(entry) then
     result.ah, result.ahSource, result.ahAge = entry.price, "cache", math.max(0, now - entry.seenAt)
   end
   return result

@@ -94,7 +94,8 @@ Each of these is one call in one place; the UI never names them.
 - **Value** of a row is the best of vendor, AH and disenchant (`View.best`); it
   drives the sort `Value`, Top finds, the minimum filter and the drop alert.
   Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) use vendor
-  or disenchant and are never unpriced. Disenchant is TSM's `Destroy` price.
+  or disenchant and are never unpriced. The `de` value is TSM's `Destroy` price
+  (disenchant, mill or prospect), shown as `Destroy`.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,

@@ -211,3 +211,20 @@ h.test("lookup adds live sale rate and sold per day from the market function", f
   h.eq(r.saleRate, nil)
   h.eq(r.soldPerDay, nil)
 end)
+
+h.test("Prices: a cached price keeps its source and follows the price source option", function()
+  local cache, clock = {}, { t = 1000 }
+  local live = 500
+  local allowed = { TSM = true, Auctionator = true }
+  local p = P.new({ sources = { { name = "Auctionator", get = function() return live end } },
+    cache = cache, key = function() return "EU-1" end, now = function() return clock.t end,
+    cacheAllowed = function(name) return allowed[name] end })
+  p:lookup(5)
+  h.eq(cache["EU-1"][5].source, "Auctionator")
+  live = nil
+  h.eq(p:lookup(5).ah, 500) -- from the cache
+  allowed.Auctionator = false -- option set to TSM only
+  h.eq(p:lookup(5).ah, nil)
+  cache["EU-1"][7] = { price = 9, seenAt = 1000 } -- saved before sources were kept
+  h.eq(p:lookup(7).ah, 9)
+end)
