@@ -689,7 +689,7 @@ h.test("View.dailyFarm skips places under the minimum time, quest items and no-t
   for _, p in ipairs(f.runnersUp) do h.eq(p.sub ~= "Short", true) end
   h.eq(V.dailyFarm(farmEntries(), { lookup = zlookup }, 0).best.sub, "Short")
   local quest = V.dailyFarm(farmEntries(), { lookup = zlookup, isQuest = function(id) return id == 1 end }, 1200)
-  h.eq(quest.best.sub, "B"); h.eq(#quest.runnersUp, 1); h.eq(quest.runnersUp[1].perHour, 0)
+  h.eq(quest.best.sub, "B"); h.eq(#quest.runnersUp, 0) -- A is worth nothing without its quest items
   h.eq(V.dailyFarm({ zentry({ [1] = 9 }, nil, { "Z" }) }, { lookup = zlookup }, 0), nil)
 end)
 
@@ -731,5 +731,13 @@ h.test("View.dailyFarm flags slow selling only with market data", function()
   h.eq(V.dailyFarm({ e }, { lookup = fast, market = t }, 0).slow, nil)
   local unpriced = V.dailyFarm({ zentry({ [9] = 1 }, { Z = { subs = { A = zsub(3600, { [9] = 1 }) } } }) },
     { lookup = function() return nil end, market = t }, 0)
-  h.eq(unpriced.best.value, 0); h.eq(unpriced.slow, nil)
+  h.eq(unpriced, nil) -- a place worth nothing is never the daily farm
+end)
+
+h.test("View.dailyFarm never picks or lists a place that earned nothing", function()
+  local e = zentry({ [9] = 3 }, { Z = { subs = { A = zsub(3600, { [9] = 3 }), B = zsub(3600, {}) } } })
+  h.eq(V.dailyFarm({ e }, { lookup = zlookup }, 0), nil)
+  e.zones.Y = { subs = { C = zsub(3600, {}, 10) } }
+  local f = V.dailyFarm({ e }, { lookup = zlookup }, 0)
+  h.eq(f.best.sub, "C"); h.eq(#f.runnersUp, 0)
 end)

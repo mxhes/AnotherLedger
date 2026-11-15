@@ -169,20 +169,44 @@ end
 -- Building and drawing
 
 -- The Daily farm of the saved History (not the running session, so farming
--- does not move today's pick), or nil with the option off.
-local function dailyFarm()
+-- does not move today's pick), or nil with the option off. It scans all of
+-- History, so the result is kept until History or the options it reads
+-- change, or the price refresh interval has passed (prices may have moved).
+-- An error is reported once and leaves the rest of the window drawn.
+local farmCache = { key = nil, at = 0, value = nil }
+
+local function farmKey(history, minutes)
+  local first = history[1]
+  local m = viewOpts.market
+  return table.concat({
+    tostring(history), #history, tostring(type(first) == "table" and first.startedAt),
+    tostring(minutes), tostring(viewOpts.includeGold),
+    m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
+  }, "|")
+end
+
+local function dailyFarm(now)
   local db, O = ns.db, ns.Options
   if not (O and db) or O.get(db, "dailyFarm") == false then return nil end
   local history = ns.chardb and ns.chardb.history
   if type(history) ~= "table" then return nil end
-  return ns.View.dailyFarm(history, viewOpts, (O.get(db, "dailyFarmMinutes") or 20) * 60)
+  local minutes = O.get(db, "dailyFarmMinutes") or 20
+  local key = farmKey(history, minutes)
+  if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
+  local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)
+  if not ok then
+    reportOnce(farm)
+    farm = nil
+  end
+  farmCache.key, farmCache.at, farmCache.value = key, now, farm
+  return farm
 end
 
 function Ledger.buildView(now)
   if not ns.session then return nil end
   for k in pairs(priceMemo) do priceMemo[k] = nil end
   local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
-  if type(view) == "table" then view.dailyFarm = dailyFarm() end
+  if type(view) == "table" then view.dailyFarm = dailyFarm(now) end
   return view
 end
 

@@ -1350,6 +1350,45 @@ h.test("wiring: the daily farm is picked from saved History only", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the daily farm is cached until History, options or the price interval change", function()
+  local ctx = bootWithFarm()
+  local L, V = ctx.ns.UI.Ledger, ctx.ns.View
+  local real, calls = V.dailyFarm, 0
+  V.dailyFarm = function(...) calls = calls + 1; return real(...) end
+  ctx.now = ctx.now + 1000
+  L.refresh()
+  h.eq(calls, 1)
+  L.refresh(); L.setTab("bags"); L.setTab("session")
+  h.eq(calls, 1) -- nothing changed: the cached pick
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest")
+  ctx.now = ctx.now + ctx.ns.Options.get(ctx.ns.db, "refreshSeconds")
+  L.refresh()
+  h.eq(calls, 2) -- prices may have changed
+  ctx.ns.Options.set(ctx.ns.db, "dailyFarmMinutes", 5)
+  h.eq(calls, 3)
+  h.eq(L.view.dailyFarm.best.sub, "Teerakai")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = ctx.now + 1
+  slash(ctx, "reset") -- a new History entry
+  h.eq(calls, 4)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a failing daily farm leaves the rest of the window drawn", function()
+  local ctx = bootWithFarm()
+  local L = ctx.ns.UI.Ledger
+  ctx.ns.View.dailyFarm = function() error("farm broke") end
+  ctx.now = ctx.now + 1000
+  L.refresh()
+  h.eq(L.view.kind, "session")
+  h.eq(L.view.dailyFarm, nil)
+  h.eq(ctx.ns.UI.DailyFarm.shown, false)
+  ctx.now = ctx.now + 1000
+  L.refresh()
+  h.eq(#ctx.errors, 1)
+  h.eq(ctx.errors[1]:find("farm broke", 1, true) ~= nil, true)
+end)
+
 h.test("wiring: no daily farm without History", function()
   local ctx = boot()
   startWorld(ctx, false)

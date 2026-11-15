@@ -10,10 +10,10 @@ Theme.textures = {
   -- its curve (sizes.backdropInset), so the corners read round.
   frameBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
-  -- Daily farm strip: a gold star.
-  -- UNVERIFIED (check in client): the texture exists on Forever.
-  dailyFarm = "Interface\\Common\\ReputationStar",
-  resizeGrip ="Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
+  -- Daily farm strip: the map icon of the History Zones rows (one image, no
+  -- sprite sheet).
+  dailyFarm = "Interface\\Icons\\INV_Misc_Map_01",
+  resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
   -- Options button: a gear-like trade icon, present in every client.
   optionsIcon = "Interface\\Icons\\Trade_Engineering",
   buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",

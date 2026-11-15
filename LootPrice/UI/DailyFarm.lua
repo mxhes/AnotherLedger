@@ -84,7 +84,7 @@ function part:Update(view)
   if shown then DailyFarm.text:SetText(DailyFarm.label(farm)) end
 end
 
--- Attaches to the header's Daily farm row: a full-width button with a star
+-- Attaches to the header's Daily farm row: a full-width button with the map icon
 -- and the label; hover shows the hint, click opens the place in Zones.
 function DailyFarm.attach(row)
   local T, W = ns.Theme, ns.UI.Widgets

@@ -663,7 +663,9 @@ function View.dailyFarm(entries, opts, minSeconds)
           local rows, t = collect(s.items, farmOpts)
           local value = t.best + (withGold and s.gold or 0)
           local perHour = placePerHour(value, s.time)
-          if perHour then
+          -- A place that earned nothing is never worth going to (and its row
+          -- would not exist in Zones to open).
+          if perHour and value > 0 then
             local p = { zone = zone, sub = sub, time = s.time, value = value, perHour = perHour }
             places[#places + 1] = p
             rowsOf[p] = rows
