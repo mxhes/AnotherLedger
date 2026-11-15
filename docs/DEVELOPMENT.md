@@ -2,7 +2,8 @@
 
 How the addon is built and how to extend it. The player guide is
 [README.md](../README.md); the in-client checks and release steps are in
-[CHECKLIST.md](CHECKLIST.md). `docs/superpowers/` holds the design specs and
+[CHECKLIST.md](CHECKLIST.md), ideas for later in [BACKLOG.md](BACKLOG.md).
+`docs/superpowers/` holds the design specs and
 plans of each feature (history; not kept in sync with the code).
 
 ## Setup
@@ -47,7 +48,8 @@ only inside functions.
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
-| `Core.lua` | events: login, loot capture, bank scan, redraw requests (loads last) |
+| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore list, History lists and undo (loads last) |
+| `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/lp` command, names in `Slash.BINDINGS` |
 
 Data flow: `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh`
 builds a view with the shown tab's `build` (`View.lua`) -> every registered part
@@ -78,7 +80,12 @@ Each of these is one call in one place; the UI never names them.
   (rates follow the clock), `watches` (data kind that redraws it), `hasItem`
   and `subtabs` (see the comment at the top of the file).
 - **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`;
-  `help` shows in `/lp help`.
+  `help` shows in `/lp help`. A key binding is a `<Binding>` in `Bindings.xml`
+  that runs the command (`SlashCmdList["LOOTPRICE"]("name")`) plus its name in
+  `Slash.BINDINGS` (and in the wiring test's allowed globals).
+- **Row menu**: `Ledger.rowMenu(row)` returns the right-click entries of a row
+  (`{ text, onClick, title = true }`), shown with `Widgets.openMenu(frame,
+  entries, "button")`. Menu entries may carry their own `kind`.
 - **Window part**: `ns.UI.Ledger.register(part)`; `part:Update(view, session, now)`
   on every full redraw, optional `part:Tick(...)` each second while the clock
   runs (keep it cheap).
@@ -166,9 +173,55 @@ Each of these is one call in one place; the UI never names them.
   onCancel)` (one shared popup). An option can ask before a value is stored
   with `confirm = function(value) return question or nil end` (History kept).
 - **CSV export** (`History.csv`): one line per session, amounts in gold with
-  four decimals, the last column the currencies (`Name x3; Other x1`).
+  four decimals, then the currencies (`Name x3; Other x1`) and the note.
+  `/lp export session` writes `View.itemsCsv` of an unfiltered `View.build`,
+  `/lp export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
+  quest items left out). Fields go through `History.csvField`.
+- **Ignore list** (`LootPriceDB.ignored = { [itemID] = name }`, Core
+  `ignoreItem` / `unignoreItem` / `ignoredList`): `opts.ignored` makes
+  `collect` skip those items, so every list, total, Top find, compact drop,
+  Zones place and the Daily farm leave them out; `Core.sessionValue`, the drop
+  alert and the goals too. They stay recorded. History rows subtract them at
+  their saved unit prices (`History.totals(e, ignored)`).
+- **Session goals** (`goalGold`, `goalMinutes`): `Core.checkGoals(withValue)`
+  after loot and gold (gold goal) and on a 5 s `C_Timer.NewTicker` (time
+  goal); the pure `Core.goalsReached` decides, `session.goalsNoted` (cleared by
+  `Session.reset`) keeps each goal from being announced twice. `opts.goal`
+  (copper) gives `view.goal` / `compact.goal` = `{ value, goal }`: the
+  unfiltered total like compact; `Summary.notesText` shows the percent.
+- **Notes**: `entry.note` (`History.setNote`: trimmed, one line, at most
+  `History.NOTE_MAX` characters, cut on UTF-8 boundaries) follows the start on
+  line 1 of the session row and is part of its search text. Entered through
+  `Widgets.prompt` (the shared text popup).
+- **Account-wide History**: `LootPriceDB.histories = { ["Name-Realm"] = list }`.
+  At login `Core.linkHistory` adopts the character's old
+  `LootPriceCharDB.history` into it (`History.adopt`, no duplicates by start)
+  and points `ns.chardb.history` at that list; `PLAYER_LOGOUT` drops the alias
+  so the list is saved once. Without a character name (tests) History stays
+  per character. `Core.zoneHistory()` gives Zones (`ctx.zoneHistory`), the
+  Daily farm and the Zones export every character's lists
+  (`History.combine`, with a change key for the farm cache) or, with
+  `accountZones` off, the character's own.
+- **Merge**: `History.merge(a, b)` builds a new entry from two sessions
+  without touching them: earliest start, summed elapsed time (the gap does not
+  count), gold, values and currencies; items by key with quantities added and
+  prices averaged by quantity; Zones sub-zones summed (time, gold, items,
+  map cells); places of the more valuable session first; notes joined with
+  ` / `. `Core.mergeHistory(index)` replaces the session at `index` with its
+  merge with `index + 1` (the next older one); `Ledger.mergeHistory` keeps the
+  opened session open.
+- **Undo**: `Core.deleteHistory`, `Core.clearHistory` and `Core.mergeHistory`
+  push `{ restore = entries, drop = merged | nil }` on a stack kept for the
+  login; `Core.undoDelete` (`/lp undo`) removes `drop` (a merge) and puts
+  `restore` back in start order (`History.restore`).
+- **Scroll memory**: `Ledger` keeps `list.offset` per tab / sub-tab for the
+  login (`rememberScroll` / `restoreScroll` around tab switches).
+- **Price per unit** (`unitPrice`): `Rows.rowText` shows the counted source's
+  unit value on rows with a quantity above 1.
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
   gold when `includeGold` is on; the last drops come from `session.recent`.
+  It also returns `items`, `gold`, `elapsed`, `top` and `goal` for the hover
+  breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
   (`LootPrice<Key>`) in `Ledger.init`; typeface and px sizes change live and
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
@@ -199,9 +252,11 @@ Each of these is one call in one place; the UI never names them.
 - `LootPriceDB` (account): `settings` (options, including the minimap angle),
   `window` (position, full size `width` / `height`, compact size `compact`,
   `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort`,
-  `minimapIcon` (LibDBIcon) and `cache` (prices).
+  `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list) and
+  `histories` (every character's History, see "Account-wide History").
 - `LootPriceCharDB` (character): the session (items, gold, places with time,
-  positions and recent drops), the bank scan and History.
+  positions, recent drops and the goals already announced) and the bank scan.
+  `history` is only written here by versions before the account-wide History.
 
 ## Events
 

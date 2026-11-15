@@ -28,6 +28,7 @@ local lastInstance -- instance key of the last loading screen (option "instanceS
 -- money messages counted since }, or nil (see "Raw gold backstop").
 local lootWindow
 local LOOT_SETTLE_SECONDS = 1 -- late PLAYER_MONEY / chat after the window closed
+local GOAL_CHECK_SECONDS = 5 -- the session time goal (Core.checkGoals)
 
 -- ---------------------------------------------------------------------------
 -- UI notifications
@@ -149,12 +150,14 @@ function Core.unitValue(info)
 end
 
 -- What a session is worth now: every item at its best unit value plus the raw
--- gold (copper). Reset asks first above Session.LARGE_SESSION_VALUE.
-function Core.sessionValue(session)
+-- gold (copper; `withoutGold`: the items only). Ignored items do not count.
+-- Reset asks first above Session.LARGE_SESSION_VALUE.
+function Core.sessionValue(session, withoutGold)
   if type(session) ~= "table" then return 0 end
-  local total = ns.Session.goldTotal(session)
+  local total = withoutGold and 0 or ns.Session.goldTotal(session)
+  local ignored = Core.ignoredItems()
   for _, it in pairs(session.items or {}) do
-    if type(it) == "table" and ns.Util.isNumber(it.qty) then
+    if type(it) == "table" and ns.Util.isNumber(it.qty) and not ignored[it.id] then
       local unit = Core.unitValue(Core.lookupPrice(it.id, it.link))
       if unit then total = total + unit * it.qty end
     end
@@ -322,7 +325,8 @@ function Core.recordLoot(link, qty, kind)
   else
     refreshUI()
   end
-  Core.alertIfValuable(link, qty, unitValue)
+  Core.alertIfValuable(link, qty, unitValue, itemID)
+  Core.checkGoals(true)
 end
 
 -- Currency income (CHAT_MSG_CURRENCY).
@@ -340,15 +344,121 @@ function Core.alertWorthy(unitValue, qty, gold)
   return unitValue * qty >= gold * 10000
 end
 
--- Option "alertGold" / "alertSound": a chat line (and a sound) for a valuable drop.
-function Core.alertIfValuable(link, qty, unitValue)
-  if not Core.alertWorthy(unitValue, qty, ns.Util.setting("alertGold", 0)) then return end
-  say(string.format(L["valuable drop: %s%s worth %s"], link, (qty or 1) > 1 and (" x" .. qty) or "",
-    ns.Money.format(unitValue * qty)))
+-- Option "alertSound": the sound of the drop alert and the session goals.
+local function alertSound()
   if ns.Util.setting("alertSound", false) and type(PlaySound) == "function" then
     local kit = type(SOUNDKIT) == "table" and SOUNDKIT.UI_EPICLOOT_TOAST or nil
     if kit then PlaySound(kit) end
   end
+end
+
+-- Option "alertGold" / "alertSound": a chat line (and a sound) for a valuable
+-- drop. Ignored items never alert.
+function Core.alertIfValuable(link, qty, unitValue, itemID)
+  if itemID and Core.ignoredItems()[itemID] then return end
+  if not Core.alertWorthy(unitValue, qty, ns.Util.setting("alertGold", 0)) then return end
+  say(string.format(L["valuable drop: %s%s worth %s"], link, (qty or 1) > 1 and (" x" .. qty) or "",
+    ns.Money.format(unitValue * qty)))
+  alertSound()
+end
+
+-- ---------------------------------------------------------------------------
+-- Session goals (options "goalGold", "goalMinutes"): a chat line (and the
+-- alert sound) once the session is worth that much gold or the clock reaches
+-- that many minutes. Each goal is announced once per session and value
+-- (session.goalsNoted = { gold = goal, time = goal }); a new goal counts anew.
+
+-- Pure. The goals newly reached: { gold = bool, time = bool }. `value` is
+-- copper (nil: not checked), `elapsed` seconds; goals of 0 or less are off.
+function Core.goalsReached(value, elapsed, goalGold, goalMinutes, noted)
+  local num = ns.Util.isNumber
+  noted = type(noted) == "table" and noted or {}
+  local out = { gold = false, time = false }
+  if num(goalGold) and goalGold > 0 and num(value) and value >= goalGold * 10000 and noted.gold ~= goalGold then
+    out.gold = true
+  end
+  if num(goalMinutes) and goalMinutes > 0 and num(elapsed) and elapsed >= goalMinutes * 60
+    and noted.time ~= goalMinutes then
+    out.time = true
+  end
+  return out
+end
+
+-- The goal in copper for the views (View opts.goal), or nil while it is off.
+function Core.goalCopper()
+  local gold = ns.Util.setting("goalGold", 0)
+  if ns.Util.isNumber(gold) and gold > 0 then return gold * 10000 end
+  return nil
+end
+
+-- `withValue`: also check the gold goal (after loot; the clock ticker checks
+-- the time only, the session value costs a price lookup per item).
+function Core.checkGoals(withValue)
+  local session = ns.session
+  if type(session) ~= "table" or session.demo then return end
+  local setting = ns.Util.setting
+  local goalGold, goalMinutes = setting("goalGold", 0), setting("goalMinutes", 0)
+  local noted = type(session.goalsNoted) == "table" and session.goalsNoted or {}
+  local elapsed = ns.Session.elapsed(session, time())
+  local value
+  if withValue and ns.Util.isNumber(goalGold) and goalGold > 0 and noted.gold ~= goalGold then
+    value = Core.sessionValue(session, not setting("includeGold", true))
+  end
+  local reached = Core.goalsReached(value, elapsed, goalGold, goalMinutes, noted)
+  if not (reached.gold or reached.time) then return end
+  if reached.gold then
+    noted.gold = goalGold
+    say(string.format(L["session goal reached: %s in %s."], ns.Money.format(value), ns.History.duration(elapsed)))
+  end
+  if reached.time then
+    noted.time = goalMinutes
+    say(string.format(L["%d minutes farmed: the session is worth %s."], goalMinutes,
+      ns.Money.format(Core.sessionValue(session, not setting("includeGold", true)))))
+  end
+  session.goalsNoted = noted
+  alertSound()
+end
+
+-- ---------------------------------------------------------------------------
+-- Ignore list (account-wide, LootPriceDB.ignored = { [itemID] = name }):
+-- these items are left out of every list, total, alert and goal. They are
+-- still recorded, so taking one off the list brings it back everywhere.
+
+local NO_IGNORED = {}
+
+function Core.ignoredItems()
+  local db = ns.db
+  if not db then return NO_IGNORED end
+  if type(db.ignored) ~= "table" then db.ignored = {} end
+  return db.ignored
+end
+
+function Core.ignoreItem(itemID, name)
+  if not ns.Util.isNumber(itemID) or itemID <= 0 or not ns.db then return false end
+  Core.ignoredItems()[itemID] = type(name) == "string" and name ~= "" and name or true
+  refreshUI()
+  return true
+end
+
+function Core.unignoreItem(itemID)
+  local list = Core.ignoredItems()
+  if list[itemID] == nil then return false end
+  list[itemID] = nil
+  refreshUI()
+  return true
+end
+
+-- The ignore list for the options menu: { { id, name }, ... } by name.
+function Core.ignoredList()
+  local out = {}
+  for id, name in pairs(Core.ignoredItems()) do
+    out[#out + 1] = { id = id, name = type(name) == "string" and name or (L["Item "] .. tostring(id)) }
+  end
+  table.sort(out, function(a, b)
+    if a.name ~= b.name then return a.name < b.name end
+    return a.id < b.id
+  end)
+  return out
 end
 
 -- Raw gold (looted or quest money), copper > 0. Redraws on success; gold that
@@ -361,6 +471,7 @@ function Core.recordGold(copper, noSpot)
   notePlace(noSpot)
   ns.Session.notePlaceGold(ns.session, copper)
   requestRefresh(0)
+  Core.checkGoals(true)
 end
 
 local function onLootMessage(text)
@@ -443,6 +554,125 @@ function Core.archiveSession(session)
   if not entry then return end
   if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
   History.add(ns.chardb.history, entry, limit)
+end
+
+-- ---------------------------------------------------------------------------
+-- History lists. Every character's History lives in LootPriceDB.histories
+-- ({ ["Name-Realm"] = list }), so History Zones and the Daily farm can use
+-- them all; ns.chardb.history is this character's list there while logged in
+-- (Core.linkHistory at login, unlinked at logout so it is not saved twice).
+
+-- "Name-Realm" of the logged-in character, or nil while the client does not
+-- know it (then History stays per character, as before).
+-- UNVERIFIED (check in client): UnitName("player") and GetRealmName() are
+-- set at PLAYER_ENTERING_WORLD on Forever.
+function Core.characterKey(env)
+  local name = type(env.UnitName) == "function" and env.UnitName("player") or nil
+  if type(name) ~= "string" or name == "" then return nil end
+  local realm = type(env.GetRealmName) == "function" and env.GetRealmName() or nil
+  if type(realm) ~= "string" or realm == "" then return name end
+  return name .. "-" .. realm
+end
+
+function Core.linkHistory()
+  local key = Core.characterKey(_G)
+  if not (key and ns.db and ns.chardb) then return end
+  if type(ns.db.histories) ~= "table" then ns.db.histories = {} end
+  ns.chardb.history = ns.History.adopt(ns.db.histories, key, ns.chardb.history)
+  Core.character = key
+end
+
+local function historyList()
+  local chardb = ns.chardb
+  if not chardb then return nil end
+  if type(chardb.history) ~= "table" then chardb.history = {} end
+  return chardb.history
+end
+
+-- The History that Zones and the Daily farm read, and a key that changes with
+-- it: every character's (option "accountZones"), else this character's.
+function Core.zoneHistory()
+  local own = historyList() or {}
+  local all = ns.db and ns.db.histories
+  if Core.character and type(all) == "table" and ns.Util.setting("accountZones", true) then
+    return ns.History.combine(all)
+  end
+  return ns.History.combine({ own = own })
+end
+
+-- History changes of this login that /lp undo takes back, the last one last:
+-- { restore = { entry, ... } (put back), drop = entry or nil (taken out
+-- again: a merged session) }. Not saved, a reload or logout forgets them.
+local undoStack = {}
+
+-- Deletes the session at `index` of this character's History.
+function Core.deleteHistory(index)
+  local list = historyList()
+  local entry = list and list[index]
+  if not ns.History.remove(list, index) then return false end
+  undoStack[#undoStack + 1] = { restore = { entry } }
+  say(L["session deleted from History. /lp undo brings it back."])
+  return true
+end
+
+-- Deletes every session of this character's History (the options' button asks first).
+function Core.clearHistory()
+  local list = historyList()
+  if not list or #list == 0 then return false end
+  local copy = {}
+  for i, e in ipairs(list) do copy[i] = e end
+  ns.History.clear(list)
+  undoStack[#undoStack + 1] = { restore = copy }
+  say(L["History cleared. /lp undo brings it back."])
+  refreshUI()
+  return true
+end
+
+-- Whether the session at `index` has an older one to merge with.
+function Core.canMergeHistory(index)
+  local list = historyList()
+  local History = ns.History
+  return list ~= nil and History.valid(list[index]) and History.valid(list[index + 1]) or false
+end
+
+-- Merges the session at `index` with the next older one (History is newest
+-- first) into one session in their place. Returns the merged entry or nil.
+function Core.mergeHistory(index)
+  if not Core.canMergeHistory(index) then return nil end
+  local list = historyList()
+  local newer, older = list[index], list[index + 1]
+  local merged = ns.History.merge(newer, older)
+  if not merged then return nil end
+  list[index] = merged
+  table.remove(list, index + 1)
+  undoStack[#undoStack + 1] = { restore = { newer, older }, drop = merged }
+  say(L["sessions merged. /lp undo splits them again."])
+  return merged
+end
+
+-- Takes back the last delete, clear or merge. Returns how many sessions came back.
+function Core.undoDelete()
+  local last = table.remove(undoStack)
+  local list = historyList()
+  if not (last and list) then
+    say(L["nothing to undo."])
+    return 0
+  end
+  if last.drop then
+    for i = #list, 1, -1 do
+      if list[i] == last.drop then table.remove(list, i) end
+    end
+  end
+  local n = ns.History.restore(list, last.restore)
+  local ledger = ns.UI and ns.UI.Ledger
+  if ledger then ledger.historyIndex = nil end
+  if last.drop then
+    say(L["the merged session is split again."])
+  else
+    say(string.format(L["%d session(s) back in History."], n))
+  end
+  refreshUI()
+  return n
 end
 
 -- `message` (optional) replaces the chat line.
@@ -542,6 +772,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   -- Old cached prices are of no use and only grow the saved file.
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
 
+  Core.linkHistory()
   local keep = ns.db.settings.keepSession or isReloadingUi
   local previous = ns.chardb.session
   ns.session = ns.Session.login(previous, keep, now)
@@ -555,6 +786,11 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
   ns.Options.applyAll(ns.db)
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
+  -- The time goal is checked every few seconds, window shown or not.
+  -- UNVERIFIED (check in client): C_Timer.NewTicker on Forever.
+  if C_Timer and type(C_Timer.NewTicker) == "function" then
+    C_Timer.NewTicker(GOAL_CHECK_SECONDS, function() Core.checkGoals(false) end)
+  end
   refreshUI()
 end
 
@@ -669,6 +905,8 @@ function events.PLAYER_LOGOUT()
     ns.Session.suspend(ns.session, time())
     ns.chardb.session = ns.session
   end
+  -- The History is saved once, in LootPriceDB.histories (Core.linkHistory).
+  if Core.character and ns.chardb then ns.chardb.history = nil end
 end
 
 Core.events = events

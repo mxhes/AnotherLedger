@@ -24,7 +24,8 @@ ns.UI = ns.UI or {}
 --       the selected one builds the view (saved in db.subtab[key]).
 --   })
 --
--- ctx = { now, env, session, chardb, opts (View options), ledger }.
+-- ctx = { now, env, session, chardb, opts (View options), ledger,
+--   zoneHistory = function() -> the History list Zones reads }.
 -- valid, label and title are pure; attach is client-only.
 local Tabs = {}
 ns.UI.Tabs = Tabs
@@ -170,10 +171,12 @@ local function sessionsHasItem(itemID, ctx)
   return type(entry) == "table" and ns.Session.hasItemID(entry.items, itemID)
 end
 
--- Zones: every saved session plus the running one (with its open stretch).
+-- Zones: every saved session (of every character with the option
+-- "accountZones", ctx.zoneHistory) plus the running one (with its open stretch).
 local function zoneEntries(ctx)
   local entries = {}
-  for i, e in ipairs(savedHistory(ctx)) do entries[i] = e end
+  local saved = ctx.zoneHistory and ctx.zoneHistory() or savedHistory(ctx)
+  for i, e in ipairs(saved) do entries[i] = e end
   local s = ctx.session
   if type(s) == "table" then
     entries[#entries + 1] = { live = true, items = s.items, places = s.places, gold = s.gold,

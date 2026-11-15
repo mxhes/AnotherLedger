@@ -84,11 +84,40 @@ and remove both once it is confirmed.
   none is set and chat says `No waypoint could be set.`
 - [ ] Shift-click on a row or a Top find links the item in chat, Ctrl-click
   tries it on (`IsModifiedClick`, `HandleModifiedItemClick`).
-- [ ] Right-click on a History session asks, then deletes it; **Clear History**
+- [ ] Right-click on a History session opens a menu with its date as title,
+  **Add note**, **Merge with the older session** (not on the oldest) and
+  **Delete** (`MenuUtil` `CreateTitle` / `CreateButton`); Merge joins the two
+  rows into one (items, gold, time, places and Zones added up, the opened
+  session stays open) and `/lp undo` splits them again; Delete removes it at
+  once and `/lp undo` brings it back; **Clear History**
   and lowering **History kept** ask first (`StaticPopup_Show`).
-- [ ] `/lp export` and **Export History**: the copy box
-  (`UIPanelScrollFrameTemplate`) shows the CSV selected, Ctrl+C copies it, Esc
-  closes it.
+- [ ] **Add note**: the popup has a text box (`hasEditBox`, the box found via
+  `GetEditBox()` or `editBox`), Enter saves, Esc closes; the note shows after
+  the date, in the tooltip and is found by the search; German umlauts are
+  kept.
+- [ ] Right-click an item row: **Ignore this item** hides it from every tab,
+  total and the compact window; **Ignored items** in the options lists it and
+  a click counts it again.
+- [ ] Quality menu: the presets (e.g. `Uncommon and better`) set the boxes
+  below them and close the menu.
+- [ ] `/lp export`, `/lp export session`, `/lp export zones` and **Export
+  History**: the copy box (`UIPanelScrollFrameTemplate`) shows the CSV
+  selected, Ctrl+C copies it, Esc closes it.
+- [ ] Key bindings: Esc > Options > Key Bindings lists LootPrice under AddOns
+  (`Bindings.xml`, `category="ADDONS"`) with three keys; each works, also in
+  combat.
+- [ ] **Session goal (gold)**: compact shows `Session 312g / 500g`, the Session
+  footer `Goal 62%`; reaching it prints one chat line (and the sound with
+  **Alert sound**). **Session goal (minutes)** prints when the clock gets
+  there, with the window closed too (`C_Timer.NewTicker`).
+- [ ] Compact: hovering the gold per hour shows the breakdown, and the window
+  can still be dragged from there.
+- [ ] Account-wide History: after logging in on two characters, History >
+  Zones and the Daily strip show both characters' places (off with **Zones:
+  all characters**); each character's Sessions list stays its own; an old
+  per-character History shows up after the first login with this version
+  (`UnitName`, `GetRealmName`).
+- [ ] Switching tabs and back keeps each list's scroll position.
 
 ## Bank
 

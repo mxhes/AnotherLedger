@@ -4,14 +4,16 @@ local L = ns.L
 
 ns.UI = ns.UI or {}
 
--- Copy box for the History CSV export (/lp export, or the button in the
--- options): a movable frame with a scrolling, multi-line edit box whose text
--- is selected, ready for Ctrl+C. Client-only; every WoW global is touched
--- inside functions only.
+-- Copy box for the CSV exports (/lp export [session | zones], or the button in
+-- the options): a movable frame with a scrolling, multi-line edit box whose
+-- text is selected, ready for Ctrl+C. Client-only; every WoW global is
+-- touched inside functions only.
 local Export = {}
 ns.UI.Export = Export
 
 local L_TITLE = L["History export (CSV)"]
+local L_SESSION_TITLE = L["Session export (CSV)"]
+local L_ZONES_TITLE = L["Zones export (CSV)"]
 local L_HINT = L["Ctrl+C copies the selected text. Esc closes."]
 local WIDTH, HEIGHT = 520, 360
 
@@ -81,9 +83,47 @@ function Export.show(text, title)
   frame.edit:HighlightText()
 end
 
+local function ignored()
+  return ns.Core and ns.Core.ignoredItems() or nil
+end
+
 -- The History of this character as CSV, in the copy box.
 function Export.history()
   local list = ns.chardb and ns.chardb.history
   local formatDate = ns.UI.Ledger and ns.UI.Ledger.formatDate
-  Export.show(ns.History.csv(type(list) == "table" and list or {}, formatDate))
+  Export.show(ns.History.csv(type(list) == "table" and list or {}, formatDate, ignored()))
+end
+
+-- View options for an export: the window's (prices, item names, gold), no
+-- filter: an export has every item.
+local function exportOpts()
+  local opts = {}
+  local Ledger = ns.UI.Ledger
+  local base = Ledger and Ledger.viewOptions and Ledger.viewOptions() or {}
+  for k, v in pairs(base) do opts[k] = v end
+  opts.filter, opts.sort, opts.now = nil, "ah", time()
+  opts.ignored = ignored()
+  return opts
+end
+
+-- The running session's items as CSV.
+function Export.session()
+  if not ns.session then return end
+  local view = ns.View.build(ns.session, exportOpts())
+  Export.show(ns.View.itemsCsv(view.rows), L_SESSION_TITLE)
+end
+
+-- The History Zones places (every subzone, of every character with the
+-- option "accountZones", plus the running session) as CSV.
+function Export.zones()
+  local opts = exportOpts()
+  local entries = {}
+  local list = ns.Core and ns.Core.zoneHistory() or (ns.chardb and ns.chardb.history) or {}
+  for i, e in ipairs(list) do entries[i] = e end
+  local s = ns.session
+  if type(s) == "table" then
+    entries[#entries + 1] = { live = true, items = s.items, places = s.places, gold = s.gold,
+      zones = ns.Session.zoneSnapshot(s, opts.now) }
+  end
+  Export.show(ns.View.zonesCsv(entries, opts), L_ZONES_TITLE)
 end

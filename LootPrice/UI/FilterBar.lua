@@ -82,6 +82,23 @@ function FilterBar.qualityLabel(filter)
   return L_QUALITY .. " " .. on .. "/" .. all
 end
 
+-- Quality preset: shows `min` and every better quality, hides the rest.
+function FilterBar.setMinQuality(filter, min)
+  if type(filter) ~= "table" or type(min) ~= "number" then return end
+  local set = {}
+  for q = MIN_QUALITY, MAX_QUALITY do set[q] = q >= min end
+  filter.qualities = set
+end
+
+-- The presets at the top of the quality menu: { label, lowest quality shown }.
+FilterBar.PRESETS = {
+  { L["All qualities"], 0 },
+  { L["Common and better"], 1 },
+  { L["Uncommon and better"], 2 },
+  { L["Rare and better"], 3 },
+  { L["Epic and better"], 4 },
+}
+
 -- Clears every filter: all qualities, no minimum, no search.
 function FilterBar.clear(filter)
   if type(filter) ~= "table" then return end
@@ -154,9 +171,19 @@ local function isQualityOn(filter, q)
   return type(filter.qualities) ~= "table" or filter.qualities[q] == true
 end
 
--- One checkbox per quality; the menu stays open while qualities are toggled.
+-- The presets (one click, the menu closes), then one checkbox per quality;
+-- the menu stays open while qualities are toggled.
 local function openQualityMenu(anchor, getFilter, changed)
   local entries = {}
+  for _, p in ipairs(FilterBar.PRESETS) do
+    entries[#entries + 1] = {
+      text = p[1], kind = "button",
+      onClick = function()
+        FilterBar.setMinQuality(getFilter(), p[2])
+        changed()
+      end,
+    }
+  end
   for q = MIN_QUALITY, MAX_QUALITY do
     entries[#entries + 1] = {
       text = qualityLabel(q),

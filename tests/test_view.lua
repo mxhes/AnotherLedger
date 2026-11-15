@@ -449,7 +449,7 @@ h.test("View.buildHistory: the opened session moves to the top with its items un
   h.eq(#v.rows, 4)
   h.eq(v.rows[1].historyIndex, 2); h.eq(v.rows[1].name, "- D")
   h.eq(tipText(v.rows[1]):match("([^\n]+)\n[^\n]+$"), "Click to collapse")
-  h.eq(tipText(v.rows[1]):match("[^\n]+$"), "Right-click to delete it")
+  h.eq(tipText(v.rows[1]):match("[^\n]+$"), "Right-click: note, merge or delete")
   h.eq(v.rows[2].id, 7); h.eq(v.rows[2].ahTotal, 2000) -- items, best AH value first
   h.eq(v.rows[3].id, 8)
   h.eq(v.rows[4].historyIndex, 1) -- the other session follows
@@ -500,13 +500,13 @@ h.test("View.buildHistory: search and minimum value pick sessions, the opened on
     filter = { search = "hallow" } }, 3)
   h.eq(v.rows[1].historyIndex, 3); h.eq(v.rows[2].id, 4); h.eq(v.rows[3].historyIndex, 2)
   v = ns.View.buildHistory(threeSessions(), { filter = { search = "nowhere" } })
-  h.eq(#v.rows, 0); h.eq(v.empty, ns.L["Nothing matches the filters."])
+  h.eq(#v.rows, 0); h.eq(v.empty, ns.L["Nothing matches the filters. The x next to Sort clears them."])
   h.eq(ns.View.buildHistory({}, {}).empty, ns.L["No saved sessions yet. A session is saved when you reset it."])
 end)
 
 h.test("View.emptyText: nothing for a list with rows, the filter reason before the tab's", function()
   h.eq(V.emptyText({ {} }, { search = "x" }, "fallback"), nil)
-  h.eq(V.emptyText({}, { search = "x" }, "fallback"), ns.L["Nothing matches the filters."])
+  h.eq(V.emptyText({}, { search = "x" }, "fallback"), ns.L["Nothing matches the filters. The x next to Sort clears them."])
   h.eq(V.emptyText({}, nil, "fallback"), "fallback")
   local s = { running = false, elapsedBase = 0, items = {} }
   h.eq(V.build(s, { now = 0 }).empty, ns.L["The clock is stopped: loot is not counted. Press Start."])
@@ -933,4 +933,70 @@ h.test("View.buildCompact: compactDrops limits the list, no rate under a minute"
   local empty = V.buildCompact({ items = {}, gold = 0, running = true, runningSince = 0, elapsedBase = 0 },
     { lookup = zlookup, now = 3600 })
   h.eq(empty.total, 0); h.eq(#empty.drops, 0)
+end)
+
+h.test("View: ignored items leave the rows, totals, compact and History rows", function()
+  reset()
+  local s = three()
+  local v = V.build(s, opts({ ignored = { [1] = "Kingsblood" } }))
+  h.eq(ids(v.rows), { 2, 3 })
+  h.eq(v.totals.vendor, 700)
+  s.recent = { { key = 1, qty = 4, at = 1 }, { key = 3, qty = 1, at = 2 } }
+  local c = V.buildCompact(s, opts({ ignored = { [1] = true } }))
+  h.eq(#c.drops, 1)
+  h.eq(c.drops[1].id, 3)
+  h.eq(c.items, 1100)
+  local e = { startedAt = 1, elapsed = 3600, gold = 0, nItems = 2, vendor = 140, ah = 2000, best = 2000, items = {
+    [1] = { id = 1, qty = 4, price = { vendor = 10, ah = 500 } },
+    [2] = { id = 2, qty = 2, price = { vendor = 50 } },
+  } }
+  local hv = V.buildHistory({ e }, opts({ ignored = { [1] = true } }))
+  h.eq(hv.rows[1].value, 0)
+  h.eq(hv.rows[1].detail:find("1 item", 1, true) ~= nil, true)
+  h.eq(hv.totals.vendor, 100)
+end)
+
+h.test("View: the session goal counts every item, also under a filter", function()
+  reset()
+  local s = three()
+  s.gold = 50
+  local v = V.build(s, opts({ goal = 10000 }))
+  h.eq(v.goal, { value = 2000 + 600 + 500 + 50, goal = 10000 })
+  local f = V.build(s, opts({ goal = 10000, filter = { search = "zinc" } }))
+  h.eq(f.goal.value, 3150)
+  h.eq(V.build(s, opts({ goal = 10000, includeGold = false })).goal.value, 3100)
+  h.eq(V.build(s, opts()).goal, nil)
+  h.eq(V.goalPercent({ value = 3150, goal = 10000 }), 31)
+  h.eq(V.goalPercent({ value = 30000, goal = 10000 }), 100)
+  local c = V.buildCompact(s, opts({ goal = 10000 }))
+  h.eq(c.goal.value, 3150)
+  h.eq(c.top.id, 1)
+  h.eq(c.gold, 50)
+end)
+
+h.test("View.buildHistory: a session's note follows its start on line 1", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, items = {}, note = "Herbs" }
+  local v = V.buildHistory({ e }, opts({ shortDate = function() return "Today 9:00" end }))
+  h.eq(v.rows[1].name, "+ Today 9:00 \194\183 Herbs")
+  h.eq(v.rows[1].entry, e)
+  h.eq(tipText(v.rows[1]):find("Herbs", 1, true) ~= nil, true)
+end)
+
+h.test("View.zoneTable / zonesCsv / itemsCsv: every place and item, no filter", function()
+  reset()
+  local e = { startedAt = 1, elapsed = 3600, gold = 100, nItems = 1, vendor = 40, ah = 2000, items = {
+    [1] = { id = 1, key = 1, qty = 4 } },
+    zones = { Elwynn = { subs = { Goldshire = { time = 1800, gold = 100, items = { [1] = 4 } } } } } }
+  local t = V.zoneTable({ e }, opts({ filter = { search = "nothing" } }))
+  h.eq(#t, 1)
+  h.eq({ t[1].zone, t[1].sub, t[1].time, t[1].value, t[1].count }, { "Elwynn", "Goldshire", 1800, 2100, 1 })
+  h.eq(t[1].perHour, 4200)
+  local csv = V.zonesCsv({ e }, opts())
+  h.eq(csv, V.ZONES_CSV_HEADER .. "\nElwynn,Goldshire,30.0,0.2100,0.0100,0.4200,1")
+  local rows = V.build(three(), opts()).rows
+  local lines = {}
+  for line in (V.itemsCsv(rows) .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
+  h.eq(lines[1], V.ITEMS_CSV_HEADER)
+  h.eq(lines[2], "Kingsblood,4,0.0040,0.2000,,0.2000,ah")
+  h.eq(lines[4], "Zinc Bar,1,0.0500,,,0.0500,vendor")
 end)

@@ -392,21 +392,82 @@ function Widgets.confirm(text, accept, onAccept, onCancel)
   return true
 end
 
+-- Text popup: the shared dialog with an edit box, filled with `initial`;
+-- `onAccept(text)` gets what was typed (Enter or the `accept` button).
+-- UNVERIFIED (check in client): the popup's edit box is GetEditBox() (newer
+-- clients) or the editBox / EditBox field.
+local PROMPT = "LOOTPRICE_PROMPT"
+Widgets.PROMPT_MAX_LETTERS = 60
+
+local function popupEditBox(popup)
+  if type(popup) ~= "table" then return nil end
+  if type(popup.GetEditBox) == "function" then return popup:GetEditBox() end
+  return popup.editBox or popup.EditBox
+end
+
+function Widgets.prompt(text, accept, initial, onAccept)
+  if type(StaticPopupDialogs) ~= "table" or type(StaticPopup_Show) ~= "function" then return false end
+  local dialog = StaticPopupDialogs[PROMPT]
+  if not dialog then
+    dialog = { timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3, button2 = L_CANCEL,
+      hasEditBox = true, maxLetters = Widgets.PROMPT_MAX_LETTERS }
+    dialog.OnShow = function(self)
+      local box = popupEditBox(self)
+      if box then
+        box:SetText(dialog.initial or "")
+        box:HighlightText()
+      end
+    end
+    dialog.OnAccept = function(self)
+      local box = popupEditBox(self)
+      if dialog.onAccept then dialog.onAccept(box and box:GetText() or "") end
+    end
+    dialog.EditBoxOnEnterPressed = function(box)
+      local popup = box:GetParent()
+      if dialog.onAccept then dialog.onAccept(box:GetText() or "") end
+      if popup then popup:Hide() end
+    end
+    dialog.EditBoxOnEscapePressed = function(box)
+      local popup = box:GetParent()
+      if popup then popup:Hide() end
+    end
+    StaticPopupDialogs[PROMPT] = dialog
+  end
+  dialog.text = text
+  dialog.button1 = accept
+  dialog.initial = initial
+  dialog.onAccept = onAccept
+  StaticPopup_Show(PROMPT)
+  return true
+end
+
 -- ---------------------------------------------------------------------------
 -- Context menu (feature-detected at call time)
 --
--- entries = { { text, isChecked = function() -> bool, onClick = function() }, ... }
--- kind = "checkbox" (independent toggles, the menu stays open) or "radio"
--- (pick one, the menu closes).
+-- entries = { { text, isChecked = function() -> bool, onClick = function(),
+--   kind = (optional, else the menu's kind), title = true (a heading) }, ... }
+-- kind = "checkbox" (independent toggles, the menu stays open), "radio"
+-- (pick one, the menu closes) or "button" (an action, the menu closes).
+-- UNVERIFIED (check in client): MenuUtil root:CreateTitle / CreateButton.
+
+local function entryKind(entry, kind)
+  if entry.title then return "title" end
+  return entry.kind or kind
+end
 
 local function openModernMenu(anchor, entries, kind)
   MenuUtil.CreateContextMenu(anchor, function(_, root)
     for _, entry in ipairs(entries) do
-      if kind == "checkbox" then
+      local k = entryKind(entry, kind)
+      if k == "title" then
+        if root.CreateTitle then root:CreateTitle(entry.text) end
+      elseif k == "checkbox" then
         root:CreateCheckbox(entry.text, entry.isChecked, function()
           entry.onClick()
           return MenuResponse and MenuResponse.Refresh or nil
         end)
+      elseif k == "button" then
+        root:CreateButton(entry.text, function() entry.onClick() end)
       else
         root:CreateRadio(entry.text, entry.isChecked, entry.onClick)
       end
@@ -421,13 +482,21 @@ local function openLegacyMenu(anchor, entries, kind)
   end
   UIDropDownMenu_Initialize(legacyMenu, function()
     for _, entry in ipairs(entries) do
+      local k = entryKind(entry, kind)
       local info = UIDropDownMenu_CreateInfo()
       info.text = entry.text
-      info.checked = entry.isChecked()
-      info.func = entry.onClick
-      if kind == "checkbox" then
-        info.isNotRadio = true
-        info.keepShownOnClick = true
+      if k == "title" then
+        info.isTitle, info.notCheckable = true, true
+      elseif k == "button" then
+        info.notCheckable = true
+        info.func = entry.onClick
+      else
+        info.checked = entry.isChecked()
+        info.func = entry.onClick
+        if k == "checkbox" then
+          info.isNotRadio = true
+          info.keepShownOnClick = true
+        end
       end
       UIDropDownMenu_AddButton(info)
     end

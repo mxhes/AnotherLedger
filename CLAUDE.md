@@ -6,6 +6,7 @@ Docs:
 - `README.md`: player guide (keep it free of texture paths, API names and pixel sizes).
 - `docs/DEVELOPMENT.md`: code layout, registries, how things work, saved state, events, packaging.
 - `docs/CHECKLIST.md`: what still has to be confirmed in the client, and release steps.
+- `docs/BACKLOG.md`: feature ideas not built yet (move an entry to "Already built" when done).
 - `docs/superpowers/`: design specs and plans per feature (history, not kept in sync).
 
 ## Commands

@@ -18,6 +18,14 @@ local L_LAST_DROPS = L["Last drops"]
 local L_SESSION = L["Session"]
 local L_NO_DROPS = L["No drops yet."]
 local L_PAUSED = L["Paused: click the clock to start."]
+local L_TIME = L["Time: "]
+local L_ITEMS = L["Items: "]
+local L_RAW_GOLD = L["Raw gold: "]
+local L_TOTAL = L["Total: "]
+local L_GOLD_PER_HOUR = L["Gold per hour: "]
+local L_NO_RATE = L["Gold per hour shows after the first minute."]
+local L_BEST_FIND = L["Best find: "]
+local L_GOAL = L["Goal: "]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_DROPS = 4
 
@@ -43,6 +51,40 @@ function Compact.rateText(perHour, formatMoney)
   return (formatMoney or ns.Money.formatColored)(math.floor(perHour + 0.5)) .. L_PER_HOUR
 end
 
+-- Pure. The text right of the rate: "Session 312g", or "Session 312g / 500g"
+-- with a session goal. `hint` wraps the quiet parts (a color code, or none).
+function Compact.totalText(c, formatMoney, hint)
+  formatMoney = formatMoney or ns.Money.formatColored
+  local open, close = hint or "", hint and "|r" or ""
+  local text = open .. L_SESSION .. close .. " " .. formatMoney(c.total or 0)
+  if c.goal then text = text .. open .. " / " .. close .. formatMoney(c.goal.goal) end
+  return text
+end
+
+-- Pure. The hover breakdown of the rate and total (ns.Tooltip): the clock,
+-- the items, the raw gold, the total and its rate, the best find and the goal.
+function Compact.hint(c)
+  local Tip = ns.Tooltip
+  local tip = Tip.new(L_SESSION)
+  Tip.pair(tip, L_TIME, ns.History.duration(c.elapsed or 0))
+  Tip.money(tip, L_ITEMS, c.items or 0)
+  if (c.gold or 0) > 0 then Tip.money(tip, L_RAW_GOLD, c.gold) end
+  Tip.money(tip, L_TOTAL, c.total or 0)
+  if c.perHour then
+    Tip.rate(tip, L_GOLD_PER_HOUR, c.perHour)
+  else
+    Tip.note(tip, L_NO_RATE)
+  end
+  if c.top then
+    local qty = (c.top.quantity or 1) > 1 and (" x" .. c.top.quantity) or ""
+    Tip.money(tip, L_BEST_FIND .. c.top.name .. qty, c.top.value)
+  end
+  if c.goal then
+    Tip.pair(tip, L_GOAL, ns.View.goalPercent(c.goal) .. "%")
+  end
+  return tip
+end
+
 -- ---------------------------------------------------------------------------
 -- Widgets
 
@@ -56,7 +98,11 @@ function part:Update(view)
   if not c then return end
   local T = ns.Theme
   Compact.perHour:SetText(Compact.rateText(c.perHour))
-  Compact.total:SetText(ns.Money.colorCode(T.colors.hint) .. L_SESSION .. "|r " .. ns.Money.formatColored(c.total or 0))
+  Compact.total:SetText(Compact.totalText(c, nil, ns.Money.colorCode(T.colors.hint)))
+  Compact.view = c
+  -- A shown breakdown follows the numbers.
+  local W = ns.UI.Widgets
+  if Compact.hover and W.tooltipOwnedBy(Compact.hover) then W.showTextTooltip(Compact.hover, Compact.hint(c)) end
 
   -- Without drops the title line says why the list is empty.
   local drops = c.drops or {}
@@ -117,6 +163,21 @@ function Compact.attach(area)
   total:SetPoint("LEFT", perHour, "RIGHT", S.rowNameGap, 0)
   if total.SetWordWrap then total:SetWordWrap(false) end
   Compact.perHour, Compact.total = perHour, total
+
+  -- Hovering the rate and total shows the breakdown; it is still a drag handle.
+  local hover = CreateFrame("Frame", nil, area)
+  hover:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
+  hover:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, 0)
+  hover:SetHeight(26)
+  hover:EnableMouse(true)
+  hover:RegisterForDrag("LeftButton")
+  hover:SetScript("OnDragStart", function() ns.UI.Window.beginDrag() end)
+  hover:SetScript("OnDragStop", function() ns.UI.Window.endDrag() end)
+  hover:SetScript("OnEnter", function(self)
+    if Compact.view then W.showTextTooltip(self, Compact.hint(Compact.view), "ANCHOR_BOTTOM") end
+  end)
+  hover:SetScript("OnLeave", W.hideTooltip)
+  Compact.hover = hover
 
   local line = W.line(area, T.colors.divider)
   line:SetHeight(1)

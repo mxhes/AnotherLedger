@@ -96,3 +96,12 @@ h.test("FilterBar.qualityLabel counts the shown qualities, clear resets every fi
   h.eq(f.minValue, 0); h.eq(f.search, "")
   h.eq(F.isActive({ filter = f }), false)
 end)
+
+h.test("FilterBar.setMinQuality: a preset shows that quality and better", function()
+  local f = { qualities = {} }
+  ns.UI.FilterBar.setMinQuality(f, 2)
+  h.eq(f.qualities, { [0] = false, false, true, true, true, true, true, true })
+  ns.UI.FilterBar.setMinQuality(f, 0)
+  h.eq(ns.View.isFiltered(f), false)
+  h.eq(#ns.UI.FilterBar.PRESETS, 5)
+end)

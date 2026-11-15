@@ -245,26 +245,303 @@ h.test("wiring: History kept asks before deleting, reset asks for a valuable ses
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: right-click deletes a History session, Clear History empties it", function()
+-- A stub MenuUtil that keeps every opened menu: a list of { text, kind,
+-- click, checked } (kind "title" / "button" / "checkbox" / "radio").
+-- A loot message for item `id` (name "Item<id>", 25c vendor price each).
+local function itemLoot(id, qty)
+  return "You receive loot: |cffffffff|Hitem:" .. id .. "::::::::60:::::::::|h[Item" .. id .. "]|h|r" .. "x" .. qty .. "."
+end
+
+local function captureMenus(ctx)
+  local menus = {}
+  local function root(items)
+    local function add(kind) return function(_, text, a, b)
+      local click = kind == "button" and a or b
+      items[#items + 1] = { text = text, kind = kind, click = click, checked = kind ~= "button" and a or nil }
+    end end
+    return { CreateTitle = add("title"), CreateButton = add("button"), CreateCheckbox = add("checkbox"),
+      CreateRadio = add("radio") }
+  end
+  ctx.env.MenuUtil = { CreateContextMenu = function(anchor, gen)
+    local items = { anchor = anchor }
+    gen(nil, root(items))
+    menus[#menus + 1] = items
+  end }
+  return menus
+end
+
+local function menuItem(menu, text)
+  for _, it in ipairs(menu) do
+    if it.text == text then return it end
+  end
+  return nil
+end
+
+h.test("wiring: a History session's menu deletes it, /lp undo brings it back", function()
   local ctx = boot()
   startWorld(ctx, false)
+  local menus = captureMenus(ctx)
   local shown = {}
   ctx.env.StaticPopup_Show = function(name) shown[#shown + 1] = ctx.env.StaticPopupDialogs[name] end
   local history = ctx.env.LootPriceCharDB.history
-  for i = 1, 3 do history[i] = { startedAt = i, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} } end
+  for i = 1, 3 do history[i] = { startedAt = 4 - i, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} } end
   local Ledger = ctx.ns.UI.Ledger
+  local L = ctx.ns.L
   Ledger.setTab("history")
   Ledger.toggleHistory(3) -- the oldest one is open
-  Ledger.list.onRowClick({ historyIndex = 1 }, "RightButton")
-  h.eq(#history, 3) -- asks first
-  shown[#shown].OnAccept()
+  local row = Ledger.view.rows[2]
+  h.eq(row.historyIndex, 1)
+  Ledger.list.onRowClick(row, "RightButton", "rowFrame")
+  local menu = menus[#menus]
+  h.eq(menu.anchor, "rowFrame")
+  h.eq(menu[1].kind, "title")
+  h.eq(menuItem(menu, L["Add note"]) ~= nil, true)
+  menuItem(menu, L["Delete"]).click() -- no popup: /lp undo can bring it back
+  h.eq(#shown, 0)
   h.eq(#history, 2); h.eq(history[1].startedAt, 2)
   h.eq(Ledger.historyIndex, 2) -- still the same (oldest) session
+  h.eq(ctx.printed[#ctx.printed]:find("/lp undo", 1, true) ~= nil, true)
+  slash(ctx, "undo")
+  h.eq(#history, 3); h.eq(history[1].startedAt, 3)
+
   ctx.ns.Options.spec("clearHistory").action()
-  h.eq(#history, 2)
+  h.eq(#history, 3) -- asks first
   shown[#shown].OnAccept()
   h.eq(#history, 0)
   h.eq(ctx.env.LootPriceCharDB.history == history, true)
+  slash(ctx, "undo")
+  h.eq(#history, 3)
+  slash(ctx, "undo")
+  h.eq(ctx.printed[#ctx.printed]:find(L["nothing to undo."], 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: merging History sessions, two and more, and /lp undo splits them", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local menus = captureMenus(ctx)
+  local history = ctx.env.LootPriceCharDB.history
+  for i = 1, 3 do
+    history[i] = { startedAt = 4000 - i * 1000, elapsed = 600, gold = 100 * i, nItems = 0, vendor = 0, ah = 0,
+      items = {} }
+  end
+  local Ledger, L = ctx.ns.UI.Ledger, ctx.ns.L
+  Ledger.setTab("history")
+  Ledger.toggleHistory(2)
+  local function menuFor(index)
+    for _, r in ipairs(Ledger.view.rows) do
+      if r.historyIndex == index then
+        Ledger.list.onRowClick(r, "RightButton", "f")
+        return menus[#menus]
+      end
+    end
+  end
+  -- The oldest session has nothing older to merge with.
+  h.eq(menuItem(menuFor(3), L["Merge with the older session"]), nil)
+  menuItem(menuFor(1), L["Merge with the older session"]).click()
+  h.eq(#history, 2)
+  h.eq({ history[1].startedAt, history[1].elapsed, history[1].gold }, { 2000, 1200, 300 })
+  h.eq(Ledger.historyIndex, 1) -- the opened session is in the merged one
+  menuItem(menuFor(1), L["Merge with the older session"]).click()
+  h.eq(#history, 1)
+  h.eq({ history[1].startedAt, history[1].elapsed, history[1].gold }, { 1000, 1800, 600 })
+  slash(ctx, "undo")
+  h.eq(#history, 2)
+  h.eq(history[1].elapsed, 1200)
+  slash(ctx, "undo")
+  h.eq(#history, 3)
+  h.eq({ history[1].gold, history[2].gold, history[3].gold }, { 100, 200, 300 })
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a note on a History session shows on its row and is searched", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local menus = captureMenus(ctx)
+  local popup
+  ctx.env.StaticPopup_Show = function(name) popup = ctx.env.StaticPopupDialogs[name] end
+  local history = ctx.env.LootPriceCharDB.history
+  history[1] = { startedAt = 5, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
+  history[2] = { startedAt = 4, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
+  local Ledger, L = ctx.ns.UI.Ledger, ctx.ns.L
+  Ledger.setTab("history")
+  Ledger.list.onRowClick(Ledger.view.rows[2], "RightButton", "f")
+  menuItem(menus[#menus], L["Add note"]).click()
+  h.eq(popup.hasEditBox, true)
+  local box = { text = "", SetText = function(self, t) self.text = t end, GetText = function(self) return self.text end,
+    HighlightText = function() end }
+  popup.OnShow({ editBox = box })
+  h.eq(box.text, "")
+  box.text = "  Wingrest herbs "
+  popup.OnAccept({ editBox = box })
+  h.eq(history[2].note, "Wingrest herbs")
+  h.eq(Ledger.view.rows[2].name:find("Wingrest herbs", 1, true) ~= nil, true)
+  -- Editing shows the note; the search finds it.
+  Ledger.list.onRowClick(Ledger.view.rows[2], "RightButton", "f")
+  menuItem(menus[#menus], L["Edit note"]).click()
+  popup.OnShow({ GetEditBox = function() return box end })
+  h.eq(box.text, "Wingrest herbs")
+  ctx.ns.db.filter.search = "wingrest"
+  Ledger.refresh()
+  h.eq(#Ledger.view.rows, 1)
+  h.eq(Ledger.view.rows[1].entry, history[2])
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an ignored item leaves the lists and totals; the options menu takes it back", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local menus = captureMenus(ctx)
+  local L, Ledger = ctx.ns.L, ctx.ns.UI.Ledger
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(7, 4))
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(8, 2))
+  h.eq(#Ledger.view.rows, 2)
+  h.eq(Ledger.view.totals.vendor, 150)
+  local row = Ledger.view.rows[ctx.ns.View.indexOf(Ledger.view.rows, 7)]
+  Ledger.list.onRowClick(row, "RightButton", "f")
+  menuItem(menus[#menus], L["Ignore this item"]).click()
+  h.eq(ctx.env.LootPriceDB.ignored[7], row.name)
+  h.eq(#Ledger.view.rows, 1)
+  h.eq(Ledger.view.totals.vendor, 50)
+  h.eq(ctx.ns.Core.sessionValue(ctx.ns.session), 50)
+  -- Still recorded: taking it off the list brings it back.
+  h.eq(ctx.ns.session.items[7].qty, 4)
+  ctx.ns.Options.spec("ignoredItems").action("button")
+  local menu = menus[#menus]
+  h.eq(menu.anchor, "button")
+  h.eq(menu[1].text, row.name)
+  h.eq(menu[1].checked(), true)
+  menu[1].click()
+  h.eq(ctx.env.LootPriceDB.ignored[7], nil)
+  h.eq(#Ledger.view.rows, 2)
+  -- An empty list says so in chat instead of an empty menu.
+  local n = #menus
+  ctx.ns.Options.spec("ignoredItems").action("button")
+  h.eq(#menus, n)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the session goals announce themselves once", function()
+  local ctx = boot({ db = { settings = { goalGold = 1, goalMinutes = 2 } } })
+  startWorld(ctx, false)
+  local Core = ctx.ns.Core
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(7, 200)) -- 200 x 25c = 50s
+  h.eq(ctx.ns.UI.Ledger.view.goal.value, 5000)
+  h.eq(ctx.ns.UI.Ledger.view.goal.goal, 10000)
+  local before = #ctx.printed
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(8, 200)) -- 1g in all
+  h.eq(#ctx.printed, before + 1)
+  h.eq(ctx.printed[#ctx.printed]:find("session goal reached", 1, true) ~= nil, true)
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(9, 1))
+  h.eq(#ctx.printed, before + 1) -- once
+  ctx.now = ctx.now + 121
+  Core.checkGoals(false)
+  h.eq(#ctx.printed, before + 2)
+  Core.checkGoals(false)
+  h.eq(#ctx.printed, before + 2)
+  -- A reset starts the goals over.
+  slash(ctx, "reset")
+  h.eq(ctx.ns.session.goalsNoted, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: History is account-wide; Zones reads every character's", function()
+  local alt = { { startedAt = 50, elapsed = 3600, gold = 0, nItems = 1, vendor = 25, ah = 0, items = {
+    [7] = { id = 7, key = 7, qty = 1 } }, places = { "Alt place" } } }
+  local own = { { startedAt = 40, elapsed = 3600, gold = 0, nItems = 0, vendor = 0, ah = 0, items = {} } }
+  local ctx = boot({ db = { histories = { ["Alt-Realm"] = alt } }, chardb = { history = own } })
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local db, chardb = ctx.env.LootPriceDB, ctx.env.LootPriceCharDB
+  h.eq(ctx.ns.Core.character, "Me-Realm")
+  h.eq(chardb.history == db.histories["Me-Realm"], true)
+  h.eq(#chardb.history, 1)
+  local list = ctx.ns.Core.zoneHistory()
+  h.eq(#list, 2)
+  ctx.ns.Options.set(ctx.ns.db, "accountZones", false)
+  h.eq(#ctx.ns.Core.zoneHistory(), 1)
+  ctx.ns.Options.set(ctx.ns.db, "accountZones", true)
+  local Ledger = ctx.ns.UI.Ledger
+  Ledger.setTab("history")
+  Ledger.setSubtab("zones")
+  local altRows = 0
+  for _, r in ipairs(Ledger.view.rows) do
+    if r.zoneKey == "Alt place" and r.subKey == nil then altRows = altRows + 1 end
+  end
+  h.eq(altRows, 1)
+  -- Saved once: the character's own copy is dropped at logout.
+  fire(ctx, "PLAYER_LOGOUT")
+  h.eq(chardb.history, nil)
+  local relog = boot({ db = db, chardb = chardb, now = 5000 })
+  relog.env.UnitName = function() return "Me" end
+  relog.env.GetRealmName = function() return "Realm" end
+  startWorld(relog, false)
+  h.eq(#relog.env.LootPriceCharDB.history, 1)
+  h.eq(relog.env.LootPriceCharDB.history[1].startedAt, 40)
+  h.eq(ctx.errors, {}); h.eq(relog.errors, {})
+end)
+
+h.test("wiring: each tab keeps its scroll position for the login", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  for id = 1, 60 do fire(ctx, "CHAT_MSG_LOOT", itemLoot(id, 1)) end
+  local Ledger = ctx.ns.UI.Ledger
+  Ledger.list:SetOffset(20)
+  h.eq(Ledger.list.offset, 20)
+  Ledger.setTab("bags")
+  h.eq(Ledger.list.offset, 0)
+  Ledger.setTab("session")
+  h.eq(Ledger.list.offset, 20)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: /lp export copies the session or Zones as CSV", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(7, 4))
+  ctx.ns.db.filter.search = "nothing like this" -- an export ignores the filter
+  slash(ctx, "export session")
+  local text = ctx.ns.UI.Export.frame.text
+  h.eq(text:match("^[^\n]+"), ctx.ns.View.ITEMS_CSV_HEADER)
+  -- name (the stub client's item name), quantity, vendor, AH, destroy, counted, kind
+  local line = text:match("\n(.*)$")
+  h.eq(line:sub(-#",4,0.0100,,,0.0100,vendor"), ",4,0.0100,,,0.0100,vendor")
+  h.eq(line:sub(1, 4), "Item")
+  slash(ctx, "export zones")
+  h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.View.ZONES_CSV_HEADER)
+  slash(ctx, "export")
+  h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.History.CSV_HEADER)
+  slash(ctx, "export nonsense")
+  h.eq(ctx.printed[#ctx.printed]:find("export", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: key bindings name their commands; /lp clock switches the clock", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  h.eq(ctx.env.BINDING_HEADER_LOOTPRICE, "LootPrice")
+  h.eq(type(ctx.env.BINDING_NAME_LOOTPRICE_TOGGLE), "string")
+  local fh = assert(io.open("LootPrice/Bindings.xml", "r"))
+  local xml = fh:read("*a")
+  fh:close()
+  -- Every bound command exists: an unknown one would print the whole help.
+  local commands = 0
+  for cmd in xml:gmatch('SlashCmdList%["LOOTPRICE"%]%("(%a+)"%)') do
+    local before = #ctx.printed
+    slash(ctx, cmd)
+    h.eq(#ctx.printed - before <= 1, true)
+    commands = commands + 1
+  end
+  h.eq(commands, 3)
+  for name in xml:gmatch('name="(LOOTPRICE_%u+)"') do
+    h.eq(type(ctx.env["BINDING_NAME_" .. name]), "string")
+  end
+  local running = ctx.ns.session.running
+  slash(ctx, "clock")
+  h.eq(ctx.ns.session.running, not running)
+  slash(ctx, "clock")
+  h.eq(ctx.ns.session.running, running)
   h.eq(ctx.errors, {})
 end)
 
@@ -327,6 +604,8 @@ h.test("wiring: no unexpected globals leak", function()
     LootPriceDB = true, LootPriceCharDB = true, SLASH_LOOTPRICE1 = true,
     SLASH_LOOTPRICE2 = true, LootPriceWindow = true, LootPriceMenu = true,
     LootPriceOptionsPage = true, LootPriceMinimapButton = true, LootPriceExport = true,
+    BINDING_HEADER_LOOTPRICE = true, BINDING_NAME_LOOTPRICE_TOGGLE = true,
+    BINDING_NAME_LOOTPRICE_COMPACT = true, BINDING_NAME_LOOTPRICE_CLOCK = true,
   }
   for k in pairs(ctx.env) do
     if not ctx.baseline[k] and not allowed[k] then error("leaked global: " .. tostring(k)) end
@@ -871,7 +1150,7 @@ h.test("wiring: hovering a History session shows the colored tooltip", function(
   for _, o in ipairs(ops) do if o[1] == "double" then doubles = doubles + 1 end end
   h.eq(doubles >= 4, true) -- Vendor, AH, Best, Raw gold
   h.eq(ops[#ops - 1][2], ctx.ns.L["Click to show the items"]); h.eq(last[4], C.tipHint[2])
-  h.eq(last[2], ctx.ns.L["Right-click to delete it"])
+  h.eq(last[2], ctx.ns.L["Right-click: note, merge or delete"])
   h.eq(ctx.errors, {})
 end)
 

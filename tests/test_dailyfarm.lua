@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "History.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "History.lua", "View.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
 local DF = ns.UI.DailyFarm
 
 local function farm()
@@ -82,4 +82,20 @@ end)
 h.test("Compact.rateText: money per hour, a dash per hour without a rate", function()
   h.eq(ns.UI.Compact.rateText(nil), "\226\128\148/h")
   h.eq(ns.UI.Compact.rateText(5000.4, ns.Money.format), ns.Money.format(5000) .. "/h")
+end)
+
+h.test("Compact.totalText and hint: the total against the goal, the breakdown", function()
+  local C = ns.UI.Compact
+  local f = ns.Money.format
+  h.eq(C.totalText({ total = 5000 }, f), "Session " .. f(5000))
+  h.eq(C.totalText({ total = 5000, goal = { value = 5000, goal = 10000 } }, f), "Session " .. f(5000) .. " / " .. f(10000))
+  h.eq(C.totalText({ total = 1 }, f, "|cff000000"), "|cff000000Session|r " .. f(1))
+  local tip = ns.Tooltip.text(C.hint({ total = 6000, items = 5000, gold = 1000, elapsed = 120, perHour = 180000,
+    top = { name = "Ore", quantity = 3, value = 4000 }, goal = { value = 6000, goal = 10000 } }))
+  for _, part in ipairs({ "2m", "Items: ", "Raw gold: ", "Total: ", "Gold per hour: ", "Best find: Ore x3", "60%" }) do
+    h.eq(tip:find(part, 1, true) ~= nil, true)
+  end
+  local young = ns.Tooltip.text(C.hint({ total = 0, items = 0, gold = 0, elapsed = 10 }))
+  h.eq(young:find("after the first minute", 1, true) ~= nil, true)
+  h.eq(young:find("Raw gold", 1, true), nil)
 end)

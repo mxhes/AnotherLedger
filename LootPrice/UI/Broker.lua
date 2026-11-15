@@ -32,7 +32,8 @@ local L_PER_HOUR = L["/h"]
 function Broker.summary(session, lookup, now, includeGold)
   local out = { best = 0, gold = 0, total = 0, perHour = nil, elapsed = 0 }
   if type(session) ~= "table" then return out end
-  local view = ns.View.build(session, { now = now, lookup = lookup, showCurrencies = false })
+  local ignored = ns.Core and ns.Core.ignoredItems and ns.Core.ignoredItems() or nil
+  local view = ns.View.build(session, { now = now, lookup = lookup, showCurrencies = false, ignored = ignored })
   out.best = view.totals.best or 0
   out.gold = view.gold.total or 0
   out.total = out.best + (includeGold == false and 0 or out.gold)

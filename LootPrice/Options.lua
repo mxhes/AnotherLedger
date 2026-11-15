@@ -454,7 +454,21 @@ Options.define({
 })
 
 Options.define({ key = "alertSound", category = "session", type = "checkbox", label = L["Alert sound"],
-  tooltip = L["Plays a sound with the drop alert."] })
+  tooltip = L["Plays a sound with the drop alert and when a session goal is reached."] })
+
+-- Session goals (Core.checkGoals): a chat line once reached; the gold goal's
+-- progress shows in the compact window and the Session footer.
+Options.define({
+  key = "goalGold", category = "session", type = "number", label = L["Session goal (gold)"],
+  tooltip = L["A target for the session's worth: the compact window shows the total against it, the Session footer how far you are, and a chat line says when it is reached. Counts like the compact total. 0 or empty turns it off."],
+  zeroText = L["Off"], apply = refreshUI,
+})
+
+Options.define({
+  key = "goalMinutes", category = "session", type = "number", label = L["Session goal (minutes)"],
+  tooltip = L["A chat line when the session clock reaches this many minutes, with what the session is worth. 0 or empty turns it off."],
+  zeroText = L["Off"],
+})
 
 -- Off: "You create" messages and items received while a merchant, mailbox,
 -- trade or auction house window is open are not loot.
@@ -492,6 +506,13 @@ Options.define({
   min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
 })
 
+-- History Zones and the Daily farm across characters (Core.zoneHistory).
+Options.define({
+  key = "accountZones", category = "display", type = "checkbox", label = L["Zones: all characters"],
+  tooltip = L["History Zones and the Daily strip use the History of all your characters. Off: only this character's. The Sessions list always shows this character's."],
+  apply = refreshUI,
+})
+
 -- Off: the Top finds block under the footer stays collapsed.
 Options.define({
   key = "showTopFinds", category = "display", type = "checkbox", label = L["Top finds"],
@@ -519,6 +540,44 @@ Options.define({
   tooltip = L["Shows the item icon at the start of each list row. Off starts the text at the left edge."],
   apply = function()
     if ns.UI and ns.UI.Ledger and ns.UI.Ledger.relayout then ns.UI.Ledger.relayout() end
+  end,
+})
+
+-- The value of one item instead of the stack (Rows.rowText).
+Options.define({
+  key = "unitPrice", category = "display", type = "checkbox", label = L["Price per unit"],
+  tooltip = L["List rows show the value of one item instead of the whole stack. Totals and tooltips stay the same."],
+  apply = refreshUI,
+})
+
+-- The ignore list (Core.ignoredItems): a menu of the ignored items; a click
+-- takes one off the list (or back on while the menu is open).
+Options.define({
+  key = "ignoredItems", category = "display", type = "button", label = L["Ignored items"],
+  tooltip = L["Items you ignored (right-click a row in the list) don't count anywhere. Opens the list: click an item to count it again."],
+  action = function(button)
+    local Core, W = ns.Core, ns.UI and ns.UI.Widgets
+    if not (Core and W) then return end
+    local list = Core.ignoredList()
+    if #list == 0 then
+      ns.Util.say(L["no ignored items. Right-click an item in the list to ignore it."])
+      return
+    end
+    local entries = {}
+    for _, item in ipairs(list) do
+      entries[#entries + 1] = {
+        text = item.name,
+        isChecked = function() return Core.ignoredItems()[item.id] ~= nil end,
+        onClick = function()
+          if Core.ignoredItems()[item.id] ~= nil then
+            Core.unignoreItem(item.id)
+          else
+            Core.ignoreItem(item.id, item.name)
+          end
+        end,
+      }
+    end
+    W.openMenu(button, entries, "checkbox")
   end,
 })
 
@@ -593,15 +652,12 @@ Options.define({
 
 Options.define({
   key = "clearHistory", category = "session", type = "button", label = L["Clear History"],
-  tooltip = L["Deletes every session of your History, after asking. This can't be undone."],
+  tooltip = L["Deletes every session of this character's History, after asking. /lp undo brings them back until you log out or reload."],
   action = function()
     local history = ns.chardb and ns.chardb.history
     if type(history) ~= "table" or #history == 0 or not (ns.UI and ns.UI.Widgets) then return end
-    ns.UI.Widgets.confirm(string.format(L["Delete all %d sessions of your History? This can't be undone."], #history),
-      L["Delete"], function()
-        ns.History.clear(history)
-        refreshUI()
-      end)
+    ns.UI.Widgets.confirm(string.format(L["Delete all %d sessions of your History? /lp undo brings them back until you log out."], #history),
+      L["Delete"], function() ns.Core.clearHistory() end)
   end,
 })
 

@@ -60,6 +60,13 @@ DB.defaults = {
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
     instanceSession = false,
+    -- Session goals: gold (best value + raw gold) and minutes; 0 = off.
+    goalGold = 0,
+    goalMinutes = 0,
+    -- List rows show the value of one item instead of the stack.
+    unitPrice = false,
+    -- History Zones and the Daily farm use the History of every character.
+    accountZones = true,
     -- Font size in px of the list text, the totals and the section titles (applied live).
     -- Typeface: "default" (the WoW font) or a font file path.
     fontFace = "default",
@@ -94,12 +101,19 @@ DB.defaults = {
   -- LibDBIcon's saved state (hide, minimapPos) when that library draws the
   -- minimap button (UI/Broker.lua).
   minimapIcon = {},
+  -- The ignore list: { [itemID] = item name } (Core.ignoredItems).
+  ignored = {},
+  -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
+  histories = {},
 }
 
 -- Per-character defaults (LootPriceCharDB): the last bank scan for the Bank tab.
+-- `history` (finished sessions, newest first, see History.lua) is this
+-- character's list in LootPriceDB.histories while logged in; it is only
+-- written here by versions before the account-wide History.
 DB.charDefaults = {
   bank = { scannedAt = 0, items = {} },
-  history = {}, -- finished sessions, newest first (see History.lua)
+  history = {},
 }
 
 local function copy(v)

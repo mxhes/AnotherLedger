@@ -22,6 +22,9 @@ local lower = string.lower
 --     formatDate without it),
 --   isQuest  = function(itemID) -> bool (History Zones: the quest items group),
 --   market = { rateGood, rateOk, soldHigh, soldMedium } or nil (no sale info),
+--   ignored = { [itemID] = name or true } (the ignore list: these items are
+--     left out of every list and total),
+--   goal = copper or nil (the session goal: Session tab and compact progress),
 -- }
 --
 -- A row's value is the best of its vendor, AH and disenchant totals; the sort
@@ -39,9 +42,9 @@ local DETAIL_SEP = " \194\183 " -- middle dot between the parts of a row's secon
 
 local L_CLICK_OPEN = L["Click to show the items"]
 local L_CLICK_CLOSE = L["Click to collapse"]
-local L_RIGHT_DELETE = L["Right-click to delete it"]
+local L_RIGHT_MENU = L["Right-click: note, merge or delete"]
 local L_PER_HOUR = L["/h"]
-local L_NO_MATCH = L["Nothing matches the filters."]
+local L_NO_MATCH = L["Nothing matches the filters. The x next to Sort clears them."]
 local L_STOPPED = L["The clock is stopped: loot is not counted. Press Start."]
 local L_NO_LOOT = L["No loot yet."]
 local L_NO_HISTORY = L["No saved sessions yet. A session is saved when you reset it."]
@@ -258,15 +261,20 @@ end
 -- Filtered, sorted rows and their vendor / AH / best totals for an items map
 -- ({ [key] = { id, key, link, qty, lastSeen } }); shared by the session and the
 -- inventory tabs.
+local function ignoredSet(opts)
+  return type(opts.ignored) == "table" and opts.ignored or NO_LOOKUP
+end
+
 local function collect(items, opts)
   local filter = opts.filter
   local needle = searchNeedle(filter)
+  local ignored = ignoredSet(opts)
 
   local rows, n = {}, 0
   local vendor, ah, best, unpriced = 0, 0, 0, 0
   if type(items) ~= "table" then items = {} end
   for _, item in pairs(items) do
-    if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 then
+    if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 and not ignored[item.id] then
       local row = makeRow(item, opts)
       if visible(row, filter, needle) then
         n = n + 1
@@ -372,32 +380,34 @@ local savedFilter = {} -- its filter: the qualities only (reused)
 -- works as "ah".
 local SESSION_SORT = { ah = SORTS.ah, recent = SORTS.recent, perHour = SORTS.perHour }
 
--- One History session row. Line 1: the start ("+ Today 20:21"); line 2
--- (`detail`): length, main place and item count. Its amount is the best
--- value of the items plus, with includeGold, the raw gold. The tooltip is
--- built on hover (a function, ns.Tooltip.resolve).
-local function sessionRow(e, i, open, opts)
+-- One History session row. Line 1: the start and the note ("+ Today 20:21 ·
+-- Wingrest herbs"); line 2 (`detail`): length, main place and item count. Its
+-- amount is the best value of the items (without ignored ones) plus, with
+-- includeGold, the raw gold. The tooltip is built on hover (a function,
+-- ns.Tooltip.resolve). `totals` = { vendor, ah, best } of History.totals.
+local function sessionRow(e, i, open, opts, totals)
   local History = ns.History
   local dateFn = opts.shortDate or opts.formatDate
   local when = dateFn and dateFn(e.startedAt) or tostring(e.startedAt)
-  local value = History.bestOf(e) + (opts.includeGold ~= false and e.gold or 0)
+  local value = totals.best + (opts.includeGold ~= false and e.gold or 0)
   local parts = { History.duration(e.elapsed) }
   local place = History.place(e)
   if place then parts[#parts + 1] = place end
-  parts[#parts + 1] = History.itemCount(e.nItems)
-  local name = (open and "- " or "+ ") .. when
+  parts[#parts + 1] = History.itemCount(totals.count)
+  local note = History.note(e)
+  local label = note and (when .. DETAIL_SEP .. note) or when
   local detail = detailText(parts)
-  local formatDate = opts.formatDate
+  local formatDate, ignored = opts.formatDate, opts.ignored
   return {
-    id = -i, key = -i, historyIndex = i,
-    name = name, detail = detail, sortName = lower(when .. " " .. detail),
+    id = -i, key = -i, historyIndex = i, entry = e,
+    name = (open and "- " or "+ ") .. label, detail = detail, sortName = lower(label .. " " .. detail),
     quality = 1,
-    vendorTotal = e.vendor, ahTotal = e.ah, bestLineTotal = value,
+    vendorTotal = totals.vendor, ahTotal = totals.ah, bestLineTotal = value,
     perHour = History.perHour(value, e.elapsed),
     icon = "Interface\\Icons\\INV_Misc_Note_01",
     hint = function()
-      local tip = History.details(e, formatDate)
-      return withHint(withHint(tip, open and L_CLICK_CLOSE or L_CLICK_OPEN), L_RIGHT_DELETE)
+      local tip = History.details(e, formatDate, ignored)
+      return withHint(withHint(tip, open and L_CLICK_CLOSE or L_CLICK_OPEN), L_RIGHT_MENU)
     end,
     value = value, lastSeen = e.startedAt,
   }
@@ -419,18 +429,20 @@ function View.buildHistory(list, opts, openIndex)
   local sessionRows, opened = {}, nil
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) }
   local gold, elapsed = 0, 0
+  local t = {}
   for i, e in ipairs(list) do
     if History.valid(e) then
       local open = i == openIndex
-      local row = sessionRow(e, i, open, opts)
+      t.vendor, t.ah, t.best, t.count = History.totals(e, opts.ignored)
+      local row = sessionRow(e, i, open, opts, t)
       local shown = open or (row.value >= minValue
         and (not needle or string.find(row.sortName, needle, 1, true) ~= nil))
       if shown then
         sessionRows[#sessionRows + 1] = row
         if open then opened = row end
-        totals.vendor = totals.vendor + e.vendor
-        totals.ah = totals.ah + e.ah
-        totals.best = totals.best + History.bestOf(e)
+        totals.vendor = totals.vendor + t.vendor
+        totals.ah = totals.ah + t.ah
+        totals.best = totals.best + t.best
         gold = gold + e.gold
         elapsed = elapsed + e.elapsed
       end
@@ -838,18 +850,34 @@ end
 -- not shown there): total = every item's best value + raw gold (with
 -- opts.includeGold), its rate over the session clock (nil under a minute), the
 -- running state and the last drops, each row worth that drop's own quantity.
---   { total, perHour, running, drops = { row, ... } }
+-- The rest is for the hover breakdown: the items' value, the raw gold, the
+-- clock, the best find and the session goal (opts.goal).
+--   { total, perHour, running, drops = { row, ... }, items, gold, elapsed,
+--     top = row or nil, goal = { value, goal } or nil }
 
 View.COMPACT_DROPS = 4
 
 local compactOpts = {}
+
+-- The session goal's progress, { value, goal } (copper), or nil without a goal.
+function View.goalProgress(value, goal)
+  if not (num(goal) and goal > 0 and num(value)) then return nil end
+  return { value = value, goal = goal }
+end
+
+-- Whole percent of a goal progress, at most 100.
+function View.goalPercent(progress)
+  if type(progress) ~= "table" or not num(progress.goal) or progress.goal <= 0 then return 0 end
+  return math.min(100, math.floor(progress.value * 100 / progress.goal))
+end
 
 function View.buildCompact(session, opts)
   opts = opts or {}
   copyOpts(compactOpts, opts)
   compactOpts.filter = nil
   local items = type(session.items) == "table" and session.items or {}
-  local _, t = collect(items, compactOpts)
+  local ignored = ignoredSet(opts)
+  local rows, t = collect(items, compactOpts)
   local gold = 0
   if opts.includeGold ~= false and ns.Session and ns.Session.goldTotal then
     gold = math.max(0, ns.Session.goldTotal(session))
@@ -862,18 +890,22 @@ function View.buildCompact(session, opts)
     for _, ev in ipairs(session.recent) do
       if #drops >= limit then break end
       local it = type(ev) == "table" and items[ev.key]
-      if type(it) == "table" and num(it.id) and num(ev.qty) and ev.qty > 0 then
+      if type(it) == "table" and num(it.id) and num(ev.qty) and ev.qty > 0 and not ignored[it.id] then
         drops[#drops + 1] = makeRow({ id = it.id, key = it.key or ev.key, link = it.link, price = it.price,
           qty = ev.qty, lastSeen = ev.at }, compactOpts)
       end
     end
   end
   return { total = total, perHour = ns.History.perHour(total, elapsed), running = session.running and true or false,
-    drops = drops }
+    drops = drops, items = t.best, gold = gold, elapsed = elapsed, top = topRows(rows, 1)[1],
+    goal = View.goalProgress(total, opts.goal) }
 end
 
 -- Session tab: rows, totals, raw gold, combined totals, rates and top finds.
--- Currencies follow the item rows (they have no value).
+-- Currencies follow the item rows (they have no value). With a session goal
+-- (opts.goal), view.goal is its progress: the unfiltered total, like compact.
+local goalOpts = {}
+
 function View.build(session, opts)
   local rows, totals = collect(session.items, opts)
   local top = topRows(rows, View.TOP_COUNT)
@@ -883,8 +915,84 @@ function View.build(session, opts)
   -- side of the combined totals.
   local view = { rows = rows, top = top, totals = totals, kind = "session",
     empty = View.emptyText(rows, opts.filter, session.running and L_NO_LOOT or L_STOPPED) }
-  addGold(view, math.max(0, ns.Session.goldTotal(session)), opts.includeGold)
+  local gold = math.max(0, ns.Session.goldTotal(session))
+  addGold(view, gold, opts.includeGold)
+  if num(opts.goal) and opts.goal > 0 then
+    local best = totals.best
+    if totals.filtered then
+      copyOpts(goalOpts, opts)
+      goalOpts.filter = nil
+      best = select(2, collect(session.items, goalOpts)).best
+    end
+    view.goal = View.goalProgress(best + (opts.includeGold ~= false and gold or 0), opts.goal)
+  end
   return View.applyRates(view, ns.Session.elapsed(session, opts.now))
+end
+
+-- ---------------------------------------------------------------------------
+-- CSV export of the running session and of History Zones (/lp export).
+
+View.ITEMS_CSV_HEADER = "name,quantity,vendor_g,ah_g,destroy_g,counted_g,counted_as"
+View.ZONES_CSV_HEADER = "zone,subzone,minutes,value_g,raw_gold_g,gold_per_hour_g,items"
+
+local tableOpts = {}
+
+-- Every subzone of the History Zones data (all of them, no filter), by zone
+-- and subzone name: { zone, sub (display names), time, value, gold, perHour,
+-- count }. The quest items group is left out.
+function View.zoneTable(entries, opts)
+  opts = opts or {}
+  copyOpts(tableOpts, opts)
+  tableOpts.filter, tableOpts.sort = nil, nil
+  local withGold = opts.includeGold ~= false
+  local out = {}
+  for zone, subs in pairs(aggregateZones(type(entries) == "table" and entries or {}, opts.isQuest)) do
+    for sub, s in pairs(subs) do
+      local rows, t = collect(s.items, tableOpts)
+      local gold = withGold and s.gold or 0
+      if #rows > 0 or gold > 0 or s.time > 0 then
+        local value = t.best + gold
+        out[#out + 1] = { zone = placeLabel(zone), sub = placeLabel(sub), time = s.time, value = value,
+          gold = s.gold, perHour = placePerHour(value, s.time), count = #rows }
+      end
+    end
+  end
+  table.sort(out, function(a, b)
+    if a.zone ~= b.zone then return a.zone < b.zone end
+    return a.sub < b.sub
+  end)
+  return out
+end
+
+function View.zonesCsv(entries, opts)
+  local History = ns.History
+  local field, gold = History.csvField, History.goldNumber
+  local out = { View.ZONES_CSV_HEADER }
+  for _, p in ipairs(View.zoneTable(entries, opts)) do
+    out[#out + 1] = table.concat({
+      field(p.zone), field(p.sub), string.format("%.1f", p.time / 60), gold(p.value), gold(p.gold),
+      p.perHour and gold(p.perHour) or "", tostring(p.count),
+    }, ",")
+  end
+  return table.concat(out, "\n")
+end
+
+-- The rows of a view (View.build) as CSV: items with their totals and what
+-- they count as (vendor / ah / de), currencies with their quantity only.
+function View.itemsCsv(rows)
+  local History = ns.History
+  local field, gold = History.csvField, History.goldNumber
+  local function amount(v) return num(v) and gold(v) or "" end
+  local out = { View.ITEMS_CSV_HEADER }
+  for _, r in ipairs(type(rows) == "table" and rows or {}) do
+    if r.quantity then
+      out[#out + 1] = table.concat({
+        field(r.name), tostring(r.quantity), amount(r.vendorTotal), amount(r.ahTotal), amount(r.deTotal),
+        amount(r.bestTotal), r.bestKind or "",
+      }, ",")
+    end
+  end
+  return table.concat(out, "\n")
 end
 
 -- Position of the row with `key` (a LootParse.itemKey, or an item ID).

@@ -162,7 +162,15 @@ end
 
 local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate,
   shortDate = shortDate, isQuest = isQuest }
-local context = { opts = viewOpts, ledger = Ledger }
+
+-- The History that Zones reads (every character's with "accountZones").
+local function zoneHistory()
+  local Core = ns.Core
+  if Core and Core.zoneHistory then return (Core.zoneHistory()) end
+  return ns.chardb and ns.chardb.history or {}
+end
+
+local context = { opts = viewOpts, ledger = Ledger, zoneHistory = zoneHistory }
 
 local function currentContext(now)
   local db = ns.db
@@ -174,11 +182,18 @@ local function currentContext(now)
   viewOpts.showCurrencies = setting("showCurrencies", true)
   viewOpts.market = Ledger.marketCutoffs(db)
   viewOpts.compactDrops = setting("compactDrops", nil)
+  viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
+  viewOpts.goal = ns.Core and ns.Core.goalCopper and ns.Core.goalCopper() or nil
   context.now = now
   context.env = _G
   context.session = ns.session
   context.chardb = ns.chardb
   return context
+end
+
+-- The View options the window builds with now (the CSV export reuses them).
+function Ledger.viewOptions()
+  return currentContext(time()).opts
 end
 
 -- ---------------------------------------------------------------------------
@@ -192,13 +207,14 @@ end
 -- An error is reported once and leaves the rest of the window drawn.
 local farmCache = { key = nil, at = 0, value = nil }
 
-local function farmKey(history, minutes)
-  local first = history[1]
+-- `listKey`: History.combine's key of the lists it reads.
+local function farmKey(listKey, minutes)
   local m = viewOpts.market
   local setting = ns.Util.setting
+  local ignored, idSum = 0, 0
+  for id in pairs(viewOpts.ignored or {}) do ignored, idSum = ignored + 1, idSum + (tonumber(id) or 0) end
   return table.concat({
-    tostring(history), #history, tostring(type(first) == "table" and first.startedAt),
-    tostring(minutes), tostring(viewOpts.includeGold),
+    listKey, tostring(minutes), tostring(viewOpts.includeGold), ignored .. ":" .. idSum,
     tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)),
     m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
   }, "|")
@@ -206,11 +222,11 @@ end
 
 local function dailyFarm(now)
   local setting = ns.Util.setting
-  if not (ns.Options and ns.db) or setting("dailyFarm", true) == false then return nil end
-  local history = ns.chardb and ns.chardb.history
+  if not (ns.Options and ns.db and ns.Core) or setting("dailyFarm", true) == false then return nil end
+  local history, listKey = ns.Core.zoneHistory()
   if type(history) ~= "table" then return nil end
   local minutes = setting("dailyFarmMinutes", 20)
-  local key = farmKey(history, minutes)
+  local key = farmKey(listKey, minutes)
   if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
   local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)
   if not ok then
@@ -379,21 +395,39 @@ local function applyTab(key)
   if header then header:SetSessionControls(spec.sessionControls == true) end
 end
 
+-- Scroll position per tab and sub-tab for this login: coming back to a list
+-- shows it where it was left (clamped when it got shorter).
+local scrollOffsets = {}
+
+local function viewKey()
+  return Ledger.tab .. "/" .. tostring(Ledger.subtab)
+end
+
+local function rememberScroll()
+  if list then scrollOffsets[viewKey()] = list.offset end
+end
+
+local function restoreScroll()
+  if list then list.offset = scrollOffsets[viewKey()] or 0 end
+end
+
 -- Tab and sub-tab state without a redraw (setTab / setSubtab / showFarm redraw).
 local function switchTab(key)
   if not ns.UI.Tabs.valid(key) then key = ns.UI.Tabs.DEFAULT end
+  rememberScroll()
   Ledger.tab = key
   Ledger.subtab = savedSubtab(key)
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
   if ns.db then ns.db.tab = key end
   applyTab(key)
-  if list then list.offset = 0 end
+  restoreScroll()
 end
 
 local function switchSubtab(subKey)
   local sub = ns.UI.Tabs.subtab(Ledger.tab, subKey)
   if not sub then return false end
+  rememberScroll()
   Ledger.subtab = sub.key
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
@@ -402,7 +436,7 @@ local function switchSubtab(subKey)
     ns.db.subtab[Ledger.tab] = sub.key
   end
   applyTab(Ledger.tab)
-  if list then list.offset = 0 end
+  restoreScroll()
   return true
 end
 
@@ -488,13 +522,18 @@ function Ledger.toggleHistory(index)
 end
 
 local L_DELETE = ns.L["Delete"]
-local L_DELETE_ONE = ns.L["Delete this session from History? This can't be undone."]
+local L_ADD_NOTE = ns.L["Add note"]
+local L_EDIT_NOTE = ns.L["Edit note"]
+local L_MERGE = ns.L["Merge with the older session"]
+local L_NOTE_PROMPT = ns.L["Note for this session (empty removes it):"]
+local L_SAVE = ns.L["Save"]
+local L_IGNORE = ns.L["Ignore this item"]
+local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, Display, Ignored items takes it back."]
 
--- History tab, right-click on a session: asks, then deletes it. The opened
--- session stays open (its index moves when a newer one goes).
+-- Deletes the History session at `index` (/lp undo brings it back). The
+-- opened session stays open (its index moves when a newer one goes).
 function Ledger.deleteHistory(index)
-  local history = ns.chardb and ns.chardb.history
-  if not ns.History.remove(history, index) then return end
+  if not (ns.Core and ns.Core.deleteHistory(index)) then return end
   local open = Ledger.historyIndex
   if open == index then
     Ledger.historyIndex = nil
@@ -504,8 +543,55 @@ function Ledger.deleteHistory(index)
   Ledger.refresh()
 end
 
-function Ledger.requestDeleteHistory(index)
-  ns.UI.Widgets.confirm(L_DELETE_ONE, L_DELETE, function() Ledger.deleteHistory(index) end)
+-- Merges the History session at `index` with the next older one. The merged
+-- session is opened when one of the two was.
+function Ledger.mergeHistory(index)
+  if not (ns.Core and ns.Core.mergeHistory(index)) then return end
+  local open = Ledger.historyIndex
+  if open == index or open == index + 1 then
+    Ledger.historyIndex = index
+  elseif open and open > index + 1 then
+    Ledger.historyIndex = open - 1
+  end
+  Ledger.refresh()
+end
+
+-- Asks for the note of a History session (`entry`, the saved table).
+function Ledger.editNote(entry)
+  ns.UI.Widgets.prompt(L_NOTE_PROMPT, L_SAVE, ns.History.note(entry) or "", function(text)
+    ns.History.setNote(entry, text)
+    Ledger.refresh()
+  end)
+end
+
+function Ledger.ignoreItem(row)
+  if not (ns.Core and ns.Core.ignoreItem(row.id, row.name)) then return end
+  ns.Util.say(string.format(L_IGNORED, row.link or row.name or tostring(row.id)))
+end
+
+-- Right-click menu of a row: a History session (note, delete) or an item (ignore).
+-- Returns the menu entries, or nil when the row has none.
+function Ledger.rowMenu(row)
+  if row.historyIndex then
+    local entry, index = row.entry, row.historyIndex
+    local entries = {
+      { text = (tostring(row.name or ""):gsub("^[%+%-] ", "")), title = true },
+      { text = ns.History.note(entry) and L_EDIT_NOTE or L_ADD_NOTE, onClick = function() Ledger.editNote(entry) end },
+    }
+    -- Merging always takes the next older session (by start), whatever the sort.
+    if ns.Core and ns.Core.canMergeHistory(index) then
+      entries[#entries + 1] = { text = L_MERGE, onClick = function() Ledger.mergeHistory(index) end }
+    end
+    entries[#entries + 1] = { text = L_DELETE, onClick = function() Ledger.deleteHistory(index) end }
+    return entries
+  end
+  if type(row.id) == "number" and row.id > 0 and not row.isCurrency and not row.zoneKey then
+    return {
+      { text = row.name, title = true },
+      { text = L_IGNORE, onClick = function() Ledger.ignoreItem(row) end },
+    }
+  end
+  return nil
 end
 
 -- Data of kind `what` ("bags", "bank") changed: tabs caching it forget their
@@ -555,13 +641,14 @@ function Ledger.init()
   end
   list = Rows.attach(frame.listArea, applyMinWidth)
   Ledger.list = list
-  list.onRowClick = function(row, button)
-    if row.historyIndex then
-      if button == "RightButton" then
-        Ledger.requestDeleteHistory(row.historyIndex)
-      else
-        Ledger.toggleHistory(row.historyIndex)
-      end
+  -- Left-click opens History sessions and Zones places; right-click opens the
+  -- row's menu (Ledger.rowMenu) at the row.
+  list.onRowClick = function(row, button, frame)
+    if button == "RightButton" then
+      local entries = Ledger.rowMenu(row)
+      if entries then UI.Widgets.openMenu(frame, entries, "button") end
+    elseif row.historyIndex then
+      Ledger.toggleHistory(row.historyIndex)
     elseif row.zoneKey then
       Ledger.toggleZone(row.zoneKey, row.subKey)
     end

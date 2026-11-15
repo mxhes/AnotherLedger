@@ -121,8 +121,68 @@ h.test("History.csv: header plus one line per valid session", function()
   for line in (csv .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
   h.eq(#lines, 3)
   h.eq(lines[1], ns.History.CSV_HEADER)
-  h.eq(lines[2], 'day1,60.0,"A, B; C",2,0.5000,2.0000,3.0000,1.0000,4.0000,Currency 1 x5; Valor x2')
-  h.eq(lines[3], "day2,0.5,,0,0.0000,0.0000,0.0000,0.0000,,")
+  h.eq(lines[2], 'day1,60.0,"A, B; C",2,0.5000,2.0000,3.0000,1.0000,4.0000,Currency 1 x5; Valor x2,')
+  h.eq(lines[3], "day2,0.5,,0,0.0000,0.0000,0.0000,0.0000,,,")
+end)
+
+h.test("History.csv: the note column and the ignore list", function()
+  local e = { startedAt = 1, elapsed = 3600, gold = 0, nItems = 2, vendor = 500, ah = 3000, best = 3000, items = {
+    [1] = { id = 1, qty = 2, price = { vendor = 100, ah = 1000 } },
+    [2] = { id = 2, qty = 1, price = { vendor = 300, ah = 1000 } },
+  } }
+  ns.History.setNote(e, 'Herbs, "fast"')
+  local csv = ns.History.csv({ e }, tostring, { [1] = "Ore" })
+  local line = csv:match("\n(.*)$")
+  h.eq(line, '1,60.0,,1,0.0300,0.1000,0.1000,0.0000,0.1000,,"Herbs, ""fast"""')
+end)
+
+h.test("History.totals: ignored items leave the saved totals", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 2, vendor = 500, ah = 3000, best = 3000, items = {
+    a = { id = 1, qty = 2, price = { vendor = 100, ah = 1000 } },
+    b = { id = 2, qty = 1, price = { vendor = 300, ah = 1000, de = 1500 } },
+  } }
+  h.eq({ ns.History.totals(e) }, { 500, 3000, 3000, 2 })
+  h.eq({ ns.History.totals(e, {}) }, { 500, 3000, 3000, 2 })
+  h.eq({ ns.History.totals(e, { [2] = true }) }, { 200, 2000, 1500, 1 })
+  h.eq({ ns.History.totals(e, { [1] = "x", [2] = "y" }) }, { 0, 0, 0, 0 })
+end)
+
+h.test("History.setNote: trimmed, one line, cut by characters, empty removes", function()
+  local e = {}
+  h.eq(ns.History.setNote(e, "  Wingrest\nherbs  "), "Wingrest herbs")
+  h.eq(ns.History.note(e), "Wingrest herbs")
+  h.eq(ns.History.setNote(e, "   "), nil)
+  h.eq(e.note, nil)
+  local long = string.rep("\195\164", ns.History.NOTE_MAX + 5) -- "ä" twice the bytes
+  local cut = ns.History.setNote(e, long)
+  h.eq(cut, string.rep("\195\164", ns.History.NOTE_MAX))
+end)
+
+h.test("History.restore, adopt and combine", function()
+  local list = { { startedAt = 5 }, { startedAt = 1 } }
+  h.eq(ns.History.restore(list, { { startedAt = 3 } }), 1)
+  h.eq({ list[1].startedAt, list[2].startedAt, list[3].startedAt }, { 5, 3, 1 })
+
+  local histories = {}
+  local own = { { startedAt = 2 }, { startedAt = 1 } }
+  local mine = ns.History.adopt(histories, "Me-Realm", own)
+  h.eq(histories["Me-Realm"] == mine, true)
+  h.eq(#mine, 2)
+  -- A second login with the same list adds nothing twice.
+  h.eq(ns.History.adopt(histories, "Me-Realm", { { startedAt = 2 }, { startedAt = 3 } }) == mine, true)
+  h.eq({ mine[1].startedAt, mine[2].startedAt, mine[3].startedAt }, { 3, 2, 1 })
+  h.eq(ns.History.adopt(histories, "Me-Realm", mine) == mine, true)
+  h.eq(#mine, 3)
+
+  histories["Alt-Realm"] = { { startedAt = 9 } }
+  local all, key = ns.History.combine(histories)
+  h.eq(#all, 4)
+  h.eq(all[1].startedAt, 9) -- Alt before Me (by name)
+  local _, again = ns.History.combine(histories)
+  h.eq(again, key)
+  table.insert(histories["Alt-Realm"], 1, { startedAt = 10 })
+  local _, changed = ns.History.combine(histories)
+  h.eq(changed ~= key, true)
 end)
 
 h.test("History.details: lines for when, where and the rates", function()
@@ -148,4 +208,37 @@ h.test("History.snapshot keeps the time and loot per place", function()
   h.eq(e.zones.Z.subs.A.time, 110)
   h.eq(e.zones.Z.subs.A.items[1], 3)
   h.eq(e.zones.Z.subs.A.gold, 5)
+end)
+
+h.test("History.merge: one session of two, the time between them never counts", function()
+  local newer = { startedAt = 5000, elapsed = 600, gold = 300, nItems = 2, vendor = 200, ah = 1000, best = 1100,
+    places = { "Deadmines (Normal)" }, note = "run 2",
+    items = { [7] = { id = 7, key = 7, qty = 2, lastSeen = 5500, price = { vendor = 50, ah = 400 } },
+      [8] = { id = 8, key = 8, qty = 1, lastSeen = 5400, price = { vendor = 100, ah = 200, de = 300 } } },
+    currencies = { [3] = { id = 3, qty = 2 } },
+    zones = { ["Deadmines (Normal)"] = { subs = { Mast = { time = 600, gold = 300, items = { [7] = 2, [8] = 1 },
+      pos = {} } } } } }
+  local older = { startedAt = 1000, elapsed = 900, gold = 100, nItems = 1, vendor = 100, ah = 400, best = 400,
+    places = { "Deadmines (Normal)", "Westfall" }, note = "run 1",
+    items = { [7] = { id = 7, key = 7, qty = 2, lastSeen = 1500, price = { vendor = 50, ah = 200 } } },
+    currencies = { [3] = { id = 3, qty = 1 } },
+    zones = { ["Deadmines (Normal)"] = { subs = { Mast = { time = 900, gold = 100, items = { [7] = 2 },
+      pos = { [36] = { x = 1, y = 1, n = 2 } } } } } } }
+  local m = ns.History.merge(newer, older)
+  h.eq(ns.History.valid(m), true)
+  h.eq({ m.startedAt, m.elapsed, m.gold, m.nItems }, { 1000, 1500, 400, 2 })
+  h.eq({ m.vendor, m.ah, m.best }, { 300, 1400, 1500 })
+  h.eq(m.items[7].qty, 4)
+  h.eq(m.items[7].price, { vendor = 50, ah = 300 }) -- weighted by quantity
+  h.eq(m.items[7].lastSeen, 5500)
+  h.eq(m.items[8].price, { vendor = 100, ah = 200, de = 300 })
+  h.eq(m.currencies[3].qty, 3)
+  h.eq(m.places, { "Deadmines (Normal)", "Westfall" })
+  local mast = m.zones["Deadmines (Normal)"].subs.Mast
+  h.eq({ mast.time, mast.gold, mast.items[7], mast.items[8] }, { 1500, 400, 4, 1 })
+  h.eq(mast.pos[36], { x = 1, y = 1, n = 2 })
+  h.eq(m.note, "run 1 / run 2")
+  -- The inputs stay as they were (undo puts them back).
+  h.eq(newer.items[7].qty, 2); h.eq(older.zones["Deadmines (Normal)"].subs.Mast.time, 900)
+  h.eq(ns.History.merge(newer, "junk"), nil)
 end)

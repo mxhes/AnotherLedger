@@ -194,8 +194,8 @@ function Panel.WIDGETS.button(block, spec)
   local button = ns.UI.Widgets.button(block, spec.label)
   button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -2)
   button:SetPoint("TOPRIGHT", block, "TOPRIGHT", 0, -2)
-  button:SetScript("OnClick", function()
-    if spec.action then spec.action() end
+  button:SetScript("OnClick", function(self)
+    if spec.action then spec.action(self) end
   end)
   return { refresh = function() end, controls = { button } }
 end

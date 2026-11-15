@@ -1,0 +1,15 @@
+<!-- Key bindings (the game's key bindings window, AddOns). The client loads
+     this file by its name; each binding runs a /lp command, and their names
+     are set by Slash.register (Slash.BINDINGS).
+     UNVERIFIED (check in client): the "ADDONS" category on Forever. -->
+<Bindings>
+  <Binding name="LOOTPRICE_TOGGLE" header="LOOTPRICE" category="ADDONS">
+    SlashCmdList["LOOTPRICE"]("toggle")
+  </Binding>
+  <Binding name="LOOTPRICE_COMPACT" category="ADDONS">
+    SlashCmdList["LOOTPRICE"]("compact")
+  </Binding>
+  <Binding name="LOOTPRICE_CLOCK" category="ADDONS">
+    SlashCmdList["LOOTPRICE"]("clock")
+  </Binding>
+</Bindings>

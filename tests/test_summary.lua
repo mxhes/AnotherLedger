@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "UI/Summary.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "View.lua", "UI/Summary.lua" })
 local S = ns.UI.Summary
 local M = ns.Money
 
@@ -163,4 +163,9 @@ h.test("tableLayout: History and Zones have no footer", function()
     h.eq(l.titles, false, kind)
     h.eq(l.notes, false, kind)
   end
+end)
+
+h.test("notesText: the session goal in percent, reached at 100", function()
+  h.eq(S.notesText({ totals = {}, goal = { value = 2500, goal = 10000 } }), "Goal 25%")
+  h.eq(S.notesText({ totals = {}, goal = { value = 20000, goal = 10000 } }), "Goal reached")
 end)

@@ -24,6 +24,8 @@ local L_LABEL_GOLD = L["Raw gold"]
 local L_TOTAL = L["Total"]
 local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
+local L_GOAL = L["Goal "]
+local L_GOAL_REACHED = L["Goal reached"]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_TOP = 3
 
@@ -71,6 +73,11 @@ function Summary.notesText(view)
   if view.note then
     parts[#parts + 1] = view.note
     if view.noteStale then orange = true end
+  end
+  -- The session goal (option "goalGold"): how far, in percent.
+  if view.goal then
+    local pct = ns.View.goalPercent(view.goal)
+    parts[#parts + 1] = pct >= 100 and L_GOAL_REACHED or (L_GOAL .. pct .. "%")
   end
   if #parts == 0 then return nil end
   return table.concat(parts, SEP), orange

@@ -63,11 +63,21 @@ function Slash.run(msg)
   command.run(arg)
 end
 
--- Registers the slash commands with the client.
+-- Key bindings (Bindings.xml runs these commands): the names in the game's
+-- key bindings window, under AddOns.
+Slash.BINDINGS = {
+  BINDING_HEADER_LOOTPRICE = "LootPrice",
+  BINDING_NAME_LOOTPRICE_TOGGLE = L["Show / hide the window"],
+  BINDING_NAME_LOOTPRICE_COMPACT = L["Compact / full window"],
+  BINDING_NAME_LOOTPRICE_CLOCK = L["Start / stop the session clock"],
+}
+
+-- Registers the slash commands and the key binding names with the client.
 function Slash.register()
   SLASH_LOOTPRICE1 = "/lp"
   SLASH_LOOTPRICE2 = "/lootprice"
   SlashCmdList["LOOTPRICE"] = Slash.run
+  for name, text in pairs(Slash.BINDINGS) do _G[name] = text end
 end
 
 -- ---------------------------------------------------------------------------
@@ -103,11 +113,18 @@ Slash.define({ name = "hide", run = function() windowCall("hide") end })
 
 Slash.define({
   name = "start",
-  help = L["/lp start | stop - start or stop the session clock"],
+  help = L["/lp start | stop | clock - start, stop or switch the session clock"],
   run = function() ns.Core.startSession() end,
 })
 
 Slash.define({ name = "stop", run = function() ns.Core.stopSession() end })
+
+Slash.define({
+  name = "clock",
+  run = function()
+    if ns.session.running then ns.Core.stopSession() else ns.Core.startSession() end
+  end,
+})
 
 Slash.define({
   name = "compact",
@@ -157,12 +174,29 @@ Slash.define({
   end,
 })
 
+-- What /lp export copies: the History list (default), the running session's
+-- items or the History Zones places.
+local EXPORTS = { history = "history", session = "session", zones = "zones" }
+
 Slash.define({
   name = "export",
-  help = L["/lp export - copy the History as CSV"],
-  run = function()
-    if ns.UI and ns.UI.Export then ns.UI.Export.history() end
+  help = L["/lp export [session | zones] - copy the History (or the session, or Zones) as CSV"],
+  run = function(arg)
+    local Export = ns.UI and ns.UI.Export
+    if not Export then return end
+    local what = EXPORTS[arg and arg:lower() or "history"]
+    if not what then
+      say(L["usage: /lp export [session | zones]"])
+      return
+    end
+    Export[what]()
   end,
+})
+
+Slash.define({
+  name = "undo",
+  help = L["/lp undo - take back the last delete or merge in History"],
+  run = function() ns.Core.undoDelete() end,
 })
 
 Slash.define({ name = "help", needsSession = false, run = Slash.printHelp })

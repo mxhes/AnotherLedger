@@ -372,3 +372,20 @@ h.test("Core.positionOf gives nil inside any instance, also scenarios and delves
   h.eq(Core.positionOf(env("none")), 1)
   h.eq(Core.positionOf(env(nil)), 1)
 end)
+
+h.test("Core.goalsReached: each goal once per goal value; 0 is off", function()
+  local r = Core.goalsReached(10000, 59, 1, 1, {})
+  h.eq(r, { gold = true, time = false })
+  h.eq(Core.goalsReached(10000, 60, 1, 1, { gold = 1 }), { gold = false, time = true })
+  h.eq(Core.goalsReached(10000, 60, 1, 1, { gold = 1, time = 1 }), { gold = false, time = false })
+  h.eq(Core.goalsReached(20000, 60, 2, 1, { gold = 1, time = 1 }).gold, true) -- a new goal counts anew
+  h.eq(Core.goalsReached(nil, 600, 1, 0, {}), { gold = false, time = false })
+  h.eq(Core.goalsReached(99999, 600, -1, -1, {}), { gold = false, time = false })
+end)
+
+h.test("Core.characterKey: Name-Realm, the name alone, or nil", function()
+  h.eq(Core.characterKey({ UnitName = function() return "Me" end, GetRealmName = function() return "Realm" end }), "Me-Realm")
+  h.eq(Core.characterKey({ UnitName = function() return "Me" end }), "Me")
+  h.eq(Core.characterKey({}), nil)
+  h.eq(Core.characterKey({ UnitName = function() return "" end }), nil)
+end)

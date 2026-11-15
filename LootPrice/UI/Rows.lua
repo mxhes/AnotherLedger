@@ -71,9 +71,11 @@ end
 --     unpriced, tag (age of a cached AH value), tagStale, market, isDetail }
 -- Rows with their own total (History / Zones places, `bestLineTotal`) show it
 -- without a source; currencies show no amount; a row without a quantity
--- (sessions, places) shows none.
-function Rows.rowText(row, formatMoney)
+-- (sessions, places) shows none. `unitPrice` (default: the option
+-- "unitPrice") shows one item's value on a stack of several.
+function Rows.rowText(row, formatMoney, unitPrice)
   formatMoney = formatMoney or ns.Money.formatColored
+  if unitPrice == nil then unitPrice = ns.Util.setting("unitPrice", false) end
   local qty = row.quantity and (TEXT.QTY .. tostring(row.quantity)) or ""
   if row.isCurrency then
     return { name = row.name or "", qty = qty, amount = "", source = nil, sourceText = nil,
@@ -83,7 +85,13 @@ function Rows.rowText(row, formatMoney)
   if row.bestLineTotal ~= nil then
     amount = formatMoney(row.bestLineTotal)
   elseif row.bestKind ~= nil then
-    amount, source = formatMoney(row.value or 0), row.bestKind
+    source = row.bestKind
+    local each = row[source .. "Each"]
+    if unitPrice and (row.quantity or 0) > 1 and type(each) == "number" then
+      amount = formatMoney(math.floor(each + 0.5))
+    else
+      amount = formatMoney(row.value or 0)
+    end
   elseif row.bound then
     amount = TEXT.BOUND
   else
@@ -496,7 +504,7 @@ local function createRow(parent, owner)
   f:SetScript("OnMouseUp", function(self, button)
     if not self.row or Rows.modifiedClick(self.row.link) then return end
     local o = self.owner
-    if o and o.onRowClick then o.onRowClick(self.row, button) end
+    if o and o.onRowClick then o.onRowClick(self.row, button, self) end
   end)
   f:SetScript("OnLeave", ns.UI.Widgets.hideTooltip)
   return f

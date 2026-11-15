@@ -302,6 +302,7 @@ function Session.reset(session, now)
   session.zones = {}
   session.recent = {}
   session.demo = nil
+  session.goalsNoted = nil -- the new session's goals are announced again
   if type(session.at) == "table" then session.at.since = session.running and now or nil end
   session.gold = 0
   session.startedAt = now

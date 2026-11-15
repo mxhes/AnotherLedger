@@ -265,3 +265,11 @@ h.test("sourceBoxWidth: every box as wide as the widest tag, own text before mea
   -- never narrower than its own text
   h.eq(Rows.sourceBoxWidth(10, 20), 20 + 2 * S.rowTagPad)
 end)
+
+h.test("rowText: the price per unit option shows one item of a stack", function()
+  local row = { name = "Ore", quantity = 4, bestKind = "ah", value = 2000, ahEach = 500, ahTotal = 2000 }
+  h.eq(R.rowText(row, ns.Money.format, false).amount, ns.Money.format(2000))
+  h.eq(R.rowText(row, ns.Money.format, true).amount, ns.Money.format(500))
+  row.quantity = 1
+  h.eq(R.rowText(row, ns.Money.format, true).amount, ns.Money.format(2000))
+end)
