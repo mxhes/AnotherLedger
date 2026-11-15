@@ -322,3 +322,26 @@ h.test("Core.buildPrices adds TSM sale info, also with Auctionator as the price 
   h.near(r.saleRate, 0.08)
   h.near(r.soldPerDay, 12)
 end)
+
+h.test("Core.positionOf reads the player's map position", function()
+  local pos = { GetXY = function() return 0.452, 0.618 end }
+  local env = { C_Map = { GetBestMapForUnit = function(u) h.eq(u, "player"); return 2022 end,
+    GetPlayerMapPosition = function(m, u) h.eq(m, 2022); h.eq(u, "player"); return pos end } }
+  local m, x, y = Core.positionOf(env)
+  h.eq(m, 2022); h.near(x, 0.452); h.near(y, 0.618)
+end)
+
+h.test("Core.positionOf gives nil without a usable position", function()
+  h.eq(Core.positionOf({}), nil)
+  h.eq(Core.positionOf({ C_Map = { GetBestMapForUnit = function() return nil end } }), nil)
+  local function env(px, py)
+    return { C_Map = { GetBestMapForUnit = function() return 1 end,
+      GetPlayerMapPosition = function() return { GetXY = function() return px, py end } end } }
+  end
+  h.eq(Core.positionOf(env(0, 0)), nil)
+  h.eq(Core.positionOf(env(1.5, 0.2)), nil)
+  h.eq(Core.positionOf(env(nil, nil)), nil)
+  h.eq(Core.positionOf({ C_Map = { GetBestMapForUnit = function() return 1 end,
+    GetPlayerMapPosition = function() return nil end } }), nil)
+  h.eq(Core.positionOf({ C_Map = { GetBestMapForUnit = function() error("x") end } }), nil)
+end)

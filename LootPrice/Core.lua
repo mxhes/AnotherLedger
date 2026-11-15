@@ -175,6 +175,35 @@ function Core.subzoneOf(env, zone)
   return zone
 end
 
+-- Pure over `env`: the player's map position as mapID, x, y (0..1), or nil
+-- (inside instances, or when the client has none: 0,0 means unknown).
+-- UNVERIFIED (check in client): C_Map.GetBestMapForUnit("player") and
+-- C_Map.GetPlayerMapPosition(mapID, "player"):GetXY() on Forever.
+local function readPosition(env)
+  local api = env.C_Map
+  if type(api) ~= "table" or type(api.GetBestMapForUnit) ~= "function"
+    or type(api.GetPlayerMapPosition) ~= "function" then return nil end
+  local mapID = api.GetBestMapForUnit("player")
+  if type(mapID) ~= "number" then return nil end
+  local pos = api.GetPlayerMapPosition(mapID, "player")
+  if type(pos) ~= "table" or type(pos.GetXY) ~= "function" then return nil end
+  local x, y = pos:GetXY()
+  return mapID, x, y
+end
+
+local function inUnit(v) return type(v) == "number" and v == v and v >= 0 and v <= 1 end
+
+function Core.positionOf(env)
+  if type(env) ~= "table" then return nil end
+  local ok, mapID, x, y = pcall(readPosition, env)
+  if not ok or not mapID or not inUnit(x) or not inUnit(y) or (x == 0 and y == 0) then return nil end
+  return mapID, x, y
+end
+
+local function notePosition()
+  if ns.session then ns.Session.notePlacePos(ns.session, Core.positionOf(_G)) end
+end
+
 -- History Zones: tells the session where the player is now (zone and subzone).
 function Core.updatePlace()
   if not ns.session then return end
@@ -215,6 +244,7 @@ function Core.recordLoot(link, qty, kind)
   notePlace()
   Core.updatePlace()
   ns.Session.notePlaceLoot(ns.session, key, qty)
+  notePosition()
   local info = Core.lookupPrice(itemID, link)
   ns.Session.setPrice(item, info)
   local unitValue = Core.unitValue(info)
@@ -262,6 +292,7 @@ function Core.recordGold(copper)
   notePlace()
   Core.updatePlace()
   ns.Session.notePlaceGold(ns.session, copper)
+  notePosition()
   requestRefresh(0)
 end
 

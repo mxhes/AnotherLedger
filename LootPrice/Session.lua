@@ -188,6 +188,35 @@ function Session.notePlaceGold(session, copper)
   slot.gold = slot.gold + copper
 end
 
+-- Where the loot of the current place was picked up: per map, the summed
+-- x / y (0..1) and the number of loot / gold events. Averaged by View.
+--   slot.pos = { [mapID] = { x = sumX, y = sumY, n = count } }
+function Session.notePlacePos(session, mapID, x, y)
+  if not (num(mapID) and num(x) and num(y)) then return end
+  local slot = currentSlot(session)
+  if type(slot.pos) ~= "table" then slot.pos = {} end
+  local p = slot.pos[mapID]
+  if type(p) ~= "table" or not (num(p.x) and num(p.y) and num(p.n)) then
+    p = { x = 0, y = 0, n = 0 }
+    slot.pos[mapID] = p
+  end
+  p.x, p.y, p.n = p.x + x, p.y + y, p.n + 1
+end
+
+-- Valid position sums only (number x, y and n > 0), copied.
+local function copyPos(pos)
+  if type(pos) ~= "table" then return nil end
+  local out, any = {}, false
+  for mapID, p in pairs(pos) do
+    if num(mapID) and type(p) == "table" and num(p.x) and num(p.y) and num(p.n) and p.n > 0 then
+      out[mapID] = { x = p.x, y = p.y, n = p.n }
+      any = true
+    end
+  end
+  return any and out or nil
+end
+Session.copyPos = copyPos
+
 -- A copy of session.zones with the open stretch counted up to `now`; the
 -- session itself is not changed.
 function Session.zoneSnapshot(session, now)
@@ -204,7 +233,8 @@ function Session.zoneSnapshot(session, now)
               if num(qty) and qty > 0 then items[key] = qty end
             end
           end
-          subs[sub] = { time = num(s.time) and s.time or 0, gold = num(s.gold) and s.gold or 0, items = items }
+          subs[sub] = { time = num(s.time) and s.time or 0, gold = num(s.gold) and s.gold or 0, items = items,
+            pos = copyPos(s.pos) }
         end
       end
       out[zone] = { subs = subs }

@@ -304,3 +304,23 @@ h.test("Session.reset empties zones, login repairs old sessions", function()
   h.eq(bad.zones, {})
   h.eq(bad.at, nil)
 end)
+
+h.test("Session.notePlacePos sums positions per map on the current place", function()
+  local s = S.new(0)
+  S.enterPlace(s, "Z", "A", 0)
+  S.notePlacePos(s, 2022, 0.4, 0.6)
+  S.notePlacePos(s, 2022, 0.6, 0.8)
+  S.notePlacePos(s, 2023, 0.1, 0.1)
+  S.notePlacePos(s, nil, 0.1, 0.1)
+  S.notePlacePos(s, 2022, "x", 0.1)
+  local pos = s.zones.Z.subs.A.pos
+  h.near(pos[2022].x, 1.0); h.near(pos[2022].y, 1.4); h.eq(pos[2022].n, 2)
+  h.eq(pos[2023].n, 1)
+  local snap = S.zoneSnapshot(s, 0)
+  h.eq(snap.Z.subs.A.pos[2022].n, 2)
+  s.zones.Z.subs.A.pos[9] = { x = "bad", n = 1 }
+  h.eq(S.zoneSnapshot(s, 0).Z.subs.A.pos[9], nil)
+  s.zones.Z.subs.A.pos = "broken"
+  S.notePlacePos(s, 2022, 0.5, 0.5)
+  h.eq(s.zones.Z.subs.A.pos[2022].n, 1)
+end)

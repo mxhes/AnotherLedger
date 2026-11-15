@@ -1250,6 +1250,14 @@ local function bootInZone(zone, sub)
   ctx.place = { zone = zone, sub = sub }
   ctx.env.GetRealZoneText = function() return ctx.place.zone end
   ctx.env.GetSubZoneText = function() return ctx.place.sub end
+  ctx.env.C_Map = {
+    GetBestMapForUnit = function() return ctx.pos and ctx.pos[1] end,
+    GetPlayerMapPosition = function()
+      local p = ctx.pos
+      if not p then return nil end
+      return { GetXY = function() return p[2], p[3] end }
+    end,
+  }
   return ctx
 end
 
@@ -1321,6 +1329,23 @@ local function bootWithFarm()
   slash(ctx, "reset")
   return ctx
 end
+
+h.test("wiring: loot and gold record the map position of their place", function()
+  local ctx = bootInZone("Waking Shores", "Wingrest")
+  ctx.pos = { 2022, 0.4, 0.6 }
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.pos = { 2022, 0.6, 0.8 }
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  ctx.pos = nil -- e.g. inside an instance
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local pos = ctx.ns.session.zones["Waking Shores"].subs.Wingrest.pos[2022]
+  h.eq(pos.n, 2); h.near(pos.x, 1.0); h.near(pos.y, 1.4)
+  ctx.now = ctx.now + 60
+  slash(ctx, "reset")
+  h.eq(ctx.ns.chardb.history[1].zones["Waking Shores"].subs.Wingrest.pos[2022].n, 2)
+  h.eq(ctx.errors, {})
+end)
 
 h.test("wiring: the daily farm is picked from saved History only", function()
   local ctx = bootWithFarm()
