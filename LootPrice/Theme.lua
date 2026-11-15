@@ -159,7 +159,7 @@ Theme.sizes = {
   rowVendorLabelW = 40,
   rowLabelGap = 2,
   rowVendorColW = 84,
-  rowBestLabelW = 32,
+  rowBestLabelW = 56, -- "Best (AH): "
   rowTagW = 36,
   -- Padding added around each measured string width.
   rowMeasurePad = 2,

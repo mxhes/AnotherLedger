@@ -63,7 +63,9 @@ h.test("rowText separate columns", function()
   local t = R.rowText({ name = "X", quantity = 1, vendorTotal = 5, ahTotal = nil }, ns.Money.format)
   h.eq(R.LABELS.vendor, "Vendor: ")
   h.eq(R.LABELS.best, "Best: ")
-  h.eq(t.bestLabel, "Best: ")
+  h.eq(R.LABELS.bestAh, "Best (AH): ")
+  h.eq(R.LABELS.bestDe, "Best (DE): ")
+  h.eq(t.bestLabel, "Best: ") -- no price: no source to name
   h.eq(t.bestAmount, "n/a")
   h.eq(t.vendorAmount, "5c")
 end)
@@ -178,7 +180,7 @@ h.test("worstCase: nil / zero measured fields use the Theme fallbacks", function
   h.eq(c.qtyW, S.rowQtyW)
   local part = R.worstCase({ vendorLabel = 50, bestLabel = 0, tag = nil, amount = 98, qtyWorst = 30 })
   h.eq(part.fallback, true)
-  h.eq(part.labelW, 50 + P)
+  h.eq(part.labelW, math.max(50 + P, S.rowBestLabelW)) -- the missing Best label uses its fallback
   h.eq(part.tagW, S.rowTagW)
   h.eq(R.worstCase({ vendorLabel = 50, bestLabel = 26, tag = 40, amount = 98 }).fallback, true)
 end)
@@ -231,24 +233,27 @@ h.test("rowText line 2 shows the better of AH and disenchant as Best", function(
   -- DE higher: line 2 is the DE value, and a cached AH age tag is not shown
   local t = R.rowText({ name = "X", quantity = 2, ahTotal = 300, deTotal = 500,
     ahFromCache = true, ahAge = 3600 }, fm)
-  h.eq(t.bestLabel, "Best: "); h.eq(t.bestAmount, "5s"); h.eq(t.tag, nil)
+  h.eq(t.bestLabel, "Best (DE): "); h.eq(t.bestAmount, "5s"); h.eq(t.tag, nil)
   -- AH higher (or equal): the AH value with its age tag
   local a = R.rowText({ name = "X", quantity = 2, ahTotal = 500, deTotal = 500,
     ahFromCache = true, ahAge = 3600 }, fm)
-  h.eq(a.bestAmount, "5s"); h.eq(a.tag, "(1h)")
+  h.eq(a.bestLabel, "Best (AH): "); h.eq(a.bestAmount, "5s"); h.eq(a.tag, "(1h)")
   -- only DE known
   h.eq(R.rowText({ name = "X", quantity = 2, deTotal = 500 }, fm).bestAmount, "5s")
   -- neither: n/a, or "bound" for a bound item
   h.eq(R.rowText({ name = "X", quantity = 2 }).bestAmount, "n/a")
   h.eq(R.rowText({ name = "X", quantity = 2, bound = true }).bestAmount, "bound")
+  h.eq(R.rowText({ name = "X", quantity = 2, bound = true }).bestLabel, "Best: ")
   -- a row may bring its own line 2 total (History sessions)
-  h.eq(R.rowText({ name = "S", quantity = 1, ahTotal = 9, bestLineTotal = 700 }, fm).bestAmount, "7s")
+  local own = R.rowText({ name = "S", quantity = 1, ahTotal = 9, bestLineTotal = 700 }, fm)
+  h.eq(own.bestAmount, "7s"); h.eq(own.bestLabel, "Best: ")
 end)
 
-h.test("Rows.bestLine: which total line 2 shows and whether it is the AH one", function()
-  h.eq({ R.bestLine({ ahTotal = 10, deTotal = 5 }) }, { 10, true })
-  h.eq({ R.bestLine({ ahTotal = 5, deTotal = 10 }) }, { 10, false })
-  h.eq({ R.bestLine({ deTotal = 10 }) }, { 10, false })
-  h.eq(select(2, R.bestLine({})), false); h.eq((R.bestLine({})), nil)
-  h.eq({ R.bestLine({ ahTotal = 5, bestLineTotal = 8 }) }, { 8, false })
+h.test("Rows.bestLine: which total line 2 shows and its source", function()
+  h.eq({ R.bestLine({ ahTotal = 10, deTotal = 5 }) }, { 10, "ah" })
+  h.eq({ R.bestLine({ ahTotal = 5, deTotal = 5 }) }, { 5, "ah" }) -- AH on a tie
+  h.eq({ R.bestLine({ ahTotal = 5, deTotal = 10 }) }, { 10, "de" })
+  h.eq({ R.bestLine({ deTotal = 10 }) }, { 10, "de" })
+  h.eq(select("#", R.bestLine({})), 2); h.eq((R.bestLine({})), nil); h.eq(select(2, R.bestLine({})), nil)
+  h.eq({ R.bestLine({ ahTotal = 5, bestLineTotal = 8 }) }, { 8 })
 end)

@@ -12,6 +12,8 @@ ns.UI.Rows = Rows
 local L = {
   VENDOR = ns.L["Vendor: "],
   BEST = ns.L["Best: "],
+  BEST_AH = ns.L["Best (AH): "],
+  BEST_DE = ns.L["Best (DE): "],
   QTY = ns.L["x"],
   BOUND = ns.L["bound"],
 }
@@ -22,19 +24,22 @@ local QUESTION_MARK = 134400 -- INV_Misc_QuestionMark
 -- ---------------------------------------------------------------------------
 -- Pure helpers
 
--- The fixed labels of the right block: vendor on line 1, the better of AH and
--- disenchant on line 2.
-Rows.LABELS = { vendor = L.VENDOR, best = L.BEST }
+-- The labels of the right block: vendor on line 1; on line 2 the better of AH
+-- and disenchant, named by its source ("Best (AH): " / "Best (DE): "), or plain
+-- "Best: " when the source is unknown (History sessions, no price).
+Rows.LABELS = { vendor = L.VENDOR, best = L.BEST, bestAh = L.BEST_AH, bestDe = L.BEST_DE }
+local BEST_LABEL = { ah = L.BEST_AH, de = L.BEST_DE }
 
 -- Line 2 value: `row.bestLineTotal` when the row brings its own (History
 -- sessions), else the better of the AH and disenchant totals (AH on a tie).
--- Returns the total (nil when neither is known) and whether it is the AH one.
+-- Returns the total (nil when neither is known) and its source: "ah", "de" or
+-- nil (own total, or none).
 function Rows.bestLine(row)
-  if row.bestLineTotal ~= nil then return row.bestLineTotal, false end
+  if row.bestLineTotal ~= nil then return row.bestLineTotal, nil end
   local ah, de = row.ahTotal, row.deTotal
-  if ah ~= nil and (de == nil or ah >= de) then return ah, true end
-  if de ~= nil then return de, false end
-  return nil, false
+  if ah ~= nil and (de == nil or ah >= de) then return ah, "ah" end
+  if de ~= nil then return de, "de" end
+  return nil, nil
 end
 
 -- The texts one row shows (two lines: name, quantity and vendor; then
@@ -48,10 +53,10 @@ function Rows.rowText(row, formatMoney)
     return { name = row.name or "", qty = qty, vendorLabel = "", bestLabel = "", vendorAmount = "",
       bestAmount = "", tag = nil, tagStale = false }
   end
-  local total, fromAH = Rows.bestLine(row)
+  local total, source = Rows.bestLine(row)
   -- The age tag belongs to a cached AH price, so only when line 2 shows it.
   local tag, tagStale = nil, false
-  if fromAH and row.ahFromCache and type(row.ahAge) == "number" then
+  if source == "ah" and row.ahFromCache and type(row.ahAge) == "number" then
     tag = "(" .. ns.Prices.formatAge(row.ahAge) .. ")"
     tagStale = row.stale and true or false
   end
@@ -61,7 +66,7 @@ function Rows.rowText(row, formatMoney)
   return {
     name = row.name or "",
     qty = qty,
-    vendorLabel = L.VENDOR, bestLabel = L.BEST,
+    vendorLabel = L.VENDOR, bestLabel = BEST_LABEL[source] or L.BEST,
     vendorAmount = formatMoney(row.vendorTotal),
     bestAmount = bestAmount,
     -- Which line holds the row's value (its label is highlighted): "vendor"
@@ -458,13 +463,24 @@ function Rows.attach(area, onMeasure)
     if positive(w) then return w end
     return nil
   end
+  -- Widest of several texts; nil while any of them cannot be measured.
+  local function widest(...)
+    local best = 0
+    for i = 1, select("#", ...) do
+      local w = width((select(i, ...)))
+      if not w then return nil end
+      if w > best then best = w end
+    end
+    return best
+  end
 
   -- Measures the real string widths; fields stay nil while the font is not
   -- ready (the layout then uses the Theme fallbacks and Render retries).
   function list:Measure()
     local m = {
       vendorLabel = width(L.VENDOR),
-      bestLabel = width(L.BEST),
+      -- The widest of the three line 2 labels, so the amounts line up.
+      bestLabel = widest(L.BEST, L.BEST_AH, L.BEST_DE),
       tag = width(SAMPLE_TAG),
       amount = width(SAMPLE_AMOUNT),
       qtyWorst = width(SAMPLE_QTY, qtyProbe),

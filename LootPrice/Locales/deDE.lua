@@ -44,6 +44,8 @@ ns.Locale.register("deDE", {
   ["bound"] = "gebunden",
   ["Total"] = "Gesamt",
   ["Best: "] = "Bester: ",
+  ["Best (AH): "] = "Bester (AH): ",
+  ["Best (DE): "] = "Bester (Entz.): ",
   ["Top finds"] = "Beste Funde",
   ["Items"] = "Gegenstände",
   ["Raw gold"] = "Rohgold",
