@@ -167,15 +167,24 @@ end
 -- button, so its bottom edge is cut off. A centered label and the glow of the
 -- selected tab sit on the skin.
 -- UNVERIFIED (check in client): SetClipsChildren cuts the backdrop edge cleanly.
+-- Pure. Width of a tab button: Theme.widths.tab, wider when the label needs it
+-- (`textW` = measured label width; nil or 0 keeps the theme width).
+function Tabs.buttonWidth(textW)
+  local T = ns.Theme
+  local w = T.widths.tab
+  if type(textW) == "number" and textW == textW and textW > 0 then
+    w = math.max(w, math.ceil(textW + 2 * T.sizes.tabTextPad))
+  end
+  return w
+end
+
 local function makeTab(row, label)
   local T, W = ns.Theme, ns.UI.Widgets
   local S = T.sizes
   local b = CreateFrame("Button", nil, row)
-  b:SetSize(T.widths.tab, S.tabHeight)
   b:SetClipsChildren(true)
   local skin = CreateFrame("Frame", nil, b, "BackdropTemplate")
   skin:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
-  skin:SetSize(T.widths.tab, S.tabHeight + S.tabEdge)
   skin:EnableMouse(false)
   local inset = edgeInset()
   skin:SetBackdrop({
@@ -196,6 +205,9 @@ local function makeTab(row, label)
   text:SetPoint("CENTER", b, "CENTER", 0, 0)
   text:SetText(label)
   b.label = text
+  local width = Tabs.buttonWidth(text:GetStringWidth())
+  b:SetSize(width, S.tabHeight)
+  skin:SetSize(width, S.tabHeight + S.tabEdge)
   b.isSelected, b.isHovered = false, false
 
   function b:ApplyLook()
@@ -210,16 +222,18 @@ local function makeTab(row, label)
   return b
 end
 
--- `row` is the header row to put the buttons in; `onSelect(key)` is called when
--- another tab's button is clicked. Returns an object with SetSelected(key).
--- The tabs stand on a line along the bottom of the row; the line is open below
--- the selected tab (baseLeft up to it, baseRight after it).
-function Tabs.attach(row, onSelect)
+-- A strip of tab buttons in `row`: `items` = { { key, label }, ... } in order;
+-- `onSelect(key)` is called when another tab's button is clicked. Returns an
+-- object with SetSelected(key). The tabs stand on a line along the bottom of the
+-- row; the line is open below the selected tab (baseLeft up to it, baseRight
+-- after it). Used by the ledger (Tabs.attach) and the options panel.
+function Tabs.strip(row, items, onSelect)
   local T, W = ns.Theme, ns.UI.Widgets
-  local tabs = { buttons = {} }
+  local tabs = { buttons = {}, first = items[1] and items[1].key }
   local previous
-  for _, key in ipairs(Tabs.KEYS) do
-    local b = makeTab(row, Tabs.label(key))
+  for _, item in ipairs(items) do
+    local key = item.key
+    local b = makeTab(row, item.label)
     if previous then
       b:SetPoint("BOTTOMLEFT", previous, "BOTTOMRIGHT", T.sizes.buttonGap, 0)
     else
@@ -260,7 +274,7 @@ function Tabs.attach(row, onSelect)
       return
     end
     right:SetPoint("BOTTOMLEFT", selectedButton, "BOTTOMRIGHT", -inset, 0)
-    local first = selectedButton == tabs.buttons[Tabs.KEYS[1]]
+    local first = selectedButton == tabs.buttons[tabs.first]
     left:SetShown(not first)
     if not first then
       left:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
@@ -281,4 +295,11 @@ function Tabs.attach(row, onSelect)
   placeBase(nil)
 
   return tabs
+end
+
+-- The ledger's tab buttons (header row 3): one per defined tab.
+function Tabs.attach(row, onSelect)
+  local items = {}
+  for _, key in ipairs(Tabs.KEYS) do items[#items + 1] = { key = key, label = Tabs.label(key) } end
+  return Tabs.strip(row, items, onSelect)
 end

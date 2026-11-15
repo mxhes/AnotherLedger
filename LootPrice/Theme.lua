@@ -119,6 +119,7 @@ Theme.sizes = {
   tabHeight = 24,
   tabEdge = 12,
   tabGlowHeight = 12,
+  tabTextPad = 10, -- space left and right of a label wider than widths.tab
   tabLine = 1, -- the line under the tab row (open below the selected tab)
   buttonGap = 2,
   timerWidth = 54,

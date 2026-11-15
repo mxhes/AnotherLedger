@@ -64,6 +64,18 @@ Options.CATEGORIES = {
 -- ({ key = "header:<id>", type = "header", label }) followed by its options in
 -- the order they were defined. Empty sections are left out.
 function Options.entries()
+  local out = {}
+  for _, section in ipairs(Options.sections()) do
+    out[#out + 1] = { key = "header:" .. section.id, type = "header", label = section.label }
+    for _, spec in ipairs(section.specs) do out[#out + 1] = spec end
+  end
+  return out
+end
+
+-- The sections in panel order, each { id, label, specs = { spec, ... } }: one
+-- tab of the options panel each. Empty sections are left out; options without
+-- a known category form a last "Other" section.
+function Options.sections()
   local known, byCategory = {}, {}
   for _, c in ipairs(Options.CATEGORIES) do known[c.id], byCategory[c.id] = true, {} end
   local other = {}
@@ -73,9 +85,7 @@ function Options.entries()
   end
   local out = {}
   local function section(id, label, specs)
-    if #specs == 0 then return end
-    out[#out + 1] = { key = "header:" .. id, type = "header", label = label }
-    for _, spec in ipairs(specs) do out[#out + 1] = spec end
+    if #specs > 0 then out[#out + 1] = { id = id, label = label, specs = specs } end
   end
   for _, c in ipairs(Options.CATEGORIES) do section(c.id, c.label, byCategory[c.id]) end
   section("other", L["Other"], other)

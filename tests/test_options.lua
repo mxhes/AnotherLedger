@@ -196,6 +196,21 @@ h.test("Options.entries: a header per section, every option exactly once, in sec
   for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
 end)
 
+h.test("Options.sections: one per category in order, every option once, in its own section", function()
+  local ids, seen = {}, {}
+  for _, s in ipairs(O.sections()) do
+    ids[#ids + 1] = s.id
+    h.eq(#s.specs > 0, true, s.id)
+    for _, spec in ipairs(s.specs) do
+      h.eq(seen[spec.key], nil, spec.key)
+      seen[spec.key] = true
+      h.eq(spec.category, s.id, spec.key)
+    end
+  end
+  h.eq(ids, { "window", "prices", "display", "session" }) -- no empty Other
+  for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
+end)
+
 h.test("Options.entries: an option without a known category goes to Other", function()
   local spec = O.define({ key = "zzTest", type = "checkbox", label = "T" })
   local entries = O.entries()

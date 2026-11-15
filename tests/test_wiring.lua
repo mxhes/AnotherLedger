@@ -626,6 +626,34 @@ h.test("wiring: the options panel builds a widget for every registered option", 
   h.eq(ctx.ns.UI.Ledger.frame.header ~= nil, true)
 end)
 
+h.test("wiring: the options panel has a tab per category, one page shown at a time", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local P, O = ctx.ns.UI.OptionsPanel, ctx.ns.Options
+  P.toggle()
+  local tabbed = P.frame.tabbed
+  local sections = O.sections()
+  local first, second = sections[1].id, sections[2].id
+  for _, s in ipairs(sections) do h.eq(tabbed.strip.buttons[s.id] ~= nil, true, s.id) end
+  h.eq(tabbed.pages[first]:IsShown(), true)
+  h.eq(tabbed.pages[second]:IsShown(), false)
+  h.eq(tabbed.strip.selected, first)
+  -- clicking another tab shows its page only
+  tabbed.strip.buttons[second]._scripts.OnClick()
+  h.eq(tabbed.pages[first]:IsShown(), false)
+  h.eq(tabbed.pages[second]:IsShown(), true)
+  h.eq(P.tab, second)
+  -- the options page in the game's window opens on the same tab
+  local page = P.registerPage()
+  page._scripts.OnShow(page)
+  h.eq(page.tabbed.strip.selected, second)
+  -- the panel keeps its size whichever tab is shown
+  local height = P.frame:GetHeight()
+  tabbed.select(first)
+  h.eq(P.frame:GetHeight(), height)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: saved option values are applied at login", function()
   local ctx = boot({ db = { settings = { alpha = 7, priceSource = "zzz" } } })
   startWorld(ctx, false)

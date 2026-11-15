@@ -53,3 +53,13 @@ h.test("Tabs.look: selected tab is gold with a glow, others dark with a tan edge
   h.eq(Tabs.look(false, true).border, T.colors.tabBorderHover)
   h.eq(Tabs.look(true, true), sel)
 end)
+
+h.test("Tabs.buttonWidth: the theme width, wider for a long label", function()
+  local S = ns.Theme.sizes
+  local base = ns.Theme.widths.tab
+  h.eq(T.buttonWidth(nil), base)
+  h.eq(T.buttonWidth(0), base)
+  h.eq(T.buttonWidth(30), base)
+  h.eq(T.buttonWidth(120), 120 + 2 * S.tabTextPad)
+  h.eq(T.buttonWidth(120.4), math.ceil(120.4 + 2 * S.tabTextPad))
+end)

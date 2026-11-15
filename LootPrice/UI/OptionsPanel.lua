@@ -8,8 +8,9 @@ ns.UI = ns.UI or {}
 -- registered with Options.define (Options.lua). Client-only widgets; every WoW
 -- global is touched inside functions only.
 --
--- Expandability: the panel never names an option. It walks Options.entries() (sections with their options) and
--- asks WIDGETS[spec.type] for a widget. A new option is one Options.define
+-- Expandability: the panel never names an option. It shows one tab per
+-- section of Options.sections() (the option categories, tab buttons from
+-- UI/Tabs.lua) and asks WIDGETS[spec.type] for a widget per option. A new option is one Options.define
 -- call; a new kind of control is one entry in WIDGETS (plus its height in
 -- Options.HEIGHTS).
 local Panel = {}
@@ -20,6 +21,7 @@ local COLUMNS = 2
 local COLUMN_WIDTH = 250
 local COLUMN_GAP = 24
 local TITLE_HEIGHT = 24
+local TAB_GAP = 10 -- between the tab row and the options of the selected tab
 
 local function theme() return ns.Theme end
 
@@ -232,11 +234,65 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
   return widgets
 end
 
+-- Pure. Height of the tabbed area: the tab row, the gap under it and the
+-- tallest section laid out in `columns` (so switching tabs never resizes).
+function Panel.tabbedHeight(sections, columns)
+  local tallest = 0
+  for _, section in ipairs(sections) do
+    tallest = math.max(tallest, ns.Options.layout(section.specs, columns).height)
+  end
+  return theme().sizes.headerRowHeight + TAB_GAP + tallest
+end
+
+-- The selected tab, shared by the panel and the options page and kept for the
+-- session. A section id; an unknown one falls back to the first section.
+Panel.tab = nil
+
+-- One tab per section (Options.sections) in `parent`, `pad` from the sides and
+-- `top` from the top: the tab row, and under it one page per section with its
+-- options in COLUMNS columns; only the selected tab's page is shown. Returns
+-- { widgets = { [key] = widget }, select = function(id), height }.
+function Panel.buildTabbed(parent, pad, top)
+  local S = theme().sizes
+  local sections = ns.Options.sections()
+  local row = CreateFrame("Frame", nil, parent)
+  row:SetHeight(S.headerRowHeight)
+  row:SetPoint("TOPLEFT", parent, "TOPLEFT", pad, -top)
+  row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -pad, -top)
+
+  local tabbed = { widgets = {}, pages = {}, height = Panel.tabbedHeight(sections, COLUMNS) }
+  local items = {}
+  for _, section in ipairs(sections) do
+    items[#items + 1] = { key = section.id, label = section.label }
+    local page = CreateFrame("Frame", nil, parent)
+    page:SetPoint("TOPLEFT", row, "BOTTOMLEFT", -pad, -TAB_GAP)
+    page:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", pad, -TAB_GAP)
+    page:SetHeight(tabbed.height - S.headerRowHeight - TAB_GAP)
+    page:Hide()
+    local layout = ns.Options.layout(section.specs, COLUMNS)
+    for key, w in pairs(Panel.populate(page, pad, 0, section.specs, layout, COLUMN_WIDTH)) do
+      tabbed.widgets[key] = w
+    end
+    tabbed.pages[section.id] = page
+  end
+
+  local strip
+  function tabbed.select(id)
+    if not tabbed.pages[id] then id = sections[1] and sections[1].id end
+    if not id then return end
+    Panel.tab = id
+    for key, page in pairs(tabbed.pages) do page:SetShown(key == id) end
+    if strip then strip:SetSelected(id) end
+  end
+  strip = ns.UI.Tabs.strip(row, items, tabbed.select)
+  tabbed.strip = strip
+  tabbed.select(Panel.tab)
+  return tabbed
+end
+
 local function build()
   local T = theme()
   local pad = T.sizes.padding + 4
-  local specs = ns.Options.entries()
-  local layout = ns.Options.layout(specs, COLUMNS)
   local width = 2 * pad + COLUMNS * COLUMN_WIDTH + (COLUMNS - 1) * COLUMN_GAP
 
   local frame = CreateFrame("Frame", "LootPriceOptions", UIParent, "BackdropTemplate")
@@ -244,7 +300,9 @@ local function build()
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
-  frame:SetSize(width, 2 * pad + TITLE_HEIGHT + layout.height)
+  local tabbed = Panel.buildTabbed(frame, pad, pad + TITLE_HEIGHT)
+  frame.tabbed = tabbed
+  frame:SetSize(width, 2 * pad + TITLE_HEIGHT + tabbed.height)
   ns.UI.Widgets.applyBackdrop(frame)
   -- Always fully opaque: the opacity option is for the ledger window.
   local c = T.colors.panelTint
@@ -259,12 +317,16 @@ local function build()
   local close = ns.UI.Widgets.closeButton(frame, T.widths.header.hide, function() frame:Hide() end)
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -pad, -pad + 2)
 
-  frame.widgets = Panel.populate(frame, pad, pad + TITLE_HEIGHT, specs, layout, COLUMN_WIDTH)
+  frame.widgets = tabbed.widgets
 
   function frame:RefreshAll()
     for _, w in pairs(self.widgets) do w.refresh() end
   end
-  frame:SetScript("OnShow", function(self) self:RefreshAll() end)
+  -- Opens on the tab last used (here or on the options page).
+  frame:SetScript("OnShow", function(self)
+    self.tabbed.select(Panel.tab)
+    self:RefreshAll()
+  end)
 
   -- Esc closes the panel.
   if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootPriceOptions") end
@@ -308,8 +370,6 @@ local PAGE_NAME = "LootPrice"
 local function buildPage()
   local T = theme()
   local pad = 16
-  local specs = ns.Options.entries()
-  local layout = ns.Options.layout(specs, COLUMNS)
 
   local page = CreateFrame("Frame", "LootPriceOptionsPage")
   page.name = PAGE_NAME
@@ -317,11 +377,17 @@ local function buildPage()
   title:SetPoint("TOPLEFT", page, "TOPLEFT", pad, -pad)
   title:SetText(PAGE_NAME)
 
-  page.widgets = Panel.populate(page, pad, pad + TITLE_HEIGHT, specs, layout, COLUMN_WIDTH)
+  -- The tab row spans the two columns (the canvas may be wider).
+  local tabbed = Panel.buildTabbed(page, pad, pad + TITLE_HEIGHT)
+  page.tabbed = tabbed
+  page.widgets = tabbed.widgets
   function page:RefreshAll()
     for _, w in pairs(self.widgets) do w.refresh() end
   end
-  page:SetScript("OnShow", function(self) self:RefreshAll() end)
+  page:SetScript("OnShow", function(self)
+    self.tabbed.select(Panel.tab)
+    self:RefreshAll()
+  end)
   -- Callbacks of the legacy interface options window; values save as they change.
   page.refresh = function(self) self:RefreshAll() end
   page.okay = function() end

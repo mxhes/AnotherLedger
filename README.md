@@ -48,7 +48,7 @@ Three ways in, all showing the same options:
 - a **data broker** (LibDataBroker, for Titan Panel, ElvUI, ChocolateBar, ...): shows the session's best value plus raw gold and its rate; same clicks, tooltip with the totals;
 - the page **LootPrice** in the game's own options window (Esc > Options > AddOns).
 
-The panel has two columns and four sections. Settings are stored in `LootPriceDB.settings` and applied at login (invalid saved values are repaired).
+The panel has one tab per section (Window, Prices, Display, Session and alerts), drawn like the ledger's tabs; each tab shows its options in two columns, and the panel keeps the height of the tallest tab so it does not jump when you switch. It opens on the tab used last (for the session); the page in the game's options window has the same tabs. Settings are stored in `LootPriceDB.settings` and applied at login (invalid saved values are repaired).
 
 **Window**
 - **Window opacity** (0-100 %, default 100 %): fades the background and border; text and rows stay opaque.
@@ -88,7 +88,7 @@ The panel has two columns and four sections. Settings are stored in `LootPriceDB
 The panel is built from a registry, it never names an option. To add one:
 
 1. Put its default in `DB.defaults.settings` (`LootPrice/DB.lua`). Buttons have no value and no default.
-2. Register it in `LootPrice/Options.lua` with one `Options.define({ key, category, type, label, ... , apply = function(value) ... end })`. `category` is a section id from `Options.CATEGORIES` (`window`, `prices`, `display`, `session`); without one the option lands in an "Other" section. Types: `slider` (`min`, `max`, `step`, optional `format`), `dropdown` (`choices = { { value, label }, ... }` or a function returning that list), `checkbox`, `number` (whole number, empty = unlimited), `text` (any non-empty text) and `button` (`action` runs on click). Values are validated by type and fall back to the default; `apply` makes the value take effect (and also runs for the saved value at login).
+2. Register it in `LootPrice/Options.lua` with one `Options.define({ key, category, type, label, ... , apply = function(value) ... end })`. `category` is a section id from `Options.CATEGORIES` (`window`, `prices`, `display`, `session`); without one the option lands in an "Other" section (its own tab). Types: `slider` (`min`, `max`, `step`, optional `format`), `dropdown` (`choices = { { value, label }, ... }` or a function returning that list), `checkbox`, `number` (whole number, empty = unlimited), `text` (any non-empty text) and `button` (`action` runs on click). Values are validated by type and fall back to the default; `apply` makes the value take effect (and also runs for the saved value at login).
 3. Read it where it is needed with `Options.get(ns.db, key)`.
 
 A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPanel.lua`) plus its block height in `Options.HEIGHTS`. The panel grows to fit.
@@ -229,8 +229,8 @@ Tabs (Bags / Bank / History)
 
 Options
 - [ ] Minimap button: shows near the bottom left of the minimap, left click toggles the window, right click opens the options panel, dragging moves it around the rim and the place survives `/reload`; the option hides it and **Reset minimap button position** brings it back; the tooltip lists the clicks; `INV_Misc_Coin_01`, `MiniMap-TrackingBorder` and `UI-Minimap-ZoomButton-Highlight` textures exist
-- [ ] Options page: a **LootPrice** entry exists under Esc > Options > AddOns (`Settings.RegisterCanvasLayoutCategory`), shows the same sections and values as the panel (two columns fit the page width) and edits apply at once
-- [ ] Panel sections (Window, Prices, Display, Session and alerts) show a gold title with a line, no title sits alone at the bottom of a column, and the panel fits on the screen
+- [ ] Options page: a **LootPrice** entry exists under Esc > Options > AddOns (`Settings.RegisterCanvasLayoutCategory`), shows the same tabs and values as the panel (two columns fit the page width), opens on the tab used last in the panel, and edits apply at once
+- [ ] Panel tabs (Window, Prices, Display, Session and alerts) look like the ledger's tabs (open at the bottom, gold edge and glow on the selected one, hover lights the edge); "Session and alerts" gets a wider button that fits its label (also German); clicking a tab shows only its options, the panel keeps its size, and it fits on the screen
 - [ ] Font dropdown lists WoW default and the fonts the client loads; picking one changes all addon text at once and **WoW default** restores it; other addons' fonts do not change; dragging a text size slider resizes the list, totals and titles at once, without `/reload` and without clipped text (also at 18 px / 24 px and back to the defaults); rows, footer lines and Top finds get their new heights, the window grows to the new minimum size (`Font:SetFont` on the addon's own font objects updates the FontStrings that use them)
 - [ ] **Show item icons** off removes the icons and the quality frame from every row at once (also History and Bags), the names start at the left edge, the minimum width shrinks; on brings them back
 - [ ] Window scale keeps the window in place; Lock window blocks dragging and resizing; Start hidden at login hides it after `/reload`
