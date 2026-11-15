@@ -140,7 +140,7 @@ A window part that should redraw with the ledger registers itself with `ns.UI.Le
 
 ## Events used
 
-`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan), `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` (combat auto hide), `CHAT_MSG_CURRENCY` (currencies), `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED` (bank rescan), `PLAYER_FLAGS_CHANGED` (AFK pause), `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` `_SHOW` / `_CLOSED` (purchases are not loot). An event the client does not know is skipped at registration.
+`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan), `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` (combat auto hide), `CHAT_MSG_CURRENCY` (currencies), `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED` (bank rescan), `PLAYER_FLAGS_CHANGED` (AFK pause), `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA` (History Zones: time per zone and subzone), `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` `_SHOW` / `_CLOSED` (purchases are not loot). An event the client does not know is skipped at registration.
 
 ## Requirements
 
@@ -289,6 +289,7 @@ Variants, values and currencies
 
 Places, automatic sessions, export
 - [ ] `GetInstanceInfo` / `GetRealZoneText` give the zone outside and `Instance (Difficulty)` inside; History rows show the main place and the tooltip all places and rates
+- [ ] Zones: `GetSubZoneText` gives the subzone shown on the minimap ("" without one); walking into another subzone fires `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS`, a new zone `ZONE_CHANGED_NEW_AREA`, and the time moves to the new place
 - [ ] New session for each dungeon or raid: entering and leaving a dungeon each save a History entry; a loading screen in the open world does not
 - [ ] Pause the clock while AFK: `/afk` stops the clock, moving again restarts it (`PLAYER_FLAGS_CHANGED`, `UnitIsAFK`)
 - [ ] `/lp export` and the options button open the copy box (`UIPanelScrollFrameTemplate`), the CSV is selected, Ctrl+C copies it, Esc closes it

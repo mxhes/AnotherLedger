@@ -108,3 +108,14 @@ h.test("History.details: lines for when, where and the rates", function()
   local text = ns.History.details(e, function() return "D" end)
   h.eq(text, "D  (2h 0m, 3 items)\nPlaces: X\nVendor: 0c  (0c/h)\nAH: 4g  (2g/h)\nBest: 4g  (2g/h)\nRaw gold: 2g  (1g/h)")
 end)
+
+h.test("History.snapshot keeps the time and loot per place", function()
+  local s = session({ { 1, 3 } })
+  s.zones = { Z = { subs = { A = { time = 10, gold = 5, items = { [1] = 3 } } } } }
+  s.running, s.runningSince = true, 1000
+  s.at = { zone = "Z", sub = "A", since = 1000 }
+  local e = H.snapshot(s, lookup, 1100)
+  h.eq(e.zones.Z.subs.A.time, 110)
+  h.eq(e.zones.Z.subs.A.items[1], 3)
+  h.eq(e.zones.Z.subs.A.gold, 5)
+end)

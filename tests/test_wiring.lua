@@ -1243,3 +1243,33 @@ h.test("wiring: TSM sale info shows under the name and follows its options", fun
   h.eq(row.market:GetText(), "")
   h.eq(ctx.errors, {})
 end)
+
+-- A stub client that knows where the player is (zone / subzone set by the test).
+local function bootInZone(zone, sub)
+  local ctx = boot()
+  ctx.place = { zone = zone, sub = sub }
+  ctx.env.GetRealZoneText = function() return ctx.place.zone end
+  ctx.env.GetSubZoneText = function() return ctx.place.sub end
+  return ctx
+end
+
+h.test("wiring: loot and gold are recorded per zone and subzone", function()
+  local ctx = bootInZone("Waking Shores", "Dragonheart Outpost")
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = 1060
+  ctx.place.sub = "Wingrest"
+  fire(ctx, "ZONE_CHANGED")
+  fire(ctx, "CHAT_MSG_LOOT", lootMsg(2592, 2))
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
+  local z = ctx.ns.session.zones["Waking Shores"]
+  h.eq(z.subs["Dragonheart Outpost"].items[2589], 3)
+  h.eq(z.subs["Dragonheart Outpost"].time, 60)
+  h.eq(z.subs.Wingrest.items[2592], 2)
+  h.eq(z.subs.Wingrest.gold, 500)
+  ctx.now = 1100
+  slash(ctx, "reset")
+  local e = ctx.env.LootPriceCharDB.history[1]
+  h.eq(e.zones["Waking Shores"].subs.Wingrest.time, 40)
+  h.eq(ctx.errors, {})
+end)

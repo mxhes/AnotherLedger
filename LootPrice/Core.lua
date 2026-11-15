@@ -164,6 +164,24 @@ function Core.placeOf(env)
   return zone, nil
 end
 
+-- Pure over `env`: the subzone label, or `zone` when there is none.
+-- UNVERIFIED (check in client): GetSubZoneText exists on Forever and is "" in
+-- places without a subzone.
+function Core.subzoneOf(env, zone)
+  if type(env.GetSubZoneText) == "function" then
+    local ok, v = pcall(env.GetSubZoneText)
+    if ok and type(v) == "string" and v ~= "" then return v end
+  end
+  return zone
+end
+
+-- History Zones: tells the session where the player is now (zone and subzone).
+function Core.updatePlace()
+  if not ns.session then return end
+  local zone = Core.placeOf(_G)
+  ns.Session.enterPlace(ns.session, zone, Core.subzoneOf(_G, zone), time())
+end
+
 local function notePlace()
   if ns.session then ns.Session.notePlace(ns.session, (Core.placeOf(_G))) end
 end
@@ -195,6 +213,8 @@ function Core.recordLoot(link, qty, kind)
   local added, item = ns.Session.add(ns.session, itemID, link, qty, time(), key)
   if not added then return end
   notePlace()
+  Core.updatePlace()
+  ns.Session.notePlaceLoot(ns.session, key, qty)
   local info = Core.lookupPrice(itemID, link)
   ns.Session.setPrice(item, info)
   local unitValue = Core.unitValue(info)
@@ -240,6 +260,8 @@ function Core.recordGold(copper)
   if not ns.session then return end
   if not ns.Session.addGold(ns.session, copper, time()) then return end
   notePlace()
+  Core.updatePlace()
+  ns.Session.notePlaceGold(ns.session, copper)
   requestRefresh(0)
 end
 
@@ -267,6 +289,7 @@ end
 function Core.startSession()
   if not ns.session then return end
   ns.session.afkPaused = nil
+  Core.updatePlace()
   ns.Session.start(ns.session, time())
   say(L["session started."])
   refreshUI()
@@ -381,6 +404,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   keyState.key = Core.evalKey(_G)
   keyState.tried = now
   if setupDone then
+    Core.updatePlace()
     checkInstance()
     return
   end
@@ -398,6 +422,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
+  Core.updatePlace()
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   -- Before the options: LibDBIcon (if loaded) takes over the minimap button.
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
@@ -408,6 +433,12 @@ end
 
 -- Combat auto hide / show (option "combatHide"): hides the window when combat
 -- starts and shows it again when combat ends, but only if it was shown before.
+-- History Zones: the player moved to another zone or subzone (no redraw).
+-- UNVERIFIED (check in client): these fire on Forever for subzone changes too.
+for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
+  events[event] = function() Core.updatePlace() end
+end
+
 function events.PLAYER_REGEN_DISABLED()
   local window = ns.UI and ns.UI.Window
   if window and ns.db and ns.db.settings.combatHide then window.combatHide() end

@@ -15,6 +15,13 @@ h.test("Core.countsAsLoot: crafted and bought items only with the option", funct
   h.eq(Core.countsAsLoot(nil, false, true), true)
 end)
 
+h.test("Core.subzoneOf uses the subzone, else the zone", function()
+  h.eq(Core.subzoneOf({ GetSubZoneText = function() return "Hall" end }, "Zone"), "Hall")
+  h.eq(Core.subzoneOf({ GetSubZoneText = function() return "" end }, "Zone"), "Zone")
+  h.eq(Core.subzoneOf({}, "Zone"), "Zone")
+  h.eq(Core.subzoneOf({ GetSubZoneText = function() error("no") end }, "Zone"), "Zone")
+end)
+
 h.test("Core.placeOf: zone outside, instance with difficulty inside", function()
   h.eq({ Core.placeOf({ GetRealZoneText = function() return "Dornogal" end,
     GetInstanceInfo = function() return "Khaz Algar", "none" end }) }, { "Dornogal" })

@@ -8,7 +8,8 @@ local L = ns.L
 --   { startedAt, elapsed, gold, nItems, vendor, ah, best, unpriced,
 --     places = { "label", ... } (most loot first),
 --     items = { [key] = { id, key, link, qty, lastSeen, price } },
---     currencies = { [currencyID] = { id, link, qty } } }
+--     currencies = { [currencyID] = { id, link, qty } },
+--     zones = Session.zoneSnapshot (loot, gold and time per zone / subzone) }
 -- The vendor / AH / best totals are the prices at archive time; an item the
 -- live lookup cannot price falls back to the price seen when it was looted.
 local History = {
@@ -89,10 +90,12 @@ function History.snapshot(session, lookup, now)
       places[i] = label
     end
   end
+  local zones
+  if ns.Session and ns.Session.zoneSnapshot then zones = ns.Session.zoneSnapshot(session, now) end
   return {
     startedAt = nonNeg(session.startedAt), elapsed = elapsed, gold = gold,
     nItems = count, vendor = vendor, ah = ah, best = best, unpriced = unpriced,
-    places = places, items = items, currencies = currencies,
+    places = places, items = items, currencies = currencies, zones = zones,
   }
 end
 
