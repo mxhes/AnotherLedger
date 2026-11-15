@@ -34,7 +34,8 @@ local function build()
   title:SetText(L_TITLE)
   frame.titleText = title
 
-  local close = W.closeButton(frame, T.widths.header.hide, function() frame:Hide() end)
+  local close = W.iconButton(frame, "close", T.widths.header.hide, function() frame:Hide() end)
+  frame.close = close
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
 
   local hint = W.text(frame, T.fonts.small, T.colors.hint, "LEFT")

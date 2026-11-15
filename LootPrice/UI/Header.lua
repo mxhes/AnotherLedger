@@ -89,29 +89,21 @@ function Header.attach(row, handlers)
   local header = { row = row }
 
   -- Buttons are laid out right to left: Close, Options, Reset, Start / Stop.
-  local hide = W.closeButton(row, widths().hide, function()
+  local hide = W.iconButton(row, "close", widths().hide, function()
     -- Window.hide persists the hidden flag; never frame:Hide() directly.
     if handlers.hide then handlers.hide() end
   end)
   hide:SetPoint("RIGHT", row, "RIGHT", 0, 0)
 
   -- Options (gear icon), left of the Hide button; opens the options panel.
-  local options = CreateFrame("Button", nil, row)
-  options:SetSize(widths().options, T.sizes.buttonHeight)
-  options:SetPoint("RIGHT", hide, "LEFT", -gap, 0)
-  options:SetNormalTexture(T.textures.optionsIcon)
-  local normal = options:GetNormalTexture()
-  if normal and normal.SetTexCoord then normal:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
-  options:SetHighlightTexture(T.textures.buttonHighlight, "ADD")
-  options:SetScript("OnClick", function()
+  local options = W.iconButton(row, "gear", widths().options, function()
     if handlers.options then handlers.options() end
   end)
-  options:SetScript("OnEnter", function(self)
-    W.showTextTooltip(self, L_OPTIONS, "ANCHOR_BOTTOMRIGHT")
-  end)
-  options:SetScript("OnLeave", W.hideTooltip)
+  options:SetPoint("RIGHT", hide, "LEFT", -gap, 0)
+  options.onEnter = function(self) W.showTextTooltip(self, L_OPTIONS, "ANCHOR_BOTTOMRIGHT") end
+  options.onLeave = W.hideTooltip
 
-  local reset = makeButton(row, L_RESET, widths().reset)
+  local reset = makeButton(row, L_RESET, widths().reset, { warn = true })
   reset:SetPoint("RIGHT", options, "LEFT", -gap, 0)
   reset:SetScript("OnClick", function() Header.requestReset() end)
 

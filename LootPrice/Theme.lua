@@ -16,6 +16,10 @@ Theme.textures = {
   resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
   -- Options button: a gear-like trade icon, present in every client.
   optionsIcon = "Interface\\Icons\\Trade_Engineering",
+  -- Bronze buttons: a thin 1 px edge (tinted per state) and the icon glyphs.
+  buttonEdge = "Interface\\Buttons\\WHITE8X8",
+  iconGear = "Interface\\Icons\\Trade_Engineering",
+  iconClose = "Interface\\Buttons\\UI-StopButton",
   buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
   -- Thin rounded edge of the tab buttons (tinted with colors.tabBorder*).
   tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -82,6 +86,16 @@ Theme.colors = {
   tagVendor = { 0.88, 0.78, 0.56, 1 },
   tagAh = { 0.50, 0.82, 1.00, 1 },
   tagDe = { 0.83, 0.61, 1.00, 1 },
+  -- Bronze dark buttons (Widgets.buttonColors) and input boxes.
+  buttonFill = { 0.10, 0.07, 0.04, 0.95 },
+  buttonEdge = { 0.55, 0.42, 0.24, 1 },
+  buttonEdgeHover = { 1.00, 0.82, 0.20, 1 },
+  buttonText = { 0.93, 0.87, 0.72, 1 },
+  buttonTextDisabled = { 0.50, 0.46, 0.38, 1 },
+  buttonWarnEdge = { 0.62, 0.24, 0.17, 1 },
+  buttonWarnEdgeHover = { 0.90, 0.36, 0.26, 1 },
+  buttonWarnText = { 1.00, 0.70, 0.62, 1 },
+  inputFill = { 0.06, 0.04, 0.02, 0.95 },
   -- Column titles of the footer table (Value, /h): the hint color.
   columnTitle = { 0.68, 0.63, 0.55, 1 },
   -- Tab buttons: no fill of their own (they show the window background, so its
@@ -119,6 +133,10 @@ Theme.sizes = {
   padding = 8,
   headerHeight = 84, -- three header rows: title/buttons, filters, tabs
   headerRowHeight = 28,
+  -- Bronze buttons: edge thickness, fill inset, glyph padding of icon buttons.
+  buttonEdge = 1,
+  buttonInset = 1,
+  iconButtonPad = 3,
   -- Star in front of the Daily farm strip.
   dailyFarmIcon = 16,
   -- Footer = the value table: a column-title line and the rows Items / Raw gold

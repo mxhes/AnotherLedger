@@ -1571,6 +1571,27 @@ h.test("wiring: hiding Top finds and the Raw gold row takes effect at once", fun
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: every header and filter button has the bronze style", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local H = ctx.ns.UI.Header.instance
+  h.eq(H.toggle.kind, "bronze"); h.eq(H.toggle.warn, false)
+  h.eq(H.reset.kind, "bronze"); h.eq(H.reset.warn, true)
+  h.eq(H.options.kind, "icon"); h.eq(H.hide.kind, "icon")
+  local F = ctx.ns.UI.FilterBar.instance
+  h.eq(F.quality.kind, "bronze"); h.eq(F.sort.kind, "bronze")
+  h.eq(F.minBox.kind, "input"); h.eq(F.search.kind, "input")
+  -- hover lights the edge gold, leaving restores it
+  local b = H.toggle
+  b._scripts.OnEnter(b)
+  h.eq(b.look, "hover")
+  b._scripts.OnLeave(b)
+  h.eq(b.look, "normal")
+  slash(ctx, "export")
+  h.eq(ctx.ns.UI.Export.frame.close.kind, "icon")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: no daily farm strip on a character without History", function()
   local ctx = boot()
   startWorld(ctx, false)

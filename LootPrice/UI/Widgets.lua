@@ -39,31 +39,133 @@ function Widgets.line(parent, color, layer, alpha)
   return tex
 end
 
--- Standard panel button with the theme's per-state fonts (a FontString font
--- would be reset on state changes).
-function Widgets.button(parent, label, width)
+-- ---------------------------------------------------------------------------
+-- Bronze dark buttons: one style for every button of the addon (dark fill,
+-- bronze edge, cream text; gold edge on hover, dimmed text when disabled; a
+-- warning button such as Reset keeps a red edge and text).
+
+-- Pure. Colors of a button in `state` ("normal" / "hover" / "disabled").
+function Widgets.buttonColors(state, warn)
+  local c = ns.Theme.colors
+  local hover, disabled = state == "hover", state == "disabled"
+  local edge
+  if warn then
+    edge = hover and c.buttonWarnEdgeHover or c.buttonWarnEdge
+  else
+    edge = hover and c.buttonEdgeHover or c.buttonEdge
+  end
+  local text = disabled and c.buttonTextDisabled or (warn and c.buttonWarnText or c.buttonText)
+  return { fill = c.buttonFill, edge = edge, text = text }
+end
+
+-- The shared backdrop of buttons and input boxes.
+local function buttonBackdrop(frame)
+  if not frame.SetBackdrop then return end
   local T = ns.Theme
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  local inset = T.sizes.buttonInset
+  frame:SetBackdrop({
+    bgFile = T.textures.parchment,
+    edgeFile = T.textures.buttonEdge,
+    edgeSize = T.sizes.buttonEdge,
+    insets = { left = inset, right = inset, top = inset, bottom = inset },
+  })
+end
+
+local function paint(b, state)
+  b.look = state
+  local c = Widgets.buttonColors(state, b.warn)
+  if b.SetBackdropColor then
+    b:SetBackdropColor(c.fill[1], c.fill[2], c.fill[3], c.fill[4] or 1)
+    b:SetBackdropBorderColor(c.edge[1], c.edge[2], c.edge[3], c.edge[4] or 1)
+  end
+  if b.label then b.label:SetTextColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1) end
+  if b.glyph and b.glyph.SetDesaturated then b.glyph:SetDesaturated(state == "disabled") end
+end
+
+-- A button counts as disabled only when IsEnabled says false.
+local function isDisabled(b)
+  return b.IsEnabled ~= nil and b:IsEnabled() == false
+end
+
+local function restingState(b)
+  return isDisabled(b) and "disabled" or "normal"
+end
+
+-- Hover / enable handlers shared by both button kinds.
+local function wireStates(b)
+  b:SetScript("OnEnter", function(self)
+    if not isDisabled(self) then paint(self, "hover") end
+    if self.onEnter then self.onEnter(self) end
+  end)
+  b:SetScript("OnLeave", function(self)
+    paint(self, restingState(self))
+    if self.onLeave then self.onLeave(self) end
+  end)
+  b:SetScript("OnEnable", function(self) paint(self, "normal") end)
+  b:SetScript("OnDisable", function(self) paint(self, "disabled") end)
+  paint(b, "normal")
+end
+
+-- Text button. `opts.warn` gives the red warning look (Reset).
+-- SetText / GetText work on the label; hover / leave hooks go in b.onEnter /
+-- b.onLeave (the button's own OnEnter / OnLeave repaint it).
+-- UNVERIFIED (check in client): Button:SetFontString with a BackdropTemplate
+-- button keeps SetText / GetText working.
+function Widgets.button(parent, label, width, opts)
+  local T = ns.Theme
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   if width then
     b:SetSize(width, T.sizes.buttonHeight)
   else
     b:SetHeight(T.sizes.buttonHeight)
   end
+  buttonBackdrop(b)
+  local fs = b:CreateFontString(nil, "OVERLAY", T.fonts.button)
+  fs:SetPoint("CENTER", b, "CENTER", 0, 0)
+  fs:SetWordWrap(false)
+  if b.SetFontString then b:SetFontString(fs) end
+  b.label, b.glyph, b.onEnter, b.onLeave = fs, false, false, false
+  b.kind, b.warn = "bronze", (opts and opts.warn) and true or false
   b:SetText(label or "")
-  b:SetNormalFontObject(T.fonts.button)
-  b:SetHighlightFontObject(T.fonts.buttonHighlight)
-  b:SetDisabledFontObject(T.fonts.buttonDisabled)
+  wireStates(b)
   return b
 end
 
--- The game's own close button (the red X) at `size` px square. The template's
--- default click (hide the parent) is replaced by `onClick`.
--- UNVERIFIED (check in client): UIPanelCloseButton art scaled down to 20 px.
-function Widgets.closeButton(parent, size, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelCloseButton")
+-- Square icon button in the same style: `glyph` = "gear" or "close".
+-- UNVERIFIED (check in client): the glyph textures (Theme.textures.iconGear /
+-- iconClose) exist on Forever.
+function Widgets.iconButton(parent, glyph, size, onClick)
+  local T = ns.Theme
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  size = size or T.sizes.buttonHeight
   b:SetSize(size, size)
+  buttonBackdrop(b)
+  local tex = b:CreateTexture(nil, "ARTWORK")
+  local pad = T.sizes.iconButtonPad
+  tex:SetPoint("TOPLEFT", b, "TOPLEFT", pad, -pad)
+  tex:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -pad, pad)
+  tex:SetTexture(glyph == "close" and T.textures.iconClose or T.textures.iconGear)
+  if glyph ~= "close" and tex.SetTexCoord then tex:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
+  b.glyph, b.label, b.onEnter, b.onLeave = tex, false, false, false
+  b.kind, b.warn = "icon", false
+  wireStates(b)
   b:SetScript("OnClick", function() if onClick then onClick() end end)
   return b
+end
+
+-- Single-line input box with the same edge (Min g, Search).
+function Widgets.input(parent, width)
+  local T = ns.Theme
+  local e = CreateFrame("EditBox", nil, parent, "BackdropTemplate")
+  e:SetSize(width, T.sizes.buttonHeight)
+  buttonBackdrop(e)
+  local fill, edge = T.colors.inputFill, T.colors.buttonEdge
+  if e.SetBackdropColor then
+    e:SetBackdropColor(fill[1], fill[2], fill[3], fill[4] or 1)
+    e:SetBackdropBorderColor(edge[1], edge[2], edge[3], edge[4] or 1)
+  end
+  e.kind = "input"
+  return e
 end
 
 -- The dark leather backdrop of the ledger window and the options panel.

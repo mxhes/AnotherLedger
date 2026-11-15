@@ -314,7 +314,7 @@ local function build()
   title:SetPoint("TOPLEFT", frame, "TOPLEFT", pad, -pad)
   title:SetText(TITLE)
 
-  local close = ns.UI.Widgets.closeButton(frame, T.widths.header.hide, function() frame:Hide() end)
+  local close = ns.UI.Widgets.iconButton(frame, "close", T.widths.header.hide, function() frame:Hide() end)
   close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -pad, -pad + 2)
 
   frame.widgets = tabbed.widgets

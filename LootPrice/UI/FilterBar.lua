@@ -154,8 +154,7 @@ end
 -- Edit box with a gray hint shown while empty and unfocused.
 local function makeEdit(parent, hint, width)
   local T = ns.Theme
-  local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-  e:SetSize(width, T.sizes.buttonHeight)
+  local e = ns.UI.Widgets.input(parent, width)
   e:SetAutoFocus(false)
   e:SetFontObject(T.fonts.small)
   e:SetTextInsets(4, 4, 0, 0)
