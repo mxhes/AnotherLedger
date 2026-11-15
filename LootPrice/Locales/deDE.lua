@@ -196,7 +196,7 @@ ns.Locale.register("deDE", {
   ["Off"] = "Aus",
   ["Unlimited"] = "Unbegrenzt",
   ["Default: "] = "Standard: ",
-  ["Fades the window's background and border. Text and rows stay fully visible."] = "Blendet Hintergrund und Rahmen des Fensters aus. Text und Zeilen bleiben voll sichtbar.",
+  ["Fades the background and border of the window and the options window. Text and rows stay fully visible."] = "Blendet Hintergrund und Rahmen des Fensters und des Optionsfensters aus. Text und Zeilen bleiben voll sichtbar.",
   ["Makes the dark background lighter or darker. 100% is the normal look, 0% is black."] = "Macht den dunklen Hintergrund heller oder dunkler. 100% ist das normale Aussehen, 0% ist schwarz.",
   ["Size of the whole window. It keeps its center on the screen."] = "Größe des ganzen Fensters. Es behält seine Mitte auf dem Bildschirm.",
   ["The window can't be moved or resized."] = "Das Fenster lässt sich nicht verschieben oder in der Größe ändern.",

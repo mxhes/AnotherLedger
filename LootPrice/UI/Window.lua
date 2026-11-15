@@ -74,11 +74,10 @@ function Window.scaledColor(c, scale)
   return { c[1], c[2], c[3], a * scale }
 end
 
--- Opacity and brightness of the window background and border (options
--- "alpha" / "brightness"); text and rows are not touched.
-function Window.applyLook()
-  local frame = Window.frame
-  if not frame then return end
+-- Opacity and brightness (options "alpha" / "brightness") of the background
+-- and border of `frame`; text and rows are not touched.
+function Window.paintLook(frame)
+  if not frame or not frame.SetBackdropColor then return end
   local T = theme()
   local alpha, k = 1, 1
   if ns.Options and ns.db then
@@ -89,6 +88,13 @@ function Window.applyLook()
   frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
   local bd = Window.scaledColor(T.scaleColor(T.colors.panelBorder, k), alpha)
   frame:SetBackdropBorderColor(bd[1], bd[2], bd[3], bd[4])
+end
+
+-- The ledger window and the options panel share one background look.
+function Window.applyLook()
+  Window.paintLook(Window.frame)
+  local P = ns.UI.OptionsPanel
+  if P then Window.paintLook(P.frame) end
 end
 
 local function applyBounds(frame)

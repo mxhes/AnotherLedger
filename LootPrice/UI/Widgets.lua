@@ -275,8 +275,8 @@ function Widgets.input(parent, width)
 end
 
 -- The dark leather backdrop of the ledger window and the options panel.
--- `opaque`: full alpha (the options panel; the window's opacity option is
--- applied by Window.applyLook).
+-- `opaque`: full alpha. Both get the opacity / brightness options from
+-- Window.applyLook afterwards.
 function Widgets.applyBackdrop(frame, opaque)
   local T = ns.Theme
   local inset = T.sizes.backdropInset

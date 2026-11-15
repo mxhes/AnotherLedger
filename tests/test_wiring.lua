@@ -2148,3 +2148,30 @@ h.test("wiring: dropping the window near an Edit Mode grid line snaps it there",
   h.eq(placed, nil)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: the options window shares the window's opacity and brightness", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Options.set(ns.db, "alpha", 0.5)
+  local bg, border
+  local real = ctx.env.CreateFrame
+  ctx.env.CreateFrame = function(kind, name, ...)
+    local f = real(kind, name, ...)
+    if name == "LootPriceOptions" then
+      f.SetBackdropColor = function(_, r, g, b, a) bg = { r, g, b, a } end
+      f.SetBackdropBorderColor = function(_, r, g, b, a) border = { r, g, b, a } end
+    end
+    return f
+  end
+  ns.UI.OptionsPanel.toggle()
+  ctx.env.CreateFrame = real
+  local tint = ns.Theme.colors.panelTint
+  h.near(bg[4], (tint[4] or 1) * 0.5, 1e-9) -- opacity at open
+  ns.Options.set(ns.db, "alpha", 0.25)
+  h.near(bg[4], (tint[4] or 1) * 0.25, 1e-9) -- and live
+  h.eq(border ~= nil, true)
+  ns.Options.set(ns.db, "brightness", 0)
+  h.near(bg[1], 0, 1e-9)
+  h.eq(ctx.errors, {})
+end)

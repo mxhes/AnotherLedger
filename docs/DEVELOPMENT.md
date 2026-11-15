@@ -95,7 +95,9 @@ Each of these is one call in one place; the UI never names them.
   (tooltips, rows on refresh) follows by itself. Regions colored once at
   creation are remembered by `UI/Widgets.lua` (`setTextColor`, `line`,
   buttons, inputs, `applyBackdrop`) and `Widgets.recolor(changed)` paints them
-  again; then `Window.applyLook` and a refresh run. A text colored with a
+  again; then `Window.applyLook` (opacity and brightness via
+  `Window.paintLook`, for the ledger window and the options panel alike) and
+  a refresh run. A text colored with a
   non-theme color (item quality) goes through `Widgets.setTextRGB`, which
   drops it from the list. Vendor / AH / Destroy labels in tooltips use
   `Theme.sourceColor(source)` (`Tooltip.money(..., source)`, `Rows.tooltipLines`,

@@ -384,8 +384,9 @@ local function build()
   local tabbed = Panel.buildTabbed(frame, pad, pad + TITLE_HEIGHT)
   frame.tabbed = tabbed
   frame:SetSize(width, 2 * pad + TITLE_HEIGHT + tabbed.height)
-  -- Always fully opaque: the opacity option is for the ledger window.
-  ns.UI.Widgets.applyBackdrop(frame, true)
+  -- Same background as the ledger window: its opacity and brightness too.
+  ns.UI.Widgets.applyBackdrop(frame)
+  if ns.UI.Window and ns.UI.Window.paintLook then ns.UI.Window.paintLook(frame) end
 
   local title = label(frame, T.fonts.title, T.colors.gold)
   title:SetPoint("TOPLEFT", frame, "TOPLEFT", pad, -pad)

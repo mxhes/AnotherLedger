@@ -95,7 +95,8 @@ value comes mostly from items that sell poorly is marked `slow selling`.
 
 Open them with the gear, a right-click on the minimap button, or Esc >
 Options > AddOns > LootPrice. Hover any option for what it does and its
-default. Changes apply at once. **Lock window** also hides the resize grip;
+default. Changes apply at once. **Opacity** and **Brightness** apply to the
+options window as well. **Lock window** also hides the resize grip;
 with **Snap to grid** the window snaps onto the lines of the Edit Mode grid
 when you drop it close to one;
 anything that deletes History asks first.

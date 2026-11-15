@@ -265,7 +265,7 @@ end
 -- Window background and border.
 Options.define({
   key = "alpha", category = "window", type = "slider", label = L["Opacity"],
-  tooltip = L["Fades the window's background and border. Text and rows stay fully visible."],
+  tooltip = L["Fades the background and border of the window and the options window. Text and rows stay fully visible."],
   min = 0, max = 1, step = 0.05, format = percent, apply = applyWindowLook,
 })
 
