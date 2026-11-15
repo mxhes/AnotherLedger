@@ -112,8 +112,6 @@ end
 -- Text button. `opts.warn` gives the red warning look (Reset).
 -- SetText / GetText work on the label; hover / leave hooks go in b.onEnter /
 -- b.onLeave (the button's own OnEnter / OnLeave repaint it).
--- UNVERIFIED (check in client): Button:SetFontString with a BackdropTemplate
--- button keeps SetText / GetText working.
 function Widgets.button(parent, label, width, opts)
   local T = ns.Theme
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -163,8 +161,6 @@ end
 -- Square icon button in the same style: `glyph` = "gear" or "close" (game
 -- textures), "compact" (an up arrow) or "full" (a down arrow); b:SetGlyph(glyph)
 -- swaps it.
--- UNVERIFIED (check in client): the glyph textures (Theme.textures.iconGear /
--- iconClose) exist on Forever.
 function Widgets.iconButton(parent, glyph, size, onClick)
   local T = ns.Theme
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -285,8 +281,6 @@ end
 -- (pick one, the menu closes).
 
 local function openModernMenu(anchor, entries, kind)
-  -- UNVERIFIED (check in client): MenuUtil.CreateContextMenu, CreateCheckbox /
-  -- CreateRadio and MenuResponse.Refresh.
   MenuUtil.CreateContextMenu(anchor, function(_, root)
     for _, entry in ipairs(entries) do
       if kind == "checkbox" then

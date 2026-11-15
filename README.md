@@ -1,337 +1,126 @@
 # LootPrice
 
-WoW Forever addon: a game-styled Session Ledger showing vendor and auction house value of everything you loot.
+A World of Warcraft **Forever** addon that values everything you loot. The
+Session Ledger window lists each item with what it is worth (vendor, auction
+house or disenchant, whichever is highest), adds up your gold per hour, and
+tells you where your best farm is today.
 
-Design: docs/superpowers/specs/2026-11-12-loot-price-design.md
-
-## What it shows
-
-The Session Ledger is a draggable, resizable, scrollable window with rounded corners (a thin tan edge, like the tabs). It has two layouts: **full** (the ledger described below, for the detailed look after a session) and **compact** (a glance between pulls). Switch with the **mode button** left of the gear (a smooth arrow tinted with the button's own cream text color, gold on hover like the other buttons: up in full, down in compact), a double-click on the title, or `/lp compact`; the window remembers the layout and keeps a size of its own for each (position is shared).
-
-- **Compact**: the title row with the clock, the mode button, gear and close; the gold per hour in large gold type and the session total next to it; **Last drops**, the last four loot events of the session (name, quantity, what that one drop is worth and its source tag; option **Compact: last drops**, 0 hides them); and the Daily farm line (same clicks as the strip). Compact never applies the filter bar: its numbers are every item plus the raw gold (with **Raw gold in Total**). Start / Stop and Reset are not shown; **click the clock** to start or stop the session, and while it is stopped the clock dims and a red `Paused` marker shows. Reset stays in the full layout.
-
-In the full layout:
-
-- **Header**: the title, the session clock, one **Start / Stop** button (it reads Start while the clock is stopped and Stop while it runs), Reset, the mode button (switches to compact), the gear (options) and the close button. Every button of the addon has one bronze dark style: dark fill, thin bronze edge, cream text; the edge turns gold on hover and the text dims when a button is disabled. Reset keeps a red edge and text as a warning; the gear and the close button are small square icon buttons in the same style; the Min g and Search boxes have the same edge. Under it the filter bar (quality, minimum gold, search, sort) and the tab buttons: tabs open at the bottom, standing on a thin tan line, with a rounded tan edge and the window's own background (so the opacity and brightness options apply to them too); the selected one has a bright gold edge and a gold glow from its top and opens into the list (the line is open below it; the tab row clips its edge, so it never covers the first row); hovering a tab lights its edge.
-- **Rows**: one per looted item, two lines tall (30 px with a 20 px icon at the default text size; both scale with **List text**): the icon (unless **Item icons** is off), the quality-colored name with the quantity (`xN`) right after it, under the name the TSM sale info (see below), and on the right of line 1 the row's counted value followed by a small framed tag naming its source, spelled out: `Vendor`, `Auction` or `Disenchant`, each in its own color, in Arial Narrow (a narrow game font, whatever **Font** is set to; the game font when the client lacks it) so the words fit. The amounts are right-aligned in one column and the tags line up after them; the column hugs the right edge and shifts left only as far as the longest amount currently shown needs. After the tag: the age of a cached AH price when that value counts, or a yellow `?` when the item has no AH price (unpriced). Long names are clipped, the quantity stays visible. Hovering a row shows the item's tooltip with every known value added (`Vendor:`, `AH:`, `Disenchant:`, per unit when you have more than one). History and Zones place rows show their own total without a tag. A thin quiet separator line runs between rows. Newly looted rows flash.
-- **Value**: a row is worth the best of its vendor, AH and disenchant totals; that is the amount the row shows, and its tag says where it comes from. The value sorts the list (sort `Value`), picks the Top finds, drives the minimum value filter and the drop alert. Items that can never be sold on the AH (soulbound, quest, warbound) show their vendor (or disenchant) value, or `bound` when they have none, and are not counted as unpriced. An item with no value at all shows `?`.
-- **Item variants**: gear with bonus IDs (other item level, sockets, ...) gets its own row and is priced as that variant (TSM item string with bonus IDs, Auctionator by link, vendor price of the variant).
-- **Currencies**: currencies you receive (`You receive currency: ...`) are listed after the items with their quantity (no value); the option **Currencies** hides them.
-- **Money colors**: every amount is shown as `12g 34s 56c` with gold, silver and copper in their own colors (the real game coin colors, bright on the dark panel); `n/a` stays plain.
-- **Top finds**: the most valuable finds of the session (best value) (hovering one shows its item tooltip), at the bottom of the window under the footer table, with a gold divider line above it (hidden together with the block when there are no finds, or with **Top finds** off). Its title uses the header font, below the window title in size.
-- **Footer**: a small table with the best value and the gold per hour of each row (columns **Value** and **per hour**, the amounts without a `/h` of their own; a rate shows `—` until there is one):
-  - **Items**: the best value of the visible (filtered) rows.
-  - **Raw gold** (hidden with **Raw gold row** off; Total still counts it): gold looted from creatures and containers (including group splits) plus gold from quest turn-ins. Raw gold is never touched by the item filters; it shows `0c` until the first gold arrives.
-  - **Total** (gold): items + raw gold.
-  - A small notes line under the table, only when there is something to say: `filtered` while a filter is active, `N unpriced (marked ?)` for items without an AH price, which carry a `?` in the list (both orange; History session lists have no marks and say just `N unpriced`) and, on the Bank tab, the scan age.
-  - Hovering the table shows the vendor, AH and best totals with their rates, for the items and for items + gold.
-  - Bags and Bank show only the Items row (no rates).
-- **Quest rewards**: reward items are ordinary looted items (the client announces them like any other item) and appear in the list; only the money of a quest is tracked as raw gold.
-- **Crafted and bought items** are not loot: `You create: ...` messages and items received while a merchant, mailbox, trade or auction house window is open are ignored unless **Crafted and bought** is on.
-- **Places**: every loot and gold event notes where it happened (the zone, or the instance and its difficulty, e.g. `The Stonevault (Heroic)`); History shows them.
-- **Age tag**: any AH price taken from the cache (the source returned nothing) shows its age, for example `(3h)`; the tag turns orange once the price is older than the limit set in the options (12 hours by default).
-
-## Tabs
-
-Four tabs sit in the header between the filters and the list; the window, rows, filters and sorts are the same on all of them (the filter bar and sort apply to every tab and are shared):
-
-- **Session**: the loot ledger described above (default).
-- **Bags**: every item in your bags (backpack, carried bags, reagent bag), identical stacks merged into one row, valued like loot rows (vendor, AH, age tag). The footer is the single Items block (vendor and AH totals, unpriced count, `filtered` marker); no clock, rates, raw gold or Top finds. The list refreshes when your bags change.
-- **Bank**: the same for your bank: the character bank tabs on clients that have them, else the bank, its bank bags and the reagent bank (the account-wide warband bank is not scanned). The client only lets addons read the bank while its window is open, so LootPrice scans it while you are at the banker and saves the scan per character; away from the bank the tab shows the last scan with a note (`Scanned 3h ago`, orange after the **Old price after** time, 12 h by default). Before the first visit it says `Open your bank once to scan it.`
-
-- **History**: past sessions of this character, newest first. A session is saved when it would be thrown away: the Reset button or `/lp reset`, a fresh login with keep-session off, or entering / leaving an instance with **Session per instance** (empty sessions and `/lp demo` loot are skipped). Each row shows the start date and time (`2026-11-14 18:20`), the length and the main place, the number of different items, the vendor total and, as `Best:`, the best value of its items (prices at the time it was saved; an item without a live price uses the price seen when it was looted); the raw gold is in the hover text. Hovering a row shows the details: all places, vendor / AH / best / raw gold with their gold per hour. Click a session to open it: it moves to the top of the list and its items and currencies are listed right under it (filter and sort apply); click it again to collapse. The footer table adds up all saved sessions (all three rows, rates over their summed length). `/lp export` (or **Export History** in the options) opens a copy box with the History as CSV. How many sessions are kept: option **History kept**.
-  History has two sub-tabs on a fourth header row, **Sessions** (the list above) and **Zones**; the last one is remembered.
-- **History > Zones**: which places are worth farming. The loot of all saved sessions plus the running one, grouped by zone (an instance with its difficulty is its own zone, `Algeth'ar Academy (Mythic)`), then subzone, then items. Each zone and subzone row shows the time spent there, its value (best of vendor / AH / disenchant, plus the raw gold looted there when **include raw gold** is on) and, in the hover text, the gold per hour. Click a zone to list its subzones, a subzone to list its items; click again to collapse. Time only counts while the session clock runs. Gold per hour only uses loot whose time was recorded: sessions saved before this feature have no time per place, their loot shows under **No time recorded** in their only place, or under **Unknown place** when they covered several places. Quest items are listed in their own **Quest items** group at the bottom and are not counted in any place or in the footer (the Session tab and the Sessions list still count them). The sort button offers **Gold/h** here only (other tabs sort it as Value). It follows the saved sessions: pruning or a smaller **History kept** shrinks it.
-- **Daily farm**: where to go today. A gold strip between the filter bar and the tabs (on every tab) names the subzone of this character's saved History with the best gold per hour at the current prices, valued like History > Zones: `Daily: 1,240g/h  Wingrest (Waking Shores)` (the rate comes first, so a narrow window cuts the place, not the rate) (rates of 1 gold and more rounded to whole gold; the hover text has the exact amounts). Only saved sessions count, not the running one, so farming does not move today's pick; it changes when prices change. A place needs at least **Daily farm: min. time** of recorded time (20 min by default); quest items, **Unknown place** and **No time recorded** loot never count, and the filter bar is ignored. The hover text shows the time, value and gold per hour and the next two places; with TSM sale info a place whose AH value comes mostly (more than half) from items with a bad sale rate gets the note `slow selling`, and the hover text names those items. Click the strip to set a waypoint to the farm spot: a TomTom waypoint when TomTom is loaded, else the game's own map pin, tracked. The spot is where the loot of that subzone was picked up, averaged over all saved sessions (on the map looted most); positions are recorded from this version on, and never inside instances (dungeons, raids, scenarios, delves) or from quest turn-in money. A place without a spot opens History > Zones instead. **Shift-click** opens History > Zones at that place, scrolled into view (it stays listed even when the filter bar hides its items). **Right-click** shows the TomTom line (`/way #2022 45.2 61.8 Wingrest`) selected in a copy box: Ctrl+C, then Esc (addons cannot write the clipboard). Drag it to move the window like the rest of the header. The strip uses the header font, so **List text** does not change it. It is worked out again when History or its options change and otherwise at the **Price refresh**. A character without such a place has no strip.
-- **Tooltips** of the Daily farm strip, History sessions and Zones places look like the game's own: the place or session start as a gold title, then each figure on its own line with a tan label on the left and the value on the right in white (coins in their gold / silver / copper colors, the gold per hour after it), sub-headings such as **Also good:** in gold, quiet notes in tan, slow sellers in red, and the clicks in green at the bottom after a blank line.
-
-The last tab is remembered.
-
-## Options
-
-Three ways in, all showing the same options:
-
-- the **gear button** at the top right of the header (left of the close button) opens the options panel next to the window (Esc or the gear closes it);
-- the **minimap button**: left click shows / hides the window, right click opens the options panel, drag moves it around the minimap (drawn by LibDBIcon when it is loaded, which also makes it work with minimap button collectors);
-- a **data broker** (LibDataBroker, for Titan Panel, ElvUI, ChocolateBar, ...): shows the session's best value plus raw gold and its rate; same clicks, tooltip with the totals;
-- the page **LootPrice** in the game's own options window (Esc > Options > AddOns).
-
-The panel has one tab per section (Window, Prices, Display, Session and alerts), drawn like the ledger's tabs; each tab shows its options in two columns, and the panel keeps the height of the tallest tab so it does not jump when you switch. It opens on the tab used last (for the session); the page in the game's options window has the same tabs. Settings are stored in `LootPriceDB.settings` and applied at login (invalid saved values are repaired).
-
-Each option has a short name; hover it (its name or its control) for a tooltip that says what it does and its default.
-
-**Window**
-- **Opacity** (0-100 %, default 100 %): fades the background and border; text and rows stay opaque.
-- **Brightness** (0-200 %, default 100 %): multiplies the background and border color; 100 % is the theme color, above that the dark panel gets lighter, 0 % is black.
-- **Scale** (70-150 %, default 100 %): the window keeps its center on the screen.
-- **Lock window**: no moving or resizing.
-- **Start hidden**.
-- **Hide in combat** (default off): hides the window when combat starts and shows it again when combat ends, but only if it was visible before; a window you hid yourself stays hidden.
-- **Minimap button** (default on) and **Reset minimap button** (back to the bottom left).
-
-**Prices**
-- **AH price source**: `Auto (TSM, then Auctionator)` (default), `TSM` or `Auctionator`. With one chosen, the other is not asked. A price cached from the other source shows with its age tag until it is refreshed.
-- **TSM price** (default `DBMarket`): the TSM price string; same as `/lp tsm`.
-- **TSM sale info** (default on): with TSM loaded (whatever the AH price source), line 2 under the item name says how well the item sells in your region, from TSM's `DBRegionSaleRate` and `DBRegionSoldPerDay`: `Sells well` / `Sells okay` / `Sells poorly` (green / yellow / red) and `High volume` / `Medium volume` / `Low volume`. Items TSM has no data for show nothing there.
-- **Sells well from** (default 0.50) and **Sells okay from** (default 0.10): region sale rate (0-1) at or above which an item counts as selling well / okay; below the second it sells poorly.
-- **High volume from** (default 100) and **Medium volume from** (default 10): average sold per day in the region for high / medium volume; below the second it is low. Empty = never reached.
-- **Price refresh** (10-120 s, default 30 s): how often prices and age tags are looked up again while the clock runs.
-- **Old price after** (1-72 h, default 12 h): when the orange age tag appears.
-
-**Display**
-- **Sort at login**: best value (default), vendor value, name or most recent. The sort button of the filter bar still changes it for the rest of the session; at the next login the list starts with this order again.
-- **Large amounts**: gold, silver and copper (default), gold and silver, or gold only. Amounts under 1 gold always show in full.
-- **Coin icons** (default on): every amount (list, footer, Top finds, compact, Daily strip, tooltips, chat alerts) shows the game's gold / silver / copper coin icons after the digits, which keep their coin colors; off shows the letters. The CSV export always has plain gold numbers.
-- **Raw gold in Total** (default on): with it off, the Total row is left out of the footer table.
-- **Currencies** (default on).
-- **Top finds** (default on) and **Raw gold row** (default on).
-- **Daily farm** (default on) and **Daily farm: min. time** (5 to 120 min, default 20): the Daily farm strip and how much recorded time a place needs to be picked.
-- **Compact: last drops** (0 to 4, default 4): how many of the last drops the compact layout lists.
-- **Item icons** (default on): off removes the icon from the list rows; the text moves to the left edge and the window may get narrower. Applies at once.
-- **Font**: the typeface of all addon text. `WoW default` (default) keeps the game's own font for your client's language; the list (sorted by name) also offers the classic game fonts (Friz Quadrata, Arial Narrow, Skurri, Morpheus), every font file the game's own font objects use (chat, numbers, quest text, combat text, ...), and every font registered with LibSharedMedia when another addon provides it. Changes at once. The addon uses its own copies of the game fonts, so other addons are not affected.
-- **List text**, **Totals text** (totals and Top finds) and **Section titles**: a dropdown with the size in px (8 to 18 px, section titles 10 to 24 px) of the main font of that part (defaults 12, 12 and 16; the smaller fonts of that part keep their proportion). The matching row heights scale with it. A change applies at once: the window re-lays itself out and grows when it is smaller than the new minimum. The buttons, filter bar and header keep their size.
-
-**Session and alerts**
-- **Keep session** (default off): same as `/lp keep`.
-- **Drop alert (gold)**: a chat line when one drop (best value times quantity) is worth at least this much; 0 or empty = off (default). **Alert sound** adds a sound.
-- **Crafted and bought** (default off): see "Crafted and bought items" above.
-- **Pause when AFK** (default off): the clock stops when you go AFK and runs again when you are back (only if it was running; Start / Stop by hand ends the pause).
-- **Session per instance** (default off): a loading screen into, out of or between instances saves the session to History and starts a new one.
-- **Export History**: same as `/lp export`.
-- **History kept**: a number (default 50), `0` for none, or an empty box for unlimited; lowering it deletes the oldest ones at once.
-
-### Adding an option
-
-The panel is built from a registry, it never names an option. To add one:
-
-1. Put its default in `DB.defaults.settings` (`LootPrice/DB.lua`). Buttons have no value and no default.
-2. Register it in `LootPrice/Options.lua` with one `Options.define({ key, category, type, label, ... , apply = function(value) ... end })`. `category` is a section id from `Options.CATEGORIES` (`window`, `prices`, `display`, `session`); without one the option lands in an "Other" section (its own tab). Types: `slider` (`min`, `max`, `step`, optional `format`), `dropdown` (`choices = { { value, label }, ... }` or a function returning that list), `checkbox`, `number` (whole number, empty = unlimited), `text` (any non-empty text) and `button` (`action` runs on click). Values are validated by type and fall back to the default; `apply` makes the value take effect (and also runs for the saved value at login).
-3. Read it where it is needed with `Options.get(ns.db, key)`.
-
-A new kind of control is one factory in `Panel.WIDGETS` (`LootPrice/UI/OptionsPanel.lua`) plus its block height in `Options.HEIGHTS`. The panel grows to fit.
-
-## When the window updates
-
-- **Every second** (session tab, clock running): only the clock and the per-hour rates.
-- **Every 30 seconds by default** (option **Price refresh**; session tab, clock running): prices and age tags are looked up again.
-- **At once** when something changes: loot, raw gold, a bag or bank change on its tab, a filter, sort or option. Several loot messages of one frame (area loot) share one redraw.
-- **Never while the window is hidden** (also when hidden by the combat option). Loot is still recorded; the window catches up when it is shown.
-
-Cached AH prices that were last seen more than 30 days ago are removed from the saved file at login (`Prices.CACHE_MAX_AGE`).
-
-## Code layout and extending
-
-Files load in the order of `LootPrice/LootPrice.toc`. Modules without `UI/` in their path are plain Lua with every client call passed in, so the tests can run them.
-
-| File | Job |
-| --- | --- |
-| `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon) |
-| `Util.lua` | shared helpers (number checks, clamp, age text, chat output) |
-| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key); `Locales/deDE.lua` is German |
-| `Money.lua`, `Theme.lua`, `DB.lua` | coin text, look and feel, saved-variable defaults |
-| `Tooltip.lua` | the colored tooltips of the Daily farm strip, History sessions and Zones places, built as data |
-| `LootParse.lua` | turns loot, money and currency chat messages into item links, copper and currencies; item keys with bonus IDs |
-| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
-| `Session.lua`, `History.lua`, `Inventory.lua` | the session, the archive of past sessions, bag and bank scans |
-| `View.lua` | turns items and prices into the rows and totals a tab shows |
-| `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
-| `Options.lua`, `Slash.lua`, `Demo.lua` | option registry, slash commands, `/lp demo` |
-| `UI/Widgets.lua` | shared buttons, texts, lines, tooltips, context menu |
-| `UI/Window.lua`, `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua`, `UI/OptionsPanel.lua` | the window and its parts; the options panel and the page in the game's options window |
-| `UI/Tabs.lua` | tab registry and tab buttons |
-| `UI/DailyFarm.lua` | the Daily farm strip (header row between filters and tabs) |
-| `UI/Compact.lua` | the compact layout's body: gold per hour, total, last drops, Daily farm line |
-| `UI/Fonts.lua` | the addon's own font objects: typeface option and px sizes |
-| `UI/Minimap.lua` | the minimap button (own button when LibDBIcon is not loaded) |
-| `UI/Broker.lua` | LibDataBroker data source and the LibDBIcon button |
-| `UI/Export.lua` | the CSV copy box (`/lp export`) |
-| `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
-| `Core.lua` | events: login, loot capture, bank scan, redraw requests |
-
-Three more things are registries like the options, so adding one touches a single place:
-
-- **A price source**: a new file in `Sources/` (listed in the `.toc` after `Sources\Sources.lua`) that ends with `ns.Sources.register({ key, label, create = function(env, setting) return { name, get = function(itemID) ... end } end })`. It joins the lookup order and the **AH price source** dropdown by itself. See `Sources/Auctionator.lua`.
-- **A tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx) return view end, ... })` in `UI/Tabs.lua`. `build` returns a view from `View.lua`; optional fields say whether the tab shows the session clock (`sessionControls`), follows it (`ticks`), which data change redraws it (`watches`) and which items it lists (`hasItem`).
-- **A slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`. The `help` line shows up in `/lp help`.
-
-A window part that should redraw with the ledger registers itself with `ns.UI.Ledger.register(part)`: `part:Update(view, session, now)` runs on every full redraw, an optional `part:Tick(view, session, now)` once a second while the clock runs (keep it cheap).
-
-## Events used
-
-`CHAT_MSG_LOOT` (items), `CHAT_MSG_MONEY` (raw gold looted; parsed from `YOU_LOOT_MONEY`, `LOOT_MONEY_SPLIT`, `YOU_LOOT_MONEY_GUILD` (first amount only) and the `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT` globals), `QUEST_TURNED_IN` (`moneyReward` in copper), `GET_ITEM_INFO_RECEIVED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED` (bags tab refresh, bank rescan while the bank is open), `BANKFRAME_OPENED` / `BANKFRAME_CLOSED` (bank scan), `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` (combat auto hide), `CHAT_MSG_CURRENCY` (currencies), `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED` (bank rescan), `PLAYER_FLAGS_CHANGED` (AFK pause), `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA` (History Zones: time per zone and subzone), `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` `_SHOW` / `_CLOSED` (purchases are not loot). An event the client does not know is skipped at registration.
+- Developers: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- In-client checks and release steps: [docs/CHECKLIST.md](docs/CHECKLIST.md)
 
 ## Requirements
 
-Vendor prices need nothing. AH prices need [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both optional). TSM is asked first, then Auctionator. Without either, the AH column shows `n/a`. The data broker and LibDBIcon button need the libraries the packager adds (`Libs/`); a development copy without them uses its own minimap button.
+Vendor prices work on their own. Auction prices need
+[TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
+optional; TSM is asked first). Disenchant values and the "sells well / poorly"
+info need TSM. Waypoints use TomTom when it is installed, else the game's own
+map pin.
 
-Items that can be disenchanted also have a disenchant value (TSM's `Destroy` price source, times the quantity); the row shows it, when it is the highest value (tag `Disenchant`). It needs TSM; items TSM has no disenchant value for use the AH value. The check `TSM_API.GetCustomPriceValue("Destroy", "i:<itemID>")` is unverified in the client.
+## The window
+
+Open it with `/lp`, the minimap button or a data broker display (Titan Panel,
+ElvUI, ...). It has two layouts; switch with the **arrow button** next to the
+gear, a double-click on the title, or `/lp compact`. Each layout keeps its own
+size.
+
+**Compact** is for a glance between pulls: your gold per hour in large type,
+the session total, the last four drops with their value and source, and the
+Daily farm line. Click the clock to start or stop the session; a red `Paused`
+shows while it is stopped.
+
+**Full** is the detailed ledger:
+
+- **Header**: the session clock, **Start / Stop**, **Reset**, the layout
+  arrow, the gear (options) and close.
+- **Filter bar**: quality, minimum value in gold, text search and the sort
+  (value, vendor value, most recent, name). Filters are remembered.
+- **Daily strip**: today's best farm (see below).
+- **Tabs**: Session, Bags, Bank and History (below).
+- **List**: one row per item: icon, name and quantity, and on the right its
+  value with a tag saying where it comes from: `Vendor`, `Auction` or
+  `Disenchant`. With TSM, a second line says how well it sells in your region.
+  A price taken from the cache shows its age, e.g. `(3h)`, in orange once it
+  is old; an item with no auction price is marked `?`. New loot flashes.
+  Hover a row for the item tooltip with all its values.
+- **Footer**: the value and gold per hour of your **Items**, the **Raw gold**
+  you looted (creatures, containers, group shares, quest rewards) and the
+  **Total**. Hover it for vendor / AH / best totals.
+- **Top finds**: the three most valuable finds of the session.
+
+Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options).
+Items that can't be sold on the auction house (soulbound, quest items) count
+at their vendor value. Gear with a different item level or sockets gets its own
+row and price. Currencies are listed after the items.
+
+## Tabs
+
+- **Session**: everything looted since the session started.
+- **Bags**: what is in your bags right now, valued the same way.
+- **Bank**: your bank. The game only shows it to addons while it is open, so
+  visit the banker once; after that the tab shows the last scan and its age.
+- **History**: your past sessions, newest first, with their length, main place
+  and value. A session is saved when you reset it, when a new login starts a
+  fresh one, or (option) when you enter or leave a dungeon. Click a session to
+  list its items; hover it for places, values and gold per hour. `/lp export`
+  copies the History as CSV for a spreadsheet.
+- **History > Zones**: which places are worth farming. All sessions grouped by
+  zone and subzone, each with its time, value and gold per hour (sort by
+  **Gold/h**). Click a zone to open its subzones, a subzone to list its items.
+  Quest items have their own group and don't count toward any place.
+
+## Daily farm
+
+The gold strip above the tabs names the subzone from your History with the
+best gold per hour at today's prices, e.g. `Daily: 1,240g/h  Wingrest
+(Waking Shores)`. Only saved sessions count (so farming doesn't move today's
+pick), and a place needs 20 minutes of recorded time by default. A place whose
+value comes mostly from items that sell poorly is marked `slow selling`.
+
+- **Click**: sets a waypoint to where you looted there (TomTom, or the map pin).
+- **Shift-click**: opens History > Zones at that place.
+- **Right-click**: shows the `/way` line to copy.
+- **Hover**: time, value, exact gold per hour, the next two places and the
+  slow sellers.
+
+## Options
+
+Open them with the gear, a right-click on the minimap button, or Esc >
+Options > AddOns > LootPrice. Hover any option for what it does and its
+default. Changes apply at once.
+
+| Tab | Options |
+| --- | --- |
+| Window | Opacity, Brightness, Scale, Lock window, Start hidden, Hide in combat, Minimap button, Reset minimap button |
+| Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
+| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Top finds, Raw gold row, Compact: last drops, Item icons, Font, List text, Totals text, Section titles |
+| Session and alerts | Keep session, Drop alert (gold), Alert sound, Crafted and bought, Pause when AFK, Session per instance, Export History, History kept |
+
+By default crafted items and purchases (vendor, mail, trade, auction house)
+are not counted as loot; **Crafted and bought** turns that on.
 
 ## Commands
 
-- `/lp` (or `/lootprice`) - toggle the window
-- `/lp show` | `/lp hide` - show or hide the window
-- `/lp start` | `/lp stop` - start or stop the session clock
-- `/lp compact` - switch between the compact and the full window
-- `/lp reset` - clear the session (asks for confirmation once the session holds 25 or more distinct items)
-- `/lp keep on|off` - keep the session across logins
-- `/lp tsm <source>` - TSM price source (e.g. `DBMarket`); prices cached under the old source stay in the cache until they refresh
-- `/lp export` - the History as CSV in a copy box
-- `/lp demo` - adds fake sample loot, a little gold (12s 40c) and temporarily seeds fake AH prices for a few real item IDs; `/lp reset`, the Reset button and logout remove the fake prices again. Use it only to check the UI (needs a running session).
-- `/lp help` - list the commands
+| Command | Does |
+| --- | --- |
+| `/lp` (or `/lootprice`) | show or hide the window |
+| `/lp show`, `/lp hide` | show or hide it |
+| `/lp start`, `/lp stop` | start or stop the session clock |
+| `/lp compact` | switch between the compact and the full layout |
+| `/lp reset` | clear the session (saved to History; asks first when it holds many items) |
+| `/lp keep on` / `off` | keep the session across logins |
+| `/lp tsm <price>` | the TSM price to use, e.g. `DBMarket` |
+| `/lp export` | the History as CSV in a copy box |
+| `/lp demo` | sample loot and temporary sample prices, to look at the window |
+| `/lp help` | list the commands |
 
-## Saved state
+A `/reload` always keeps the session; a new login starts a fresh one unless
+**Keep session** is on.
 
-Options are in `LootPriceDB.settings` (see Options). Window position, size (one per layout: `window.width` / `height` for full, `window.compact` for compact), visibility, the layout (`mode`), last tab and filter are remembered automatically (`LootPriceDB`; the sort starts each login with **Sort at login**); the session, the bank scan and History are per character (`LootPriceCharDB`). Each zone / subzone of a session and of History also keeps the summed map positions of its loot per map (`pos`, for the Daily farm waypoint). A real login starts a fresh session unless **Keep session** is on; a `/reload` always keeps it.
+## Good to know
 
-## Filters and sorts
-
-- Filters: quality toggles, minimum value (gold), text search. They persist across relogs.
-- Sorts: best value (`Value`, default, highest first), vendor value, most recent, name. History > Zones adds gold per hour (`Gold/h`; places without recorded time last).
-
-## Known limit: age tags
-
-TSM and Auctionator return a number without a scan time. The age is the time since the source last returned a price for that item. If the source returns nothing, the last known price is shown with its age. A source that silently serves old scan data looks fresh (also noted in `/lp help`).
-
-## Tests
-
-`lua tests/run.lua` from the repo root (exit code 1 on any failure). Plain Lua, no WoW client needed; the UI cannot be tested outside the client. GitLab CI (`.gitlab-ci.yml`) runs them under Lua 5.1 (the client's version) and 5.4 on every push.
-
-## Localization
-
-Texts go through `ns.L` (`Locale.lua`): `L["Vendor: "]` is the text of the client language when a file in `Locales/` has it, else the English text. A new language is one file `Locales/<locale>.lua` with `ns.Locale.register("<locale>", { ["English text"] = "translation", ... })`, listed in the `.toc` after `Locale.lua`. German (`deDE`) is included; `tests/test_locale.lua` fails on a German entry the code no longer uses. Loot, money and currency messages are parsed from the client's own strings, so they work in every language.
-
-## Install / development
-
-Copy or symlink the `LootPrice/` folder into `World of Warcraft/<client>/Interface/AddOns/`. Packaging uses the BigWigs packager with `LootPrice/.pkgmeta` (run with `-t LootPrice`); it fetches the libraries into `LootPrice/Libs/` (git-ignored) and fills in the `.toc` version from the git tag. CI builds the zip on every tag (job `package`, artifacts) and offers a manual dry run on `main` (`package-dry-run`). Uploading to CurseForge needs the CI variable `CF_API_KEY` and `## X-Curse-Project-ID: <id>` in the `.toc`.
-
-## Before release
-
-- [x] `## Interface:` number in `LootPrice/LootPrice.toc` confirmed as 16001 (`/dump select(4, GetBuildInfo())` in the Forever client).
-- [ ] Run the CI jobs once: `test` passes under Lua 5.1 and 5.4; the manual `package-dry-run` zip contains exactly one `LootPrice/` folder with the `.toc` and `Libs/` (LibStub, CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0) inside (the external URLs in `LootPrice/.pkgmeta` are unverified).
-- [ ] For CurseForge: create the project, add `## X-Curse-Project-ID` to the `.toc` and the `CF_API_KEY` CI variable.
-- [ ] Re-verify the price API signatures in the client (spec risk 1): `TSM_API.GetCustomPriceValue("DBMarket", "i:<itemID>")` and `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)`; flagged in code as `UNVERIFIED (check in client)` comments until confirmed.
-- [ ] Run the in-client checks below on a fresh `LootPriceDB` / `LootPriceCharDB` (delete the saved-variable files for one launch).
-
-### In-client verification checklist
-
-Core and loot
-- [ ] `/reload`: no Lua errors, also on login with the window hidden
-- [ ] `/lp help`; `/lp`, `show`, `hide`, `start`, `stop`, `reset`, `keep`, `tsm`
-- [ ] `/lp demo` (adds fake loot and temporarily seeds fake AH prices for a few real item IDs; removed again by `/lp reset`, the Reset button and logout, so use it only to check the UI): six rows, 12s 40c of raw gold, quality colors, `n/a` for Light Leather, orange `(14h)` tag on Kingsblood, stale / no-AH rows
-- [ ] Loot a vendor item, then `/dump LootPriceCharDB.session.items`
-- [ ] `GetCurrentRegionName` and `C_GameRules.GetCurrentGameModeRecordID` return values (cache key non-nil)
-- [ ] `CHAT_MSG_LOOT` parsing against the real `LOOT_ITEM_*` globals
-- [ ] Logout / relogin with keep on keeps the session; with keep off a real relog starts fresh, while `/reload` keeps the session
-- [ ] `GET_ITEM_INFO_RECEIVED` throttle; `C_Timer.After` exists
-
-Window
-- [ ] Appears as a dark brown leather panel with rounded corners: the thin `Interface\Tooltips\UI-Tooltip-Border` edge (16 px, fill inset 5 px) reads as a frame and no square fill corner shows outside it, also on the options panel and the CSV copy box and at 0 % / 200 % brightness; title readable (ink color on the gold font object)
-- [ ] Drag by header; resize with the grip, never below the minimum (388 px high, so the list keeps four rows beside a full Top finds block; at least 350 px wide, wider if the font needs it for the Vendor / Best block); position unchanged after resize ends
-- [ ] `/reload` keeps position, size and hidden state; `/lp hide` then `/lp show`; `/lp` toggles
-- [ ] Changing UI scale / resolution never leaves it off-screen
-- [ ] Grip texture shows; the 0.001-height top box does not break the list layout; `setTopBoxHeight(40)` reflows
-- [ ] `SetClipsChildren` / `SetResizeBounds` exist on 11.x (`SetMinResize` fallback is included)
-
-Rows and list
-- [ ] Hovering a row shows the item tooltip (all three tabs) and it hides on leaving; wheel scrolling still works over rows; a hovered row whose data refreshes keeps a correct tooltip (`GameTooltip:SetHyperlink` with a stored link or `item:<id>`)
-- [ ] Mouse wheel and scrollbar scroll; resizing re-lays out rows
-- [ ] Vendor/AH block on the right (Vendor upper line, AH lower line), the amount directly after its label, labels and amounts line up down the list, the quantity after the name, long names clipped with an ellipsis (quantity stays), the window minimum width adapts to the measured font (also at the minimum width with a long amount like `123456g 78s 90c`); two text lines fit the 28 px row without touching
-- [ ] Right block hugs the right edge and shifts left for longer amounts; separators visible but quiet
-- [ ] Looting flashes the row, a hidden row scrolls into view, a stack increase re-flashes
-- [ ] An uncached item shows the link name, then corrects on `GET_ITEM_INFO_RECEIVED`
-- [ ] The ticker updates only while the session runs
-
-Tabs (Bags / Bank / History)
-- [ ] Three tab buttons (Session, Bags, Bank) in the third header row under the filters, above the list; the tabs are open at the bottom (the `Interface\Tooltips\UI-Tooltip-Border` edge on a `BackdropTemplate` frame, its bottom edge cut off by the button's `SetClipsChildren`), show the window background with no fill of their own and follow the opacity and brightness options, the line under the row is open below the selected tab, the selected one has a gold edge, white text and a gold glow fading down from its top (`Texture:SetGradient` with `CreateColor`, or `SetGradientAlpha` on older clients), hovering a tab lights its edge, and clicking the selected tab again does nothing; the window title changes to Bag Ledger / Bank Ledger; Start / Stop, Reset and the timer hide on Bags and Bank, the close button stays
-- [ ] Bags: every bag item appears once with its summed stack count; moving, looting, selling and splitting stacks update the list; opening the window on the Bags tab shows current contents
-- [ ] Bags footer shows only the Items row (no column titles, no rates, no Top finds) and the list uses the freed space; switching back to Session restores all rows
-- [ ] Bank: before any visit the list is empty with "Open your bank once to scan it."; opening the bank fills it; closing the bank and walking away keeps the list with "Scanned ... ago" (orange after 12 h); the scan survives `/reload` and relog
-- [ ] `C_Container.GetContainerItemInfo` returns `{ itemID, stackCount, hyperlink }`, and `BANK_CONTAINER`, `NUM_BAG_SLOTS`, `NUM_REAGENTBAG_SLOTS`, `NUM_BANKBAGSLOTS` match the real bag / bank container ids on Forever (`/dump BANK_CONTAINER, NUM_BAG_SLOTS, NUM_REAGENTBAG_SLOTS, NUM_BANKBAGSLOTS`); items in bank bags and the reagent bank/warband bank (if the client has them) are included or deliberately skipped
-- [ ] The last tab is restored after `/reload`
-
-Options
-- [ ] Minimap button: shows near the bottom left of the minimap, left click toggles the window, right click opens the options panel, dragging moves it around the rim and the place survives `/reload`; the option hides it and **Reset minimap button** brings it back; the tooltip lists the clicks; `INV_Misc_Coin_01`, `MiniMap-TrackingBorder` and `UI-Minimap-ZoomButton-Highlight` textures exist
-- [ ] Options page: a **LootPrice** entry exists under Esc > Options > AddOns (`Settings.RegisterCanvasLayoutCategory`), shows the same tabs and values as the panel (two columns fit the page width), opens on the tab used last in the panel, and edits apply at once
-- [ ] Panel tabs (Window, Prices, Display, Session and alerts) look like the ledger's tabs (open at the bottom, gold edge and glow on the selected one, hover lights the edge); "Session and alerts" gets a wider button that fits its label (also German); clicking a tab shows only its options, the panel keeps its size, and it fits on the screen
-- [ ] Font dropdown lists WoW default and the fonts the client loads; picking one changes all addon text at once and **WoW default** restores it; other addons' fonts do not change; dragging a text size slider resizes the list, totals and titles at once, without `/reload` and without clipped text (also at 18 px / 24 px and back to the defaults); rows, footer lines and Top finds get their new heights, the window grows to the new minimum size (`Font:SetFont` on the addon's own font objects updates the FontStrings that use them)
-- [ ] **Item icons** off removes the icons and the quality frame from every row at once (also History and Bags), the names start at the left edge, the minimum width shrinks; on brings them back
-- [ ] Window scale keeps the window in place; Lock window blocks dragging and resizing; Start hidden at login hides it after `/reload`
-- [ ] Options tooltips: hovering an option's name or its control (checkbox, slider, dropdown, input box, button) shows the gold name, the description wrapping at a readable width and `Default: ...` in grey; the slider and checkbox templates keep their own behavior (`HookScript`)
-- [ ] Font list: shows more than `WoW default` (the classic fonts, the files of the game's font objects, LibSharedMedia fonts), sorted, no duplicates; picking one changes the ledger text at once; `FontInstance:SetFont` returning nothing on Forever counts as loaded
-- [ ] Text sizes: List text / Totals text / Section titles are dropdowns of px sizes; picking one re-lays the window out
-- [ ] Coin icons: amounts show the coin icons (`Interface\MoneyFrame\UI-GoldIcon` / `UI-SilverIcon` / `UI-CopperIcon`, `|T...:0:0:2:0|t`) at text height, sitting on the baseline, in the list, footer, Top finds, compact, Daily strip, tooltips and chat; the amount column and footer stay aligned and nothing clips at the minimum width (350 px) and at **List / Totals text size** 18; turning the option off brings the letters back at once, with the columns re-measured
-- [ ] Alert: a drop worth more than the set gold prints a chat line (and plays `SOUNDKIT.UI_EPICLOOT_TOAST` with the sound option); Add raw gold to the combined total off hides the Total row; Amounts of 1 gold and more changes every amount; Price refresh interval and the old-price age take effect
-- [ ] Gear button sits left of the close button, shows the icon (`Interface\Icons\Trade_Engineering`) with a tooltip "Options"; the title is not overlapped at 350 px; the panel opens to the right of the window, Esc and the gear close it
-- [ ] Opacity slider (0-100 %): the window background and border fade live down to fully transparent (text stays solid); Brightness slider (0-200 %) darkens / lightens the background and border; the values show in the slider titles and survive `/reload`; `OptionsSliderTemplate` exists and its own texts are hidden
-- [ ] TSM sale info: with TSM loaded, line 2 under the name shows e.g. `Sells well, Low volume` in green / red, matching TSM's tooltip values for Region Sale Rate and Region Avg Daily Sold against the cutoffs (`TSM_API.GetCustomPriceValue` accepts `DBRegionSaleRate * 1000` and `DBRegionSoldPerDay * 100`, and the sale rate is a 0..1 value); long names leave it clipped, not overlapping the amounts; it also shows with Auctionator as the price source; the option off hides it; changing a cutoff updates the rows at once
-- [ ] Price source dropdown lists Auto / TSM / Auctionator (menu works with `MenuUtil` or the legacy dropdown), the choice changes the AH prices live and survives `/reload`
-- [ ] Combat checkbox: with it on the window hides on entering combat and returns after; a window hidden by hand stays hidden; turning the option off mid-combat brings it back
-
-Header
-- [ ] Title is not overlapped by the timer at 350 px
-- [ ] Bronze buttons (`BackdropTemplate` with a 1 px `WHITE8X8` edge, label via `Button:SetFontString`): dark fill, bronze edge, gold edge on hover, dimmed text when disabled, Reset red-tinted; the text stays centered and readable at every font size; the one Start / Stop button reads Start while stopped and Stop while running, and a click does the matching thing
-- [ ] Reset popup appears and OnAccept resets
-- [ ] The close icon button (`Interface\Buttons\UI-StopButton` glyph in a 20 px bronze square; also on the options panel and the CSV copy box) looks right and is not mistaken for an error mark; the gear glyph fits its square; closes without the template's own hide, and persists the hidden state across `/reload`
-- [ ] German client: quality menu and sort button are translated (`Nach: Händler` fits the sort button)
-
-Raw gold and quest rewards
-- [ ] Gold looted from a creature, and from a container, appears in the Raw gold total and in the combined totals
-- [ ] A group split (`Your share of the loot is ...`) is counted once; with a guild bank cut only the first amount counts
-- [ ] Turning in a quest with a gold reward adds that gold to the same Raw gold total; a quest without gold changes nothing
-- [ ] A quest reward item shows up as a normal row in the item list
-- [ ] Raw gold ignores the item filters and the `filtered` marker only concerns the Items row; Stop ignores gold, Reset clears it, a kept session keeps it across relogs
-- [ ] `CHAT_MSG_MONEY` texts match the real `YOU_LOOT_MONEY` / `LOOT_MONEY_SPLIT` / `GOLD_AMOUNT` globals (`/dump YOU_LOOT_MONEY, GOLD_AMOUNT`; the ", " unit separator is assumed)
-
-Summary footer
-- [ ] The footer table (72 px: column titles + Items / Raw gold / Total, 18 px each) fits at 350 px wide and 388 px high with the 12 pt font; the Value and /h columns line up, also with the German labels (`Gegenstände`) and values up to `123456g 78s 90c` / `999g 59s 59c/h` (width estimate in `Theme.sizes.summaryCharPx`)
-- [ ] The Total row is gold, the column titles muted; the notes line appears only with filtered / unpriced / a bank note, and the list reflows when it does
-- [ ] Hovering the footer shows the vendor / AH / best tooltip (`GameTooltip:AddDoubleLine`) and it hides on leaving
-- [ ] Gold edge texture visible on the dark panel
-- [ ] Top finds sits at the bottom under the footer table; its gold divider line (above it) is visible, disappears with the block when there are no finds, and the list and summaries reflow; the last Top finds value stays clear of the resize grip
-- [ ] Dark leather look: ink, quality colors, the orange age tag and the `Top finds` header are readable, the gold divider is visible (colors in `Theme.lua` were tuned by computed contrast only)
-- [ ] Colored money: bright gold / silver / copper letters read well on the dark panel in rows, Top finds, totals and the per-hour rates
-- [ ] Top finds shows / hides and the list reflows; hovering a find shows its item tooltip; the block is gone on the Bags and Bank tabs
-- [ ] Em dash renders in FRIZQT; rates show an em dash in the first minute
-- [ ] `/lp demo` totals match the rows
-
-Filter bar
-- [ ] Row 2 layout at 350 px (`InputBoxTemplate` insets and hints)
-- [ ] Quality menu stays open on toggle and colors render
-- [ ] Minimum gold applies on Enter / blur and reverts on Escape
-- [ ] Search narrows live; the sort cycle reorders; the filter underline appears and disappears
-- [ ] The filter persists after `/reload`; no keyboard capture when unfocused
-
-Variants, values and currencies
-- [ ] Two drops of one gear item with different item levels show as two rows; `TSM_API.ToItemString(link)` and `Auctionator.API.v1.GetAuctionPriceByItemLink` price each variant; the bonus ID count is the 13th link field (`/dump` an item link)
-- [ ] Rows are two lines (30 px) with a 20 px icon: name, quantity, the value and its framed source tag on line 1 do not overlap or clip (also at **List text** 8 and 18 px and with the German tags `Entzaubern` / `Auktion`; the tag text is Arial Narrow, `Fonts\ARIALN.TTF`); the amounts are right-aligned in one column and the tags line up; the tag frame (1 px backdrop edge in the tag color) is drawn around its text; the age tag or the yellow `?` follows the tag
-- [ ] The row value is the best of vendor / AH / DE and the tag names it (a sword whose vendor price beats its DE value shows `Vendor`); the `Value` sort and Top finds follow it; hovering a row adds the `Vendor:` / `AH:` / `Disenchant:` lines under the item tooltip (`GameTooltip:AddLine` after `SetHyperlink`)
-- [ ] A soulbound or quest item shows its vendor value with the `Vendor` tag (or `bound` without one) and is not counted as unpriced (`GetItemInfo` 14th return bindType 1 / 4 / 7 / 8 / 9)
-- [ ] A currency gain (`CHAT_MSG_CURRENCY`, `CURRENCY_GAINED*` globals) adds a currency row with icon and tooltip (`C_CurrencyInfo.GetCurrencyInfo`)
-- [ ] Crafting (`You create`) and buying from a merchant add nothing with the option off and are counted with it on; a quest reward still counts; the `MERCHANT_*` / `MAIL_*` / `TRADE_*` / `AUCTION_HOUSE_*` events exist
-- [ ] Money parsing in a non-English client (another unit separator than ", ")
-
-Places, automatic sessions, export
-- [ ] `GetInstanceInfo` / `GetRealZoneText` give the zone outside and `Instance (Difficulty)` inside; History rows show the main place and the tooltip all places and rates
-- [ ] Zones: `GetSubZoneText` gives the subzone shown on the minimap ("" without one); walking into another subzone fires `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS`, a new zone `ZONE_CHANGED_NEW_AREA`, and the time moves to the new place
-- [ ] Zones: a quest item (`C_Item.GetItemInfoInstant` class ID 12) lands in the "Quest items" group; History shows a fourth header row with Sessions / Zones and the list moves down by one row, other tabs do not
-- [ ] Mode button: the arrow (`Interface\ChatFrame\ChatFrameExpandArrow`, turned up / down with `SetTexCoord`, inset 4 px) is smooth (not jagged), centered in the 20 px bronze square, cream like the Stop / Reset text (the texture must be white for the tint) and gold on hover; it points up in full and down in compact; a click switches the layout, the tooltip names the target layout
-- [ ] Tabs: the selected tab's edge no longer covers the top of the first list row (the tab row clips its children); the tab still looks open into the list
-- [ ] Compact layout: double-clicking the title switches (a drag on the title still moves the window and does not switch); the compact window opens at 260 x 210 (minimum 240 x 190, body clipped) and keeps its own size; the clock and `Paused` sit right of the title, left of the mode button, and a click on the clock is not taken by the title, full comes back at its old size; the filter row, Daily farm row, tabs, list, footer and Top finds are gone and the header is one row; the gold per hour is the largest text (the game's Large font, about 16 px) and, with coin icons, it and the session total both fit side by side at the default 260 px without the total being cut; four last drops with value and colored source; clicking the clock stops / starts the session, `Paused` shows in red and the clock dims while stopped; combat hide, lock and scale work in both layouts
-- [ ] Farm spots: `C_Map.GetBestMapForUnit("player")` and `C_Map.GetPlayerMapPosition(mapID, "player"):GetXY()` give the coordinates the map shows (0..1); inside any instance (also delves and scenarios) nothing is recorded; without TomTom a spot on a map that allows no pin (a cave sub-map) sets none and chat says `No waypoint could be set.`; the right-click copy box is titled `Waypoint (/way)`
-- [ ] Daily farm: with a saved place of 20+ min the strip shows between the filter bar and the tabs, the tabs and list move down one row (and back up when **Daily farm** is turned off); a character without History has no strip and no gap; the gold star (`Interface\Common\FavoritesIcon`, tinted) shows as one star; hover highlights it and lists the runner-ups and the clicks; click sets a TomTom waypoint (arrow and pin at the spot where you looted), without TomTom the game's map pin is set and tracked (`UiMapPoint.CreateFromCoordinates`, `C_Map.SetUserWaypoint`, `C_SuperTrack.SetSuperTrackedUserWaypoint`), a chat line names the place; shift-click opens History > Zones at that subzone, scrolled into view, also with a search active; right-click shows the `/way` line in the copy box and pasting it into chat with TomTom gives the same spot; a place farmed only before this version (or inside an instance) opens Zones on click; dragging the strip moves the window (not when locked); with TSM, a place of slow sellers shows `slow selling` in red
-- [ ] New session for each dungeon or raid: entering and leaving a dungeon each save a History entry; a loading screen in the open world does not
-- [ ] Pause the clock while AFK: `/afk` stops the clock, moving again restarts it (`PLAYER_FLAGS_CHANGED`, `UnitIsAFK`)
-- [ ] `/lp export` and the options button open the copy box (`UIPanelScrollFrameTemplate`), the CSV is selected, Ctrl+C copies it, Esc closes it
-
-Bank
-- [ ] Forever has character bank tabs (`Enum.BagIndex.CharacterBankTab_1`) or the old bank: the right one is scanned; the reagent bank (`REAGENTBANK_CONTAINER`) is included where it exists; moving items in the bank's own slots updates the scan (`PLAYERBANKSLOTS_CHANGED`)
-
-Libraries and language
-- [ ] Packaged build: the minimap button is LibDBIcon's (dragging, hiding, reset), the broker shows in Titan Panel / ElvUI; a dev copy without `Libs/` loads without Lua errors (missing `embeds.xml` files only) and shows the own button
-- [ ] German client: texts are German, nothing clips (longer labels in the options panel and footer)
-
-History tab (unverified in the client)
-- [ ] Reset with loot adds a row to History; `/lp demo` then reset does not; relog (keep off) archives the old session; `/reload` does not
-- [ ] Tooltips: hovering the Daily farm strip, a History session and a Zones place shows the gold title in the header font, label / value lines with the values right-aligned (`GameTooltip:AddDoubleLine`), colored coins, the green click hints after a blank line; long place lists and slow seller lists wrap instead of widening the tooltip (`AddLine` with wrap)
-- [ ] History rows show date and time (`date("%Y-%m-%d %H:%M")`), length, item count, Vendor / AH / Gold lines; clicking a row moves it to the top with its items under it, a second click collapses it; the tab title is Session History
-- [ ] Options: the `History kept` box (`InputBoxTemplate`) accepts a number, empty = unlimited, Enter/focus loss saves, Esc reverts; lowering it prunes at once
+- **Price age**: TSM and Auctionator don't say when they last scanned, so the
+  age tag is the time since the source last gave a price for that item.
+- **Languages**: English and German. Loot and money messages are read from the
+  game's own texts, so they work in every client language.
+- **Install**: copy the `LootPrice/` folder into
+  `World of Warcraft/<client>/Interface/AddOns/`.

@@ -30,7 +30,6 @@ end
 
 -- Option "coinIcons": the game's coin icons (inline textures, as tall as the
 -- text) in place of the g / s / c letters. Off until Options.applyAll.
--- UNVERIFIED (check in client): the MoneyFrame icons exist on Forever.
 Money.ICONS = {
   gold = "|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:2:0|t",
   silver = "|TInterface\\MoneyFrame\\UI-SilverIcon:0:0:2:0|t",

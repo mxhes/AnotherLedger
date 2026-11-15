@@ -217,8 +217,8 @@ function Tabs.look(selected, hovered)
 end
 
 -- Vertical gold glow from the top edge of `tex` (opaque) to transparent below.
--- UNVERIFIED (check in client): Texture:SetGradient with CreateColor (retail);
--- SetGradientAlpha is the older signature.
+-- Texture:SetGradient with CreateColor (retail); SetGradientAlpha is the older
+-- signature.
 local function setGlow(tex, c)
   if tex.SetGradient and CreateColor then
     tex:SetGradient("VERTICAL", CreateColor(c[1], c[2], c[3], 0), CreateColor(c[1], c[2], c[3], c[4]))
@@ -239,7 +239,6 @@ end
 -- (a backdrop with no fill on the `skin` frame) is tabEdge px taller than the
 -- button, so its bottom edge is cut off. A centered label and the glow of the
 -- selected tab sit on the skin.
--- UNVERIFIED (check in client): SetClipsChildren cuts the backdrop edge cleanly.
 -- Pure. Width of a tab button: Theme.widths.tab, wider when the label needs it
 -- (`textW` = measured label width; nil or 0 keeps the theme width).
 function Tabs.buttonWidth(textW)

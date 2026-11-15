@@ -51,8 +51,7 @@ local BUILT_IN = {
 
 -- Game font objects whose files are offered too: the game draws with them,
 -- so the files exist (also the ones of other languages and newer clients).
--- UNVERIFIED (check in client): these font objects exist on Forever; missing
--- ones are skipped.
+-- Missing ones are skipped.
 local GAME_FONT_OBJECTS = {
   "GameFontNormal", "ChatFontNormal", "NumberFontNormal", "QuestFont", "SystemFont_Med1",
   "GameFontNormalHuge", "CombatTextFont", "ZoneTextFont", "SubZoneTextFont", "DestinyFontLarge",
@@ -183,8 +182,8 @@ end
 
 local installed = false
 
--- UNVERIFIED (check in client): FontStrings created from an own font object
--- follow a later SetFont of that object (new size without re-creating them).
+-- FontStrings created from an own font object follow a later SetFont of that
+-- object (new size without re-creating them).
 -- Applies the saved sizes to ns.Theme.sizes and to the font objects. Returns
 -- whether any size changed (nothing to re-lay out otherwise). Does nothing
 -- before install.

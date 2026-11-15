@@ -300,7 +300,6 @@ end
 
 -- The item tooltip of the row, or its hint text (History rows) without an item.
 -- Item tooltip plus the row's values (Rows.tooltipLines), else the row hint.
--- UNVERIFIED (check in client): GameTooltip:AddLine after SetHyperlink, then Show.
 local function showTooltip(f)
   local W = ns.UI.Widgets
   if W.showItemTooltip(f, f.tooltipLink) then
@@ -316,7 +315,6 @@ end
 
 local function itemIcon(itemID)
   local icon
-  -- UNVERIFIED (check in client): C_Item.GetItemIconByID exists on Forever.
   if C_Item and C_Item.GetItemIconByID then icon = C_Item.GetItemIconByID(itemID) end
   return icon or QUESTION_MARK
 end
@@ -594,7 +592,6 @@ function Rows.attach(area, onMeasure)
   bar:SetPoint("BOTTOMRIGHT", area, "BOTTOMRIGHT", -1, 1)
   bar:SetMinMaxValues(0, 0)
   bar:SetValueStep(1)
-  -- UNVERIFIED (check in client): Slider SetObeyStepOnDrag / GetThumbTexture exist.
   if bar.SetObeyStepOnDrag then bar:SetObeyStepOnDrag(true) end
   local track = bar:CreateTexture(nil, "BACKGROUND")
   track:SetAllPoints(bar)

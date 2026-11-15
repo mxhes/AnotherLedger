@@ -24,9 +24,8 @@ function Waypoint.text(place)
   return string.format("/way #%d %.1f %.1f %s", p.mapID, p.x * 100, p.y * 100, place.sub or place.zone)
 end
 
--- UNVERIFIED (check in client): TomTom:AddWaypoint(mapID, x, y, { title, from })
--- with x / y 0..1 returns the waypoint's uid (nil: nothing was set, e.g. a
--- map TomTom does not know).
+-- TomTom:AddWaypoint(mapID, x, y, { title, from }) with x / y 0..1 returns the
+-- waypoint's uid (nil: nothing was set, e.g. a map TomTom does not know).
 local function tomtom(env, place)
   local api = env.TomTom
   if type(api) ~= "table" or type(api.AddWaypoint) ~= "function" then return false end
@@ -35,10 +34,10 @@ local function tomtom(env, place)
   return ok and uid ~= nil
 end
 
--- UNVERIFIED (check in client): UiMapPoint.CreateFromCoordinates,
--- C_Map.SetUserWaypoint, C_Map.CanSetUserWaypointOnMap and
--- C_SuperTrack.SetSuperTrackedUserWaypoint on Forever. Maps that do not allow
--- a pin (caves and other sub-maps, cities, instances) get none.
+-- UiMapPoint.CreateFromCoordinates, C_Map.SetUserWaypoint,
+-- C_Map.CanSetUserWaypointOnMap and C_SuperTrack.SetSuperTrackedUserWaypoint.
+-- UNVERIFIED (check in client): maps that do not allow a pin (caves and other
+-- sub-maps, cities, instances) get none.
 local function mapPin(env, place)
   local point, map, track = env.UiMapPoint, env.C_Map, env.C_SuperTrack
   if type(point) ~= "table" or type(point.CreateFromCoordinates) ~= "function"

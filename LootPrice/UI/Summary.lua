@@ -309,7 +309,6 @@ function Summary.attach(topBox, footer)
   summary.notes, summary.notesFrame = notes, notesFrame
 
   -- Hover: vendor / AH / best of the last view.
-  -- UNVERIFIED (check in client): GameTooltip:AddDoubleLine on the footer table.
   tbl:SetScript("OnEnter", function(self)
     if not GameTooltip then return end
     GameTooltip:SetOwner(self, "ANCHOR_TOP")

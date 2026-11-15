@@ -257,7 +257,7 @@ local function build(db)
 
   -- Double-clicking the title switches full / compact (Window.onTitleDoubleClick,
   -- set by the Ledger); dragging it still moves the window.
-  -- UNVERIFIED (check in client): OnDoubleClick does not fire after a drag.
+  -- OnDoubleClick does not fire after a drag.
   local titleButton = CreateFrame("Button", nil, header.row1)
   titleButton:SetPoint("TOPLEFT", header.row1, "TOPLEFT", 0, 0)
   titleButton:SetSize(T.sizes.titleButtonWidth, T.sizes.headerRowHeight)
@@ -400,8 +400,6 @@ end
 
 -- Shows or hides header row 4 (sub-tabs); the list area below the header
 -- follows by anchoring.
--- UNVERIFIED (check in client): the list area reflows live when the header
--- height changes.
 local optionalRows = { subtab = false, farm = false, topBox = false }
 
 -- Pure. Which parts of the window a mode shows. Full: the filter and tab rows,
@@ -441,8 +439,6 @@ function Window.setSubtabRow(shown)
 end
 
 -- Shows or hides the Daily farm row (between the filters and the tabs).
--- UNVERIFIED (check in client): a row collapsed to COLLAPSED_ROW px keeps the
--- tab row right under the filters.
 function Window.setFarmRow(shown)
   local frame = Window.frame
   if not (frame and frame.header and frame.header.rowFarm) then return end

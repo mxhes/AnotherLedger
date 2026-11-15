@@ -141,8 +141,7 @@ end
 
 -- Pure over `env`. Returns the place label ("Zone", or "Instance (Difficulty)")
 -- and an instance key (nil outside instances).
--- UNVERIFIED (check in client): GetInstanceInfo returns name, instanceType,
--- difficultyID, difficultyName and GetRealZoneText exists on Forever.
+-- GetInstanceInfo gives name, instanceType, difficultyID, difficultyName.
 function Core.placeOf(env)
   if type(env.GetInstanceInfo) == "function" then
     local ok, name, instanceType, difficultyID, difficultyName = pcall(env.GetInstanceInfo)
@@ -165,8 +164,7 @@ function Core.placeOf(env)
 end
 
 -- Pure over `env`: the subzone label, or `zone` when there is none.
--- UNVERIFIED (check in client): GetSubZoneText exists on Forever and is "" in
--- places without a subzone.
+-- GetSubZoneText is "" in places without a subzone.
 function Core.subzoneOf(env, zone)
   if type(env.GetSubZoneText) == "function" then
     local ok, v = pcall(env.GetSubZoneText)
@@ -177,8 +175,8 @@ end
 
 -- Pure over `env`: the player's map position as mapID, x, y (0..1), or nil
 -- (inside instances, or when the client has none: 0,0 means unknown).
--- UNVERIFIED (check in client): C_Map.GetBestMapForUnit("player") and
--- C_Map.GetPlayerMapPosition(mapID, "player"):GetXY() on Forever.
+-- C_Map.GetBestMapForUnit("player") and
+-- C_Map.GetPlayerMapPosition(mapID, "player"):GetXY() (0..1).
 local function readPosition(env)
   local api = env.C_Map
   if type(api) ~= "table" or type(api.GetBestMapForUnit) ~= "function"
@@ -476,7 +474,7 @@ end
 -- Combat auto hide / show (option "combatHide"): hides the window when combat
 -- starts and shows it again when combat ends, but only if it was shown before.
 -- History Zones: the player moved to another zone or subzone (no redraw).
--- UNVERIFIED (check in client): these fire on Forever for subzone changes too.
+-- They fire for subzone changes too.
 for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
   events[event] = function() Core.updatePlace() end
 end

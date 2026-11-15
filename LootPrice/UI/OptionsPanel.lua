@@ -57,7 +57,6 @@ function Panel.WIDGETS.slider(block, spec)
   local title = label(block, T.fonts.small, T.colors.ink)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
 
-  -- UNVERIFIED (check in client): OptionsSliderTemplate exists on Forever.
   local slider = CreateFrame("Slider", nil, block, "OptionsSliderTemplate")
   slider:SetPoint("TOPLEFT", block, "TOPLEFT", 4, -22)
   slider:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -22)

@@ -36,8 +36,8 @@ end
 -- field may be missing; nil without TSM or without any data. TSM rounds custom
 -- price values to whole numbers (copper), so the value is asked scaled up and
 -- divided again.
--- UNVERIFIED (check in client): GetCustomPriceValue accepts "DBRegionSaleRate * 1000"
--- and "DBRegionSoldPerDay * 100", and DBRegionSaleRate is a plain 0..1 rate.
+-- GetCustomPriceValue accepts "DBRegionSaleRate * 1000" and
+-- "DBRegionSoldPerDay * 100"; DBRegionSaleRate is a plain 0..1 rate.
 TSM.RATE_SCALE, TSM.SOLD_SCALE = 1000, 100
 
 function TSM.market(env, itemID, link)

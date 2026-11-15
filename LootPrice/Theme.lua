@@ -11,7 +11,6 @@ Theme.textures = {
   frameBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   rowHighlight = "Interface\\Buttons\\WHITE8X8",
   -- Daily farm strip: a star, tinted with colors.dailyFarm.
-  -- UNVERIFIED (check in client): the texture exists on Forever and is one image.
   dailyFarm = "Interface\\Common\\FavoritesIcon",
   resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
   -- Options button: a gear-like trade icon, present in every client.
@@ -23,7 +22,6 @@ Theme.textures = {
   buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
   -- Mode button arrow: a plain white triangle pointing right (turned up / down
   -- by Widgets.arrowCoords, tinted with the button text color).
-  -- UNVERIFIED (check in client): the texture exists on Forever and is white.
   arrow = "Interface\\ChatFrame\\ChatFrameExpandArrow",
   -- Thin rounded edge of the tab buttons (tinted with colors.tabBorder*).
   tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -242,7 +240,6 @@ Theme.sizes = {
   gripInset = 4,
   -- Window edge: the game tooltip's proportions (16 px edge, fill inset 5 px),
   -- so the square fill stays hidden behind the rounded corners.
-  -- UNVERIFIED (check in client): no square fill corner shows outside the edge.
   backdropTile = 16,
   backdropEdge = 16,
   backdropInset = 5,
