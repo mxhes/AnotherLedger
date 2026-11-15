@@ -199,11 +199,18 @@ function Summary.attach(topBox, footer)
   header:SetText(L_TOP)
   summary.header = header
 
+  -- Height and place of Top finds row `i` (again after a size change).
+  local function placeTopRow(row, i)
+    local y = -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight)
+    row:SetHeight(S.topRowHeight)
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, y)
+    row:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, y)
+  end
+
   for i = 1, MAX_TOP do
     local row = CreateFrame("Frame", nil, topBox)
-    row:SetHeight(S.topRowHeight)
-    row:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight))
-    row:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, -(off + S.topHeaderHeight + (i - 1) * S.topRowHeight))
+    placeTopRow(row, i)
     local edge = W.line(row, line, "ARTWORK", 0.9)
     edge:SetWidth(2)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
@@ -241,7 +248,7 @@ function Summary.attach(topBox, footer)
   tbl:EnableMouse(true)
   summary.table = tbl
 
-  local rateW = rateColumnWidth()
+  local rateW = rateColumnWidth() -- recomputed by ApplySizes
   local function makeLine()
     local f = CreateFrame("Frame", nil, tbl)
     f:SetHeight(S.footerRowHeight)
@@ -337,6 +344,20 @@ function Summary.attach(topBox, footer)
     end
   end
 
+  -- Theme.sizes changed (font size options): new line heights, Top finds
+  -- places and /h column width; the next Set re-stacks the table and resizes
+  -- the footer and the Top finds box.
+  function summary:ApplySizes()
+    rateW = rateColumnWidth()
+    titles.frame:SetHeight(S.footerRowHeight)
+    for _, key in ipairs(Summary.ROWS) do cells[key].frame:SetHeight(S.footerRowHeight) end
+    notesFrame:SetHeight(S.footerNoteHeight)
+    for i = 1, MAX_TOP do placeTopRow(self.rows[i].frame, i) end
+    placeValue(titles.value, titles.frame, true)
+    self.footerHeight, self.height = nil, nil
+    self:Set(self.view)
+  end
+
   function summary:SetNotes(view)
     local text, orange = Summary.notesText(view)
     if not text then return end
@@ -392,6 +413,7 @@ function Summary.attach(topBox, footer)
   -- Ledger part: everything on a full refresh, only the amounts on a clock tick.
   local part = {}
   function part:Update(view) summary:Set(view) end
+  function part:Relayout() summary:ApplySizes() end
   function part:Tick(view)
     summary.view = view or NONE
     summary:SetValues(summary.view)

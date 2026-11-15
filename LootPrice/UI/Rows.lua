@@ -485,17 +485,33 @@ function Rows.attach(area, onMeasure)
 
   local function visible() return Rows.visibleCount(area:GetHeight(), T.sizes.rowHeight) end
 
+  -- Height and place of the pooled row frame at list position `i`.
+  local function placeRow(f, i)
+    local y = -(i - 1) * T.sizes.rowHeight
+    f:SetHeight(T.sizes.rowHeight)
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
+    f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y)
+  end
+
   -- The pooled row frame for list position `i`, created on first use.
   local function rowFrame(i)
     local f = list.pool[i]
     if not f then
-      local y = -(i - 1) * T.sizes.rowHeight
       f = createRow(content, list)
-      f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
-      f:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y)
+      placeRow(f, i)
       list.pool[i] = f
     end
     return f
+  end
+
+  -- Theme.sizes or the fonts changed: measure again (onMeasure updates the
+  -- window minimum), give every pooled row its new height and place, redraw.
+  function list:Relayout()
+    self:Measure()
+    if onMeasure then onMeasure(self.measured) end
+    for i, f in ipairs(self.pool) do placeRow(f, i) end
+    self:Render()
   end
 
   function list:Render()

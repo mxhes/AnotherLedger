@@ -445,6 +445,37 @@ h.test("wiring: footer table height follows the tab and the raw gold option", fu
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the font size options re-lay the window out live", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  local S, L = ns.Theme.sizes, ns.UI.Ledger
+  local footer, summary = ns.UI.Window.frame.footer, ns.UI.Summary.instance
+  L.refresh()
+  local row = L.list.pool[1]
+  h.eq(row:GetHeight(), 40)
+  local minHeight = S.minHeight
+  ns.Options.set(ns.db, "fontSizeRows", 18)
+  h.eq(S.rowHeight, 60)
+  h.eq(row:GetHeight(), 60)
+  h.eq(S.minHeight, minHeight + 4 * 20) -- four list rows, 20 px taller each
+  ns.Options.set(ns.db, "fontSizeTotals", 15)
+  h.eq(summary.cells.items.frame:GetHeight(), 23)
+  h.eq(S.footerNoteHeight, 20)
+  h.eq(footer:GetHeight(), ns.UI.Summary.tableLayout(L.view).height) -- 4 lines of 23 (+ notes)
+  h.eq(footer:GetHeight() >= 4 * 23, true)
+  -- back to the defaults: computed from the theme's values, not compounded
+  ns.Options.set(ns.db, "fontSizeRows", 12)
+  ns.Options.set(ns.db, "fontSizeTotals", 12)
+  h.eq(S.rowHeight, 40)
+  h.eq(row:GetHeight(), 40)
+  h.eq(S.footerRowHeight, 18)
+  h.eq(footer:GetHeight(), ns.UI.Summary.tableLayout(L.view).height)
+  h.eq(S.minHeight, minHeight)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: hovering the footer table shows the vendor / AH tooltip", function()
   local ctx = boot()
   local lines = {}

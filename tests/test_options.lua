@@ -13,7 +13,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "keepSession", "priceSource", "tsmSource", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
     "showCurrencies", "fontFace", "fontSizeRows", "fontSizeTotals",
-    "fontSizeTitles", "reloadUI", "minimapButton", "minimapReset",
+    "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do

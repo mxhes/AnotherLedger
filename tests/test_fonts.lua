@@ -147,3 +147,27 @@ h.test("Fonts.applyFace: switches every own font object live, default restores t
   _G.CreateFont, _G.GameFontHighlight = nil, nil
   assert(ok, err)
 end)
+
+h.test("Fonts.applySizes: a changed size resizes the own font objects live, from the theme's values", function()
+  local ns = load()
+  local created, newFont = fakeClient()
+  _G.CreateFont = newFont
+  _G.GameFontHighlight = newFont("GameFontHighlight")
+  local ok, err = pcall(function()
+    local db = { settings = {} }
+    h.eq(ns.UI.Fonts.applySizes(db), false) -- before install: nothing
+    ns.UI.Fonts.install(db)
+    h.eq(ns.UI.Fonts.applySizes(db), false) -- nothing changed
+    db.settings.fontSizeRows = 15
+    h.eq(ns.UI.Fonts.applySizes(db), true)
+    h.near(created.LootPriceBody.size, 15)
+    h.eq(ns.Theme.sizes.rowHeight, 50)
+    db.settings.fontSizeRows = 9
+    h.eq(ns.UI.Fonts.applySizes(db), true)
+    h.eq(ns.Theme.sizes.rowHeight, 30) -- 40 * 9 / 12, not 50 * 9 / 12
+    h.near(created.LootPriceBody.size, 9)
+    h.eq(created.LootPriceSummary.size, 12) -- other groups untouched
+  end)
+  _G.CreateFont, _G.GameFontHighlight = nil, nil
+  assert(ok, err)
+end)

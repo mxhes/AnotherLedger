@@ -312,6 +312,21 @@ function Window.setMinWidth(required)
   end
 end
 
+-- Theme.sizes changed (font size options): new resize bounds, and a window
+-- that is now below the minimum grows to it.
+function Window.applySizes()
+  local frame = Window.frame
+  if not frame then return end
+  applyBounds(frame)
+  local w, h = frame:GetWidth(), frame:GetHeight()
+  local nw, nh = math.max(w, minWidth()), math.max(h, theme().sizes.minHeight)
+  if nw ~= w or nh ~= h then
+    frame:SetSize(nw, nh)
+    ensureOnScreen(frame)
+    save()
+  end
+end
+
 function Window.setTitle(text)
   local frame = Window.frame
   if frame and frame.header and frame.header.title then frame.header.title:SetText(text) end

@@ -350,8 +350,7 @@ Options.define({
 })
 
 -- Round button on the minimap (UI/Minimap.lua).
--- Font sizes (UI/Fonts.lua): decided before the window is built, so they take
--- effect after /reload.
+-- Font sizes (UI/Fonts.lua): applied live, the window re-lays itself out.
 -- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.
 Options.define({
   key = "fontFace", category = "display",
@@ -367,18 +366,16 @@ Options.define({
 })
 
 local function px(v) return v .. " px" end
-Options.define({ key = "fontSizeRows", category = "display", type = "slider", label = L["List text size (after /reload)"],
-  min = 8, max = 18, step = 1, format = px })
-Options.define({ key = "fontSizeTotals", category = "display", type = "slider", label = L["Totals text size (after /reload)"],
-  min = 8, max = 18, step = 1, format = px })
-Options.define({ key = "fontSizeTitles", category = "display", type = "slider", label = L["Section title size (after /reload)"],
-  min = 10, max = 24, step = 1, format = px })
-Options.define({
-  key = "reloadUI", category = "display", type = "button", label = L["Reload UI to apply font sizes"],
-  action = function()
-    if type(ReloadUI) == "function" then ReloadUI() end
-  end,
-})
+-- Re-applies every size and re-lays the window out when one changed.
+local function applySizes()
+  if ns.UI and ns.UI.Ledger and ns.UI.Ledger.applySizes then ns.UI.Ledger.applySizes() end
+end
+Options.define({ key = "fontSizeRows", category = "display", type = "slider", label = L["List text size"],
+  min = 8, max = 18, step = 1, format = px, apply = applySizes })
+Options.define({ key = "fontSizeTotals", category = "display", type = "slider", label = L["Totals text size"],
+  min = 8, max = 18, step = 1, format = px, apply = applySizes })
+Options.define({ key = "fontSizeTitles", category = "display", type = "slider", label = L["Section title size"],
+  min = 10, max = 24, step = 1, format = px, apply = applySizes })
 
 Options.define({
   key = "minimapButton", category = "window",

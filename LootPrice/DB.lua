@@ -38,7 +38,7 @@ DB.defaults = {
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
     instanceSession = false,
-    -- Font size in px of the list text, the totals and the section titles (after /reload).
+    -- Font size in px of the list text, the totals and the section titles (applied live).
     -- Typeface: "default" (the WoW font) or a font file path.
     fontFace = "default",
     fontSizeRows = 12,

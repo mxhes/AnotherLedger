@@ -33,7 +33,7 @@ local stale = false -- a refresh was skipped while the window was hidden
 Ledger.tab = ns.UI.Tabs.DEFAULT
 
 -- A part is a table with a method Update(view, session, now) and, optionally,
--- Tick(view, session, now).
+-- Tick(view, session, now) and Relayout() (Theme.sizes changed; Ledger.relayout).
 function Ledger.register(part)
   parts[#parts + 1] = part
 end
@@ -169,6 +169,33 @@ function Ledger.refresh()
   end
 end
 
+-- Re-lays the window out after Theme.sizes changed (font size options, item
+-- icons): the window bounds first, then every part with a Relayout method,
+-- then a full redraw.
+function Ledger.relayout()
+  if not Ledger.frame then return end
+  local window = ns.UI.Window
+  if window and window.applySizes then
+    local ok, err = pcall(window.applySizes)
+    if not ok then reportError(err) end
+  end
+  for _, part in ipairs(parts) do
+    if part.Relayout then
+      local ok, err = pcall(part.Relayout, part)
+      if not ok then reportError(err) end
+    end
+  end
+  Ledger.refresh()
+end
+
+-- Font size options: new sizes for the theme and the font objects, and a
+-- relayout when any of them changed (nothing happens before the window exists).
+function Ledger.applySizes()
+  local fonts = ns.UI.Fonts
+  if not (fonts and ns.db and fonts.applySizes(ns.db)) then return end
+  Ledger.relayout()
+end
+
 -- Clock tick: rates and clock only; a full refresh when the prices are due.
 function Ledger.tick()
   local session = ns.session
@@ -277,6 +304,9 @@ end
 local rowsPart = {}
 function rowsPart:Update(view)
   list:SetData(view.rows)
+end
+function rowsPart:Relayout()
+  list:Relayout()
 end
 
 -- One failing part must not stop the others, the ticker or the first refresh.
