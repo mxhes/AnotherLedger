@@ -476,6 +476,26 @@ h.test("wiring: the font size options re-lay the window out live", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the item icon option hides the row icons live", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  local L, W = ns.UI.Ledger, ns.UI.Window
+  L.refresh()
+  local row = L.list.pool[1]
+  h.eq(row.icon:IsShown(), true)
+  local required = W.requiredWidth
+  ns.Options.set(ns.db, "showIcons", false)
+  h.eq(row.icon:IsShown(), false)
+  h.eq(row.iconBorder:IsShown(), false)
+  h.eq(W.requiredWidth, required - ns.Theme.sizes.rowTextLeft + ns.Theme.sizes.rowTextLeftNoIcon)
+  ns.Options.set(ns.db, "showIcons", true)
+  h.eq(row.icon:IsShown(), true)
+  h.eq(W.requiredWidth, required)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: hovering the footer table shows the vendor / AH tooltip", function()
   local ctx = boot()
   local lines = {}

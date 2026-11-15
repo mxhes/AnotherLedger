@@ -12,7 +12,7 @@ h.test("Options: the built-in options are registered in panel order", function()
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "startHidden", "combatHide",
     "keepSession", "priceSource", "tsmSource", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "includeGold", "alertGold", "alertSound", "countCrafted", "afkPause", "instanceSession",
-    "showCurrencies", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "showCurrencies", "showIcons", "fontFace", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "historyLimit" })
   -- every option but a button has its default in DB.defaults.settings

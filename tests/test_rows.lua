@@ -200,6 +200,20 @@ h.test("requiredRowWidth adds the text inset and window chrome", function()
   h.eq(R.requiredRowWidth(WIDE) > R.requiredRowWidth(nil), true)
 end)
 
+h.test("without item icons the text starts near the left edge and the row needs less width", function()
+  local S = ns.Theme.sizes
+  local withIcons = R.requiredRowWidth(WIDE)
+  h.eq(R.textLeft(), S.rowTextLeft)
+  ns.Options, ns.db = { get = function(_, key) if key == "showIcons" then return false end end }, {}
+  local ok, err = pcall(function()
+    h.eq(R.showIcons(), false)
+    h.eq(R.textLeft(), S.rowTextLeftNoIcon)
+    h.eq(R.requiredRowWidth(WIDE), withIcons - S.rowTextLeft + S.rowTextLeftNoIcon)
+  end)
+  ns.Options, ns.db = nil, nil
+  assert(ok, err)
+end)
+
 h.test("Rows.tooltipLink: the row link, else an item string, else nil", function()
   local link = "|cffffffff|Hitem:2589::::::::60:::::::::|h[Linen Cloth]|h|r"
   h.eq(ns.UI.Rows.tooltipLink({ id = 2589, link = link }), link)

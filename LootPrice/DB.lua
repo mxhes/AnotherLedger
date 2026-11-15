@@ -35,6 +35,8 @@ DB.defaults = {
     -- count as loot only with this on.
     countCrafted = false,
     showCurrencies = true,
+    -- Item icon at the left of each list row.
+    showIcons = true,
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
     instanceSession = false,

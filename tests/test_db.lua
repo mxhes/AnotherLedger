@@ -10,7 +10,7 @@ h.test("DB.defaults shape", function()
     lockWindow = false, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full",
     includeGold = true, refreshSeconds = 30, staleHours = 12, alertGold = 0, alertSound = false,
     fontFace = "default", fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
-    countCrafted = false, showCurrencies = true, afkPause = false, instanceSession = false })
+    countCrafted = false, showCurrencies = true, showIcons = true, afkPause = false, instanceSession = false })
   h.eq(d.window, { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false })
   h.eq(d.filter.minValue, 0)
   h.eq(d.filter.search, "")

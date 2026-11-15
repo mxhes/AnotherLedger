@@ -168,12 +168,25 @@ function Rows.nameFit(nameColW, qtyW, natural)
   return avail
 end
 
+-- Left inset of a row's text: after the icon, or near the left edge when the
+-- option "showIcons" is off.
+function Rows.showIcons()
+  local O, db = ns.Options, ns.db
+  if not (O and db) then return true end
+  return O.get(db, "showIcons") ~= false
+end
+
+function Rows.textLeft()
+  local S = ns.Theme.sizes
+  return Rows.showIcons() and S.rowTextLeft or S.rowTextLeftNoIcon
+end
+
 -- Window width needed so the row fits with the measured font: row content
 -- width + text inset + right inset + window chrome.
 function Rows.requiredRowWidth(measured)
   local S = ns.Theme.sizes
   local c = Rows.worstCase(measured)
-  return c.required + S.rowTextLeft + S.rowRightInset + S.rowChrome
+  return c.required + Rows.textLeft() + S.rowRightInset + S.rowChrome
 end
 
 -- How many whole rows fit in `height` (at least 1).
@@ -247,7 +260,7 @@ local function blockFor(owner, w)
   local S = theme().sizes
   local m = owner.measured or NONE
   local bm = owner.blockMeasure or NONE
-  return Rows.blockLayout(w - S.rowTextLeft - S.rowRightInset,
+  return Rows.blockLayout(w - Rows.textLeft() - S.rowRightInset,
     math.max(m.vendorLabel or 0, m.ahLabel or 0), bm.amount, bm.tag)
 end
 
@@ -266,7 +279,7 @@ local function layoutRow(f, block)
   local S = theme().sizes
   local owner = f.owner or NONE
   local c = block or blockFor(owner, w)
-  local x0, inset = S.rowTextLeft, S.rowLineInset
+  local x0, inset = Rows.textLeft(), S.rowLineInset
 
   -- Name and quantity share the left column; the quantity always stays visible.
   place(f.name, f, "TOPLEFT", x0 + c.nameX, -inset)
@@ -396,8 +409,13 @@ local function fillRow(f, row)
   f.tag:SetText(t.tag or "")
   f.hasTag = t.tag ~= nil
   setColor(f.tag, t.tagStale and T.colors.stale or T.colors.ink)
-  f.iconBorder:SetColorTexture(r, g, b, 1)
-  f.icon:SetTexture(row.icon or (row.isCurrency and QUESTION_MARK) or itemIcon(row.id))
+  local icons = Rows.showIcons()
+  f.iconBorder:SetShown(icons)
+  f.icon:SetShown(icons)
+  if icons then
+    f.iconBorder:SetColorTexture(r, g, b, 1)
+    f.icon:SetTexture(row.icon or (row.isCurrency and QUESTION_MARK) or itemIcon(row.id))
+  end
   f.row = row
   f.tooltipLink = Rows.tooltipLink(row)
   f.tooltipText = row.hint

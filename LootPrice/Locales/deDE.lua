@@ -105,6 +105,7 @@ ns.Locale.register("deDE", {
   ["Show currencies in the list"] = "Währungen in der Liste zeigen",
   ["Font"] = "Schrift",
   ["WoW default"] = "WoW-Standard",
+  ["Show item icons"] = "Gegenstandssymbole zeigen",
   ["List text size"] = "Textgröße der Liste",
   ["Totals text size"] = "Textgröße der Summen",
   ["Section title size"] = "Größe der Abschnittstitel",

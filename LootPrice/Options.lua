@@ -349,6 +349,14 @@ Options.define({
   key = "showCurrencies", category = "display", type = "checkbox", label = L["Show currencies in the list"], apply = refreshUI,
 })
 
+-- Off: the list rows have no icon and their text starts at the left edge.
+Options.define({
+  key = "showIcons", category = "display", type = "checkbox", label = L["Show item icons"],
+  apply = function()
+    if ns.UI and ns.UI.Ledger and ns.UI.Ledger.relayout then ns.UI.Ledger.relayout() end
+  end,
+})
+
 -- Round button on the minimap (UI/Minimap.lua).
 -- Font sizes (UI/Fonts.lua): applied live, the window re-lays itself out.
 -- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.

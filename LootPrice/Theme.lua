@@ -131,6 +131,8 @@ Theme.sizes = {
   -- Ledger row geometry (Rows.worstCase / Rows.blockLayout). textLeft = icon inset 2 + icon 24
   -- + gap 5; rowRightInset is the right edge of the Vendor/AH block.
   rowTextLeft = 31,
+  -- Text inset of a row without its icon (option "showIcons" off).
+  rowTextLeftNoIcon = 4,
   rowRightInset = 4,
   -- Window chrome around the row area: 2 * (padding 8 + 4) + scrollbar 10 + 2.
   rowChrome = 36,
