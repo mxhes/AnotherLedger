@@ -61,3 +61,8 @@ h.test("Money.setStyle: gold-only and no-copper from 1 gold up, small amounts st
   M.setStyle("bogus")
   h.eq(M.format(12345678), "1234g 56s 78c")
 end)
+
+h.test("Money.colorCode gives the color escape of a color table", function()
+  h.eq(ns.Money.colorCode({ 1, 0, 0, 1 }), "|cffff0000")
+  h.eq(ns.Money.colorCode({ 0, 0.5, 1 }), "|cff0080ff")
+end)

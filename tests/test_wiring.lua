@@ -1428,6 +1428,39 @@ h.test("wiring: the daily farm strip shows between filters and tabs and opens Zo
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the strip click redraws once and scrolls the place into view", function()
+  local ctx = bootWithFarm()
+  local L = ctx.ns.UI.Ledger
+  local zones = ctx.ns.chardb.history[1].zones
+  for i = 1, 30 do zones["Zone" .. i] = { subs = { ["Sub" .. i] = { time = 60, gold = 100000, items = {} } } } end
+  L.setTab("bags")
+  local real, refreshes = L.refresh, 0
+  L.refresh = function(...) refreshes = refreshes + 1; return real(...) end
+  L.showFarm("Waking Shores", "Wingrest")
+  L.refresh = real
+  h.eq(refreshes, 1)
+  local idx = ctx.ns.View.indexOf(L.view.rows, "s:Waking Shores\1Wingrest")
+  h.eq(idx ~= nil, true)
+  local visible = ctx.ns.UI.Rows.visibleCount(L.list.area:GetHeight(), ctx.ns.Theme.sizes.rowHeight)
+  h.eq(idx > L.list.offset and idx <= L.list.offset + visible, true)
+  h.eq(L.list.offset > 0, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: dragging the strip moves the window unless it is locked", function()
+  local ctx = bootWithFarm()
+  local DF, frame = ctx.ns.UI.DailyFarm, ctx.ns.UI.Window.frame
+  local moved = 0
+  frame.StartMoving = function() moved = moved + 1 end
+  DF.button._scripts.OnDragStart(DF.button)
+  h.eq(moved, 1)
+  DF.button._scripts.OnDragStop(DF.button)
+  ctx.ns.Options.set(ctx.ns.db, "lockWindow", true)
+  DF.button._scripts.OnDragStart(DF.button)
+  h.eq(moved, 1)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: no daily farm strip on a character without History", function()
   local ctx = boot()
   startWorld(ctx, false)

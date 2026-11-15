@@ -34,3 +34,12 @@ h.test("DailyFarm.hint lists the place, the runner-ups and the slow sellers", fu
   h.eq(s:find("Ore, Herb", 1, true) ~= nil, true)
   h.eq(s:find(ns.L["Also good:"], 1, true), nil)
 end)
+
+h.test("DailyFarm.label rounds the rate to whole gold from 1 gold up", function()
+  local f = farm()
+  f.best.perHour = 12345678
+  local s = DF.label(f)
+  h.eq(s:find(ns.Money.format(12350000), 1, true) ~= nil, true)
+  f.best.perHour = 5555 -- under 1 gold: in full
+  h.eq(DF.label(f):find(ns.Money.format(5555), 1, true) ~= nil, true)
+end)

@@ -549,12 +549,14 @@ function View.buildZones(entries, opts, open)
     for sub, s in pairs(subs) do
       local items, t = collect(s.items, opts)
       local gold = withGold and s.gold or 0
-      if #items > 0 or gold > 0 then
+      -- The opened subzone stays listed when the filter hides all its items
+      -- (the Daily farm click opens it).
+      local isOpen = open.zone == zone and open.sub == sub
+      if #items > 0 or gold > 0 or isOpen then
         local sp = { key = "s:" .. zone .. "\1" .. sub, zoneKey = zone, subKey = sub, time = s.time,
           gold = s.gold, value = t.best + gold, vendor = t.vendor, ah = t.ah, count = #items,
           lastSeen = maxSeen(items) }
         if sp.time > 0 then sp.perHour = placePerHour(sp.value, sp.time) end
-        local isOpen = open.zone == zone and open.sub == sub
         subRows[#subRows + 1] = placeRow(sp, placeLabel(sub), isOpen, "    ", L_CLICK_OPEN)
         if isOpen then subItems[subRows[#subRows]] = items end
         zp.time, zp.gold, zp.value = zp.time + sp.time, zp.gold + s.gold, zp.value + sp.value

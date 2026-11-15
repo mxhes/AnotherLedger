@@ -154,6 +154,21 @@ local function restore(frame)
   ensureOnScreen(frame)
 end
 
+-- Dragging the header (or a header part that catches the mouse, like the
+-- Daily farm strip) moves the window unless it is locked.
+function Window.beginDrag()
+  local frame = Window.frame
+  if frame and not locked() then frame:StartMoving() end
+end
+
+function Window.endDrag()
+  local frame = Window.frame
+  if not frame then return end
+  frame:StopMovingOrSizing()
+  frame:SetUserPlaced(false) -- db.window is the only position store
+  save()
+end
+
 local function makeRow(parent, anchorTo, firstRow)
   local row = CreateFrame("Frame", nil, parent)
   row:SetHeight(theme().sizes.headerRowHeight)
@@ -191,14 +206,8 @@ local function build(db)
   header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -inset, -inset)
   header:EnableMouse(true)
   header:RegisterForDrag("LeftButton")
-  header:SetScript("OnDragStart", function()
-    if not locked() then frame:StartMoving() end
-  end)
-  header:SetScript("OnDragStop", function()
-    frame:StopMovingOrSizing()
-    frame:SetUserPlaced(false) -- db.window is the only position store
-    save()
-  end)
+  header:SetScript("OnDragStart", Window.beginDrag)
+  header:SetScript("OnDragStop", Window.endDrag)
   header.row1 = makeRow(header, nil, true)
   header.row2 = makeRow(header, header.row1, false)
   -- Daily farm strip between the filters and the tabs, only while there is a

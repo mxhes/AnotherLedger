@@ -741,3 +741,15 @@ h.test("View.dailyFarm never picks or lists a place that earned nothing", functi
   local f = V.dailyFarm({ e }, { lookup = zlookup }, 0)
   h.eq(f.best.sub, "C"); h.eq(#f.runnersUp, 0)
 end)
+
+h.test("View.buildZones keeps the opened subzone even when the filter hides its items", function()
+  local opts = { lookup = zlookup, sort = "ah", filter = { search = "nothing matches" } }
+  local v = V.buildZones(twoZones(), opts, { zone = "Z", sub = "A" })
+  local found
+  for _, r in ipairs(v.rows) do if r.subKey == "A" then found = r end end
+  h.eq(found ~= nil, true)
+  h.eq(found.zoneKey, "Z")
+  -- not opened: hidden like before (only Y, which has raw gold, stays)
+  local rows = V.buildZones(twoZones(), opts, {}).rows
+  h.eq(#rows, 1); h.eq(rows[1].zoneKey, "Y")
+end)

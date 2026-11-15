@@ -63,6 +63,7 @@ local function hex(color)
   end
   return h
 end
+Money.colorCode = hex
 
 -- Same text as Money.format, each unit's amount and letter wrapped in a color
 -- escape ("|cffRRGGBB12g|r"). `colors` = { moneyGold, moneySilver, moneyCopper },

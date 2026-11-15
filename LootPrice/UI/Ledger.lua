@@ -341,8 +341,8 @@ local function applyTab(key)
   if header then header:SetSessionControls(spec.sessionControls == true) end
 end
 
--- Switches the tab, remembers it and redraws the whole window for it.
-function Ledger.setTab(key)
+-- Tab and sub-tab state without a redraw (setTab / setSubtab / showFarm redraw).
+local function switchTab(key)
   if not ns.UI.Tabs.valid(key) then key = ns.UI.Tabs.DEFAULT end
   Ledger.tab = key
   Ledger.subtab = savedSubtab(key)
@@ -351,13 +351,11 @@ function Ledger.setTab(key)
   if ns.db then ns.db.tab = key end
   applyTab(key)
   if list then list.offset = 0 end
-  Ledger.refresh()
 end
 
--- Switches the sub-tab of the shown tab and remembers it per tab.
-function Ledger.setSubtab(subKey)
+local function switchSubtab(subKey)
   local sub = ns.UI.Tabs.subtab(Ledger.tab, subKey)
-  if not sub then return end
+  if not sub then return false end
   Ledger.subtab = sub.key
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
@@ -367,7 +365,18 @@ function Ledger.setSubtab(subKey)
   end
   applyTab(Ledger.tab)
   if list then list.offset = 0 end
+  return true
+end
+
+-- Switches the tab, remembers it and redraws the whole window for it.
+function Ledger.setTab(key)
+  switchTab(key)
   Ledger.refresh()
+end
+
+-- Switches the sub-tab of the shown tab and remembers it per tab.
+function Ledger.setSubtab(subKey)
+  if switchSubtab(subKey) then Ledger.refresh() end
 end
 
 -- History Zones: a zone row opens its subzones (and closes another zone), a
@@ -389,11 +398,18 @@ function Ledger.toggleZone(zoneKey, subKey)
 end
 
 -- Daily farm click: History -> Zones with that zone and subzone opened.
+-- One redraw; the opened subzone is scrolled to the top of the list (as far
+-- as the list scrolls) so its items show under it.
 function Ledger.showFarm(zone, sub)
-  if Ledger.tab ~= "history" then Ledger.setTab("history") end
-  if Ledger.subtab ~= "zones" then Ledger.setSubtab("zones") end
+  if Ledger.tab ~= "history" then switchTab("history") end
+  if Ledger.subtab ~= "zones" then switchSubtab("zones") end
   Ledger.zoneOpen = { zone = zone, sub = sub }
   Ledger.refresh()
+  if not (list and Ledger.view) then return end
+  local idx = ns.View.indexOf(Ledger.view.rows, "s:" .. zone .. "\1" .. sub)
+  if not idx then return end
+  local visible = ns.UI.Rows.visibleCount(list.area:GetHeight(), ns.Theme.sizes.rowHeight)
+  list:SetOffset(ns.UI.Rows.clampOffset(idx - 1, #Ledger.view.rows, visible))
 end
 
 -- History tab: clicking a session opens it (its items are listed under it at
