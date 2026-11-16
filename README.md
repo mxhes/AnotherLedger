@@ -16,6 +16,23 @@ optional; TSM is asked first). Destroy values (what disenchanting, milling or
 prospecting gives) and the "sells well / poorly" info need TSM. Waypoints use TomTom when it is installed, else the game's own
 map pin.
 
+**Libraries** (only when you install from the source code): the release zip
+already contains them. A copy of the `LootPrice/` folder from the repository
+needs these four libraries in its `Libs/` folder, or the game warns
+`Error loading LootPrice/Libs/...` at login (the addon still works, with its own
+minimap button and no data broker display):
+
+| Library | Goes to | Download |
+| --- | --- | --- |
+| LibStub | `LootPrice/Libs/LibStub/LibStub.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libstub) |
+| CallbackHandler-1.0 | `LootPrice/Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/callbackhandler) |
+| LibDataBroker-1.1 | `LootPrice/Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua` | [GitHub](https://github.com/tekkub/libdatabroker-1-1) |
+| LibDBIcon-1.0 | `LootPrice/Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libdbicon-1-0) |
+
+The file has to sit at exactly that path: copy just the library's folder
+(with the `.lua` file in it) out of the download. Installing them as separate
+addons does not remove the warning.
+
 ## The window
 
 Open it with `/lp`, the minimap button or a data broker display (Titan Panel,
