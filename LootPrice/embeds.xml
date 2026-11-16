@@ -1,7 +1,10 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
   <!-- Libraries fetched by the packager into Libs/ (.pkgmeta externals).
        A development copy without Libs/ works too: the files are missing, the
-       addon then uses its own minimap button and no data broker. -->
+       addon then uses its own minimap button and no data broker.
+       A library the player installed as its own addon loads first (it is an
+       OptionalDep in the .toc); LibStub then keeps the newest copy, so a
+       bundled copy here only counts when it is newer or nothing else has it. -->
   <Script file="Libs\LibStub\LibStub.lua"/>
   <Script file="Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua"/>
   <Script file="Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua"/>

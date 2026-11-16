@@ -24,7 +24,7 @@ only inside functions.
 
 | File | Job |
 | --- | --- |
-| `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them |
+| `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them. Each library is also an `## OptionalDeps` entry (the standalone addon's folder name), so a copy the player installed loads first and LibStub keeps the newest one; `UI/Broker.lua` looks them up through LibStub at login, never from `Libs/` directly |
 | `Util.lua` | shared helpers (number checks, clamp, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
 | `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key); `Locales/deDE.lua` is German |
 | `Money.lua` | coin text: letters or coin icons, colored, the "large amounts" style |

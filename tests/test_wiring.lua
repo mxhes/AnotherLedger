@@ -144,6 +144,28 @@ local function startWorld(ctx, isReload)
   fire(ctx, "PLAYER_ENTERING_WORLD", not isReload, isReload and true or false)
 end
 
+-- A player can install the libraries as their own addons (and update them apart
+-- from LootPrice). Every library folder embeds.xml loads must be an OptionalDep
+-- (same name as the standalone addon's folder), so an installed copy loads
+-- first; LibStub then skips our bundled copy unless ours is newer.
+h.test("wiring: every bundled library is an OptionalDep", function()
+  local fh = assert(io.open("LootPrice/LootPrice.toc", "r"))
+  local toc = fh:read("*a")
+  fh:close()
+  local deps = {}
+  local line = toc:match("## OptionalDeps:([^\r\n]*)") or ""
+  for name in line:gmatch("[^,%s]+") do deps[name] = true end
+  fh = assert(io.open("LootPrice/embeds.xml", "r"))
+  local xml = fh:read("*a")
+  fh:close()
+  local count = 0
+  for folder in xml:gmatch('file="Libs[\\/]([^\\/"]+)[\\/]') do
+    count = count + 1
+    h.eq(deps[folder], true, folder .. " missing from ## OptionalDeps")
+  end
+  h.eq(count, 4)
+end)
+
 h.test("wiring: toc files load and the slash commands register", function()
   local ctx = boot()
   h.eq(ctx.env.SLASH_LOOTPRICE1, "/lp")

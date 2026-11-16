@@ -5,7 +5,7 @@
 ## Author: Maximilian Henjes
 ## SavedVariables: LootPriceDB
 ## SavedVariablesPerCharacter: LootPriceCharDB
-## OptionalDeps: TradeSkillMaster, Auctionator, LibStub, LibDataBroker-1.1, LibDBIcon-1.0
+## OptionalDeps: TradeSkillMaster, Auctionator, LibStub, CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
 
 embeds.xml

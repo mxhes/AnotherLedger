@@ -33,6 +33,12 @@ The file has to sit at exactly that path: copy just the library's folder
 (with the `.lua` file in it) out of the download. Installing them as separate
 addons does not remove the warning.
 
+**Updating the libraries yourself**: you can also install any of the four as
+its own addon (in `Interface/AddOns/`, from the links above) and update it
+whenever you like. LootPrice then uses that copy; the one that comes with
+LootPrice is only used when it is newer or when you don't have the library
+installed.
+
 ## The window
 
 Open it with `/lp`, the minimap button or a data broker display (Titan Panel,
