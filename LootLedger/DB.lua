@@ -71,6 +71,9 @@ DB.defaults = {
     -- A new session per zone, after this many minutes in the new zone.
     zoneSession = false,
     zoneSessionMinutes = 2,
+    -- A session shorter than this (minutes) continues instead of going to
+    -- History on a zone / instance split or a login; 0 = off.
+    minSessionMinutes = 2,
     -- Session goals: gold (best value + raw gold) and minutes; 0 = off.
     goalGold = 0,
     goalMinutes = 0,

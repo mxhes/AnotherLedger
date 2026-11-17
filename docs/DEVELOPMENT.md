@@ -170,6 +170,10 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Short sessions** (`minSessionMinutes`, `Core.isShort`): a session with
+  loot shorter than that is not archived by Session per zone / instance; at
+  login a short saved session (its `elapsedBase`; demo sessions never) is
+  kept like Keep session. `/ll reset` and the Reset button always archive.
 - **Value rules** apply at lookup, never to saved History prices:
   `Prices.new{ rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross
   price stays in `ahGross`, and a row with it gets `ahCut = true` for the

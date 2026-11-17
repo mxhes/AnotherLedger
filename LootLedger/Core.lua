@@ -9,6 +9,7 @@ local Core = {}
 ns.Core = Core
 
 local say = ns.Util.say
+local num = ns.Util.isNumber
 
 local REFRESH_THROTTLE = 0.2 -- seconds: bursts of item info / bag events share one redraw
 local KEY_RETRY_SECONDS = 10
@@ -796,14 +797,30 @@ function Core.instanceChanged(previous, current)
   return previous ~= current
 end
 
+-- Option "minSessionMinutes": a session shorter than this continues instead
+-- of being saved on a split or at login (a manual Reset still saves it).
+-- Without `now` (a saved session at login) only its elapsedBase counts, so
+-- offline time never does.
+function Core.isShort(session, now, minMinutes)
+  if not (num(minMinutes) and minMinutes > 0 and type(session) == "table") then return false end
+  local elapsed
+  if num(now) then elapsed = ns.Session.elapsed(session, now) else elapsed = session.elapsedBase end
+  return num(elapsed) and elapsed < minMinutes * 60 or false
+end
+
+local function shortNow(session)
+  return Core.isShort(session, time(), ns.Options.get(ns.db, "minSessionMinutes"))
+end
+
 local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
   local previous = lastInstance
   lastInstance = key
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
   if not Core.instanceChanged(previous, key) then return end
-  Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
+  if shortNow(ns.session) then return end
+  Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
 end
 
 -- Option "zoneSession". Pure decision over `state` = { zone, pending, since }
@@ -849,6 +866,7 @@ function Core.checkZone()
   if not Core.zoneSwitch(zoneState, place, time(), onTaxi, grace) then return end
   if not (ns.Options.get(ns.db, "zoneSession") and session.running) then return end
   if hasLoot(session) then
+    if shortNow(session) then return end -- continues in the new zone
     Core.resetSession(L["new session"] .. ": " .. place .. ".")
   else
     ns.Session.reset(session, time())
@@ -945,8 +963,11 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
 
   Core.linkHistory()
   Core.noteProfessions()
-  local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
   local previous = ns.chardb.session
+  -- A short session continues (Min. session length); demo loot never does.
+  local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
+    or (type(previous) == "table" and not previous.demo
+      and Core.isShort(previous, nil, ns.Options.get(ns.db, "minSessionMinutes")))
   ns.session = ns.Session.login(previous, keep, now)
   ns.chardb.session = ns.session
   ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)

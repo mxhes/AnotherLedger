@@ -651,6 +651,7 @@ h.test("wiring: a /reload keeps the session with keep off, a relog starts fresh"
   h.eq(reload.ns.session.items[2589].qty, 3)
   h.eq(reload.ns.session.runningSince, 2000)
 
+  db.profiles.Default.minSessionMinutes = 0 -- a short session would continue
   local relog = boot({ db = db, chardb = chardb, now = 3000 })
   startWorld(relog, false)
   h.eq(next(relog.ns.session.items), nil)
@@ -1237,6 +1238,7 @@ h.test("wiring: a fresh login archives the discarded session, keep-session does 
   h.eq(#chardb.history, 0)
 
   fire(reload, "PLAYER_LOGOUT")
+  db.profiles.Default.minSessionMinutes = 0 -- a short session would continue
   local relog = boot({ db = db, chardb = chardb, now = 3000 })
   startWorld(relog, false)
   h.eq(#chardb.history, 1)
@@ -1660,6 +1662,7 @@ h.test("wiring: loot notes the place; a new session per instance with the option
   h.eq(ns.Session.placeList(ns.session.places), { "The Stonevault (Heroic)", "Dornogal" })
   -- option on: leaving archives the dungeon session and starts a new one
   ns.Options.set(ns.db, "instanceSession", true)
+  ns.Options.set(ns.db, "minSessionMinutes", 0)
   where.instance = nil
   fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
   local hist = ctx.env.LootLedgerCharDB.history
@@ -2895,5 +2898,65 @@ h.test("wiring: Auction from turns a thin AH margin into a Vendor row", function
   ns.Options.set(ns.db, "ahMinGain", 20)
   L.refresh()
   h.eq(L.view.rows[1].bestKind, "vendor")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a short session continues over a zone split, a long one is archived", function()
+  local function run(seconds)
+    local ctx = boot()
+    local where = { zone = "Dornogal" }
+    ctx.env.GetRealZoneText = function() return where.zone end
+    startWorld(ctx, false)
+    local ns, hist = ctx.ns, ctx.env.LootLedgerCharDB.history
+    ns.Options.set(ns.db, "zoneSession", true)
+    ns.Options.set(ns.db, "zoneSessionMinutes", 1)
+    h.eq(ns.Options.get(ns.db, "minSessionMinutes"), 2)
+    fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 4))
+    ctx.now = ctx.now + seconds
+    where.zone = "Isle of Dorn"
+    fire(ctx, "ZONE_CHANGED_NEW_AREA")
+    ctx.now = ctx.now + 61
+    ns.Core.heartbeat()
+    h.eq(ctx.errors, {})
+    return ctx, ns, hist
+  end
+  local _, ns, hist = run(-31) -- 30 s in all
+  h.eq(#hist, 0)
+  h.eq(ns.session.items[2589].qty, 4)
+  _, ns, hist = run(600)
+  h.eq(#hist, 1)
+  h.eq(next(ns.session.items), nil)
+end)
+
+h.test("wiring: a short session at login continues, a long one is archived", function()
+  local function relog(seconds)
+    local ctx = boot()
+    startWorld(ctx, false)
+    fire(ctx, "CHAT_MSG_LOOT", LOOT)
+    ctx.now = ctx.now + seconds
+    fire(ctx, "PLAYER_LOGOUT")
+    local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+    local saved = chardb.session
+    local again = boot({ db = db, chardb = chardb, now = ctx.now + 5000 })
+    startWorld(again, false)
+    h.eq(again.errors, {})
+    return again, saved, chardb
+  end
+  local ctx, saved, chardb = relog(60)
+  h.eq(ctx.ns.session, saved)
+  h.eq(#chardb.history, 0)
+  h.eq(ctx.ns.session.items[2589].qty, 3)
+  ctx, saved, chardb = relog(1800)
+  h.eq(ctx.ns.session ~= saved, true)
+  h.eq(#chardb.history, 1)
+end)
+
+h.test("wiring: /ll reset still archives a short session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = ctx.now + 20
+  slash(ctx, "reset")
+  h.eq(#ctx.env.LootLedgerCharDB.history, 1)
   h.eq(ctx.errors, {})
 end)

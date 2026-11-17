@@ -173,7 +173,7 @@ anything that deletes History asks first.
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
-| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Session per instance, Session per zone, Zone change delay |
+| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
@@ -232,6 +232,11 @@ minutes by default): a short detour or a cave entrance does not split the
 session, and flight paths never count. Loot from those minutes still belongs
 to the old session. An empty session just starts its clock over. While the
 clock is stopped nothing splits.
+
+**Min. session length** (2 minutes by default) keeps very short sessions out
+of History: a session shorter than that just continues when a new zone or
+instance or a fresh login would start a new one. Reset always saves it; Off
+saves every session.
 
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.

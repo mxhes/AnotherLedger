@@ -421,3 +421,13 @@ h.test("Core.professions reads the destroy professions of the character", functi
   h.eq(set.inscription, nil)
   h.eq(next(Core.professions({})), nil)
 end)
+
+h.test("Core.isShort: under the minimum minutes, 0 = off", function()
+  local s = ns.Session.new(1000)
+  h.eq(Core.isShort(s, 1022, 2), true)
+  h.eq(Core.isShort(s, 1120, 2), false)
+  h.eq(Core.isShort(s, 1022, 0), false)
+  -- a saved session: only its elapsedBase counts (no `now`)
+  h.eq(Core.isShort({ elapsedBase = 60, running = true, runningSince = 5 }, nil, 2), true)
+  h.eq(Core.isShort({ elapsedBase = 1800, running = false }, nil, 2), false)
+end)

@@ -586,6 +586,14 @@ Options.define({
   min = 1, max = 15, step = 1, format = function(v) return v .. " min" end,
 })
 
+-- Core.isShort: a short session folds into the next one (manual Reset still
+-- saves it).
+Options.define({
+  key = "minSessionMinutes", category = "session", type = "slider", label = L["Min. session length"],
+  tooltip = L["A session shorter than this is not saved to History when a new zone or instance or a fresh login would start a new one; it just continues. Reset always saves it. Off saves every session."],
+  min = 0, max = 15, step = 1, format = function(v) return v == 0 and L["Off"] or (v .. " min") end,
+})
+
 -- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
 Options.define({
   key = "alertGold", category = "session", type = "number", label = L["Drop alert (gold)"],

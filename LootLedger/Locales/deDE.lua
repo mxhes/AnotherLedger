@@ -444,6 +444,8 @@ ns.Locale.register("deDE", {
   ["Never"] = "Nie",
   [" (after 5% AH cut)"] = " (nach 5% AH-Gebühr)",
   ["Custom..."] = "Eigener...",
+  ["Min. session length"] = "Min. Sitzungsdauer",
+  ["A session shorter than this is not saved to History when a new zone or instance or a fresh login would start a new one; it just continues. Reset always saves it. Off saves every session."] = "Eine kürzere Sitzung wird nicht im Verlauf gespeichert, wenn eine neue Zone, eine Instanz oder ein frischer Login eine neue beginnen würde; sie läuft einfach weiter. Zurücksetzen speichert sie immer. Aus speichert jede Sitzung.",
   ["TSM price:"] = "TSM-Preis:",
   ["OK"] = "OK",
 })
