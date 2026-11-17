@@ -114,3 +114,13 @@ h.test("Mobs.copy keeps valid entries, merge adds them up", function()
   h.eq(m["obj:7"].looted, 1)
   h.eq(M.merge(nil, nil), {})
 end)
+
+h.test("Mobs.scaleMoney scales each source of a money slot to your share", function()
+  local slot = { kind = "money", qty = 300, sources = { { guid = A, qty = 200 }, { guid = B, qty = 100 } } }
+  local s = M.scaleMoney(slot, 0.5)
+  h.eq(s.qty, 150)
+  h.eq({ s.sources[1].qty, s.sources[2].qty }, { 100, 50 })
+  h.eq(slot.sources[1].qty, 200) -- the original stays
+  local item = { kind = "item", link = LINEN, qty = 2, sources = { { guid = A, qty = 2 } } }
+  h.eq(M.scaleMoney(item, 0.5), item)
+end)

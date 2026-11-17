@@ -48,6 +48,8 @@ h.test("Session currencies, places and loot-time prices", function()
   local _, item = S.add(s, 1, nil, 1, 0)
   S.setPrice(item, { vendor = 5, ah = 100, de = "x" })
   h.eq(item.price, { vendor = 5, ah = 100 })
+  S.setPrice(item, { ah = 95, ahGross = 100 }) -- after the 5% cut
+  h.eq(item.price, { ah = 95, cut = true })
   S.stop(s, 3)
   h.eq(S.addCurrency(s, 3008, nil, 1, 4), false)
   S.reset(s, 10)

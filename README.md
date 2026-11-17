@@ -154,7 +154,8 @@ row and price. Currencies are listed after the items.
   credited when you take it from the loot window, split by corpse when one
   window holds several; loot you leave in a corpse counts for nobody. Kills
   are your group's kills from the combat log; mobs you never looted still
-  show their kills. Only loot taken while the clock runs counts, and sessions
+  show their kills. A mob's coin counts what you got of it, so in a group
+  your share. A mob or node whose name was never seen shows its number. Only loot taken while the clock runs counts, and sessions
   saved before this version have no mob data.
 
 ## Daily farm

@@ -3234,7 +3234,7 @@ h.test("wiring: without the combat log API loot is still credited; unknown names
   fire(ctx, "LOOT_OPENED")
   fire(ctx, "LOOT_SLOT_CLEARED", 1)
   h.eq(ns.session.mobs["npc:2546"].items[2589], 2)
-  h.eq(ns.session.mobs["npc:2546"].name, "NPC 2546")
+  h.eq(ns.session.mobs["npc:2546"].name, nil) -- History > Mobs shows "NPC 2546"
   -- a name plate seen later names it
   ctx.env.UnitGUID = function() return MOB end
   ctx.env.UnitName = function() return "Kobold Vermin" end
@@ -3429,7 +3429,7 @@ h.test("wiring: a gathering node is named by the gathering cast, without a toolt
   lootWindowEnv(ctx, { { link = LINK, qty = 1, guid = NODE2 } })
   fire(ctx, "LOOT_OPENED")
   fire(ctx, "LOOT_SLOT_CLEARED", 1)
-  h.eq(ns.session.mobs["obj:1732"].name, "Object 1732")
+  h.eq(ns.session.mobs["obj:1732"].name, nil) -- shown as "Object 1732"
   h.eq(lookups, 0)
   h.eq(ctx.errors, {})
 end)
@@ -3449,4 +3449,73 @@ h.test("wiring: combat log events that cannot be a kill skip the GUID parsing", 
   h.eq(calls, 0)
   ns.Mobs.idOf = idOf
   h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a mob's coin counts your share of it in a group", function()
+  local ctx = boot()
+  local money = 10000
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  lootWindowEnv(ctx, { { money = 300, guid = MOB } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  money = money + 100 -- split three ways
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.gold, 100)
+  h.eq(ns.session.mobs["npc:2546"].gold, 100)
+  h.eq(ns.session.mobs["npc:2546"].looted, 1)
+  -- solo: the whole coin
+  local MOB2 = "Creature-0-3110-0-12-2546-000012ABCE"
+  lootWindowEnv(ctx, { { money = 300, guid = MOB2 } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  money = money + 300
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.mobs["npc:2546"].gold, 400)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: price rules are reused until an option changes; professions until they change", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local r = ns.prices:_rules()
+  h.eq(ns.prices:_rules() == r, true)
+  ns.Options.set(ns.db, "ahCut", false)
+  h.eq(ns.prices:_rules() == r, false)
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("Destroy", 1, true) then return 50000 end
+    return 100
+  end }
+  ctx.env.C_Item.GetItemInfoInstant = function(id) return id, "Armor", "Cloth", "", 1, 4, 1 end
+  ns.Options.set(ns.db, "destroyMode", "any")
+  ns.db.professions = { ["Alt-Realm"] = { enchanting = true } }
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ns.db.professions["Alt-Realm"].enchanting = nil -- not through the game: still the known set
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ctx.env.GetProfessions = function() return nil end
+  fire(ctx, "SKILL_LINES_CHANGED")
+  h.eq(ns.prices:lookup(2589).de, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an empty profession read at login keeps the saved professions", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  ctx.ns.db.professions["Me-Realm"] = { enchanting = true }
+  fire(ctx, "PLAYER_LOGOUT")
+  local again = boot({ db = ctx.env.LootLedgerDB, chardb = ctx.env.LootLedgerCharDB, now = ctx.now + 60 })
+  again.env.UnitName = function() return "Me" end
+  again.env.GetRealmName = function() return "Realm" end
+  again.env.GetProfessions = function() return nil end -- not loaded yet
+  startWorld(again, false)
+  h.eq(again.ns.db.professions["Me-Realm"], { enchanting = true })
+  fire(again, "SKILL_LINES_CHANGED") -- the game's own news: dropped
+  h.eq(again.ns.db.professions["Me-Realm"], {})
+  h.eq(again.errors, {})
 end)

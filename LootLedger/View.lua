@@ -141,7 +141,7 @@ local function makeRow(item, opts)
   local qty = item.qty
   local vendorEach, ahEach, deEach, ahFromCache, ahAge
   -- Whether ahEach is after the 5% fee (option "ahCut"): a live lookup says so
-  -- with ahGross, a saved History price by its entry (opts.savedAhCut).
+  -- with ahGross, a saved price with its own `cut`.
   local ahCut = false
   if opts.savedPrices then
     -- An opened History session: the prices it was saved with (its row's
@@ -150,7 +150,7 @@ local function makeRow(item, opts)
     deEach = num(saved.de) and saved.de or (num(lookup.de) and lookup.de or nil)
     if num(saved.ah) then
       ahEach, ahFromCache = saved.ah, false
-      ahCut = opts.savedAhCut == true
+      ahCut = saved.cut == true
     elseif num(lookup.ah) then
       ahEach, ahFromCache = lookup.ah, lookup.ahSource == "cache"
       ahAge = num(lookup.ahAge) and lookup.ahAge or nil
@@ -164,6 +164,7 @@ local function makeRow(item, opts)
     ahAge = num(lookup.ahAge) and lookup.ahAge or nil
     if not ahEach and num(saved.ah) then
       ahEach, ahFromCache = saved.ah, true
+      ahCut = saved.cut == true
       ahAge = num(item.lastSeen) and num(opts.now) and math.max(0, opts.now - item.lastSeen) or nil
     end
     -- The destroy rule (lookup.deBlocked) also drops the loot-time value.
@@ -467,6 +468,7 @@ local CALENDAR_ICON = "Interface\\Icons\\INV_Misc_PocketWatch_01"
 local function appendPeriods(rows, sessionRows, opened, opts)
   local History = ns.History
   local folded = type(opts.folded) == "table" and opts.folded or NO_LOOKUP
+  local context = History.periodContext(opts.now, opts.dateFn)
   local heading, members
   local function close()
     if not heading then return end
@@ -478,7 +480,7 @@ local function appendPeriods(rows, sessionRows, opened, opts)
   end
   for _, r in ipairs(sessionRows) do
     if r ~= opened then
-      local key, label = History.period(r.entry.startedAt, opts.now, opts.dateFn)
+      local key, label = History.period(r.entry.startedAt, opts.now, opts.dateFn, context)
       if not heading or heading.periodKey ~= key then
         close()
         heading = { id = 0, key = "p:" .. key, periodKey = key, isHeading = true, name = label,
@@ -541,7 +543,6 @@ function View.buildHistory(list, opts, openIndex)
     o.savedPrices = true
     -- Its items at the rules it was saved with, so they add up to its row.
     o.ahMinGain = History.gainOf(entry)
-    o.savedAhCut = entry.ahCut == true
     savedFilter.qualities = type(filter) == "table" and filter.qualities or nil
     o.filter = savedFilter
     append(rows, (collect(entry.items, o)))
@@ -900,6 +901,7 @@ end
 local L_N_KILLS, L_ONE_KILL = L[" kills"], L["1 kill"]
 local L_N_LOOTED = L[" looted"]
 local L_EACH = L[" each"]
+local L_NPC, L_OBJECT = L["NPC %s"], L["Object %s"] -- a mob or node never named
 local mobOpts, mobFilter = {}, {}
 
 local function perKill(a, b)
@@ -965,7 +967,9 @@ function View.buildMobs(entries, opts, openKey)
             a = { kind = m.kind == "node" and "node" or "npc", kills = 0, looted = 0, gold = 0, items = {}, places = {} }
             all[key] = a
           end
-          if type(m.name) == "string" and m.name ~= "" then a.name = m.name end
+          -- The newest name: the first History entry's, the running session's
+          -- (last) over all.
+          if type(m.name) == "string" and m.name ~= "" and (a.name == nil or e.live) then a.name = m.name end
           a.kills, a.looted, a.gold = a.kills + m.kills, a.looted + m.looted, a.gold + m.gold
           for itemKey, qty in pairs(type(m.items) == "table" and m.items or NO_LOOKUP) do
             local src = num(qty) and qty > 0 and mobItemSource(e, itemKey)
@@ -987,7 +991,7 @@ function View.buildMobs(entries, opts, openKey)
     local gold = withGold and a.gold or 0
     local value = t.best + gold
     local per = a.kills > 0 and a.kills or a.looted
-    local label = a.name or key
+    local label = a.name or ((a.kind == "node" and L_OBJECT or L_NPC):format(key:match(":(%d+)$") or "?"))
     local isOpen = key == openKey
     local parts = {}
     if a.kills > 0 then

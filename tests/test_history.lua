@@ -306,16 +306,14 @@ h.test("History.period: a week of another year names its year", function()
   h.eq({ key, label }, { "w:2025-47", "Week 47, 2025" })
 end)
 
-h.test("History.snapshot: keeps the Auction from and AH cut it was saved with", function()
+h.test("History.snapshot: keeps the Auction from it was saved with", function()
   local session = { startedAt = 10, elapsedBase = 60, running = false, gold = 0,
     items = { [1] = { id = 1, qty = 1, lastSeen = 1, price = { vendor = 100, ah = 300 } } } }
-  local e = ns.History.snapshot(session, nil, 100, 300, true)
+  local e = ns.History.snapshot(session, nil, 100, 300)
   h.eq(e.ahMinGain, 300)
-  h.eq(e.ahCut, true)
   h.eq(e.best, 100) -- 300 does not beat 100 by 300%
-  e = ns.History.snapshot(session, nil, 100, 0, false)
+  e = ns.History.snapshot(session, nil, 100, 0)
   h.eq(e.ahMinGain, 0)
-  h.eq(e.ahCut, false)
 end)
 
 h.test("History.totals: ignored items leave at the session's own Auction from", function()
@@ -332,15 +330,32 @@ h.test("History.totals: ignored items leave at the session's own Auction from", 
   h.eq(select(3, ns.History.totals(entry(nil, 1300), { [1] = true }, 300)), 1000)
 end)
 
-h.test("History.merge: Auction from kept only when both agree; AH cut only when both had it", function()
-  local function entry(t, gain, cut)
+h.test("History.merge: Auction from kept only when both agree", function()
+  local function entry(t, gain)
     return { startedAt = t, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, best = 0, items = {},
-      ahMinGain = gain, ahCut = cut }
+      ahMinGain = gain }
   end
-  local m = ns.History.merge(entry(1, 50, true), entry(2, 50, true))
+  local m = ns.History.merge(entry(1, 50), entry(2, 50))
   h.eq(m.ahMinGain, 50)
-  h.eq(m.ahCut, true)
-  m = ns.History.merge(entry(1, 50, true), entry(2, 0, false))
+  m = ns.History.merge(entry(1, 50), entry(2, 0))
   h.eq(m.ahMinGain, nil)
-  h.eq(m.ahCut, false)
+end)
+
+h.test("History: an AH price after the 5% cut is marked per item, also through merges", function()
+  local session = { startedAt = 10, elapsedBase = 60, running = false, gold = 0, items = {
+    [1] = { id = 1, qty = 1, lastSeen = 1, price = { ah = 95, cut = true } },
+    [2] = { id = 2, qty = 1, lastSeen = 1, price = { ah = 100 } },
+    [3] = { id = 3, qty = 1, lastSeen = 1 },
+  } }
+  local e = ns.History.snapshot(session, function(id) if id == 3 then return { ah = 950, ahGross = 1000 } end end, 100)
+  h.eq(e.items[1].price.cut, true)
+  h.eq(e.items[2].price.cut, nil)
+  h.eq(e.items[3].price.cut, true)
+  local other = ns.History.snapshot({ startedAt = 20, elapsedBase = 60, running = false, gold = 0, items = {
+    [1] = { id = 1, qty = 1, lastSeen = 1, price = { ah = 100 } },
+    [3] = { id = 3, qty = 1, lastSeen = 1, price = { ah = 950, cut = true } },
+  } }, nil, 100)
+  local m = ns.History.merge(e, other)
+  h.eq(m.items[1].price.cut, nil) -- one of them was not cut
+  h.eq(m.items[3].price.cut, true)
 end)

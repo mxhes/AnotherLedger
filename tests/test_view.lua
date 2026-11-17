@@ -1240,25 +1240,25 @@ h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs la
   h.eq(#V.buildMobs(nil, {}).rows, 0)
 end)
 
-h.test("makeRow: an opened History session tags only AH prices saved after the cut", function()
-  local function entry(cut)
-    return { startedAt = 1, elapsed = 60, gold = 0, nItems = 2, vendor = 10, ah = 10000, best = 10000, ahCut = cut,
-      items = {
-        [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1, price = { vendor = 10, ah = 10000 } },
-        [2] = { id = 2, key = 2, link = link("Peacebloom"), qty = 1, lastSeen = 1, price = { vendor = 5 } },
-      } }
-  end
+h.test("makeRow: the AH cut note follows each saved price", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 3, vendor = 10, ah = 20000, best = 20000,
+    items = {
+      [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1, price = { ah = 10000 } },
+      [2] = { id = 2, key = 2, link = link("Peacebloom"), qty = 1, lastSeen = 1, price = { vendor = 5 } },
+      [3] = { id = 3, key = 3, link = link("Silverleaf"), qty = 1, lastSeen = 1, price = { ah = 10000, cut = true } },
+    } }
   local o = opts({ sort = "name", lookup = function() return { ah = 950, ahGross = 1000 } end })
-  local function byId(v)
-    local t = {}
-    for i = 2, #v.rows do t[v.rows[i].id] = v.rows[i] end
-    return t
-  end
-  local old = byId(V.buildHistory({ entry(nil) }, o, 1)) -- saved before the cut existed
-  h.eq(old[1].ahCut, false)
-  h.eq(old[2].ahCut, true) -- no saved AH price: the live, cut one
-  local new = byId(V.buildHistory({ entry(true) }, o, 1))
-  h.eq(new[1].ahCut, true)
+  local t = {}
+  local v = V.buildHistory({ e }, o, 1)
+  for i = 2, #v.rows do t[v.rows[i].id] = v.rows[i] end
+  h.eq(t[1].ahCut, false) -- saved before the cut existed
+  h.eq(t[2].ahCut, true)  -- no saved AH price: the live, cut one
+  h.eq(t[3].ahCut, true)
+  -- the running session: a loot-time price after the cut when no live one is known
+  local s = session({ { 7, "Cut", 1 } })
+  s.items[7].price = { ah = 95, cut = true }
+  v = V.build(s, opts({ lookup = function() return {} end }))
+  h.eq(v.rows[1].ahCut, true)
 end)
 
 h.test("buildHistory: an opened session values its items at its own Auction from", function()
@@ -1268,4 +1268,36 @@ h.test("buildHistory: an opened session values its items at its own Auction from
   local v = V.buildHistory({ e }, opts({ ahMinGain = 0 }), 1)
   h.eq(v.rows[2].bestKind, "vendor")
   h.eq(v.rows[2].bestTotal, v.rows[1].value)
+end)
+
+h.test("View.buildMobs: the newest real name wins; a mob without one shows its ID", function()
+  local entries = {
+    mobEntry({ ["npc:7"] = mob(1, 1, 0, {}, nil, "Newer"), ["npc:8"] = mob(1, 1, 0) }),
+    mobEntry({ ["npc:7"] = mob(1, 1, 0, {}, nil, "Older"), ["obj:9"] = mob(0, 1, 0, {}, nil, nil, "node") }),
+  }
+  local function names(list)
+    local t = {}
+    for _, r in ipairs(V.buildMobs(list, { sort = "name" }).rows) do t[r.mobKey] = r.name end
+    return t
+  end
+  local n = names(entries)
+  h.eq(n["npc:7"], "+ Newer")
+  h.eq(n["npc:8"], "+ NPC 8")
+  h.eq(n["obj:9"], "+ Object 9")
+  -- the running session (last) has the newest name of all
+  entries[3] = { live = true, items = {}, mobs = { ["npc:7"] = mob(1, 1, 0, {}, nil, "Live") } }
+  h.eq(names(entries)["npc:7"], "+ Live")
+end)
+
+h.test("View.buildHistory: headings read the date at most three times per session", function()
+  local calls = 0
+  local function utc(f, t) calls = calls + 1 return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600
+  local list = {}
+  for i = 1, 20 do
+    list[i] = { startedAt = now - i * 3 * 86400, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, best = 0,
+      places = {}, items = {} }
+  end
+  V.buildHistory(list, { now = now, dateFn = utc, sort = "recent", formatDate = function(t) return "d" .. t end })
+  h.eq(calls <= 3 * 20 + 6, true, "date calls: " .. calls)
 end)

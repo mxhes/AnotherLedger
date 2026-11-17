@@ -117,6 +117,19 @@ function Mobs.noteLooted(mobs, key, guid, state)
   return false
 end
 
+-- A money slot with every source's copper scaled by `factor` (your share in
+-- a group); other slots unchanged. A new table.
+function Mobs.scaleMoney(slot, factor)
+  if type(slot) ~= "table" or slot.kind ~= "money" or not num(factor) then return slot end
+  local sources, total = {}, 0
+  for i, s in ipairs(slot.sources or {}) do
+    local q = num(s.qty) and math.floor(s.qty * factor + 0.5) or nil
+    sources[i] = { guid = s.guid, qty = q }
+    total = total + (q or 0)
+  end
+  return { kind = "money", qty = total, sources = sources }
+end
+
 -- One cleared loot slot: each source (a mob or node) gets its own share.
 function Mobs.credit(mobs, slot, place, names, state)
   if type(slot) ~= "table" or type(slot.sources) ~= "table" then return end
@@ -141,7 +154,7 @@ function Mobs.credit(mobs, slot, place, names, state)
   end
 end
 
-function Mobs.addKill(mobs, key, name, place)
+function Mobs.addKill(mobs, key, name)
   if type(key) ~= "string" then return end
   local e = entry(mobs, key, kindOf(key))
   e.kills = e.kills + 1

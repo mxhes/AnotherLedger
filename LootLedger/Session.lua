@@ -74,13 +74,15 @@ function Session.add(session, itemID, link, qty, now, key)
   return true, item
 end
 
--- Remembers the unit prices seen at loot time ({ vendor, ah, de }, each optional).
+-- Remembers the unit prices seen at loot time ({ vendor, ah, de }, each
+-- optional; cut = true when ah is after the 5% AH cut).
 function Session.setPrice(item, info)
   if type(item) ~= "table" or type(info) ~= "table" then return end
   local p = {}
   for _, k in ipairs({ "vendor", "ah", "de" }) do
     if num(info[k]) and info[k] >= 0 then p[k] = info[k] end
   end
+  if p.ah and num(info.ahGross) then p.cut = true end
   if next(p) then item.price = p end
 end
 

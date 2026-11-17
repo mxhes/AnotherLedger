@@ -129,14 +129,18 @@ function Core.buildPrices(env, db, now, getKey)
     end
   end
 
-  -- Value rules, read at every lookup (options ahCut and destroyMode).
+  -- Value rules, read at every lookup (options ahCut and destroyMode); the
+  -- same table until one of the options changes.
+  local cached
   local function rules()
-    return {
-      ahCut = setting("ahCut") ~= false,
-      destroyAllowed = function(itemID, link)
-        return Core.destroyAllowed(env, db, setting("destroyMode"), itemID, link)
-      end,
-    }
+    local cut, mode = setting("ahCut") ~= false, setting("destroyMode")
+    if not (cached and cached.ahCut == cut and cached.mode == mode) then
+      cached = {
+        ahCut = cut, mode = mode,
+        destroyAllowed = function(itemID, link) return Core.destroyAllowed(env, db, mode, itemID, link) end,
+      }
+    end
+    return cached
   end
 
   return ns.Prices.new({
@@ -176,12 +180,37 @@ function Core.professions(env)
   return ns.Prices.professionSet(lines)
 end
 
+-- The profession sets Core.destroyAllowed adds up, kept until they change:
+-- { db, set = db.professions, key, all, own }.
+local professionCache
+
 -- Saves this character's destroy professions (login, SKILL_LINES_CHANGED).
-function Core.noteProfessions()
+-- At login (`atLogin`) the client may not know them yet: an empty read then
+-- keeps the saved set; SKILL_LINES_CHANGED is the game's own word.
+function Core.noteProfessions(atLogin)
   local key = Core.character or Core.characterKey(_G)
   if not (key and ns.db) then return end
   if type(ns.db.professions) ~= "table" then ns.db.professions = {} end
-  ns.db.professions[key] = Core.professions(_G)
+  local set, old = Core.professions(_G), ns.db.professions[key]
+  if atLogin and next(set) == nil and type(old) == "table" and next(old) ~= nil then return end
+  ns.db.professions[key] = set
+  professionCache = nil
+end
+
+-- All characters' destroy professions and this character's (cached).
+local function professionSets(db, key)
+  local saved = type(db.professions) == "table" and db.professions or nil
+  local c = professionCache
+  if c and c.db == db and c.set == saved and c.key == key then return c.all, c.own end
+  local all, own = {}, nil
+  for character, set in pairs(saved or {}) do
+    if type(set) == "table" then
+      for k, v in pairs(set) do if v then all[k] = true end end
+      if character == key then own = set end
+    end
+  end
+  professionCache = { db = db, set = saved, key = key, all = all, own = own or {} }
+  return all, professionCache.own
 end
 
 -- Option "destroyMode": whether an item's destroy value counts. The kind of
@@ -196,15 +225,8 @@ function Core.destroyAllowed(env, db, mode, itemID, link)
     local ok, _, _, _, _, _, classID, subclassID = pcall(info, link or itemID)
     if ok then kind = ns.Prices.destroyKind(classID, subclassID) end
   end
-  local all, own = {}, nil
-  local key = Core.character or Core.characterKey(env)
-  for character, set in pairs(type(db.professions) == "table" and db.professions or {}) do
-    if type(set) == "table" then
-      for k, v in pairs(set) do if v then all[k] = true end end
-      if character == key then own = set end
-    end
-  end
-  return ns.Prices.destroyAllowed(mode, kind, own or {}, all)
+  local all, own = professionSets(db, Core.character or Core.characterKey(env))
+  return ns.Prices.destroyAllowed(mode, kind, own, all)
 end
 
 -- Price lookup that never errors: nil before login is done or when a source
@@ -617,6 +639,17 @@ local function settleLoot(window)
   if lootWindow == window then lootWindow = nil end
   local missing = Core.missingGold(window.money, currentMoney(), window.chat)
   if missing > 0 then Core.recordGold(missing) end
+  -- Mobs: the coin slots taken, scaled to the copper actually received (a
+  -- group splits it); nothing received known: the whole coin.
+  local pending = window.mobMoney
+  if type(pending) ~= "table" then return end
+  local listed = 0
+  for _, p in ipairs(pending) do listed = listed + p.slot.qty end
+  local received = window.chat + missing
+  local factor = (received > 0 and listed > 0) and math.min(1, received / listed) or 1
+  for _, p in ipairs(pending) do
+    ns.Mobs.credit(p.mobs, ns.Mobs.scaleMoney(p.slot, factor), p.place, p.names, mobState)
+  end
 end
 
 -- ---------------------------------------------------------------------------
@@ -879,9 +912,9 @@ end
 
 
 -- The name of the mob behind `guid`: the unit tooltip's first line (cached
--- for the login), else, when `fallback`, "NPC 12345" / "Object 1731".
+-- for the login), else nil (History > Mobs then shows "NPC 12345").
 -- UNVERIFIED (check in client) on Forever: C_TooltipInfo.GetHyperlink("unit:..").
-function Core.mobName(env, guid, key, fallback)
+function Core.mobName(env, guid, key)
   local C = env.C_TooltipInfo
   -- Unit tooltips only: a node is named by its gathering cast (snapshotLoot).
   if key:sub(1, 4) ~= "obj:" and type(C) == "table" and type(C.GetHyperlink) == "function" then
@@ -893,9 +926,7 @@ function Core.mobName(env, guid, key, fallback)
       return text
     end
   end
-  if not fallback then return nil end
-  local id = key:match(":(%d+)$") or "?"
-  return (key:sub(1, 4) == "obj:" and L["Object %s"] or L["NPC %s"]):format(id)
+  return nil
 end
 
 -- Option "dailyFarmLevel": whether the player's `level` is inside the level
@@ -1079,7 +1110,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
 
   Core.linkHistory()
-  Core.noteProfessions()
+  Core.noteProfessions(true)
   local previous = ns.chardb.session
   local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
   -- A short session with loot continues (Min. session length) as if it were
@@ -1180,12 +1211,17 @@ function events.LOOT_SLOT_CLEARED(slot)
   local names = {}
   for _, s in ipairs(entry.sources) do
     local key = ns.Mobs.idOf(s.guid)
-    if key then
-      local e = mobs[key]
-      names[key] = mobNames[key] or Core.mobName(_G, s.guid, key, not (e and e.name))
-    end
+    if key then names[key] = mobNames[key] or Core.mobName(_G, s.guid, key) end
   end
-  ns.Mobs.credit(mobs, entry, (Core.placeOf(_G, difficulties)), names, mobState)
+  local place = (Core.placeOf(_G, difficulties))
+  -- Coin waits for the window's end: in a group you get a share of it
+  -- (settleLoot scales it to what you received).
+  if entry.kind == "money" and lootWindow then
+    if type(lootWindow.mobMoney) ~= "table" then lootWindow.mobMoney = {} end
+    table.insert(lootWindow.mobMoney, { mobs = mobs, slot = entry, place = place, names = names })
+    return
+  end
+  ns.Mobs.credit(mobs, entry, place, names, mobState)
 end
 
 -- Every mob or node kill by the group (combat log; Mobs.combat), and the
@@ -1214,7 +1250,7 @@ function events.COMBAT_LOG_EVENT_UNFILTERED()
   local key, kind = ns.Mobs.idOf(destGUID)
   if not (key and kind == "npc") then return end
   if type(destName) == "string" and destName ~= "" then mobNames[key] = destName end
-  ns.Mobs.addKill(ns.session.mobs, key, mobNames[key], (Core.placeOf(_G, difficulties)))
+  ns.Mobs.addKill(ns.session.mobs, key, mobNames[key])
 end
 
 -- Names of mobs the player sees (name plates, target, mouseover).

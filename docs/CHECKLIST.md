@@ -32,8 +32,9 @@ and remove both once it is confirmed.
   `GetProfessions` / `GetProfessionInfo` (7th return the skill line: 333
   Enchanting, 773 Inscription, 755 Jewelcrafting) and `GetItemInfoInstant`
   (6th / 7th returns class / subclass) work on Forever; an enchanter keeps
-  the Destroy value of gear, a non-enchanter loses it (`UNVERIFIED` in
-  `Core.lua`).
+  the Destroy value of gear, a non-enchanter loses it. If they are not
+  known yet at login, a saved set is kept until `SKILL_LINES_CHANGED`
+  (`UNVERIFIED` in `Core.lua`).
 - Rename to LootLedger: the addon shows as LootLedger in the AddOns list and
   options; `/ll` and `/lootledger` work; key bindings are under
   LootLedger. Renaming `SavedVariables/LootPrice.lua` to `LootLedger.lua`

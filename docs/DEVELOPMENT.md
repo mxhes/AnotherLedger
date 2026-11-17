@@ -176,10 +176,15 @@ Each of these is one call in one place; the UI never names them.
   loot left in a corpse counts for nobody; the combat log counts the group's
   kills (`Mobs.combat`; the handler skips every subevent that cannot be a
   kill before parsing a GUID, and parses only on kills). Mob names come from
-  name plates, target, mouseover and kill events, else the unit tooltip,
-  else "NPC 12345"; a node takes the target of the player's last
-  `UNIT_SPELLCAST_SENT` (the gathering cast) when the loot window opens
-  within 30 s, else "Object 1731" (no tooltip for objects). Only while
+  name plates, target, mouseover and kill events, else the unit tooltip; a
+  node takes the target of the player's last `UNIT_SPELLCAST_SENT` (the
+  gathering cast) when the loot window opens within 30 s (no tooltip for
+  objects). No name is saved without one: `View.buildMobs` shows
+  "NPC 12345" / "Object 1731" and takes the newest saved name (the first
+  History entry's, the running session's over all). Coin slots wait for
+  `settleLoot`, which scales them (`Mobs.scaleMoney`) to the copper the
+  window actually brought (chat plus the money change), so a group's split
+  counts your share. Only while
   loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
   Zones entries (the running session included); a mob's `places` count
@@ -224,15 +229,18 @@ Each of these is one call in one place; the UI never names them.
   own, all)` says no; `deBlocked = true` then tells makeRow and
   `History.snapshot` to skip the `de` saved at loot time too. The kind comes from the item class
   (`Prices.destroyKind`, via `GetItemInfoInstant`), the professions from
-  `db.professions[character]` (`Core.noteProfessions` at login and on
-  `SKILL_LINES_CHANGED`). The cache stores raw prices. `Prices.best(vendor,
+  `db.professions[character]` (`Core.noteProfessions` at login, where an
+  empty read keeps a saved set, and on `SKILL_LINES_CHANGED`; the union of
+  all characters is cached until they change, and the rules table until
+  `ahCut` or `destroyMode` does). The cache stores raw prices. `Prices.best(vendor,
   ah, de, minGainPct)` is the one best-value pick (View, History, Core):
   the AH counts only when it beats vendor by the `ahMinGain` percent.
-  A History entry keeps the rules it was saved with (`ahMinGain`, `ahCut`):
-  `History.totals` takes ignored items off at the entry's own Auction from
-  (`History.gainOf`, 0 for older entries), an opened session values its
-  items the same way, and its AH lines carry the cut note only when
-  `ahCut` was on.
+  A History entry keeps the Auction from it was saved with (`ahMinGain`):
+  `History.totals` takes ignored items off at it (`History.gainOf`, 0 for
+  older entries) and an opened session values its items the same way. A
+  saved price (`item.price`, History items) has `cut = true` when its `ah`
+  is after the AH cut (`Session.setPrice`, `History.snapshot`; a merge keeps
+  it only when every part was), and only those rows get the cut note.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
