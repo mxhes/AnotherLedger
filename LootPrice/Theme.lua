@@ -206,18 +206,20 @@ Theme.presets = {
     tabBorder = "3a4a50", tabBorderHover = "8fa3a8", tabBorderSelected = "f0b429", tabGlow = "f0b429",
     tabText = "c8d0d2", tabTextSelected = "ffffff", scrollTrack = "c8d0d2", scrollThumb = "8fa3a8",
   }, { tipTitle = "f0b429", tipSection = "f0b429" }) },
+  -- Light text with the dark outline on a tan panel, like the game's map
+  -- labels (dark text smeared under the outline in the client).
   { id = "parchment", label = "Parchment", outline = "OUTLINE", colors = withTips({
-    ink = "2b1d0e", stale = "6b2300", sectionTitle = "2b1d0e", best = "5c2e00", dailyFarm = "5c2e00",
-    gold = "5c2e00", goldLine = "6e5536", divider = "6e5536", rowSeparator = "6e5536",
+    ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "ffd100", dailyFarm = "ffd100",
+    gold = "ffd100", goldLine = "6e5536", divider = "6e5536", rowSeparator = "6e5536",
     flashNormal = "fff2cc", flashStrong = "ffe08a",
-    panelTint = "d3b289", panelBorder = "6e5536", hint = "45351f", columnTitle = "45351f",
-    marketGood = "2d6b1a", marketOk = "6b4e00", marketBad = "9e2a1e",
-    tagVendor = "4a3520", tagAh = "0d4f80", tagDe = "4d4d4d",
-    buttonFill = "e3c9a0", buttonEdge = "6e5536", buttonEdgeHover = "5c2e00", buttonText = "2b1d0e",
-    buttonTextDisabled = "8a7558", buttonWarnEdge = "9e2a1e", buttonWarnEdgeHover = "c23a28",
-    buttonWarnText = "8a1e12", inputFill = "e8d4b0",
-    tabBorder = "7a6040", tabBorderHover = "4a3520", tabBorderSelected = "5c2e00", tabGlow = "b37a1a",
-    tabText = "4a3520", tabTextSelected = "2b1d0e", scrollTrack = "4a3520", scrollThumb = "6e5536",
+    panelTint = "d3b289", panelBorder = "6e5536", hint = "e6d9bd", columnTitle = "e6d9bd",
+    marketGood = "73d959", marketOk = "f2cc66", marketBad = "f26152",
+    tagVendor = "f5ecd6", tagAh = "80d1ff", tagDe = "d9d9d9",
+    buttonFill = "5a4228", buttonEdge = "3d2c18", buttonEdgeHover = "ffd100", buttonText = "ffffff",
+    buttonTextDisabled = "a8987a", buttonWarnEdge = "9e2a1e", buttonWarnEdgeHover = "c23a28",
+    buttonWarnText = "ffb39e", inputFill = "4a3520",
+    tabBorder = "6e5536", tabBorderHover = "3d2c18", tabBorderSelected = "3d2c18", tabGlow = "ffd61a",
+    tabText = "f0e6d2", tabTextSelected = "ffffff", scrollTrack = "4a3520", scrollThumb = "6e5536",
   }) },
 }
 

@@ -171,8 +171,9 @@ anything that deletes History asks first.
 tabs, the buttons and the scrollbar. **LootPrice** is the dark leather look,
 **Blizzard** is black and bronze with red buttons like the game's own
 windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
-accent and **Parchment** is the light spellbook look (it also turns on a thin
-font outline so white item names and gold amounts stay readable). Item
+accent and **Parchment** is a light tan with light text and dark brown buttons
+(it also turns on a thin font outline so all text reads on the light
+background, like the labels on the game's maps). Item
 quality and coin colors always stay the game's own. After a preset you can
 still change single colors; the preset then shows "(edited)".
 

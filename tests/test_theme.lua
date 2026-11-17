@@ -196,9 +196,14 @@ h.test("presets are readable on their own panel", function()
       local ratio = hexContrast(c[key], bg or panel)
       h.eq(ratio >= min, true, string.format("%s.%s %.2f < %s", p.id, key, ratio, min))
     end
-    need("ink", 7)
-    for _, k in ipairs({ "hint", "gold", "stale", "columnTitle", "best", "dailyFarm", "tabText" }) do need(k, 4.5) end
-    for _, k in ipairs({ "tagVendor", "tagAh", "tagDe", "goldLine", "marketGood", "marketOk", "marketBad" }) do need(k, 3) end
+    -- A preset with an outline (Parchment) draws light text with a dark edge:
+    -- its text must stand out from that black outline, not from the panel
+    -- (seen in the client: dark text with the outline smears).
+    local text = p.outline and "000000" or panel
+    need("ink", 7, text)
+    for _, k in ipairs({ "hint", "gold", "stale", "columnTitle", "best", "dailyFarm", "tabText" }) do need(k, 4.5, text) end
+    for _, k in ipairs({ "tagVendor", "tagAh", "tagDe", "marketGood", "marketOk", "marketBad" }) do need(k, 3, text) end
+    need("goldLine", 3)
     need("buttonText", 4.5, c.buttonFill)
     need("buttonWarnText", 3, c.buttonFill)
     if not p.outline then

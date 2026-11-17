@@ -10,8 +10,8 @@ and remove both once it is confirmed.
 ## Open checks
 
 - Color presets: each of the five looks right in the window, compact window,
-  options window and tooltips; Parchment turns the outline on and white / gold
-  text reads on it.
+  options window and tooltips; Parchment turns the outline on and its light
+  text reads on the tan (the dark-text version smeared under the outline).
 - Rare and epic items now use the game's exact colors (darker blue and purple
   than before): still readable on the dark presets.
 - Options window: all six tabs fit (also in German) and the window is wider
