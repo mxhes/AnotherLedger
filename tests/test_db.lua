@@ -12,7 +12,7 @@ h.test("DB.defaults shape", function()
     alertGold = 0, alertSound = false,
     fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
     countCrafted = false, showCurrencies = true, dailyFarm = true, dailyFarmMinutes = 20, showTopFinds = true, showFooterGold = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, instanceSession = false,
-    zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2,
+    zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true,
     goalGold = 0, goalMinutes = 0, unitPrice = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, soldHigh = 100, soldMedium = 10,
     colorPreset = "lootledger", colorText = "ffffff", colorTitles = "ffd100", colorHints = "ada18c", colorVendor = "eddeb8",

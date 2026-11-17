@@ -2960,3 +2960,47 @@ h.test("wiring: /ll reset still archives a short session", function()
   h.eq(#ctx.env.LootLedgerCharDB.history, 1)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: Pause in cities freezes the clock while resting, loot and quest gold still count", function()
+  local ctx = boot()
+  local resting = true
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  h.eq(ns.Options.get(ns.db, "cityPause"), true)
+  h.eq(ns.session.resting, true) -- logged in inside a city
+  ctx.now = ctx.now + 100
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "QUEST_TURNED_IN", 1, 0, 2500)
+  h.eq(ns.session.items[2589].qty, 3)
+  h.eq(ns.session.gold, 2500)
+  local H = ns.UI.Header.instance
+  slash(ctx, "compact")
+  h.eq(H.pausedText:IsShown(), true)
+  h.eq(H.pausedText:GetText(), ns.L["Resting"])
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  ctx.now = ctx.now + 60
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), 60)
+  h.eq(H.pausedText:IsShown(), false)
+  -- Stop in a city, then leave: still stopped
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  slash(ctx, "stop")
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(ns.session.running, false)
+  h.eq(H.pausedText:GetText(), ns.L["Paused"])
+  -- Start inside a city: rests at once
+  resting = true
+  slash(ctx, "start")
+  h.eq(ns.session.resting, true)
+  -- Option off: the clock runs in the city
+  ns.Options.set(ns.db, "cityPause", false)
+  h.eq(ns.session.resting, nil)
+  local before = ns.Session.elapsed(ns.session, ctx.now)
+  ctx.now = ctx.now + 30
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), before + 30)
+  h.eq(ctx.errors, {})
+end)

@@ -17,6 +17,7 @@ local L_OPTIONS = L["Options"]
 local L_TO_COMPACT = L["Compact window (or double-click the title)"]
 local L_TO_FULL = L["Full window (or double-click the title)"]
 local L_PAUSED = L["Paused"]
+local L_RESTING = L["Resting"]
 local L_CLOCK_HINT = L["Click: start / stop the session"]
 local L_RESET_CONFIRM = L["Reset the session? It is saved to History, then the loot and the clock start again from zero."]
 
@@ -180,10 +181,13 @@ function Header.attach(row, handlers)
     self.reset:SetShown(not compact and self.sessionShown)
     -- Stopped: compact shows the red Paused marker next to a dimmed clock; the
     -- full header has no room for the word, so the clock itself turns red.
+    -- Resting (Pause in cities): the same marker, saying Resting.
     local stopped = self.running == false
-    self.pausedText:SetShown(compact and stopped)
+    local resting = not stopped and self.resting == true
+    self.pausedText:SetText(resting and L_RESTING or L_PAUSED)
+    self.pausedText:SetShown(compact and (stopped or resting))
     local color = T.colors.ink
-    if stopped then color = compact and T.colors.buttonTextDisabled or T.colors.stale end
+    if stopped or resting then color = compact and T.colors.buttonTextDisabled or T.colors.stale end
     W.setTextColor(self.timer, color)
   end
 
@@ -204,10 +208,11 @@ function Header.attach(row, handlers)
   end
 
   -- The button only changes when the running state does.
-  function header:SetRunning(running)
+  function header:SetRunning(running, resting)
     running = running and true or false
-    if running == self.running then return end
-    self.running = running
+    resting = resting and true or false
+    if running == self.running and resting == self.resting then return end
+    self.running, self.resting = running, resting
     self.toggle:SetText(Header.toggleState(running).label)
     self:Apply()
   end
@@ -223,7 +228,7 @@ function Header.attach(row, handlers)
   local part = {}
   function part:Tick(_, session, now)
     header:SetElapsed(ns.Session.elapsed(session, now))
-    header:SetRunning(session.running)
+    header:SetRunning(session.running, session.resting)
   end
   function part:Update(view, session, now)
     self:Tick(view, session, now)

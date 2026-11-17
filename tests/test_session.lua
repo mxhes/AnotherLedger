@@ -360,3 +360,42 @@ h.test("Session samples: one per step of clock, thinned and the step doubled whe
   h.eq(s.samples, nil)
   h.eq(S.sampleStep(s), 60)
 end)
+
+h.test("Session.rest freezes the clock and place time, loot still counts; wake and stop end it", function()
+  local s = S.new(0)
+  S.enterPlace(s, "Dornogal", nil, 0)
+  S.rest(s, 100)
+  h.eq(s.resting, true)
+  h.eq(s.running, true)
+  h.eq(S.elapsed(s, 500), 100)
+  S.rest(s, 300) -- already resting: no-op
+  h.eq(S.elapsed(s, 500), 100)
+  h.eq(S.add(s, 5, L, 1, 200), true)
+  S.enterPlace(s, "Dornogal", "Bazaar", 300) -- moving while resting adds no time
+  h.eq(s.zones.Dornogal.subs.Dornogal.time, 100)
+  h.eq(s.at.since, nil)
+  S.wake(s, 500)
+  h.eq(s.resting, nil)
+  h.eq(S.elapsed(s, 550), 150)
+  h.eq(s.at.since, 500)
+  S.wake(s, 600) -- not resting: no-op
+  h.eq(S.elapsed(s, 650), 250)
+  S.rest(s, 700)
+  S.stop(s, 800)
+  h.eq(s.resting, nil)
+  h.eq(s.running, false)
+  h.eq(S.elapsed(s, 900), 300)
+  S.rest(s, 900) -- stopped: no-op
+  h.eq(s.resting, nil)
+end)
+
+h.test("Session.reset and resume keep a resting clock frozen", function()
+  local s = S.new(0)
+  S.rest(s, 50)
+  S.reset(s, 100)
+  h.eq(S.elapsed(s, 400), 0)
+  h.eq(s.resting, true)
+  S.resume(s, 500) -- login: the clock is woken by Core.checkRest
+  h.eq(s.resting, nil)
+  h.eq(S.elapsed(s, 510), 10)
+end)

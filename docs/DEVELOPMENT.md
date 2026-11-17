@@ -170,6 +170,10 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Resting** (`cityPause`, `Core.checkRest` on `PLAYER_UPDATE_RESTING`):
+  `Session.rest` keeps `running` true but folds the time into `elapsedBase`
+  and stops the place time (`resting = true`); `Session.wake` restarts it.
+  Loot and gold still count. Stop, reset and login (`resume`) handle it.
 - **Short sessions** (`minSessionMinutes`, `Core.isShort`): a session with
   loot shorter than that is not archived by Session per zone / instance; at
   login a short saved session (its `elapsedBase`; demo sessions never) is
@@ -411,7 +415,7 @@ Each of these is one call in one place; the UI never names them.
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
-`SKILL_LINES_CHANGED`, the
+`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 

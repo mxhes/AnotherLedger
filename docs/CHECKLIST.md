@@ -9,6 +9,10 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Pause in cities: `IsResting` and `PLAYER_UPDATE_RESTING` exist on Forever;
+  entering a city freezes the clock (compact says Resting), loot still
+  counts, leaving starts it again; a clock stopped by hand stays stopped
+  (`UNVERIFIED` in `Core.lua`, `Core.checkRest`).
 - Value rules: with AH cut on, an Auction value is 5% lower and the item
   tooltip says "after 5% AH cut". Destroy values "If this character can":
   `GetProfessions` / `GetProfessionInfo` (7th return the skill line: 333

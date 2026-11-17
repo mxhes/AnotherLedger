@@ -188,7 +188,7 @@ function Session.enterPlace(session, zone, sub, now)
     session.at = nil
     return
   end
-  session.at = { zone = zone, sub = sub, since = session.running and now or nil }
+  session.at = { zone = zone, sub = sub, since = (session.running and not session.resting) and now or nil }
 end
 
 function Session.notePlaceLoot(session, key, qty)
@@ -293,6 +293,27 @@ function Session.stop(session, now)
   if type(session.at) == "table" then session.at.since = nil end
   session.running = false
   session.runningSince = nil
+  session.resting = nil
+end
+
+-- Option "cityPause": in a city (resting) the clock and the place time stand
+-- still while the session keeps running, so loot and gold still count.
+function Session.rest(session, now)
+  if not session.running or session.resting then return end
+  session.elapsedBase = Session.elapsed(session, now)
+  closeStretch(session, now)
+  if type(session.at) == "table" then session.at.since = nil end
+  session.runningSince = nil
+  session.resting = true
+end
+
+function Session.wake(session, now)
+  if not session.resting then return end
+  session.resting = nil
+  if session.running then
+    session.runningSince = now
+    if type(session.at) == "table" then session.at.since = now end
+  end
 end
 
 function Session.reset(session, now)
@@ -304,11 +325,12 @@ function Session.reset(session, now)
   session.recent = {}
   session.demo = nil
   session.goalsNoted = nil -- the new session's goals are announced again
-  if type(session.at) == "table" then session.at.since = session.running and now or nil end
+  local ticking = session.running and not session.resting
+  if type(session.at) == "table" then session.at.since = ticking and now or nil end
   session.gold = 0
   session.startedAt = now
   session.elapsedBase = 0
-  session.runningSince = session.running and now or nil
+  session.runningSince = ticking and now or nil
 end
 
 -- Gold per hour graph: the session's worth (copper) at clock times,
@@ -358,6 +380,7 @@ end
 
 -- Login: restart the clock at the login time; offline time never counts.
 function Session.resume(session, now)
+  session.resting = nil -- Core.checkRest rests it again in a city
   if session.running then
     session.runningSince = now
     if type(session.at) == "table" then session.at.since = now end

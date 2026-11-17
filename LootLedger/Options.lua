@@ -567,6 +567,11 @@ Options.define({ key = "sessionChat", category = "session", type = "checkbox", l
 Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause when AFK"],
   tooltip = L["Stops the clock while you are AFK and starts it again when you are back."] })
 
+-- Core.checkRest: the clock stands still in cities and inns; loot still counts.
+Options.define({ key = "cityPause", category = "session", type = "checkbox", label = L["Pause in cities"],
+  tooltip = L["Stops the clock while you are in a city or inn (resting), so time spent selling and mailing does not lower your gold per hour. Loot and gold still count."],
+  apply = function() if ns.Core and ns.Core.checkRest then ns.Core.checkRest() end end })
+
 Options.define({
   key = "instanceSession", category = "session", type = "checkbox",
   label = L["Session per instance"],

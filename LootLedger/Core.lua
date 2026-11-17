@@ -616,8 +616,27 @@ function Core.startSession()
   pausedNoted = false
   Core.updatePlace()
   ns.Session.start(ns.session, time())
+  Core.checkRest()
   say(L["session started."])
   refreshUI()
+end
+
+-- Option "cityPause": rests the clock while the player is resting (city, inn)
+-- and wakes it when they leave or the option is turned off. A stopped clock
+-- (by hand or AFK) is never started here.
+-- UNVERIFIED (check in client) on Forever: IsResting / PLAYER_UPDATE_RESTING.
+function Core.checkRest()
+  local session = ns.session
+  if not (session and ns.db) then return end
+  local resting = type(IsResting) == "function" and IsResting() and true or false
+  local want = resting and ns.Options.get(ns.db, "cityPause") and session.running and not session.afkPaused
+  if want and not session.resting then
+    ns.Session.rest(session, time())
+    refreshUI()
+  elseif not want and session.resting then
+    ns.Session.wake(session, time())
+    refreshUI()
+  end
 end
 
 function Core.stopSession()
@@ -889,6 +908,7 @@ local function checkAfk()
     session.afkPaused = nil
     pausedNoted = false
     ns.Session.start(session, time())
+    Core.checkRest()
     say(L["clock running again."])
     refreshUI()
   end
@@ -978,6 +998,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   -- Before the options: LibDBIcon (if loaded) takes over the minimap button.
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
   ns.Options.applyAll(ns.db)
+  Core.checkRest()
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
   -- Every few seconds, window shown or not: the time goal, the zone delay of
   -- "Session per zone" and the gold per hour graph.
@@ -1052,6 +1073,10 @@ function events.LOOT_CLOSED()
 end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
+function events.PLAYER_UPDATE_RESTING()
+  Core.checkRest()
+end
+
 function events.SKILL_LINES_CHANGED()
   Core.noteProfessions()
 end

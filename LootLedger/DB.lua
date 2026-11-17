@@ -65,6 +65,8 @@ DB.defaults = {
     soldMedium = 10,
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
+    -- Stop the clock (not the loot) while resting in a city or inn.
+    cityPause = true,
     -- A chat line with the length, place and worth of each saved session.
     sessionChat = false,
     instanceSession = false,
