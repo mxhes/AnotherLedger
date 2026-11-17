@@ -154,3 +154,88 @@ h.test("button text and section titles are white", function()
   h.eq(T.fonts.button, "GameFontHighlightSmall")
   h.eq(T.fonts.topHeader, "GameFontHighlightLarge")
 end)
+
+-- Color presets (Theme.presets): snapshot of today's look before any preset runs.
+local BEFORE = {}
+for k, c in pairs(T.colors) do BEFORE[k] = T.colorToHex(c) end
+
+h.test("every preset sets every color", function()
+  local ids = {}
+  for _, p in ipairs(T.presets) do
+    ids[#ids + 1] = p.id
+    h.eq(type(p.label), "string", p.id .. " label")
+    for key in pairs(T.colors) do
+      if T.FIXED_COLORS[key] then
+        h.eq(p.colors[key], nil, p.id .. " must not set " .. key)
+      else
+        h.eq(T.hexToRGB(p.colors[key]) ~= nil, true, p.id .. "." .. key)
+      end
+    end
+    for key in pairs(p.colors) do h.eq(type(T.colors[key]), "table", p.id .. " unknown key " .. key) end
+  end
+  h.eq(table.concat(ids, ","), "lootprice,blizzard,midnight,tsm,parchment")
+end)
+
+h.test("lootprice preset is today's look", function()
+  local p = T.preset("lootprice")
+  for key, hex in pairs(BEFORE) do
+    if not T.FIXED_COLORS[key] then h.eq(p.colors[key], hex, key) end
+  end
+end)
+
+local function hexContrast(a, b)
+  local r1, g1, b1 = T.hexToRGB(a)
+  local r2, g2, b2 = T.hexToRGB(b)
+  return T.contrast(r1, g1, b1, r2, g2, b2)
+end
+
+h.test("presets are readable on their own panel", function()
+  for _, p in ipairs(T.presets) do
+    local c, panel = p.colors, p.colors.panelTint
+    local function need(key, min, bg)
+      local ratio = hexContrast(c[key], bg or panel)
+      h.eq(ratio >= min, true, string.format("%s.%s %.2f < %s", p.id, key, ratio, min))
+    end
+    need("ink", 7)
+    for _, k in ipairs({ "hint", "gold", "stale", "columnTitle", "best", "dailyFarm", "tabText" }) do need(k, 4.5) end
+    for _, k in ipairs({ "tagVendor", "tagAh", "tagDe", "goldLine", "marketGood", "marketOk", "marketBad" }) do need(k, 3) end
+    need("buttonText", 4.5, c.buttonFill)
+    need("buttonWarnText", 3, c.buttonFill)
+    if not p.outline then
+      for _, k in ipairs({ "moneyGold", "moneySilver", "moneyCopper" }) do
+        h.eq(hexContrast(T.colorToHex(T.colors[k]), panel) >= 3, true, p.id .. " " .. k)
+      end
+      for q = 0, 7 do
+        h.eq(hexContrast(T.colorToHex({ T.qualityColor(q) }), panel) >= 3, true, p.id .. " quality " .. q)
+      end
+    end
+  end
+end)
+
+h.test("tooltip colors readable on the game tooltip", function()
+  local bg = T.colorToHex(T.TOOLTIP_BG)
+  for _, p in ipairs(T.presets) do
+    for _, k in ipairs({ "tipTitle", "tipSection", "tipLabel", "tipValue", "tipNote", "tipWarn", "tipHint" }) do
+      h.eq(hexContrast(p.colors[k], bg) >= 4.5, true, p.id .. "." .. k)
+    end
+  end
+end)
+
+h.test("parchment uses an outline", function()
+  for _, p in ipairs(T.presets) do
+    h.eq(p.outline, p.id == "parchment" and "OUTLINE" or nil, p.id)
+  end
+end)
+
+h.test("applyPreset changes colors in place and keeps alpha", function()
+  local d = T.colors.divider
+  local a = d[4]
+  local changed = T.applyPreset("midnight")
+  h.eq(T.colors.divider == d, true)
+  h.eq(T.colorToHex(d), T.preset("midnight").colors.divider)
+  h.eq(d[4], a)
+  h.eq(changed[d], true)
+  h.eq(changed[T.colors.moneyGold], nil)
+  T.applyPreset("nope") -- unknown: the LootPrice look
+  h.eq(T.colorToHex(T.colors.panelTint), BEFORE.panelTint)
+end)

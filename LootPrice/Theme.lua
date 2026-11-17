@@ -144,6 +144,93 @@ Theme.colors = {
   scrollThumb = { 0.93, 0.87, 0.72, 0.45 },
 }
 
+-- ---------------------------------------------------------------------------
+-- Color presets (option "colorPreset"): each sets every color above except the
+-- fixed coin colors (item quality colors are fixed too, Theme.qualityColor).
+-- Alphas stay as above. `outline`: the font outline the preset turns on when
+-- it is picked (Parchment: the fixed white / gold texts on a light panel).
+-- tests/test_theme.lua checks every preset is complete and readable.
+
+Theme.FIXED_COLORS = { moneyGold = true, moneySilver = true, moneyCopper = true }
+-- The game tooltip LootPrice tooltips are drawn on: near-black on every preset.
+Theme.TOOLTIP_BG = { 0, 0, 0 }
+
+-- Tooltip colors shared by the presets (the game tooltip stays dark).
+local TIPS = {
+  tipTitle = "ffd100", tipSection = "ffd100", tipLabel = "ccbd9e", tipValue = "ffffff",
+  tipNote = "ada18c", tipWarn = "f26152", tipHint = "40e640",
+}
+local function withTips(colors, tips)
+  for k, v in pairs(TIPS) do if colors[k] == nil then colors[k] = (tips and tips[k]) or v end end
+  return colors
+end
+
+Theme.presets = {
+  { id = "lootprice", label = "LootPrice", colors = {} }, -- filled from Theme.colors below
+  { id = "blizzard", label = "Blizzard", colors = withTips({
+    ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "ffd100", dailyFarm = "ffd100",
+    gold = "ffd100", goldLine = "c9a04a", divider = "c9a04a", rowSeparator = "c9a04a",
+    flashNormal = "ffe699", flashStrong = "ffcc59",
+    panelTint = "120d0a", panelBorder = "8a6a33", hint = "a89c88", columnTitle = "a89c88",
+    marketGood = "73d959", marketOk = "f2cc66", marketBad = "f26152",
+    tagVendor = "eddeb8", tagAh = "80d1ff", tagDe = "b3b3b3",
+    buttonFill = "5c0a05", buttonEdge = "bb8429", buttonEdgeHover = "ffd100", buttonText = "ffffff",
+    buttonTextDisabled = "8a7e6a", buttonWarnEdge = "9e3d2b", buttonWarnEdgeHover = "e65c42",
+    buttonWarnText = "ffb39e", inputFill = "0a0806",
+    tabBorder = "8a6a33", tabBorderHover = "d4b06a", tabBorderSelected = "ffd100", tabGlow = "ffd61a",
+    tabText = "dbdbdb", tabTextSelected = "ffffff", scrollTrack = "eddeb8", scrollThumb = "bb8429",
+  }) },
+  { id = "midnight", label = "Midnight", colors = withTips({
+    ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "ffd100", dailyFarm = "ffd100",
+    gold = "ffd100", goldLine = "5b8fd9", divider = "5b8fd9", rowSeparator = "7fa6e0",
+    flashNormal = "99c2ff", flashStrong = "66a3ff",
+    panelTint = "081a2e", panelBorder = "3d5a80", hint = "9aa8bd", columnTitle = "9aa8bd",
+    marketGood = "73d959", marketOk = "f2cc66", marketBad = "f26152",
+    tagVendor = "e0e6f0", tagAh = "80d1ff", tagDe = "b3b3b3",
+    buttonFill = "0d2440", buttonEdge = "3d5a80", buttonEdgeHover = "82c5ff", buttonText = "ffffff",
+    buttonTextDisabled = "66758a", buttonWarnEdge = "9e3d2b", buttonWarnEdgeHover = "e65c42",
+    buttonWarnText = "ffb39e", inputFill = "050f1c",
+    tabBorder = "4d6a91", tabBorderHover = "82a8d9", tabBorderSelected = "82c5ff", tabGlow = "4d9fff",
+    tabText = "d0d8e4", tabTextSelected = "ffffff", scrollTrack = "c0d0e8", scrollThumb = "82a8d9",
+  }) },
+  { id = "tsm", label = "TSM-style", colors = withTips({
+    ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "f0b429", dailyFarm = "f0b429",
+    gold = "f0b429", goldLine = "dbb431", divider = "dbb431", rowSeparator = "8fa3a8",
+    flashNormal = "f0c75e", flashStrong = "f0b429",
+    panelTint = "192428", panelBorder = "3a4a50", hint = "9aa5a8", columnTitle = "9aa5a8",
+    marketGood = "73d959", marketOk = "f2cc66", marketBad = "f26152",
+    tagVendor = "e6e6e6", tagAh = "6cc4f0", tagDe = "b3b3b3",
+    buttonFill = "0a1519", buttonEdge = "3a4a50", buttonEdgeHover = "f0b429", buttonText = "ffffff",
+    buttonTextDisabled = "66767a", buttonWarnEdge = "9e3d2b", buttonWarnEdgeHover = "e65c42",
+    buttonWarnText = "ffb39e", inputFill = "0f1a1d",
+    tabBorder = "3a4a50", tabBorderHover = "8fa3a8", tabBorderSelected = "f0b429", tabGlow = "f0b429",
+    tabText = "c8d0d2", tabTextSelected = "ffffff", scrollTrack = "c8d0d2", scrollThumb = "8fa3a8",
+  }, { tipTitle = "f0b429", tipSection = "f0b429" }) },
+  { id = "parchment", label = "Parchment", outline = "OUTLINE", colors = withTips({
+    ink = "2b1d0e", stale = "6b2300", sectionTitle = "2b1d0e", best = "5c2e00", dailyFarm = "5c2e00",
+    gold = "5c2e00", goldLine = "6e5536", divider = "6e5536", rowSeparator = "6e5536",
+    flashNormal = "fff2cc", flashStrong = "ffe08a",
+    panelTint = "d3b289", panelBorder = "6e5536", hint = "45351f", columnTitle = "45351f",
+    marketGood = "2d6b1a", marketOk = "6b4e00", marketBad = "9e2a1e",
+    tagVendor = "4a3520", tagAh = "0d4f80", tagDe = "4d4d4d",
+    buttonFill = "e3c9a0", buttonEdge = "6e5536", buttonEdgeHover = "5c2e00", buttonText = "2b1d0e",
+    buttonTextDisabled = "8a7558", buttonWarnEdge = "9e2a1e", buttonWarnEdgeHover = "c23a28",
+    buttonWarnText = "8a1e12", inputFill = "e8d4b0",
+    tabBorder = "7a6040", tabBorderHover = "4a3520", tabBorderSelected = "5c2e00", tabGlow = "b37a1a",
+    tabText = "4a3520", tabTextSelected = "2b1d0e", scrollTrack = "4a3520", scrollThumb = "6e5536",
+  }) },
+}
+
+do -- LootPrice = the colors above, so it can never drift from them.
+  local own = Theme.presets[1].colors
+  for key, c in pairs(Theme.colors) do
+    if not Theme.FIXED_COLORS[key] then
+      own[key] = string.format("%02x%02x%02x", math.floor(c[1] * 255 + 0.5),
+        math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
+    end
+  end
+end
+
 -- Seconds a looted row's flash takes to fade.
 Theme.durations = {
   flashNormal = 1.0,
@@ -359,6 +446,27 @@ function Theme.setColor(key, hex)
   if type(c) ~= "table" or not r then return nil end
   c[1], c[2], c[3] = r, g, b
   return c
+end
+
+-- The preset with this id, or nil.
+function Theme.preset(id)
+  for _, p in ipairs(Theme.presets) do
+    if p.id == id then return p end
+  end
+  return nil
+end
+
+-- Sets every color of the preset `id` in place (alpha kept); an unknown id
+-- gets the LootPrice look. Returns { [color table] = true } of the colors set
+-- (for Widgets.recolor).
+function Theme.applyPreset(id)
+  local p = Theme.preset(id) or Theme.presets[1]
+  local changed = {}
+  for key, hex in pairs(p.colors) do
+    local c = Theme.setColor(key, hex)
+    if c then changed[c] = true end
+  end
+  return changed
 end
 
 -- The color of a value source ("vendor" / "ah" / "de"), or nil.
