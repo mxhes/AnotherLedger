@@ -188,3 +188,9 @@ h.test("tooltipLines: lists the unpriced items and how many more", function()
   h.eq(l[n - 1][1], "Ore x2")
   h.eq(l[n][1], "and 2 more")
 end)
+
+h.test("rowTexts / notesText: an unscanned bank shows a dash, no note", function()
+  local view = { kind = "inventory", unscanned = true, totals = { best = 0 } }
+  h.eq(S.rowTexts(view, M.format).items.value, "\226\128\148")
+  h.eq(S.notesText(view), nil)
+end)

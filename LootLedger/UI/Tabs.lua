@@ -161,10 +161,15 @@ Tabs.define({
   build = function(ctx)
     local bank = savedBank(ctx)
     local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
-    local hours = ns.Util.setting("staleHours", nil)
-    view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank and bank.scannedAt, hours and hours * 3600)
+    -- Before the first scan: one message in the list and a dash in the
+    -- footer (no "0c" total, Summary.rowTexts).
+    view.unscanned = not wasScanned(bank)
+    if not view.unscanned then
+      local hours = ns.Util.setting("staleHours", nil)
+      view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank.scannedAt, hours and hours * 3600)
+    end
     view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
-      wasScanned(bank) and L["Your bank is empty."] or L["Not scanned yet."])
+      view.unscanned and L["Not scanned yet. Open your bank once to scan it."] or L["Your bank is empty."])
     return view
   end,
   hasItem = function(itemID, ctx)

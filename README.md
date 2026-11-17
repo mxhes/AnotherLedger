@@ -110,12 +110,12 @@ row and price. Currencies are listed after the items.
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
   for all characters; **Kept items** in the options lists it.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
-  visit the banker once (until then the list says `Not scanned yet.`); after
+  visit the banker once (until then the list says `Not scanned yet.` and the total shows `—`); after
   that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
   started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your note,
   its length, item count and main place, and its value (with the raw gold,
-  unless **Raw gold in Total** is off). A session is saved when you reset it, when a new
+  unless **Count raw gold** is off). A session is saved when you reset it, when a new
   login starts a fresh one, or (option) when you enter or leave a dungeon. A
   session keeps the prices of the day it was saved, so its value doesn't change
   later. Sort the sessions by Value, Recent or Gold/h; the search (date, note,
@@ -172,11 +172,11 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
-| List | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Session per instance, Session per zone, Zone change delay |
 | History | Daily farm, Daily farm: min. time, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
-| Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Export profile, Import profile |
+| Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
 **Color preset** changes the whole look at once: the window, the lines, the
 tabs, the buttons and the scrollbar. **LootLedger** is the dark leather look,
@@ -190,7 +190,7 @@ still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
 window changes while you pick, Cancel puts the old color back); right-click it
-for the preset's color. **Reset colors** goes back to the LootLedger preset.
+for the preset's color. **Reset colors** goes back to the chosen preset's colors.
 Tooltips keep the game's dark tooltip on every preset.
 
 **Session summary in chat** writes one line whenever a session is saved to
@@ -201,7 +201,8 @@ counts per character and applies to all of them.
 **Zones: all characters** and **Minimap button**, which count for the whole
 account. Each character picks its own profile; new characters use
 **Default**. Hover **Profile** to see which characters use the chosen one. **New profile** starts from the defaults, **Copy profile** from
-the current one; Default can't be renamed or deleted. **Export profile** shows
+the current one; Default can't be renamed or deleted. **Reset profile** sets
+every option of the current profile back to its default (it asks first). **Export profile** shows
 the profile as one line of text to copy into a chat or a file; **Import
 profile** opens a box to paste such a line, asks for a name (and before
 overwriting a profile of that name) and switches to it. Settings an import

@@ -809,9 +809,11 @@ h.test("wiring: bank is scanned while open and shown from the saved scan", funct
   local L = ctx.ns.UI.Ledger
   L.setTab("bank")
   h.eq(#L.view.rows, 0)
-  h.eq(L.view.note, "Open your bank once to scan it.")
+  -- One message before the first scan, and no "0c" total (view.unscanned).
+  h.eq(L.view.note, nil)
+  h.eq(L.view.unscanned, true)
   -- the default bank record (scannedAt 0) is no scan: never "empty"
-  h.eq(L.view.empty, "Not scanned yet.")
+  h.eq(L.view.empty, "Not scanned yet. Open your bank once to scan it.")
   fire(ctx, "BANKFRAME_OPENED")
   h.eq(ctx.errors, {})
   h.eq(#L.view.rows, 2)
@@ -824,6 +826,7 @@ h.test("wiring: bank is scanned while open and shown from the saved scan", funct
   ctx.now = ctx.now + 7200
   L.refresh()
   h.eq(L.view.note, "Scanned 2h ago")
+  h.eq(L.view.unscanned, false)
   h.eq(#L.view.rows, 2)
 end)
 

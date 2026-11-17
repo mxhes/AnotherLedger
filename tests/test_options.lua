@@ -12,8 +12,9 @@ h.test("Options: the built-in options are registered in panel order", function()
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "startHidden", "combatHide",
     "keepSession", "countCrafted", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
-    "goldDisplay", "coinIcons", "includeGold", "alertGold", "alertSound", "goalGold", "goalMinutes",
+    "goldDisplay", "coinIcons", "includeGold",
     "sessionChat", "afkPause", "instanceSession", "zoneSession", "zoneSessionMinutes",
+    "alertGold", "alertSound", "goalGold", "goalMinutes",
     "showCurrencies", "dailyFarm", "dailyFarmMinutes", "accountZones", "showTopFinds", "showFooterGold", "compactDrops",
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
@@ -435,15 +436,36 @@ h.test("color default is the active preset's color", function()
   ns.db = nil
 end)
 
-h.test("Reset colors picks LootLedger", function()
+h.test("Reset colors goes back to the chosen preset's colors", function()
   local d = db()
   ns.db = d
-  O.pick(d, "colorPreset", "blizzard")
+  O.pick(d, "colorPreset", "midnight")
+  O.pick(d, "colorText", "123456")
+  h.eq(O.presetEdited(d.settings), true)
   O.spec("resetColors").action()
-  h.eq(d.settings.colorPreset, "lootledger")
-  for _, o in ipairs(O.COLOR_OPTIONS) do h.eq(d.settings[o[1]], ns.DB.defaults.settings[o[1]], o[1]) end
-  h.eq(hex("panelTint"), "261a0f")
+  h.eq(d.settings.colorPreset, "midnight")
+  h.eq(d.settings.colorText, presetHex("midnight", "ink"))
+  h.eq(O.presetEdited(d.settings), false)
+  h.eq(hex("panelTint"), presetHex("midnight", "panelTint"))
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
+end)
+
+h.test("raw gold options have names that tell them apart", function()
+  h.eq(O.spec("includeGold").label, "Count raw gold")
+  h.eq(O.spec("showFooterGold").label, "Show raw gold row")
+end)
+
+h.test("Session tab: drop alert and both goals stand together in one column", function()
+  local specs = {}
+  for _, s in ipairs(O.list()) do if s.category == "session" then specs[#specs + 1] = s end end
+  local L = O.layout(specs, 2)
+  local order, col = {}, L.cols.alertGold
+  for _, s in ipairs(specs) do if L.cols[s.key] == col then order[#order + 1] = s.key end end
+  local at
+  for i, k in ipairs(order) do if k == "alertGold" then at = i end end
+  h.eq({ order[at], order[at + 1], order[at + 2], order[at + 3] },
+    { "alertGold", "alertSound", "goalGold", "goalMinutes" })
 end)
 
 h.test("tooltip titles and notes are not tied to the panel colors", function()

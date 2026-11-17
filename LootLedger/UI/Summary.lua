@@ -122,8 +122,11 @@ function Summary.rowTexts(view, formatMoney)
     return { value = amountText(amount, formatMoney), rate = Summary.rateText(perHour, formatMoney),
       valueCopper = tonumber(amount) or 0, rateCopper = perHour }
   end
+  -- An unscanned bank has no total yet: a dash, not "0c".
+  local items = row(totals.best, totals.bestPerHour)
+  if view.unscanned then items.value = DASH end
   return {
-    items = row(totals.best, totals.bestPerHour),
+    items = items,
     gold = row(gold.total, gold.perHour),
     total = row(combined.best, combined.bestPerHour),
     kept = row(totals.kept, nil),

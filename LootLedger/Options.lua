@@ -493,35 +493,10 @@ Options.define({
 })
 
 Options.define({
-  key = "includeGold", category = "display", type = "checkbox", label = L["Raw gold in Total"],
+  key = "includeGold", category = "display", type = "checkbox", label = L["Count raw gold"],
   tooltip = L["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the History sessions, the place values of Zones and the Daily farm. Off leaves the Total row out."],
   apply = refreshUI,
 })
-
--- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
-Options.define({
-  key = "alertGold", category = "session", type = "number", label = L["Drop alert (gold)"],
-  tooltip = L["A chat line when one drop is worth at least this much gold. 0 or empty turns it off."],
-  zeroText = L["Off"],
-})
-
-Options.define({ key = "alertSound", category = "session", type = "checkbox", label = L["Alert sound"],
-  tooltip = L["Plays a sound with the drop alert and when a session goal is reached."] })
-
--- Session goals (Core.checkGoals): a chat line once reached; the gold goal's
--- progress shows in the compact window and the Session footer.
-Options.define({
-  key = "goalGold", category = "session", type = "number", label = L["Session goal (gold)"],
-  tooltip = L["A target for the session's worth: the compact window shows the total against it, the Session footer how far you are, and a chat line says when it is reached. Counts like the compact total. 0 or empty turns it off."],
-  zeroText = L["Off"], apply = refreshUI,
-})
-
-Options.define({
-  key = "goalMinutes", category = "session", type = "number", label = L["Session goal (minutes)"],
-  tooltip = L["A chat line when the session clock reaches this many minutes, with what the session is worth. 0 or empty turns it off."],
-  zeroText = L["Off"],
-})
-
 
 Options.define({ key = "sessionChat", category = "session", type = "checkbox", label = L["Session summary in chat"],
   tooltip = L["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] })
@@ -546,6 +521,30 @@ Options.define({
   key = "zoneSessionMinutes", category = "session", type = "slider", label = L["Zone change delay"],
   tooltip = L["How long you must stay in a new zone before Session per zone starts a new session. Loot from that time still counts for the old session."],
   min = 1, max = 15, step = 1, format = function(v) return v .. " min" end,
+})
+
+-- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
+Options.define({
+  key = "alertGold", category = "session", type = "number", label = L["Drop alert (gold)"],
+  tooltip = L["A chat line when one drop is worth at least this much gold. 0 or empty turns it off."],
+  zeroText = L["Off"],
+})
+
+Options.define({ key = "alertSound", category = "session", type = "checkbox", label = L["Alert sound"],
+  tooltip = L["Plays a sound with the drop alert and when a session goal is reached."] })
+
+-- Session goals (Core.checkGoals): a chat line once reached; the gold goal's
+-- progress shows in the compact window and the Session footer.
+Options.define({
+  key = "goalGold", category = "session", type = "number", label = L["Session goal (gold)"],
+  tooltip = L["A target for the session's worth: the compact window shows the total against it, the Session footer how far you are, and a chat line says when it is reached. Counts like the compact total. 0 or empty turns it off."],
+  zeroText = L["Off"], apply = refreshUI,
+})
+
+Options.define({
+  key = "goalMinutes", category = "session", type = "number", label = L["Session goal (minutes)"],
+  tooltip = L["A chat line when the session clock reaches this many minutes, with what the session is worth. 0 or empty turns it off."],
+  zeroText = L["Off"],
 })
 
 Options.define({
@@ -584,7 +583,7 @@ Options.define({
 
 -- Off: the footer table has no Raw gold row (Total still follows includeGold).
 Options.define({
-  key = "showFooterGold", category = "display", type = "checkbox", label = L["Raw gold row"],
+  key = "showFooterGold", category = "display", type = "checkbox", label = L["Show raw gold row"],
   tooltip = L["Shows the Raw gold row in the footer table."],
   apply = refreshUI,
 })
@@ -913,10 +912,11 @@ end
 
 Options.define({
   key = "resetColors", category = "look", type = "button", label = L["Reset colors"],
-  tooltip = L["Sets every color back to its default."],
+  tooltip = L["Sets every color back to the chosen color preset."],
   action = function()
     if not ns.db then return end
-    Options.pick(ns.db, "colorPreset", "lootledger")
+    -- Back to the chosen preset (its colors, no "(edited)").
+    Options.pick(ns.db, "colorPreset", Options.get(ns.db, "colorPreset"))
     refreshPanel()
   end,
 })
