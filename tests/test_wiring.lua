@@ -3325,3 +3325,128 @@ h.test("wiring: Open on first loot in combat waits for the combat to end", funct
   h.eq(W.isShown(), true)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: Destroy values Never also drops the destroy value saved at loot time", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("Destroy", 1, true) then return 50000 end
+    return 100
+  end }
+  ctx.env.C_Item.GetItemInfoInstant = function(id) return id, "Armor", "Cloth", "", 1, 4, 1 end
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589].price.de, 50000) -- Always at loot time
+  ns.Options.set(ns.db, "destroyMode", "never")
+  local L = ns.UI.Ledger
+  L.setTab("session")
+  L.refresh()
+  local row
+  for _, r in ipairs(L.view.rows) do if r.id == 2589 then row = r end end
+  h.eq(row.deTotal, nil)
+  h.eq(row.bestTotal, ns.Core.sessionValue(ns.session, true))
+  local value = ns.Core.sessionValue(ns.session, true)
+  slash(ctx, "reset")
+  h.eq(ctx.env.LootLedgerCharDB.history[1].best, value)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a short session kept at login runs again and dates from the login", function()
+  local ctx = boot()
+  local afk = false
+  ctx.env.UnitIsAFK = function() return afk end
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = ctx.now + 30
+  slash(ctx, "stop")
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local again = boot({ db = db, chardb = chardb, now = ctx.now + 7 * 86400 })
+  startWorld(again, false)
+  local s = again.ns.session
+  h.eq(s.running, true)
+  h.eq(s.startedAt, again.now)
+  h.eq(again.ns.Session.elapsed(s, again.now), 30) -- its time so far still counts
+  fire(again, "CHAT_MSG_LOOT", LOOT)
+  h.eq(s.items[2589].qty, 6)
+  -- an AFK-paused short session runs again too
+  again.ns.Options.set(again.ns.db, "afkPause", true)
+  again.env.UnitIsAFK = function() return true end
+  fire(again, "PLAYER_FLAGS_CHANGED", "player")
+  h.eq(s.running, false)
+  fire(again, "PLAYER_LOGOUT")
+  local third = boot({ db = db, chardb = chardb, now = again.now + 86400 })
+  startWorld(third, false)
+  h.eq(third.ns.session.running, true)
+  h.eq(third.ns.session.afkPaused, nil)
+  h.eq(third.ns.session.items[2589].qty, 6)
+  h.eq(again.errors, {})
+  h.eq(third.errors, {})
+end)
+
+h.test("wiring: an empty short session starts over at login and on an instance split", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  ctx.now = ctx.now + 30
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local again = boot({ db = db, chardb = chardb, now = ctx.now + 86400 })
+  local where = { zone = "Dornogal" }
+  again.env.GetRealZoneText = function() return where.zone end
+  again.env.GetInstanceInfo = function()
+    if where.instance then return where.instance, "party", 2, "Heroic" end
+    return where.zone, "none", 0, ""
+  end
+  startWorld(again, false)
+  local ns = again.ns
+  h.eq(ns.Session.elapsed(ns.session, again.now), 0)
+  ns.Options.set(ns.db, "instanceSession", true)
+  again.now = again.now + 40
+  where.instance = "The Stonevault"
+  fire(again, "PLAYER_ENTERING_WORLD", false, false)
+  h.eq(ns.Session.elapsed(ns.session, again.now), 0)
+  h.eq(again.errors, {})
+end)
+
+h.test("wiring: a gathering node is named by the gathering cast, without a tooltip lookup", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local NODE = "GameObject-0-3110-0-12-1731-000012ABCF"
+  local lookups = 0
+  ctx.env.C_TooltipInfo = { GetHyperlink = function() lookups = lookups + 1 end }
+  fire(ctx, "UNIT_SPELLCAST_SENT", "player", "Copper Vein", "Cast-3-1", 2575)
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = NODE } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.mobs["obj:1731"].name, "Copper Vein")
+  h.eq(lookups, 0)
+  -- a cast long before the loot window names nothing
+  local NODE2 = "GameObject-0-3110-0-12-1732-000012ABCA"
+  fire(ctx, "UNIT_SPELLCAST_SENT", "player", "Tin Vein", "Cast-3-2", 2575)
+  ctx.now = ctx.now + 120
+  lootWindowEnv(ctx, { { link = LINK, qty = 1, guid = NODE2 } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["obj:1732"].name, "Object 1732")
+  h.eq(lookups, 0)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: combat log events that cannot be a kill skip the GUID parsing", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local calls, idOf = 0, ns.Mobs.idOf
+  ns.Mobs.idOf = function(...) calls = calls + 1 return idOf(...) end
+  local unpackAll = table.unpack or unpack
+  local ev = { 1, "SPELL_AURA_APPLIED", false, "Player-1-2", "Me", 0x511, 0, MOB, "Kobold Vermin" }
+  ctx.env.CombatLogGetCurrentEventInfo = function() return unpackAll(ev, 1, 9) end
+  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
+  ev[2] = "SPELL_HEAL"
+  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
+  h.eq(calls, 0)
+  ns.Mobs.idOf = idOf
+  h.eq(ctx.errors, {})
+end)

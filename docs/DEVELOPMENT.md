@@ -174,8 +174,12 @@ Each of these is one call in one place; the UI never names them.
 - **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
   `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
   loot left in a corpse counts for nobody; the combat log counts the group's
-  kills (`Mobs.combat`). Names come from name plates, target, mouseover and
-  the combat log, else the unit tooltip, else "NPC 12345". Only while
+  kills (`Mobs.combat`; the handler skips every subevent that cannot be a
+  kill before parsing a GUID, and parses only on kills). Mob names come from
+  name plates, target, mouseover and kill events, else the unit tooltip,
+  else "NPC 12345"; a node takes the target of the player's last
+  `UNIT_SPELLCAST_SENT` (the gathering cast) when the loot window opens
+  within 30 s, else "Object 1731" (no tooltip for objects). Only while
   loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
   Zones entries (the running session included); a mob's `places` count
@@ -209,13 +213,16 @@ Each of these is one call in one place; the UI never names them.
   Loot and gold still count. Stop, reset and login (`resume`) handle it.
 - **Short sessions** (`minSessionMinutes`, `Core.isShort`): a session with
   loot shorter than that is not archived by Session per zone / instance; at
-  login a short saved session (its `elapsedBase`; demo sessions never) is
-  kept like Keep session. `/ll reset` and the Reset button always archive.
+  login a short saved session with loot (its `elapsedBase`; demo sessions
+  never) is kept, then started like a new one: `afkPaused` cleared, running,
+  `startedAt` = the login. Empty sessions start over as before. `/ll reset`
+  and the Reset button always archive.
 - **Value rules** apply at lookup, never to saved History prices:
   `Prices.new{ rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross
   price stays in `ahGross`, and a row with it gets `ahCut = true` for the
   tooltip) and drops `de` when `Prices.destroyAllowed(destroyMode, kind,
-  own, all)` says no. The kind comes from the item class
+  own, all)` says no; `deBlocked = true` then tells makeRow and
+  `History.snapshot` to skip the `de` saved at loot time too. The kind comes from the item class
   (`Prices.destroyKind`, via `GetItemInfoInstant`), the professions from
   `db.professions[character]` (`Core.noteProfessions` at login and on
   `SKILL_LINES_CHANGED`). The cache stores raw prices. `Prices.best(vendor,

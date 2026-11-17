@@ -260,9 +260,11 @@ still count. The compact window says Resting. A clock you stopped yourself
 stays stopped when you leave.
 
 **Min. session length** (2 minutes by default) keeps very short sessions out
-of History: a session shorter than that just continues when a new zone or
-instance or a fresh login would start a new one. Reset always saves it; Off
-saves every session.
+of History: a session with loot shorter than that just continues when a new
+zone or instance or a fresh login would start a new one. After a login it
+runs again and counts from that day, even if you had stopped it. An empty
+session starts over as before. Reset always saves it; Off saves every
+session.
 
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.

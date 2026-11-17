@@ -16,7 +16,10 @@ and remove both once it is confirmed.
   own share. `COMBAT_LOG_EVENT_UNFILTERED` with
   `CombatLogGetCurrentEventInfo` counts your group's kills once.
   `C_TooltipInfo.GetHyperlink("unit:" .. guid)` names a mob never seen on a
-  name plate (`UNVERIFIED` in `Core.lua` and `Mobs.lua`).
+  name plate. `UNIT_SPELLCAST_SENT("player", target)` gives the node's name
+  as `target` for herbing, mining and skinning-like casts, so History > Mobs
+  shows "Copper Vein", not "Object 1731" (`UNVERIFIED` in `Core.lua` and
+  `Mobs.lua`).
 - Daily farm: my level: `C_Map.GetMapLevels(mapID)` returns the map's
   level range on Forever; with the option on, a place far below your level
   drops out of the Daily strip (`UNVERIFIED` in `Core.lua`, `Core.levelFits`).

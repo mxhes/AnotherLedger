@@ -76,7 +76,7 @@ function History.snapshot(session, lookup, now, minGain, ahCut)
       if type(p) ~= "table" then p = {} end
       local v = num(p.vendor) and p.vendor or saved.vendor
       local a = num(p.ah) and p.ah or saved.ah
-      local d = num(p.de) and p.de or saved.de
+      local d = num(p.de) and p.de or (not p.deBlocked and saved.de or nil)
       -- The unit prices the totals are made of: an opened session lists its
       -- items at these, so they add up to the session row.
       items[itemKey] = {

@@ -31,6 +31,10 @@ local restingSeen = false -- the resting state Core.checkRest saw last (option "
 local lootSlots
 local mobNames = {}
 local mobState = {}
+-- The player's last cast target ({ name, at }; UNIT_SPELLCAST_SENT): a
+-- gathering cast names the node of the loot window that follows.
+local castTarget
+local NODE_CAST_SECONDS = 30
 local zoneState = {} -- the session's zone and a pending new one (Core.zoneSwitch)
 -- The open loot window: { money = GetMoney() at opening, chat = copper the
 -- money messages counted since }, or nil (see "Raw gold backstop").
@@ -856,19 +860,31 @@ function Core.snapshotLoot()
   local ok, n = pcall(GetNumLootItems)
   if not (ok and num(n)) then return end
   local slots = {}
+  local cast = castTarget and time() - castTarget.at <= NODE_CAST_SECONDS and castTarget.name or nil
   for slot = 1, n do
     local okSlot, s = pcall(ns.Mobs.readSlot, _G, slot)
-    if okSlot and s and #s.sources > 0 then slots[slot] = s end
+    if okSlot and s and #s.sources > 0 then
+      slots[slot] = s
+      for _, src in ipairs(s.sources) do
+        local key, kind = ns.Mobs.idOf(src.guid)
+        if cast and kind == "node" and not mobNames[key] then
+          mobNames[key] = cast
+          castTarget = nil
+        end
+      end
+    end
   end
   lootSlots = slots
 end
+
 
 -- The name of the mob behind `guid`: the unit tooltip's first line (cached
 -- for the login), else, when `fallback`, "NPC 12345" / "Object 1731".
 -- UNVERIFIED (check in client) on Forever: C_TooltipInfo.GetHyperlink("unit:..").
 function Core.mobName(env, guid, key, fallback)
   local C = env.C_TooltipInfo
-  if type(C) == "table" and type(C.GetHyperlink) == "function" then
+  -- Unit tooltips only: a node is named by its gathering cast (snapshotLoot).
+  if key:sub(1, 4) ~= "obj:" and type(C) == "table" and type(C.GetHyperlink) == "function" then
     local ok, data = pcall(C.GetHyperlink, "unit:" .. guid)
     local line = ok and type(data) == "table" and type(data.lines) == "table" and data.lines[1]
     local text = type(line) == "table" and line.leftText
@@ -908,6 +924,12 @@ local function shortNow(session)
   return Core.isShort(session, time(), ns.Options.get(ns.db, "minSessionMinutes"))
 end
 
+-- Whether a session has anything recorded (items, currencies or raw gold).
+local function hasLoot(session)
+  return next(session.items or {}) ~= nil or next(session.currencies or {}) ~= nil
+    or ns.Session.goldTotal(session) > 0
+end
+
 local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
   local previous = lastInstance
@@ -919,7 +941,7 @@ local function checkInstance()
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
   if not Core.instanceChanged(previous, key) then return end
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
-  if shortNow(ns.session) then return end
+  if hasLoot(ns.session) and shortNow(ns.session) then return end -- continues
   Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
 end
 
@@ -946,12 +968,6 @@ function Core.zoneSwitch(state, place, now, onTaxi, grace)
   if now - state.since < grace then return false end
   state.zone, state.pending, state.since = place, nil, nil
   return true
-end
-
--- Whether a session has anything recorded (items, currencies or raw gold).
-local function hasLoot(session)
-  return next(session.items or {}) ~= nil or next(session.currencies or {}) ~= nil
-    or ns.Session.goldTotal(session) > 0
 end
 
 -- Called on zone changes and by the ticker. While the clock is stopped
@@ -1065,12 +1081,22 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   Core.linkHistory()
   Core.noteProfessions()
   local previous = ns.chardb.session
-  -- A short session continues (Min. session length); demo loot never does.
   local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
-    or (type(previous) == "table" and not previous.demo
-      and Core.isShort(previous, nil, ns.Options.get(ns.db, "minSessionMinutes")))
-  ns.session = ns.Session.login(previous, keep, now)
+  -- A short session with loot continues (Min. session length) as if it were
+  -- new: running, dated from this login. Empty and demo sessions never do.
+  local short = not keep and type(previous) == "table" and not previous.demo
+    and Core.isShort(previous, nil, ns.Options.get(ns.db, "minSessionMinutes"))
+  if short then
+    local ok, has = pcall(hasLoot, previous)
+    short = ok and has
+  end
+  ns.session = ns.Session.login(previous, keep or short, now)
   ns.chardb.session = ns.session
+  if short and ns.session == previous then
+    ns.session.afkPaused = nil
+    ns.session.startedAt = now
+    ns.Session.start(ns.session, now)
+  end
   ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
@@ -1167,16 +1193,28 @@ end
 -- UNVERIFIED (check in client) on Forever: CombatLogGetCurrentEventInfo and
 -- its returns (timestamp, subevent, hideCaster, sourceGUID, sourceName,
 -- sourceFlags, sourceRaidFlags, destGUID, destName).
+-- The player's cast target: the node's name for a gathering cast.
+-- UNVERIFIED (check in client) on Forever: UNIT_SPELLCAST_SENT(unit, target).
+function events.UNIT_SPELLCAST_SENT(unit, target)
+  if unit == "player" and type(target) == "string" and target ~= "" then
+    castTarget = { name = target, at = time() }
+  end
+end
+
+local KILL_EVENTS = { PARTY_KILL = true, UNIT_DIED = true, UNIT_DESTROYED = true }
+
 function events.COMBAT_LOG_EVENT_UNFILTERED()
   if not Core.mobsCounting() or type(CombatLogGetCurrentEventInfo) ~= "function" then return end
   local ok, _, subevent, _, sourceGUID, _, sourceFlags, _, destGUID, destName = pcall(CombatLogGetCurrentEventInfo)
-  if not ok then return end
-  local key, kind = ns.Mobs.idOf(destGUID)
-  if key and type(destName) == "string" and destName ~= "" then mobNames[key] = destName end
+  if not (ok and type(subevent) == "string") then return end
+  -- Most events (auras, heals, casts) can be no kill: skip them cheaply.
+  if not (KILL_EVENTS[subevent] or subevent:find("_DAMAGE$") or subevent:find("_MISSED$")) then return end
   local killed = ns.Mobs.combat(mobState, subevent, sourceGUID, sourceFlags, destGUID)
-  if killed and key and kind == "npc" then
-    ns.Mobs.addKill(ns.session.mobs, key, mobNames[key], (Core.placeOf(_G, difficulties)))
-  end
+  if not killed then return end
+  local key, kind = ns.Mobs.idOf(destGUID)
+  if not (key and kind == "npc") then return end
+  if type(destName) == "string" and destName ~= "" then mobNames[key] = destName end
+  ns.Mobs.addKill(ns.session.mobs, key, mobNames[key], (Core.placeOf(_G, difficulties)))
 end
 
 -- Names of mobs the player sees (name plates, target, mouseover).

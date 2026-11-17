@@ -189,7 +189,8 @@ function Instance:_rules()
 end
 
 -- Applies the value rules to a lookup result: the AH cut (ah after the fee,
--- ahGross the raw price) and the destroy rule (de dropped). The cache keeps
+-- ahGross the raw price) and the destroy rule (de dropped, deBlocked = true
+-- so callers skip a destroy value saved at loot time too). The cache keeps
 -- the raw price, so the cut is applied exactly once.
 function Instance:_applyRules(result, itemID, link)
   local rules = self:_rules()
@@ -198,14 +199,14 @@ function Instance:_applyRules(result, itemID, link)
     result.ahGross = result.ah
     result.ah = math.floor(result.ah * (1 - Prices.AH_CUT))
   end
-  if result.de and rules.destroyAllowed then
+  if rules.destroyAllowed then
     local ok, allowed = pcall(rules.destroyAllowed, itemID, link)
-    if ok and allowed == false then result.de = nil end
+    if ok and allowed == false then result.de, result.deBlocked = nil, true end
   end
   return result
 end
 
--- Returns { vendor, de, ah, ahGross, ahSource, ahAge, saleRate, soldPerDay };
+-- Returns { vendor, de, deBlocked, ah, ahGross, ahSource, ahAge, saleRate, soldPerDay };
 -- every field may be missing (saleRate / soldPerDay are live only, never
 -- cached). ahSource is the live source's name or "cache"; ahAge is 0 for a
 -- live price. With the AH cut (opts.rules) `ah` is after the fee and ahGross

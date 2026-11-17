@@ -166,7 +166,8 @@ local function makeRow(item, opts)
       ahEach, ahFromCache = saved.ah, true
       ahAge = num(item.lastSeen) and num(opts.now) and math.max(0, opts.now - item.lastSeen) or nil
     end
-    deEach = num(lookup.de) and lookup.de or (num(saved.de) and saved.de or nil)
+    -- The destroy rule (lookup.deBlocked) also drops the loot-time value.
+    deEach = num(lookup.de) and lookup.de or (not lookup.deBlocked and num(saved.de) and saved.de or nil)
   end
   local vendorTotal = vendorEach and vendorEach * qty or nil
   local ahTotal = ahEach and ahEach * qty or nil

@@ -22,10 +22,10 @@ local GUID_KINDS = { Creature = "npc", Vehicle = "npc", GameObject = "node" }
 -- "GameObject-...-1731-..." -> "obj:1731", "node"; anything else nil.
 function Mobs.idOf(guid)
   if type(guid) ~= "string" then return nil end
-  local parts = {}
-  for part in guid:gmatch("[^%-]+") do parts[#parts + 1] = part end
-  local kind = GUID_KINDS[parts[1]]
-  local id = tonumber(parts[6])
+  -- One match, no table: the combat log and mouseover call this often.
+  local prefix, idText = guid:match("^([^%-]+)%-[^%-]+%-[^%-]+%-[^%-]+%-[^%-]+%-([^%-]+)")
+  local kind = GUID_KINDS[prefix]
+  local id = tonumber(idText)
   if not (kind and id) then return nil end
   return (kind == "node" and "obj:" or "npc:") .. id, kind
 end
