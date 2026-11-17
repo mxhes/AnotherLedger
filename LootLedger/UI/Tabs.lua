@@ -138,6 +138,17 @@ Tabs.define({
     if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
     local view = ns.View.buildInventory(bagItems, ctx.opts)
     view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
+    -- Gold on hand and net worth rows; free slots next to the item count.
+    local getMoney = ctx.env.GetMoney
+    if type(getMoney) == "function" then
+      local ok, money = pcall(getMoney)
+      if ok then ns.View.addWorth(view, money) end
+    end
+    local free, total = ns.Inventory.freeSlots(ctx.env)
+    if total > 0 then
+      local count = ns.History.itemCount(#view.rows)
+      view.headerInfo = count .. " \194\183 " .. ns.History.freeCount(free)
+    end
     return view
   end,
   hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,

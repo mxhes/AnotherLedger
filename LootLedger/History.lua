@@ -432,6 +432,13 @@ function History.currencyText(e, sep)
 end
 
 -- "1 item", "12 items".
+local L_FREE = L[" free"]
+
+-- "9 free" (bag slots).
+function History.freeCount(n)
+  return tostring(n) .. L_FREE
+end
+
 function History.itemCount(n)
   if n == 1 then return L_ONE_ITEM end
   return tostring(n) .. L_ITEMS

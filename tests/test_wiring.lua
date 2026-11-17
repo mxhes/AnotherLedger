@@ -3004,3 +3004,24 @@ h.test("wiring: Pause in cities freezes the clock while resting, loot and quest 
   h.eq(ns.Session.elapsed(ns.session, ctx.now), before + 30)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: Bags shows free slots, gold on hand and net worth; Bank has no money rows", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 12, { 2589, 5 }, { 2592, 2 }, { 7910, 1 } } })
+  ctx.env.C_Container.GetContainerNumFreeSlots = function(bag) return bag == 0 and 9 or 0, 0 end
+  local money = 56200
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bags")
+  h.eq(L.view.headerInfo, "3 items \194\183 9 free")
+  h.eq(L.view.totals.money, 56200)
+  h.eq(L.view.totals.worth, L.view.totals.best + 56200)
+  money = 100
+  fire(ctx, "PLAYER_MONEY")
+  L.refresh()
+  h.eq(L.view.totals.money, 100)
+  L.setTab("bank")
+  h.eq(L.view.totals.money, nil)
+  h.eq(ctx.errors, {})
+end)

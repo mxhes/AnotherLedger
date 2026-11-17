@@ -108,7 +108,10 @@ row and price. Currencies are listed after the items.
   an item and pick **Keep (not for sale)** for tools, consumables you use or
   gear sets: the row says `(kept)` and the footer splits the total into
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
-  for all characters; **Kept items** in the options lists it.
+  for all characters; **Kept items** in the options lists it. The footer also
+  shows **Gold on hand** and **Net worth** (items plus gold), its tooltip the
+  **Sell split** (what the items not kept bring at the vendor, on the AH and
+  destroyed), and the header your free bag slots.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once (until then the list says `Not scanned yet.` and the total shows `—`); after
   that the tab shows the last scan and its age.

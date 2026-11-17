@@ -194,3 +194,18 @@ h.test("rowTexts / notesText: an unscanned bank shows a dash, no note", function
   h.eq(S.rowTexts(view, M.format).items.value, "\226\128\148")
   h.eq(S.notesText(view), nil)
 end)
+
+h.test("tableLayout: Bags with gold on hand adds Gold on hand and Net worth; tooltip has the sell split", function()
+  h.eq(S.tableLayout({ kind = "inventory", totals = { kept = 1, sellable = 2, money = 5, worth = 8 } }).rows,
+    { "items", "kept", "sellable", "money", "worth" })
+  h.eq(S.tableLayout({ kind = "inventory", totals = { money = 5, worth = 8 } }).rows, { "items", "money", "worth" })
+  local t = S.rowTexts({ kind = "inventory", totals = { best = 3, money = 5, worth = 8 } }, M.format)
+  h.eq(t.money.value, M.format(5))
+  h.eq(t.worth.value, M.format(8))
+  local lines = S.tooltipLines({ kind = "inventory",
+    totals = { vendor = 1, ah = 2, best = 2, sellSplit = { vendor = 10, ah = 20, de = 30 } } }, M.format)
+  h.eq(lines[5], { "Sell split", "" })
+  h.eq(lines[6], { "Vendor: ", M.format(10), "vendor" })
+  h.eq(lines[7], { "AH: ", M.format(20), "ah" })
+  h.eq(lines[8], { "Destroy: ", M.format(30), "de" })
+end)

@@ -343,16 +343,30 @@ function View.buildInventory(items, opts)
   local rows, totals = collect(items, opts)
   local kept = type(opts.kept) == "table" and opts.kept or NO_LOOKUP
   local keptValue, any = 0, false
+  -- What selling everything not kept brings, by the way each row is valued.
+  local split = { vendor = 0, ah = 0, de = 0 }
   for _, row in ipairs(rows) do
     if kept[row.id] then
       row.kept, any = true, true
       keptValue = keptValue + (row.bestTotal or 0)
+    elseif split[row.bestKind] and num(row.bestTotal) then
+      split[row.bestKind] = split[row.bestKind] + row.bestTotal
     end
   end
   if any then totals.kept, totals.sellable = keptValue, totals.best - keptValue end
+  totals.sellSplit = split
   return { rows = rows, top = {}, totals = totals, kind = "inventory", empty = View.emptyText(rows, opts.filter),
     -- The header's info text (right of the title): how many items are listed.
     headerInfo = #rows > 0 and ns.History.itemCount(#rows) or nil }
+end
+
+-- Bags: the character's gold (`money`, copper) and the net worth (the bag
+-- items' best value plus that gold).
+function View.addWorth(view, money)
+  if not num(money) then return view end
+  view.totals.money = money
+  view.totals.worth = (view.totals.best or 0) + money
+  return view
 end
 
 local function perHour(amount, elapsed)

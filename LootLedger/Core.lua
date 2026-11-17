@@ -1073,6 +1073,11 @@ function events.LOOT_CLOSED()
 end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
+-- Bags: gold on hand and net worth follow the character's money.
+function events.PLAYER_MONEY()
+  dataChanged("bags")
+end
+
 function events.PLAYER_UPDATE_RESTING()
   Core.checkRest()
 end

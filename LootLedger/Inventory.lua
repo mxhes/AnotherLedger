@@ -112,6 +112,23 @@ function Inventory.scan(env, containerIDs, now)
   return items
 end
 
+-- Free and total slots of the bags (Inventory.bagIDs); 0, 0 without the API.
+function Inventory.freeSlots(env)
+  local api = env.C_Container
+  if type(api) ~= "table" or type(api.GetContainerNumFreeSlots) ~= "function"
+      or type(api.GetContainerNumSlots) ~= "function" then
+    return 0, 0
+  end
+  local free, total = 0, 0
+  for _, bag in ipairs(Inventory.bagIDs(env)) do
+    local ok, n = pcall(api.GetContainerNumFreeSlots, bag)
+    if ok and num(n) then free = free + n end
+    local okSlots, slots = pcall(api.GetContainerNumSlots, bag)
+    if okSlots and num(slots) then total = total + slots end
+  end
+  return free, total
+end
+
 function Inventory.scanBags(env, now)
   return Inventory.scan(env, Inventory.bagIDs(env), now)
 end

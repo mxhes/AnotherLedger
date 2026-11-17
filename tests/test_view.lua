@@ -1100,3 +1100,20 @@ h.test("makeRow: a lookup after the AH cut marks the row", function()
   v = V.build(s, opts({ lookup = function() return { ah = 100 } end }))
   h.eq(v.rows[1].ahCut, false)
 end)
+
+h.test("View.buildInventory: the sell split adds up what is not kept by best kind; addWorth", function()
+  local function stub(t) return function(id) return t[id] end end
+  local items = {
+    [1] = { id = 1, link = link("A"), qty = 1 },
+    [2] = { id = 2, link = link("B"), qty = 1 },
+    [3] = { id = 3, link = link("C"), qty = 1 },
+    [4] = { id = 4, link = link("D"), qty = 1 },
+  }
+  local prices = stub({ [1] = { vendor = 100 }, [2] = { vendor = 10, ah = 300 }, [3] = { vendor = 5, de = 50 },
+    [4] = { vendor = 1, ah = 200 } })
+  local v = V.buildInventory(items, { lookup = prices, kept = { [4] = "D" } })
+  h.eq(v.totals.sellSplit, { vendor = 100, ah = 300, de = 50 })
+  V.addWorth(v, 56200)
+  h.eq(v.totals.money, 56200)
+  h.eq(v.totals.worth, v.totals.best + 56200)
+end)

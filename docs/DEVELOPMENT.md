@@ -170,6 +170,11 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Bags footer**: `buildInventory` sets `totals.sellSplit` (best value of
+  the rows not kept, by `bestKind`; the footer tooltip's Sell split). The
+  Bags tab adds `View.addWorth(view, GetMoney())` (`totals.money`,
+  `totals.worth`: the Summary rows Gold on hand / Net worth) and the free
+  slots (`Inventory.freeSlots`) to the header; `PLAYER_MONEY` redraws it.
 - **Resting** (`cityPause`, `Core.checkRest` on `PLAYER_UPDATE_RESTING`):
   `Session.rest` keeps `running` true but folds the time into `elapsedBase`
   and stops the place time (`resting = true`); `Session.wake` restarts it.
@@ -415,7 +420,7 @@ Each of these is one call in one place; the UI never names them.
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
-`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, the
+`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 
