@@ -177,7 +177,10 @@ Each of these is one call in one place; the UI never names them.
   kills (`Mobs.combat`). Names come from name plates, target, mouseover and
   the combat log, else the unit tooltip, else "NPC 12345". Only while
   loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
-  entries' `mobs`.
+  entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
+  Zones entries (the running session included), values each mob's items
+  like Zones (the entry's saved price, else live) and sorts by value, per
+  kill, kills or name; `Ledger.mobOpen` is the opened mob.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its

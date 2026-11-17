@@ -1184,3 +1184,58 @@ h.test("View.buildHistory: day headings over the sessions while sorted by Recent
   v = V.buildHistory(list, opts)
   for _, r in ipairs(v.rows) do h.eq(r.isHeading, nil) end
 end)
+
+-- ---------------------------------------------------------------------------
+-- History Mobs
+
+local function mobEntry(mobs, items, gold)
+  local e = zentry(items or {}, nil, { "Riverglades" }, gold)
+  for _, it in pairs(e.items) do it.price = { vendor = 10 } end
+  e.mobs = mobs
+  return e
+end
+local function mob(kills, looted, gold, items, places, name, kind)
+  return { name = name, kind = kind or "npc", kills = kills, looted = looted, gold = gold or 0,
+    items = items or {}, places = places or { Riverglades = 1 } }
+end
+
+h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs last", function()
+  local entries = {
+    mobEntry({ ["npc:1"] = mob(2, 2, 40, { [1] = 3 }, nil, "Kobold"), ["npc:2"] = mob(5, 0, 0, {}, nil, "Wolf") },
+      { [1] = 3 }),
+    mobEntry({ ["npc:1"] = mob(1, 1, 20, { [1] = 1 }, { Riverglades = 1, Hills = 3 }) }, { [1] = 1 }),
+    mobEntry({ ["obj:9"] = mob(0, 4, 0, { [2] = 4 }, { Mine = 4 }, "Copper Vein", "node") }, { [2] = 4 }),
+  }
+  local v = V.buildMobs(entries, { sort = "ah" })
+  h.eq(v.kind, "mobs")
+  h.eq(v.headerInfo, "3 mobs")
+  local byKey = {}
+  for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
+  local k = byKey["npc:1"]
+  h.eq(k.kills, 3)
+  h.eq(k.value, 4 * 10 + 60) -- items at the saved vendor price plus gold
+  h.eq(k.perKill, 100 / 3)
+  h.eq(k.name, "+ Kobold")
+  h.eq(k.detail:find("3 kills", 1, true) ~= nil, true)
+  h.eq(k.detail:find("Hills", 1, true) ~= nil, true) -- the place with the most loot
+  h.eq(byKey["obj:9"].perKill, 10) -- nodes: per time looted
+  h.eq(byKey["obj:9"].detail:find("4 looted", 1, true) ~= nil, true)
+  h.eq(byKey["npc:2"].value, 0)
+  h.eq(v.rows[#v.rows].mobKey, "npc:2") -- nothing dropped: last
+  h.eq(v.totals.best, 80)
+  h.eq(v.gold.total, 60)
+  -- sort by kills
+  v = V.buildMobs(entries, { sort = "kills" })
+  h.eq(v.rows[1].mobKey, "npc:2")
+  -- the opened mob lists its items under it
+  v = V.buildMobs(entries, { sort = "ah" }, "npc:1")
+  h.eq(v.rows[1].mobKey, "npc:1")
+  h.eq(v.rows[1].name, "- Kobold")
+  h.eq(v.rows[2].id, 1)
+  h.eq(v.rows[2].quantity, 4)
+  -- the ignore list leaves an item's value out
+  v = V.buildMobs(entries, { sort = "ah", ignored = { [1] = "x" } })
+  for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
+  h.eq(byKey["npc:1"].value, 60)
+  h.eq(#V.buildMobs(nil, {}).rows, 0)
+end)

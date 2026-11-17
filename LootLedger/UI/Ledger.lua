@@ -35,6 +35,8 @@ Ledger.tab = ns.UI.Tabs.DEFAULT
 -- History Zones ({ zone, sub }).
 Ledger.subtab = nil
 Ledger.zoneOpen = {}
+-- History Mobs: the opened mob's key, or nil.
+Ledger.mobOpen = nil
 -- History Sessions: folded day / week headings ({ [periodKey] = true }), kept
 -- for the Lua session (a /reload or logout opens them again).
 Ledger.periodFold = {}
@@ -463,6 +465,7 @@ local function switchTab(key)
   Ledger.subtab = savedSubtab(key)
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
+  Ledger.mobOpen = nil
   if ns.db then ns.db.tab = key end
   applyTab(key)
   restoreScroll()
@@ -475,6 +478,7 @@ local function switchSubtab(subKey)
   Ledger.subtab = sub.key
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
+  Ledger.mobOpen = nil
   if ns.db then
     if type(ns.db.subtab) ~= "table" then ns.db.subtab = {} end
     ns.db.subtab[Ledger.tab] = sub.key
@@ -520,6 +524,12 @@ end
 
 -- History Zones: a zone row opens its subzones (and closes another zone), a
 -- subzone row its items; clicking the opened one again collapses it.
+-- Opens a History mob's items, or closes them on a second click.
+function Ledger.toggleMob(key)
+  Ledger.mobOpen = Ledger.mobOpen ~= key and key or nil
+  Ledger.refresh()
+end
+
 -- Folds or unfolds a History day / week heading.
 function Ledger.togglePeriod(key)
   Ledger.periodFold[key] = not Ledger.periodFold[key] or nil
@@ -715,6 +725,8 @@ function Ledger.init()
       Ledger.toggleHistory(row.historyIndex)
     elseif row.zoneKey then
       Ledger.toggleZone(row.zoneKey, row.subKey)
+    elseif row.mobKey then
+      Ledger.toggleMob(row.mobKey)
     end
   end
   applyMinWidth(list.measured)

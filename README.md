@@ -146,6 +146,15 @@ row and price. Currencies are listed after the items.
   and a dungeon's difficulty is shortened in the list (`Razorfen Downs (N)`;
   the tooltip has the full name). Hover the footer to see which items have no
   auction price yet (`2 unpriced`).
+- **History > Mobs**: what each kind of mob and gathering node gave you, over
+  the same sessions as Zones: its kills, the value of its loot plus its gold,
+  and the value per kill (per time looted for nodes). Sort by **Value**,
+  **Per kill**, **Kills** or **Name**; click a mob to list its items. Loot is
+  credited when you take it from the loot window, split by corpse when one
+  window holds several; loot you leave in a corpse counts for nobody. Kills
+  are your group's kills from the combat log; mobs you never looted still
+  show their kills. Only loot taken while the clock runs counts, and sessions
+  saved before this version have no mob data.
 
 ## Daily farm
 

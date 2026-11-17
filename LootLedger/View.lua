@@ -881,6 +881,152 @@ function View.buildZones(entries, opts, open)
 end
 
 -- ---------------------------------------------------------------------------
+-- History Mobs: every mob (by NPC ID) and node (by object ID) of the saved
+-- sessions plus the running one: what it dropped (valued like Zones: saved
+-- prices first), its gold, kills and looted count, and the value per kill
+-- (per time looted for nodes and mobs without kills). The search and the
+-- minimum value pick mobs; the qualities filter their items. The mob at
+-- `openKey` lists its items under it.
+
+local L_N_KILLS, L_ONE_KILL = L[" kills"], L["1 kill"]
+local L_N_LOOTED = L[" looted"]
+local L_EACH = L[" each"]
+local mobOpts, mobFilter = {}, {}
+
+local function perKill(a, b)
+  local ka, kb = a.perKill, b.perKill
+  if ka ~= kb then
+    if ka == nil then return false end
+    if kb == nil then return true end
+    return ka > kb
+  end
+  return byName(a, b)
+end
+
+local MOB_SORTS = { ah = SORTS.ah, name = SORTS.name, kills = descending("kills"), perKill = perKill }
+
+-- Under the value sorts a mob that dropped nothing goes last; by kills or
+-- name the order is plain.
+local function mobSort(key)
+  local inner = MOB_SORTS[key] or MOB_SORTS.ah
+  if key == "kills" or key == "name" then return inner end
+  return function(a, b)
+    if a.sortsLast ~= b.sortsLast then return b.sortsLast end
+    return inner(a, b)
+  end
+end
+
+-- The source item of `key` for a mob's loot: the entry's own item (its saved
+-- price), else a bare one priced live.
+local function mobItemSource(e, key)
+  local src = type(e.items) == "table" and e.items[key]
+  if type(src) == "table" and num(src.id) then return src end
+  local id = tonumber(key) or tonumber(tostring(key):match("^(%d+)"))
+  if not id then return nil end
+  return { id = id, key = key }
+end
+
+local function mainPlace(places)
+  local best, bestN
+  for p, n in pairs(places) do
+    if not bestN or n > bestN or (n == bestN and p < best) then best, bestN = p, n end
+  end
+  return best
+end
+
+function View.buildMobs(entries, opts, openKey)
+  opts = opts or {}
+  if type(entries) ~= "table" then entries = {} end
+  local filter = opts.filter
+  local needle = searchNeedle(filter)
+  local minValue = type(filter) == "table" and num(filter.minValue) and filter.minValue or 0
+  local withGold = opts.includeGold ~= false
+  copyOpts(mobOpts, opts)
+  mobFilter.qualities = type(filter) == "table" and filter.qualities or nil
+  mobOpts.filter = mobFilter
+
+  -- Mobs added up over the entries; their items as Zones items.
+  local all = {}
+  for _, e in ipairs(entries) do
+    if type(e) == "table" and type(e.mobs) == "table" then
+      for key, m in pairs(e.mobs) do
+        if type(key) == "string" and type(m) == "table" and num(m.kills) and num(m.looted) and num(m.gold) then
+          local a = all[key]
+          if not a then
+            a = { kind = m.kind == "node" and "node" or "npc", kills = 0, looted = 0, gold = 0, items = {}, places = {} }
+            all[key] = a
+          end
+          if type(m.name) == "string" and m.name ~= "" then a.name = m.name end
+          a.kills, a.looted, a.gold = a.kills + m.kills, a.looted + m.looted, a.gold + m.gold
+          for itemKey, qty in pairs(type(m.items) == "table" and m.items or NO_LOOKUP) do
+            local src = num(qty) and qty > 0 and mobItemSource(e, itemKey)
+            if src then addZoneItem(a.items, src, itemKey, qty) end
+          end
+          for p, n in pairs(type(m.places) == "table" and m.places or NO_LOOKUP) do
+            if type(p) == "string" and num(n) then a.places[p] = (a.places[p] or 0) + n end
+          end
+        end
+      end
+    end
+  end
+
+  local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) }
+  local goldSum = 0
+  local mobRows, opened, openedItems = {}, nil, nil
+  for key, a in pairs(all) do
+    local items, t = collect(a.items, mobOpts)
+    local gold = withGold and a.gold or 0
+    local value = t.best + gold
+    local per = a.kills > 0 and a.kills or a.looted
+    local label = a.name or key
+    local isOpen = key == openKey
+    local parts = {}
+    if a.kills > 0 then
+      parts[#parts + 1] = a.kills == 1 and L_ONE_KILL or (a.kills .. L_N_KILLS)
+    else
+      parts[#parts + 1] = a.looted .. L_N_LOOTED
+    end
+    local perValue = per > 0 and value / per or nil
+    if perValue then parts[#parts + 1] = ns.Money.format(math.floor(perValue + 0.5)) .. L_EACH end
+    local place = mainPlace(a.places)
+    if place then parts[#parts + 1] = View.shortPlace(place) end
+    local row = {
+      id = 0, key = "m:" .. key, mobKey = key, kills = a.kills, looted = a.looted, perKill = perValue,
+      name = (isOpen and "- " or "+ ") .. label, detail = detailText(parts), sortName = lower(label),
+      quality = 1, sortsLast = value <= 0,
+      vendorTotal = t.vendor, ahTotal = t.ah, bestLineTotal = value, value = value,
+      icon = a.kind == "node" and ns.Theme.textures.node or ns.Theme.textures.mob,
+      hint = isOpen and L_CLICK_CLOSE or L_CLICK_OPEN,
+    }
+    local shown = isOpen or (value >= minValue
+      and (not needle or string.find(row.sortName, needle, 1, true) ~= nil
+        or (place and string.find(lower(place), needle, 1, true) ~= nil)))
+    if shown then
+      mobRows[#mobRows + 1] = row
+      if isOpen then opened, openedItems = row, items end
+      totals.vendor, totals.ah, totals.best = totals.vendor + t.vendor, totals.ah + t.ah, totals.best + t.best
+      totals.unpriced = totals.unpriced + t.unpriced
+      goldSum = goldSum + a.gold
+    end
+  end
+  table.sort(mobRows, mobSort(opts.sort))
+
+  local rows = {}
+  if opened then
+    rows[1] = opened
+    append(rows, openedItems)
+  end
+  for _, r in ipairs(mobRows) do
+    if r ~= opened then rows[#rows + 1] = r end
+  end
+  local view = { rows = rows, top = {}, totals = totals, kind = "mobs", history = true,
+    empty = View.emptyText(rows, filter, L_NO_HISTORY),
+    headerInfo = #mobRows > 0 and ns.History.mobCount(#mobRows) or nil }
+  addGold(view, goldSum, opts.includeGold)
+  return View.applyRates(view, 0)
+end
+
+-- ---------------------------------------------------------------------------
 -- Daily farm: the subzone of the saved History with the best gold per hour at
 -- the current prices (valued like History Zones). The filter bar is ignored;
 -- only subzones with at least `minSeconds` recorded time count.

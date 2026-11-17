@@ -435,6 +435,13 @@ end
 
 -- "1 item", "12 items".
 local L_FREE = L[" free"]
+local L_ONE_MOB, L_N_MOBS = L["1 mob"], L[" mobs"]
+
+-- "1 mob", "14 mobs" (History Mobs).
+function History.mobCount(n)
+  if n == 1 then return L_ONE_MOB end
+  return tostring(n) .. L_N_MOBS
+end
 
 -- "9 free" (bag slots).
 function History.freeCount(n)

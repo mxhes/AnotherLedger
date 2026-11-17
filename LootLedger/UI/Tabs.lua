@@ -215,7 +215,7 @@ local function zoneEntries(ctx)
   local s = ctx.session
   if type(s) == "table" then
     entries[#entries + 1] = { live = true, items = s.items, places = s.places, gold = s.gold,
-      zones = ns.Session.zoneSnapshot(s, ctx.now) }
+      zones = ns.Session.zoneSnapshot(s, ctx.now), mobs = s.mobs }
   end
   return entries
 end
@@ -255,6 +255,19 @@ Tabs.define({
       end,
       -- Item info arrives in bursts (hundreds at login): look the item up in
       -- the IDs of the last build instead of gathering every History again.
+      hasItem = function(itemID)
+        return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
+      end,
+    },
+    -- Mobs: what each mob and node dropped, over the same sessions as Zones.
+    {
+      key = "mobs", label = L["Mobs"],
+      sorts = { "ah", "perKill", "kills", "name" },
+      build = function(ctx)
+        local entries = zoneEntries(ctx)
+        zoneItemIDs = itemIDsOf(entries)
+        return ns.View.buildMobs(entries, ctx.opts, ctx.ledger.mobOpen)
+      end,
       hasItem = function(itemID)
         return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
       end,
