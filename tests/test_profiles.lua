@@ -103,3 +103,58 @@ h.test("account options are not in profiles", function()
   P.activate(db, chardb, "Farm")
   h.eq(O.get(db, "historyLimit"), 5)
 end)
+
+-- Export / import strings ------------------------------------------------------
+
+h.test("encode only changed values", function()
+  h.eq(P.encode({}), "LP1:")
+  h.eq(P.encode({ alpha = 0.5, coinIcons = false }), "LP1:alpha=0.5;coinIcons=f")
+  h.eq(P.encode({ alpha = 1, coinIcons = true }), "LP1:") -- the defaults
+end)
+
+h.test("encode keeps large numbers", function()
+  local s = P.encode({ goalGold = 123456789 })
+  h.eq(s:find("goalGold=123456789", 1, true) ~= nil, true)
+end)
+
+h.test("encode compares colors with the profile's preset", function()
+  h.eq(P.encode({ colorPreset = "midnight", colorBackground = ns.Theme.preset("midnight").colors.panelTint }),
+    "LP1:colorPreset=midnight")
+  h.eq(P.encode({ colorPreset = "midnight", colorBackground = "261a0f" }),
+    "LP1:colorBackground=261a0f;colorPreset=midnight")
+end)
+
+h.test("round trip", function()
+  local s = { colorPreset = "tsm", colorText = "ff0000", tsmSource = "max(DBMarket;x=1%)",
+    alpha = 0.35, goalGold = 987654321, coinIcons = false, fontOutline = "THICKOUTLINE" }
+  local text = P.encode(s)
+  h.eq(text:find("max(DBMarket;", 1, true), nil) -- ; escaped
+  local back, taken, skipped = P.decode(text)
+  h.eq(skipped, 0)
+  h.eq(taken, 7)
+  for k, v in pairs(s) do h.eq(back[k], v, k) end
+end)
+
+h.test("decode skips unknown and invalid", function()
+  local back, taken, skipped = P.decode("  LP1:alpha=0.5;nope=1;alpha2=x;windowScale=9  ")
+  h.eq(back, { alpha = 0.5 })
+  h.eq(taken, 1)
+  h.eq(skipped, 3)
+  back, taken, skipped = P.decode("LP1:coinIcons=yes;alpha=abc;colorText=zz")
+  h.eq(back, nil)
+end)
+
+h.test("decode rejects garbage", function()
+  for _, bad in ipairs({ "", "hello", "LP2:alpha=1", "LP1:nope=1", "LP1:", 5 }) do
+    local back, err = P.decode(bad)
+    h.eq(back, nil, tostring(bad))
+    h.eq(type(err), "string", tostring(bad))
+  end
+end)
+
+h.test("decode ignores account options", function()
+  local back, taken, skipped = P.decode("LP1:historyLimit=5;alpha=0.5")
+  h.eq(back, { alpha = 0.5 })
+  h.eq(taken, 1); h.eq(skipped, 1)
+  h.eq(P.encode({ historyLimit = 5 }), "LP1:")
+end)

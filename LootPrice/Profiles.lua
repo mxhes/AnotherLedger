@@ -155,4 +155,96 @@ function Profiles.activate(db, chardb, name)
   if ns.Options and ns.Options.applyAll then ns.Options.applyAll(db) end
 end
 
+-- ---------------------------------------------------------------------------
+-- Export / import: one line "LP1:key=value;key=value", only the options that
+-- differ from their default (colors: from the profile's own preset). Values:
+-- booleans t / f, numbers in full, text with % ; = percent-encoded.
+
+Profiles.PREFIX = "LP1:"
+local L_NOT_PROFILE = L["This is not a LootPrice profile."]
+local L_NOTHING = L["Nothing to import."]
+
+-- The options a profile string carries: stored in the profile, not buttons.
+local function portable(spec)
+  return spec.type ~= "button" and not spec.account and not spec.get and not spec.store
+end
+
+local function escape(s)
+  return (s:gsub("[%%;=]", function(c) return string.format("%%%02X", c:byte()) end))
+end
+
+local function unescape(s)
+  return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
+end
+
+local function numberText(v)
+  if v == math.floor(v) and math.abs(v) < 2 ^ 53 then return string.format("%d", v) end
+  local short = string.format("%.15g", v)
+  if tonumber(short) == v then return short end
+  return string.format("%.17g", v)
+end
+
+local function valueText(v)
+  if type(v) == "boolean" then return v and "t" or "f" end
+  if type(v) == "number" then return numberText(v) end
+  return escape(tostring(v))
+end
+
+function Profiles.encode(settings)
+  local O = ns.Options
+  settings = type(settings) == "table" and settings or {}
+  local pairsOut = {}
+  for _, spec in ipairs(O.list()) do
+    if portable(spec) and settings[spec.key] ~= nil then -- missing = the default
+      local v = O.normalize(spec, settings[spec.key])
+      if v ~= O.defaultFor(spec.key, settings) then
+        pairsOut[#pairsOut + 1] = spec.key .. "=" .. valueText(v)
+      end
+    end
+  end
+  table.sort(pairsOut)
+  return Profiles.PREFIX .. table.concat(pairsOut, ";")
+end
+
+-- The value `raw` (unescaped text) stands for, by the option's type, or nil.
+local function parse(spec, raw)
+  if spec.type == "checkbox" then
+    if raw == "t" then return true elseif raw == "f" then return false end
+    return nil
+  elseif spec.type == "slider" or spec.type == "number" then
+    return tonumber(raw)
+  elseif spec.type == "dropdown" then
+    for _, c in ipairs(ns.Options.choices(spec)) do
+      if tostring(c.value) == raw then return c.value end
+    end
+    return nil
+  end
+  return raw
+end
+
+-- Text -> settings, taken, skipped; or nil and the reason. A value is taken
+-- only when the option knows it as it is (nothing clamped or replaced).
+function Profiles.decode(text)
+  if type(text) ~= "string" then return nil, L_NOT_PROFILE end
+  local body = text:gsub("^%s+", ""):gsub("%s+$", "")
+  if body:sub(1, #Profiles.PREFIX) ~= Profiles.PREFIX then return nil, L_NOT_PROFILE end
+  body = body:sub(#Profiles.PREFIX + 1)
+  local O = ns.Options
+  local out, taken, skipped = {}, 0, 0
+  for pair in body:gmatch("[^;]+") do
+    local key, raw = pair:match("^([%w_]+)=(.*)$")
+    local spec = key and O.spec(key)
+    local value -- may be false
+    if spec and portable(spec) then value = parse(spec, unescape(raw)) end
+    if value ~= nil and O.normalize(spec, value) == value then
+      out[key] = value
+      taken = taken + 1
+    else
+      skipped = skipped + 1
+    end
+  end
+  if taken == 0 then return nil, L_NOTHING end
+  return out, taken, skipped
+end
+
 ns.Profiles = Profiles
