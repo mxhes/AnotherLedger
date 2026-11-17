@@ -264,9 +264,14 @@ end
 function Ledger.buildView(now)
   if not ns.session then return nil end
   for k in pairs(priceMemo) do priceMemo[k] = nil end
-  local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
+  local ctx = currentContext(now)
+  -- The Daily farm first: History Zones marks its place (opts.dailyPick).
+  local farm = dailyFarm(now)
+  local best = type(farm) == "table" and farm.best or nil
+  viewOpts.dailyPick = best and { zone = best.zone, sub = best.sub } or nil
+  local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, ctx)
   if type(view) == "table" then
-    view.dailyFarm = dailyFarm(now)
+    view.dailyFarm = farm
     -- Compact mode draws its own unfiltered numbers and last drops.
     if Ledger.mode == "compact" then view.compact = ns.View.buildCompact(ns.session, viewOpts) end
   end

@@ -1025,3 +1025,51 @@ h.test("View.buildInventory: kept items are marked and counted apart", function(
   local plain = V.buildInventory(items, {})
   h.eq(plain.totals.kept, nil)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Zones polish (review batch)
+
+h.test("buildZones: header counts the zone rows", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.headerInfo, "2 places")
+  v = V.buildZones({}, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.headerInfo, nil)
+  h.eq(ns.History.placeCount(1), "1 place")
+end)
+
+h.test("View.shortPlace shortens the difficulty first", function()
+  h.eq(V.shortPlace("Razorfen Downs (Normal)"), "Razorfen Downs (N)")
+  h.eq(V.shortPlace("Uldaman (Heroic)"), "Uldaman (H)")
+  h.eq(V.shortPlace("Deadmines (Mythic Keystone)"), "Deadmines (M+)")
+  h.eq(V.shortPlace("Deadmines (Mythic)"), "Deadmines (M)")
+  h.eq(V.shortPlace("Stratholme (Timewalking)"), "Stratholme (T)")
+  h.eq(V.shortPlace("Uldaman (Heroisch)"), "Uldaman (H)")
+  h.eq(V.shortPlace("Uldaman (Mythisch+)"), "Uldaman (M+)")
+  h.eq(V.shortPlace("Riverglades"), "Riverglades")
+end)
+
+h.test("buildZones: row name uses the short label, the tooltip the full one", function()
+  local list = { zentry({ [1] = 1 }, { ["Razorfen Downs (Normal)"] = { subs = {
+    ["Razorfen Downs (Normal)"] = zsub(600, { [1] = 1 }) } } }) }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.rows[1].name, "+ Razorfen Downs (N)")
+  h.eq(ns.Tooltip.text(ns.Tooltip.resolve(v.rows[1].hint)):find("Razorfen Downs (Normal)", 1, true) ~= nil, true)
+end)
+
+h.test("collect: unpriced names with quantity, at most 10 then the count", function()
+  local items = {}
+  for id = 101, 112 do items[id] = { id = id, link = link("U" .. id), qty = 2, lastSeen = 1 } end
+  local v = V.buildInventory(items, { lookup = function() return nil end, sort = "name" })
+  h.eq(v.totals.unpriced, 12)
+  h.eq(#v.totals.unpricedNames, V.UNPRICED_NAMES)
+  h.eq(V.UNPRICED_NAMES, 10)
+  h.eq(v.totals.unpricedNames[1]:match(" x2$") ~= nil, true)
+end)
+
+h.test("buildZones: opts.dailyPick marks the subzone and its zone row", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah", dailyPick = { zone = "Z", sub = "A" } },
+    { zone = "Z" })
+  h.eq(v.rows[1].zoneKey, "Z"); h.eq(v.rows[1].daily, true)
+  h.eq(v.rows[2].subKey, "A"); h.eq(v.rows[2].daily, true)
+  h.eq(v.rows[3].zoneKey, "Y"); h.eq(v.rows[3].daily, nil)
+end)

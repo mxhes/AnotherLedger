@@ -983,7 +983,10 @@ h.test("wiring: hovering the footer table shows the vendor / AH tooltip", functi
   tbl._scripts.OnEnter(tbl)
   h.eq(lines[1][1], "Items")
   h.eq(lines[2][1], "Vendor: ")
-  h.eq(#lines, 8)
+  -- 8 value lines, then the unpriced Linen Cloth by name.
+  h.eq(#lines, 10)
+  h.eq(lines[9][1], "Unpriced")
+  h.eq(lines[10][1]:find("Linen Cloth", 1, true) ~= nil and lines[10][1]:match(" x3$") ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 

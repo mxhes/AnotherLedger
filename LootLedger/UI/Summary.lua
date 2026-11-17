@@ -28,6 +28,8 @@ local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
 local L_GOAL = L["Goal "]
 local L_GOAL_REACHED = L["Goal reached"]
+local L_UNPRICED_TITLE = L["Unpriced"]
+local L_AND_MORE = L["and %d more"]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_TOP = 3
 
@@ -152,6 +154,15 @@ function Summary.tooltipLines(view, formatMoney)
   end
   section(L_LABEL_ITEMS, view.totals)
   if layout.rates and not view.noCombined then section(L_TOTAL, view.combined) end
+  -- The unpriced items by name (the notes line only counts them).
+  local totals = view.totals or NONE
+  local names = type(totals.unpricedNames) == "table" and totals.unpricedNames or NONE
+  if #names > 0 then
+    lines[#lines + 1] = { L_UNPRICED_TITLE, "" }
+    for _, name in ipairs(names) do lines[#lines + 1] = { name, "" } end
+    local more = (tonumber(totals.unpriced) or 0) - #names
+    if more > 0 then lines[#lines + 1] = { string.format(L_AND_MORE, more), "" } end
+  end
   return lines
 end
 

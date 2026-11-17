@@ -416,6 +416,10 @@ ns.Locale.register("deDE", {
   -- History count, profiles, session summary
   ["1 session"] = "1 Sitzung",
   [" sessions"] = " Sitzungen",
+  ["1 place"] = "1 Ort",
+  [" places"] = " Orte",
+  ["Unpriced"] = "Ohne Preis",
+  ["and %d more"] = "und %d weitere",
   ["Used by: "] = "Benutzt von: ",
   ["Session summary in chat"] = "Sitzungsbilanz im Chat",
   ["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] = "Wenn eine Sitzung im Verlauf gespeichert wird (Zurücksetzen, neue Sitzung pro Zone oder Instanz, frischer Login), fasst eine Chatzeile sie zusammen: Dauer, Ort, Wert und Gold pro Stunde.",

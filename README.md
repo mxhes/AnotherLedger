@@ -136,7 +136,11 @@ row and price. Currencies are listed after the items.
   per hour is not too high. `Unknown place` and `No time recorded` come last.
   Quest items have their own group and don't count toward any place. Zones
   and the Daily farm use today's prices. A dungeon counts as one place even
-  when the game briefly reports no difficulty.
+  when the game briefly reports no difficulty. The header says how many
+  places are listed, the Daily farm's place has the same star as the strip,
+  and a dungeon's difficulty is shortened in the list (`Razorfen Downs (N)`;
+  the tooltip has the full name). Hover the footer to see which items have no
+  auction price yet (`2 unpriced`).
 
 ## Daily farm
 

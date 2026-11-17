@@ -431,6 +431,14 @@ function History.sessionCount(n)
   return tostring(n) .. L_SESSIONS
 end
 
+local L_ONE_PLACE, L_N_PLACES = L["1 place"], L[" places"]
+
+-- History Zones header: how many zones are listed.
+function History.placeCount(n)
+  if n == 1 then return L_ONE_PLACE end
+  return tostring(n) .. L_N_PLACES
+end
+
 local L_TODAY, L_YESTERDAY = L["Today"], L["Yesterday"]
 local WEEKDAYS = { L["Sun"], L["Mon"], L["Tue"], L["Wed"], L["Thu"], L["Fri"], L["Sat"] }
 -- The date of an older session (the German client writes 15.11.2026).

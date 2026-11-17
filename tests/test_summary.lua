@@ -179,3 +179,12 @@ h.test("tableLayout: Bags with kept items show Kept and Sellable", function()
   local t = S.rowTexts({ totals = { best = 800, kept = 500, sellable = 300 } }, M.format)
   h.eq({ t.kept.value, t.sellable.value }, { "5s", "3s" })
 end)
+
+h.test("tooltipLines: lists the unpriced items and how many more", function()
+  local l = S.tooltipLines({ history = true, totals = { vendor = 1, ah = 2, best = 2, unpriced = 3,
+    unpricedNames = { "Ore x2" } } }, M.format)
+  local n = #l
+  h.eq(l[n - 2][1], "Unpriced")
+  h.eq(l[n - 1][1], "Ore x2")
+  h.eq(l[n][1], "and 2 more")
+end)

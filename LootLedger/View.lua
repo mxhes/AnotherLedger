@@ -36,6 +36,8 @@ local View = {
   MIN_RATE_SECONDS = 60,
   STRONG_FLASH_VALUE = 100000,
   CURRENCY_KEY_PREFIX = "c:",
+  -- The footer tooltip lists at most this many unpriced items by name.
+  UNPRICED_NAMES = 10,
 }
 
 local MIN_QUALITY, MAX_QUALITY = 0, 7
@@ -274,6 +276,7 @@ local function collect(items, opts)
 
   local rows, n = {}, 0
   local vendor, ah, best, unpriced = 0, 0, 0, 0
+  local unpricedNames = {}
   if type(items) ~= "table" then items = {} end
   for _, item in pairs(items) do
     if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 and not ignored[item.id] then
@@ -284,13 +287,19 @@ local function collect(items, opts)
         vendor = vendor + (row.vendorTotal or 0)
         ah = ah + (row.ahTotal or 0)
         best = best + (row.bestTotal or 0)
-        if row.ahEach == nil and not row.bound then unpriced = unpriced + 1 end
+        if row.ahEach == nil and not row.bound then
+          unpriced = unpriced + 1
+          if #unpricedNames < View.UNPRICED_NAMES then
+            unpricedNames[#unpricedNames + 1] = row.name .. " x" .. row.quantity
+          end
+        end
       end
     end
   end
   table.sort(rows, opts.sort ~= "perHour" and SORTS[opts.sort] or SORTS.ah)
 
-  return rows, { vendor = vendor, ah = ah, best = best, unpriced = unpriced, filtered = View.isFiltered(filter) }
+  return rows, { vendor = vendor, ah = ah, best = best, unpriced = unpriced,
+    unpricedNames = unpriced > 0 and unpricedNames or nil, filtered = View.isFiltered(filter) }
 end
 
 -- Currency rows ({ [currencyID] = { id, link, qty } }): quantity only, no
@@ -637,6 +646,30 @@ local function aggregateZones(entries, isQuest)
   return zones, quest
 end
 
+-- Short forms of the instance difficulties (English and German names; the
+-- game's texts). Anything else keeps its first letter.
+local DIFFICULTY_SHORT = {
+  normal = "N", heroic = "H", heroisch = "H", mythic = "M", mythisch = "M",
+}
+
+-- A place label for a row: "Instance (Difficulty)" with the difficulty
+-- shortened ("Razorfen Downs (N)"), so a narrow row cuts the name, not the
+-- difficulty. The tooltip keeps the full label.
+function View.shortPlace(label)
+  if type(label) ~= "string" then return label end
+  local name, difficulty = label:match("^(.-) %(([^()]+)%)$")
+  if not name then return label end
+  local d = lower(difficulty)
+  local short
+  if d:find("keystone", 1, true) or d:find("schl\195\188sselstein", 1, true) or d:find("+", 1, true) then
+    short = "M+"
+  else
+    -- The first character (UTF-8 safe).
+    short = DIFFICULTY_SHORT[d] or difficulty:match("^[\1-\127\194-\244][\128-\191]*")
+  end
+  return name .. " (" .. short .. ")"
+end
+
 -- A place row's tooltip (ns.Tooltip): its name, time, value, raw gold, gold
 -- per hour and the click.
 local function placeHint(p, label, open, clickText)
@@ -665,7 +698,7 @@ local function placeRow(p, label, open, indent, clickText, last)
   parts[#parts + 1] = ns.History.itemCount(p.count)
   return {
     id = 0, key = p.key, zoneKey = p.zoneKey, subKey = p.subKey,
-    name = indent .. (open and "- " or "+ ") .. label, detail = indent .. detailText(parts),
+    name = indent .. (open and "- " or "+ ") .. View.shortPlace(label), detail = indent .. detailText(parts),
     sortName = lower(label), quality = 1, sortsLast = last or false,
     vendorTotal = p.vendor, ahTotal = p.ah, bestLineTotal = p.value,
     value = p.value, perHour = p.perHour, placeTime = p.time, lastSeen = p.lastSeen,
@@ -710,6 +743,8 @@ function View.buildZones(entries, opts, open)
   if type(entries) ~= "table" then entries = {} end
   local withGold = opts.includeGold ~= false
   local sort = placeSort(opts.sort)
+  local pick = type(opts.dailyPick) == "table" and opts.dailyPick or NO_LOOKUP
+  local unpricedNames = {}
   local zones, quest = aggregateZones(entries, opts.isQuest)
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(opts.filter) }
   local goldSum, timeSum = 0, 0
@@ -733,6 +768,7 @@ function View.buildZones(entries, opts, open)
         if sp.time > 0 then sp.perHour = placePerHour(sp.value, sp.time) end
         subRows[#subRows + 1] = placeRow(sp, placeLabel(sub), isOpen, "    ", L_CLICK_OPEN,
           sub == View.NO_TIME_SUB)
+        if pick.zone == zone and pick.sub == sub then subRows[#subRows].daily = true end
         if isOpen then subItems[subRows[#subRows]] = items end
         zp.gold, zp.value = zp.gold + s.gold, zp.value + sp.value
         zp.vendor, zp.ah, zp.count = zp.vendor + t.vendor, zp.ah + t.ah, zp.count + #items
@@ -740,6 +776,10 @@ function View.buildZones(entries, opts, open)
         if sp.lastSeen and (not zp.lastSeen or sp.lastSeen > zp.lastSeen) then zp.lastSeen = sp.lastSeen end
         totals.vendor, totals.ah, totals.best = totals.vendor + t.vendor, totals.ah + t.ah, totals.best + t.best
         totals.unpriced = totals.unpriced + t.unpriced
+        for _, name in ipairs(t.unpricedNames or NO_LOOKUP) do
+          if #unpricedNames >= View.UNPRICED_NAMES then break end
+          unpricedNames[#unpricedNames + 1] = name
+        end
         goldSum = goldSum + s.gold
       end
     end
@@ -747,6 +787,7 @@ function View.buildZones(entries, opts, open)
       if zp.time > 0 then zp.perHour = placePerHour(zp.timedValue, zp.time) end
       local isOpen = open.zone == zone
       local row = placeRow(zp, placeLabel(zone), isOpen, "", L_CLICK_SUBZONES, zone == View.UNKNOWN_ZONE)
+      if pick.zone == zone then row.daily = true end
       table.sort(subRows, sort)
       row.children, row.childItems = subRows, subItems
       zoneRows[#zoneRows + 1] = row
@@ -777,7 +818,9 @@ function View.buildZones(entries, opts, open)
   end
 
   local view = { rows = rows, top = {}, totals = totals, kind = "zones", history = true,
-    empty = View.emptyText(rows, opts.filter, L_NO_HISTORY) }
+    empty = View.emptyText(rows, opts.filter, L_NO_HISTORY),
+    headerInfo = #zoneRows > 0 and ns.History.placeCount(#zoneRows) or nil }
+  if totals.unpriced > 0 then totals.unpricedNames = unpricedNames end
   addGold(view, goldSum, opts.includeGold)
   return View.applyRates(view, timeSum)
 end
