@@ -4,7 +4,7 @@ local L = ns.L
 
 ns.UI = ns.UI or {}
 
--- Copy box for the CSV exports (/lp export [session | zones], or the button in
+-- Copy box for the CSV exports (/ll export [session | zones], or the button in
 -- the options): a movable frame with a scrolling, multi-line edit box whose
 -- text is selected, ready for Ctrl+C. The same frame is the paste box of the
 -- profile import (Export.edit: editable, with an Import button). Client-only;

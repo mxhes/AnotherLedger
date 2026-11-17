@@ -976,7 +976,7 @@ function View.build(session, opts)
 end
 
 -- ---------------------------------------------------------------------------
--- CSV export of the running session and of History Zones (/lp export).
+-- CSV export of the running session and of History Zones (/ll export).
 
 View.ITEMS_CSV_HEADER = "name,quantity,vendor_g,ah_g,destroy_g,counted_g,counted_as"
 View.ZONES_CSV_HEADER = "zone,subzone,minutes,value_g,raw_gold_g,gold_per_hour_g,items"

@@ -530,7 +530,7 @@ local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, Di
 local L_KEEP = ns.L["Keep (not for sale)"]
 local L_UNKEEP = ns.L["Sell again (not kept)"]
 
--- Deletes the History session at `index` (/lp undo brings it back). The
+-- Deletes the History session at `index` (/ll undo brings it back). The
 -- opened session stays open (its index moves when a newer one goes).
 function Ledger.deleteHistory(index)
   if not (ns.Core and ns.Core.deleteHistory(index)) then return end

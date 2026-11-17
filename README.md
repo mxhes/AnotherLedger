@@ -41,9 +41,9 @@ installed.
 
 ## The window
 
-Open it with `/lp`, the minimap button or a data broker display (Titan Panel,
+Open it with `/ll`, the minimap button or a data broker display (Titan Panel,
 ElvUI, ...). It has two layouts; switch with the **arrow button** next to the
-gear, a double-click on the title, or `/lp compact`. Each layout keeps its own
+gear, a double-click on the title, or `/ll compact`. Each layout keeps its own
 size.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
@@ -120,8 +120,8 @@ row and price. Currencies are listed after the items.
   currencies, values and gold per hour. **Merge with the older session** joins
   a session with the one started before it (say a dungeon run you left and
   re-entered): items, gold, time and places add up, the time between the two
-  does not count. Merge again to join three or more. `/lp undo` takes back the
-  last merge or delete until you log out or reload. `/lp export` copies the History as CSV for
+  does not count. Merge again to join three or more. `/ll undo` takes back the
+  last merge or delete until you log out or reload. `/ll export` copies the History as CSV for
   a spreadsheet. **Clear History** (options) deletes all of it.
 - **History > Zones**: which places are worth farming. All sessions of all
   your characters (option **Zones: all characters**) grouped by zone and
@@ -228,18 +228,18 @@ clock.
 
 | Command | Does |
 | --- | --- |
-| `/lp` (or `/ll`, `/lootledger`) | show or hide the window |
-| `/lp show`, `/lp hide` | show or hide it |
-| `/lp start`, `/lp stop`, `/lp clock` | start, stop or switch the session clock |
-| `/lp compact` | switch between the compact and the full layout |
-| `/lp reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
-| `/lp keep on` / `off` | keep the session across logins |
-| `/lp tsm <price>` | the TSM price to use, e.g. `DBMarket` |
-| `/lp export` | the History as CSV in a copy box |
-| `/lp export session`, `/lp export zones` | the session's items, or every Zones place, as CSV |
-| `/lp undo` | take back the last merge or delete in History (or the cleared History) |
-| `/lp demo` | sample loot and temporary sample prices, to look at the window |
-| `/lp help` | list the commands |
+| `/ll` (or `/lootledger`) | show or hide the window |
+| `/ll show`, `/ll hide` | show or hide it |
+| `/ll start`, `/ll stop`, `/ll clock` | start, stop or switch the session clock |
+| `/ll compact` | switch between the compact and the full layout |
+| `/ll reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
+| `/ll keep on` / `off` | keep the session across logins |
+| `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` |
+| `/ll export` | the History as CSV in a copy box |
+| `/ll export session`, `/ll export zones` | the session's items, or every Zones place, as CSV |
+| `/ll undo` | take back the last merge or delete in History (or the cleared History) |
+| `/ll demo` | sample loot and temporary sample prices, to look at the window |
+| `/ll help` | list the commands |
 
 A `/reload` always keeps the session; a new login starts a fresh one unless
 **Keep session** is on.

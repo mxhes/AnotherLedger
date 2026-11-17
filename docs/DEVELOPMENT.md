@@ -38,7 +38,7 @@ only inside functions.
 | `Profiles.lua` | settings profiles (per character), export / import strings |
 | `View.lua` | the rows and totals a tab shows, History Zones, the Daily farm pick, the compact view |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
-| `Slash.lua`, `Demo.lua` | slash commands, `/lp demo` |
+| `Slash.lua`, `Demo.lua` | slash commands, `/ll demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
 | `UI/Widgets.lua` | bronze buttons, icon buttons, texts, lines, tooltips, menus |
 | `UI/Coins.lua` | amounts in gold / silver / copper columns (list, compact drops, footer, Top finds) |
@@ -51,7 +51,7 @@ only inside functions.
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
-| `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/lp` command, names in `Slash.BINDINGS` |
+| `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/ll` command, names in `Slash.BINDINGS` |
 
 Data flow: `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh`
 builds a view with the shown tab's `build` (`View.lua`) -> every registered part
@@ -88,7 +88,7 @@ Each of these is one call in one place; the UI never names them.
   (rates follow the clock), `watches` (data kind that redraws it), `hasItem`
   and `subtabs` (see the comment at the top of the file).
 - **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`;
-  `help` shows in `/lp help`. A key binding is a `<Binding>` in `Bindings.xml`
+  `help` shows in `/ll help`. A key binding is a `<Binding>` in `Bindings.xml`
   that runs the command (`SlashCmdList["LOOTLEDGER"]("name")`) plus its name in
   `Slash.BINDINGS` (and in the wiring test's allowed globals).
 - **Row menu**: `Ledger.rowMenu(row)` returns the right-click entries of a row
@@ -208,8 +208,8 @@ Each of these is one call in one place; the UI never names them.
   with `confirm = function(value) return question or nil end` (History kept).
 - **CSV export** (`History.csv`): one line per session, amounts in gold with
   four decimals, then the currencies (`Name x3; Other x1`) and the note.
-  `/lp export session` writes `View.itemsCsv` of an unfiltered `View.build`,
-  `/lp export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
+  `/ll export session` writes `View.itemsCsv` of an unfiltered `View.build`,
+  `/ll export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
   quest items left out). Fields go through `History.csvField`.
 - **Ignore list** (`LootLedgerDB.ignored = { [itemID] = name }`, Core
   `ignoreItem` / `unignoreItem` / `ignoredList`): `opts.ignored` makes
@@ -273,7 +273,7 @@ Each of these is one call in one place; the UI never names them.
   opened session open.
 - **Undo**: `Core.deleteHistory`, `Core.clearHistory` and `Core.mergeHistory`
   push `{ restore = entries, drop = merged | nil }` on a stack kept for the
-  login; `Core.undoDelete` (`/lp undo`) removes `drop` (a merge) and puts
+  login; `Core.undoDelete` (`/ll undo`) removes `drop` (a merge) and puts
   `restore` back in start order (`History.restore`).
 - **Scroll memory**: `Ledger` keeps `list.offset` per tab / sub-tab for the
   login (`rememberScroll` / `restoreScroll` around tab switches).
@@ -351,7 +351,7 @@ Each of these is one call in one place; the UI never names them.
   `Theme.readableOn(color, fill)`: below `Theme.MIN_TEXT_CONTRAST` against the
   button background it turns near-black or white (the arrow follows).
 - **Price cache**: prices last seen more than 30 days ago are dropped at login
-  (`Prices.CACHE_MAX_AGE`). `/lp demo` seeds temporary fake prices that reset
+  (`Prices.CACHE_MAX_AGE`). `/ll demo` seeds temporary fake prices that reset
   and logout remove.
 
 ## Saved state

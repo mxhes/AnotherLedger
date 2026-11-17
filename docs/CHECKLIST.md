@@ -10,7 +10,7 @@ and remove both once it is confirmed.
 ## Open checks
 
 - Rename to LootLedger: the addon shows as LootLedger in the AddOns list and
-  options; `/lp`, `/ll` and `/lootledger` work; key bindings are under
+  options; `/ll` and `/lootledger` work; key bindings are under
   LootLedger. Renaming `SavedVariables/LootPrice.lua` to `LootLedger.lua`
   (account and character) brings History, lists and profiles over
   (`UNVERIFIED` in `Core.lua`, `ADDON_LOADED`).

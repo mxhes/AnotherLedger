@@ -2,11 +2,11 @@ local ADDON, ns = ...
 
 local L = ns.L
 
--- Slash commands (/lp, /lootledger, /ll). A command is one Slash.define call:
+-- Slash commands (/ll, /lootledger). A command is one Slash.define call:
 --
 --   Slash.define({
---     name = "reset",                          -- /lp reset
---     help = L["/lp reset - clear the session"],  -- optional line of /lp help
+--     name = "reset",                          -- /ll reset
+--     help = L["/ll reset - clear the session"],  -- optional line of /ll help
 --     needsSession = true,                     -- default: refuse before login is done
 --     run  = function(arg) ... end,            -- arg: text after the command, or nil
 --   })
@@ -20,7 +20,7 @@ local say = ns.Util.say
 local HELP_NOTE = L["Note: an AH age tag can look fresh when the price source serves old scan data."]
 local DEFAULT_COMMAND = "toggle"
 
-local commands = {} -- definitions in order (the order of /lp help)
+local commands = {} -- definitions in order (the order of /ll help)
 local byName = {}
 
 function Slash.define(command)
@@ -48,7 +48,7 @@ function Slash.printHelp()
   say(HELP_NOTE)
 end
 
--- Runs the text typed after /lp. An unknown command prints the help.
+-- Runs the text typed after /ll. An unknown command prints the help.
 function Slash.run(msg)
   local name, arg = Slash.parse(msg)
   local command = byName[name]
@@ -74,9 +74,8 @@ Slash.BINDINGS = {
 
 -- Registers the slash commands and the key binding names with the client.
 function Slash.register()
-  SLASH_LOOTLEDGER1 = "/lp"
+  SLASH_LOOTLEDGER1 = "/ll"
   SLASH_LOOTLEDGER2 = "/lootledger"
-  SLASH_LOOTLEDGER3 = "/ll"
   SlashCmdList["LOOTLEDGER"] = Slash.run
   for name, text in pairs(Slash.BINDINGS) do _G[name] = text end
 end
@@ -100,13 +99,13 @@ end
 
 Slash.define({
   name = "toggle",
-  help = L["/lp - toggle the window"],
+  help = L["/ll - toggle the window"],
   run = function() windowCall("toggle") end,
 })
 
 Slash.define({
   name = "show",
-  help = L["/lp show | hide - show or hide the window"],
+  help = L["/ll show | hide - show or hide the window"],
   run = function() windowCall("show") end,
 })
 
@@ -114,7 +113,7 @@ Slash.define({ name = "hide", run = function() windowCall("hide") end })
 
 Slash.define({
   name = "start",
-  help = L["/lp start | stop | clock - start, stop or switch the session clock"],
+  help = L["/ll start | stop | clock - start, stop or switch the session clock"],
   run = function() ns.Core.startSession() end,
 })
 
@@ -129,7 +128,7 @@ Slash.define({
 
 Slash.define({
   name = "compact",
-  help = L["/lp compact - switch between the compact and the full window"],
+  help = L["/ll compact - switch between the compact and the full window"],
   run = function()
     if ns.UI and ns.UI.Ledger and ns.UI.Ledger.frame then ns.UI.Ledger.toggleMode() end
   end,
@@ -137,7 +136,7 @@ Slash.define({
 
 Slash.define({
   name = "reset",
-  help = L["/lp reset - clear the session"],
+  help = L["/ll reset - clear the session"],
   run = function()
     -- Same path as the Reset button: asks first when the session is large.
     if ns.UI and ns.UI.Header then
@@ -150,11 +149,11 @@ Slash.define({
 
 Slash.define({
   name = "keep",
-  help = L["/lp keep on|off - keep the session across logins"],
+  help = L["/ll keep on|off - keep the session across logins"],
   run = function(arg)
     local value = arg and arg:lower()
     if value ~= "on" and value ~= "off" then
-      say(L["usage: /lp keep on|off (currently "] .. (ns.Options.get(ns.db, "keepSession") and "on" or "off") .. ")")
+      say(L["usage: /ll keep on|off (currently "] .. (ns.Options.get(ns.db, "keepSession") and "on" or "off") .. ")")
       return
     end
     setOption("keepSession", value == "on")
@@ -164,7 +163,7 @@ Slash.define({
 
 Slash.define({
   name = "tsm",
-  help = L["/lp tsm <source> - TSM price source (e.g. DBMarket)"],
+  help = L["/ll tsm <source> - TSM price source (e.g. DBMarket)"],
   run = function(arg)
     if not arg then
       say(L["TSM source: "] .. tostring(ns.Options.get(ns.db, "tsmSource")))
@@ -175,19 +174,19 @@ Slash.define({
   end,
 })
 
--- What /lp export copies: the History list (default), the running session's
+-- What /ll export copies: the History list (default), the running session's
 -- items or the History Zones places.
 local EXPORTS = { history = "history", session = "session", zones = "zones" }
 
 Slash.define({
   name = "export",
-  help = L["/lp export [session | zones] - copy the History (or the session, or Zones) as CSV"],
+  help = L["/ll export [session | zones] - copy the History (or the session, or Zones) as CSV"],
   run = function(arg)
     local Export = ns.UI and ns.UI.Export
     if not Export then return end
     local what = EXPORTS[arg and arg:lower() or "history"]
     if not what then
-      say(L["usage: /lp export [session | zones]"])
+      say(L["usage: /ll export [session | zones]"])
       return
     end
     Export[what]()
@@ -196,7 +195,7 @@ Slash.define({
 
 Slash.define({
   name = "undo",
-  help = L["/lp undo - take back the last delete or merge in History"],
+  help = L["/ll undo - take back the last delete or merge in History"],
   run = function() ns.Core.undoDelete() end,
 })
 

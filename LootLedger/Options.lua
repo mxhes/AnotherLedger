@@ -336,7 +336,7 @@ Options.define({ key = "snapToGrid", category = "window", type = "checkbox", lab
   tooltip = L["When you let go of the window near a line of the Edit Mode grid, its edge or center snaps onto that line. Uses the grid spacing set in Edit Mode."] })
 
 Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden"],
-  tooltip = L["The window stays closed at login. Open it with the minimap button or /lp."] })
+  tooltip = L["The window stays closed at login. Open it with the minimap button or /ll."] })
 
 Options.define({
   key = "combatHide", category = "window",
@@ -349,7 +349,7 @@ Options.define({
 })
 
 Options.define({ key = "keepSession", category = "session", type = "checkbox", label = L["Keep session"],
-  tooltip = L["The session and its clock carry over to your next login instead of starting fresh. Same as /lp keep."] })
+  tooltip = L["The session and its clock carry over to your next login instead of starting fresh. Same as /ll keep."] })
 
 Options.define({
   key = "priceSource", category = "prices",
@@ -361,10 +361,10 @@ Options.define({
   apply = refreshUI,
 })
 
--- The TSM price string, read live by Sources/TSM.lua (same as /lp tsm).
+-- The TSM price string, read live by Sources/TSM.lua (same as /ll tsm).
 Options.define({
   key = "tsmSource", category = "prices", type = "text", label = L["TSM price"],
-  tooltip = L["The TSM price used for AH values, e.g. DBMarket or DBMinBuyout. Same as /lp tsm."],
+  tooltip = L["The TSM price used for AH values, e.g. DBMarket or DBMinBuyout. Same as /ll tsm."],
   apply = refreshUI,
 })
 
@@ -741,7 +741,7 @@ Options.define({
 
 Options.define({
   key = "exportHistory", category = "session", type = "button", label = L["Export History"],
-  tooltip = L["Opens a copy box with your History as CSV, for a spreadsheet. Same as /lp export."],
+  tooltip = L["Opens a copy box with your History as CSV, for a spreadsheet. Same as /ll export."],
   action = function()
     if ns.UI and ns.UI.Export then ns.UI.Export.history() end
   end,
@@ -749,11 +749,11 @@ Options.define({
 
 Options.define({
   key = "clearHistory", category = "session", type = "button", label = L["Clear History"],
-  tooltip = L["Deletes every session of this character's History, after asking. /lp undo brings them back until you log out or reload."],
+  tooltip = L["Deletes every session of this character's History, after asking. /ll undo brings them back until you log out or reload."],
   action = function()
     local history = ns.chardb and ns.chardb.history
     if type(history) ~= "table" or #history == 0 or not (ns.UI and ns.UI.Widgets) then return end
-    ns.UI.Widgets.confirm(string.format(L["Delete all %d sessions of your History? /lp undo brings them back until you log out."], #history),
+    ns.UI.Widgets.confirm(string.format(L["Delete all %d sessions of your History? /ll undo brings them back until you log out."], #history),
       L["Delete"], function() ns.Core.clearHistory() end)
   end,
 })

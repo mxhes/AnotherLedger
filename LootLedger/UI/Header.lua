@@ -44,7 +44,7 @@ function Header.toggleState(running)
 end
 
 -- ---------------------------------------------------------------------------
--- Reset request (shared by the Reset button and /lp reset)
+-- Reset request (shared by the Reset button and /ll reset)
 
 local function doReset()
   local handlers = Header.handlers

@@ -4,7 +4,7 @@ local L = ns.L
 
 -- The addon's event core: creates the session and the price lookup at login,
 -- records loot and gold, scans the bank, and tells the UI when to redraw.
--- Slash commands live in Slash.lua, the /lp demo data in Demo.lua.
+-- Slash commands live in Slash.lua, the /ll demo data in Demo.lua.
 local Core = {}
 ns.Core = Core
 
@@ -300,7 +300,7 @@ local function notCounted()
   if not ns.session or ns.session.running then return false end
   if not pausedNoted then
     pausedNoted = true
-    say(L["the clock is stopped: loot is not counted. /lp start or the Start button starts it."])
+    say(L["the clock is stopped: loot is not counted. /ll start or the Start button starts it."])
   end
   return true
 end
@@ -621,7 +621,7 @@ function Core.zoneHistory()
   return ns.History.combine({ own = own })
 end
 
--- History changes of this login that /lp undo takes back, the last one last:
+-- History changes of this login that /ll undo takes back, the last one last:
 -- { restore = { entry, ... } (put back), drop = entry or nil (taken out
 -- again: a merged session) }. Not saved, a reload or logout forgets them.
 local undoStack = {}
@@ -632,7 +632,7 @@ function Core.deleteHistory(index)
   local entry = list and list[index]
   if not ns.History.remove(list, index) then return false end
   undoStack[#undoStack + 1] = { restore = { entry } }
-  say(L["session deleted from History. /lp undo brings it back."])
+  say(L["session deleted from History. /ll undo brings it back."])
   return true
 end
 
@@ -644,7 +644,7 @@ function Core.clearHistory()
   for i, e in ipairs(list) do copy[i] = e end
   ns.History.clear(list)
   undoStack[#undoStack + 1] = { restore = copy }
-  say(L["History cleared. /lp undo brings it back."])
+  say(L["History cleared. /ll undo brings it back."])
   refreshUI()
   return true
 end
@@ -667,7 +667,7 @@ function Core.mergeHistory(index)
   list[index] = merged
   table.remove(list, index + 1)
   undoStack[#undoStack + 1] = { restore = { newer, older }, drop = merged }
-  say(L["sessions merged. /lp undo splits them again."])
+  say(L["sessions merged. /ll undo splits them again."])
   return merged
 end
 

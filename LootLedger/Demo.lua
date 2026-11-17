@@ -2,7 +2,7 @@ local ADDON, ns = ...
 
 local L = ns.L
 
--- /lp demo: fake sample loot, raw gold and temporary fake AH prices, to check
+-- /ll demo: fake sample loot, raw gold and temporary fake AH prices, to check
 -- the UI without farming. The fake prices overwrite entries of the saved
 -- price cache; the originals are kept in memory and put back by Demo.restore
 -- (on Reset and at logout), so nothing fake is ever saved.
@@ -114,7 +114,7 @@ end
 if ns.Slash then
   ns.Slash.define({
     name = "demo",
-    help = L["/lp demo - add fake sample loot, gold and temporary fake AH prices (UI check only)"],
+    help = L["/ll demo - add fake sample loot, gold and temporary fake AH prices (UI check only)"],
     run = Demo.run,
   })
 end

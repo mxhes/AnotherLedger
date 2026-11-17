@@ -1,5 +1,5 @@
 <!-- Key bindings (the game's key bindings window, AddOns). The client loads
-     this file by its name; each binding runs a /lp command, and their names
+     this file by its name; each binding runs a /ll command, and their names
      are set by Slash.register (Slash.BINDINGS). -->
 <Bindings>
   <Binding name="LOOTLEDGER_TOGGLE" header="LOOTLEDGER" category="ADDONS">

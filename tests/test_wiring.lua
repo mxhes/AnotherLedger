@@ -174,9 +174,8 @@ end)
 
 h.test("wiring: toc files load and the slash commands register", function()
   local ctx = boot()
-  h.eq(ctx.env.SLASH_LOOTLEDGER1, "/lp")
+  h.eq(ctx.env.SLASH_LOOTLEDGER1, "/ll")
   h.eq(ctx.env.SLASH_LOOTLEDGER2, "/lootledger")
-  h.eq(ctx.env.SLASH_LOOTLEDGER3, "/ll")
   h.eq(type(ctx.env.SlashCmdList.LOOTLEDGER), "function")
   h.eq(ctx.errors, {})
 end)
@@ -326,7 +325,7 @@ local function menuItem(menu, text)
   return nil
 end
 
-h.test("wiring: a History session's menu deletes it, /lp undo brings it back", function()
+h.test("wiring: a History session's menu deletes it, /ll undo brings it back", function()
   local ctx = boot()
   startWorld(ctx, false)
   local menus = captureMenus(ctx)
@@ -345,11 +344,11 @@ h.test("wiring: a History session's menu deletes it, /lp undo brings it back", f
   h.eq(menu.anchor, "rowFrame")
   h.eq(menu[1].kind, "title")
   h.eq(menuItem(menu, L["Add note"]) ~= nil, true)
-  menuItem(menu, L["Delete"]).click() -- no popup: /lp undo can bring it back
+  menuItem(menu, L["Delete"]).click() -- no popup: /ll undo can bring it back
   h.eq(#shown, 0)
   h.eq(#history, 2); h.eq(history[1].startedAt, 2)
   h.eq(Ledger.historyIndex, 2) -- still the same (oldest) session
-  h.eq(ctx.printed[#ctx.printed]:find("/lp undo", 1, true) ~= nil, true)
+  h.eq(ctx.printed[#ctx.printed]:find("/ll undo", 1, true) ~= nil, true)
   slash(ctx, "undo")
   h.eq(#history, 3); h.eq(history[1].startedAt, 3)
 
@@ -365,7 +364,7 @@ h.test("wiring: a History session's menu deletes it, /lp undo brings it back", f
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: merging History sessions, two and more, and /lp undo splits them", function()
+h.test("wiring: merging History sessions, two and more, and /ll undo splits them", function()
   local ctx = boot()
   startWorld(ctx, false)
   local menus = captureMenus(ctx)
@@ -545,7 +544,7 @@ h.test("wiring: each tab keeps its scroll position for the login", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /lp export copies the session or Zones as CSV", function()
+h.test("wiring: /ll export copies the session or Zones as CSV", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", itemLoot(7, 4))
@@ -566,7 +565,7 @@ h.test("wiring: /lp export copies the session or Zones as CSV", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: key bindings name their commands; /lp clock switches the clock", function()
+h.test("wiring: key bindings name their commands; /ll clock switches the clock", function()
   local ctx = boot()
   startWorld(ctx, false)
   h.eq(ctx.env.BINDING_HEADER_LOOTLEDGER, "LootLedger")
@@ -651,7 +650,7 @@ h.test("wiring: no unexpected globals leak", function()
   fire(ctx, "PLAYER_LOGOUT")
   local allowed = {
     LootLedgerDB = true, LootLedgerCharDB = true, SLASH_LOOTLEDGER1 = true,
-    SLASH_LOOTLEDGER2 = true, SLASH_LOOTLEDGER3 = true, LootLedgerWindow = true, LootLedgerMenu = true,
+    SLASH_LOOTLEDGER2 = true, LootLedgerWindow = true, LootLedgerMenu = true,
     LootLedgerOptionsPage = true, LootLedgerMinimapButton = true, LootLedgerExport = true,
     BINDING_HEADER_LOOTLEDGER = true, BINDING_NAME_LOOTLEDGER_TOGGLE = true,
     BINDING_NAME_LOOTLEDGER_COMPACT = true, BINDING_NAME_LOOTLEDGER_CLOCK = true,
@@ -1411,13 +1410,13 @@ h.test("wiring: cached prices older than 30 days are dropped at login", function
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /lp help lists every command, demo included", function()
+h.test("wiring: /ll help lists every command, demo included", function()
   local ctx = boot()
   startWorld(ctx, false)
   ctx.printed = {}
   slash(ctx, "help")
   local text = table.concat(ctx.printed, "\n")
-  for _, word in ipairs({ "/lp -", "show | hide", "start | stop", "/lp reset", "/lp keep", "/lp tsm", "/lp demo", "/lp compact", "Note:" }) do
+  for _, word in ipairs({ "/ll -", "show | hide", "start | stop", "/ll reset", "/ll keep", "/ll tsm", "/ll demo", "/ll compact", "Note:" }) do
     h.eq(text:find(word, 1, true) ~= nil, true, word)
   end
 end)
@@ -1646,7 +1645,7 @@ h.test("wiring: the clock pauses while AFK with the option on", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /lp keep and /lp tsm go through the options", function()
+h.test("wiring: /ll keep and /ll tsm go through the options", function()
   local ctx = boot()
   startWorld(ctx, false)
   slash(ctx, "keep on")
@@ -1656,7 +1655,7 @@ h.test("wiring: /lp keep and /lp tsm go through the options", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /lp export shows the History as CSV", function()
+h.test("wiring: /ll export shows the History as CSV", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
@@ -2149,7 +2148,7 @@ h.test("wiring: the tab rows clip the tab edge so it never covers the list", fun
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /lp compact switches the window to the compact layout and back", function()
+h.test("wiring: /ll compact switches the window to the compact layout and back", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
