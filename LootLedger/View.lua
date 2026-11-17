@@ -451,6 +451,44 @@ local function sessionRow(e, i, open, opts, totals)
   }
 end
 
+local L_SESSIONS_FOLD = L["Click to fold or unfold these sessions"]
+local CALENDAR_ICON = "Interface\\Icons\\INV_Misc_PocketWatch_01"
+
+-- Sorted by Recent: a heading per day (this week) or ISO week (older) over its
+-- sessions, with their count, length and value. A folded period
+-- (`opts.folded[periodKey]`) keeps its heading and hides its sessions. The
+-- opened session sits above every heading and counts in none.
+local function appendPeriods(rows, sessionRows, opened, opts)
+  local History = ns.History
+  local folded = type(opts.folded) == "table" and opts.folded or NO_LOOKUP
+  local heading, members
+  local function close()
+    if not heading then return end
+    heading.detail = History.sessionCount(heading.count) .. DETAIL_SEP .. History.duration(heading.elapsed)
+    heading.perHour = History.perHour(heading.value, heading.elapsed)
+    heading.bestLineTotal = heading.value
+    rows[#rows + 1] = heading
+    if not folded[heading.periodKey] then append(rows, members) end
+  end
+  for _, r in ipairs(sessionRows) do
+    if r ~= opened then
+      local key, label = History.period(r.entry.startedAt, opts.now, opts.dateFn)
+      if not heading or heading.periodKey ~= key then
+        close()
+        heading = { id = 0, key = "p:" .. key, periodKey = key, isHeading = true, name = label,
+          sortName = lower(label), quality = 1, count = 0, elapsed = 0, value = 0,
+          icon = CALENDAR_ICON, hint = L_SESSIONS_FOLD }
+        members = {}
+      end
+      heading.count = heading.count + 1
+      heading.elapsed = heading.elapsed + r.entry.elapsed
+      heading.value = heading.value + (r.value or 0)
+      members[#members + 1] = r
+    end
+  end
+  close()
+end
+
 -- History tab: one row per archived session (newest first, or in the order
 -- of a session sort). The search and the minimum value pick sessions (the
 -- search looks at the start, length and place). The session at `openIndex`
@@ -500,8 +538,12 @@ function View.buildHistory(list, opts, openIndex)
     append(rows, (collect(entry.items, o)))
     append(rows, View.currencyRows(entry.currencies, o))
   end
-  for _, r in ipairs(sessionRows) do
-    if r ~= opened then rows[#rows + 1] = r end
+  if opts.sort == "recent" and type(opts.dateFn) == "function" and num(opts.now) then
+    appendPeriods(rows, sessionRows, opened, opts)
+  else
+    for _, r in ipairs(sessionRows) do
+      if r ~= opened then rows[#rows + 1] = r end
+    end
   end
   local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true,
     empty = View.emptyText(rows, filter, L_NO_HISTORY),

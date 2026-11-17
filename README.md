@@ -123,7 +123,9 @@ row and price. Currencies are listed after the items.
   session keeps the prices of the day it was saved, so its value doesn't change
   later. Sort the sessions by Value, Recent or Gold/h; the search (date, note,
   length, place) and the minimum value pick sessions, and the footer adds up
-  the listed ones. Click a session to list its items; right-click it to add a
+  the listed ones. Sorted by Recent, the sessions sit under headings (Today,
+  Yesterday, the other days of this week, then week numbers) with their count,
+  length and value; click a heading to fold it. Click a session to list its items; right-click it to add a
   note (`Wingrest herbs, 2 alts`), merge it or delete it; hover it for places,
   currencies, values and gold per hour. **Merge with the older session** joins
   a session with the one started before it (say a dungeon run you left and

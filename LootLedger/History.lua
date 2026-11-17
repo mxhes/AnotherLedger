@@ -481,6 +481,55 @@ function History.shortDate(ts, now, dateFn)
   return dateFn(L_DATE_FORMAT, ts)
 end
 
+-- Days since 1970-01-01 of a calendar date (proleptic Gregorian; pure, no
+-- time zone).
+local function daysFromCivil(y, m, d)
+  if m <= 2 then y = y - 1 end
+  local era = math.floor(y / 400)
+  local yoe = y - era * 400
+  local mp = (m + 9) % 12
+  local doy = math.floor((153 * mp + 2) / 5) + d - 1
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
+end
+
+-- ISO 8601 week of a date (weeks start on Monday; week 1 holds the year's
+-- first Thursday). Returns week, ISO year.
+function History.isoWeek(year, month, day)
+  local days = daysFromCivil(year, month, day)
+  local weekday = (days + 3) % 7 + 1 -- Monday 1 .. Sunday 7
+  local thursday = days - weekday + 4
+  local isoYear = year
+  if thursday < daysFromCivil(year, 1, 1) then
+    isoYear = year - 1
+  elseif thursday >= daysFromCivil(year + 1, 1, 1) then
+    isoYear = year + 1
+  end
+  return math.floor((thursday - daysFromCivil(isoYear, 1, 1)) / 7) + 1, isoYear
+end
+
+local WEEKDAY_NAMES = { L["Sunday"], L["Monday"], L["Tuesday"], L["Wednesday"], L["Thursday"], L["Friday"],
+  L["Saturday"] }
+local L_WEEK = L["Week %d"]
+
+-- The History heading a session started at `t` goes under, seen at `now`:
+-- key, label. Today, Yesterday and the other days of this (Monday) week by
+-- day ("d:2026-11-17"), older (and later) sessions by ISO week ("w:2026-46").
+-- `dateFn` is os.date-like (date in the client).
+function History.period(t, now, dateFn)
+  local function day(x) return dateFn("%Y-%m-%d", x) end
+  local today, d = day(now), day(t)
+  if d == today then return "d:" .. d, L_TODAY end
+  if d == day(now - 86400) then return "d:" .. d, L_YESTERDAY end
+  local a, b = dateFn("*t", t), dateFn("*t", now)
+  local week, year = History.isoWeek(a.year, a.month, a.day)
+  local nowWeek, nowYear = History.isoWeek(b.year, b.month, b.day)
+  if week == nowWeek and year == nowYear and d < today then
+    return "d:" .. d, WEEKDAY_NAMES[(tonumber(dateFn("%w", t)) or 0) + 1]
+  end
+  return string.format("w:%d-%02d", year, week), string.format(L_WEEK, week)
+end
+
 -- "1h 12m", "12m", "45s".
 function History.duration(seconds)
   if not num(seconds) or seconds < 0 then seconds = 0 end

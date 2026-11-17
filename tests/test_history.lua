@@ -253,3 +253,28 @@ h.test("snapshot / totals: Auction from decides each item's best value", functio
   local _, _, best = H.totals(e, { [1] = true }, 1000)
   h.eq(best, 20)
 end)
+
+h.test("History.isoWeek: ISO 8601 weeks, Monday first", function()
+  h.eq(H.isoWeek(2026, 11, 17), 47)
+  h.eq(H.isoWeek(2027, 1, 1), 53)
+  h.eq(H.isoWeek(2026, 1, 1), 1)
+  h.eq(H.isoWeek(2024, 12, 30), 1) -- belongs to 2025's first week
+  h.eq(select(2, H.isoWeek(2024, 12, 30)), 2025)
+end)
+
+h.test("History.period: today, yesterday, this week's days, then ISO weeks", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600 -- Tuesday 2026-11-17 12:00 UTC
+  local key, label = H.period(now - 3600, now, utc)
+  h.eq({ key, label }, { "d:2026-11-17", "Today" })
+  key, label = H.period(now - 86400, now, utc) -- Monday 16th
+  h.eq({ key, label }, { "d:2026-11-16", "Yesterday" })
+  key, label = H.period(now - 2 * 86400, now, utc) -- Sunday 15th: last week
+  h.eq({ key, label }, { "w:2026-46", "Week 46" })
+  key, label = H.period(now + 7 * 86400 + 6 * 86400, now, utc) -- Monday 30th (a clock set back)
+  h.eq(key, "w:2026-49")
+  -- this week, not today or yesterday: the weekday
+  local fri = 20777 * 86400 + 12 * 3600 -- Friday 2026-11-20
+  key, label = H.period(now, fri, utc)
+  h.eq({ key, label }, { "d:2026-11-17", "Tuesday" })
+end)

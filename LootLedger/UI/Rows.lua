@@ -647,7 +647,8 @@ local function fillRow(f, row)
   local t = textOf(row)
   local r, g, b = T.qualityColor(row.quality)
   f.name:SetText(t.name)
-  setRGB(f.name, r, g, b)
+  -- History day / week headings: the titles color.
+  if row.isHeading then setColor(f.name, T.colors.gold) else setRGB(f.name, r, g, b) end
   f.qty:SetText(t.qty)
   ns.UI.Coins.set(f.amount, t.copper, t.amount)
   f.market:SetText(t.market or "")

@@ -1117,3 +1117,50 @@ h.test("View.buildInventory: the sell split adds up what is not kept by best kin
   h.eq(v.totals.money, 56200)
   h.eq(v.totals.worth, v.totals.best + 56200)
 end)
+
+h.test("View.buildHistory: day headings over the sessions while sorted by Recent", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600 -- Tuesday 2026-11-17 12:00 UTC
+  local function e(start, elapsed, ah, place)
+    return { startedAt = start, elapsed = elapsed, gold = 0, nItems = 1, vendor = 0, ah = ah, best = ah,
+      places = { place }, items = {} }
+  end
+  local list = {
+    e(now - 1000, 3600, 100, "Dornogal"), e(now - 6000, 1800, 200, "Dornogal"), e(now - 9000, 600, 300, "Dornogal"),
+    e(now - 86400, 3600, 50, "Azj-Kahet"),
+  }
+  local opts = { now = now, dateFn = utc, sort = "recent", formatDate = function(t) return "d" .. t end }
+  local v = V.buildHistory(list, opts)
+  local kinds = {}
+  for _, r in ipairs(v.rows) do kinds[#kinds + 1] = r.isHeading and r.name or r.historyIndex end
+  h.eq(kinds, { "Today", 1, 2, 3, "Yesterday", 4 })
+  local today = v.rows[1]
+  h.eq(today.periodKey, "d:2026-11-17")
+  h.eq(today.value, 600)
+  h.eq(today.bestLineTotal, 600)
+  h.eq(today.detail, "3 sessions \194\183 1h 40m")
+  h.eq(v.headerInfo, "4 sessions")
+  -- a search that hides yesterday's session drops its heading
+  opts.filter = { search = "dornogal" }
+  v = V.buildHistory(list, opts)
+  kinds = {}
+  for _, r in ipairs(v.rows) do kinds[#kinds + 1] = r.isHeading and r.name or r.historyIndex end
+  h.eq(kinds, { "Today", 1, 2, 3 })
+  -- a folded period keeps its heading; the footer still counts its sessions
+  opts.filter = nil
+  opts.folded = { ["d:2026-11-16"] = true }
+  v = V.buildHistory(list, opts)
+  kinds = {}
+  for _, r in ipairs(v.rows) do kinds[#kinds + 1] = r.isHeading and r.name or r.historyIndex end
+  h.eq(kinds, { "Today", 1, 2, 3, "Yesterday" })
+  h.eq(v.rows[5].value, 50)
+  h.eq(v.totals.ah, 650)
+  -- an opened session stays at the top, above every heading
+  opts.folded = nil
+  v = V.buildHistory(list, opts, 4)
+  h.eq(v.rows[1].historyIndex, 4)
+  -- other sorts: no headings
+  opts.sort = "ah"
+  v = V.buildHistory(list, opts)
+  for _, r in ipairs(v.rows) do h.eq(r.isHeading, nil) end
+end)

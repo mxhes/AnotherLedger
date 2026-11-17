@@ -145,6 +145,15 @@ local function slash(ctx, msg) ctx.env.SlashCmdList["LOOTLEDGER"](msg) end
 local LINK = "|cffffffff|Hitem:2589::::::::60:::::::::|h[Linen Cloth]|h|r"
 local LOOT = "You receive loot: " .. LINK .. "x3."
 
+-- The rows of a view without the History day / week headings.
+local function sessions(view)
+  local out = {}
+  for _, r in ipairs(view.rows) do
+    if not r.isHeading then out[#out + 1] = r end
+  end
+  return out
+end
+
 local function startWorld(ctx, isReload)
   fire(ctx, "ADDON_LOADED", "LootLedger")
   fire(ctx, "PLAYER_ENTERING_WORLD", not isReload, isReload and true or false)
@@ -361,7 +370,7 @@ h.test("wiring: a History session's menu deletes it, /ll undo brings it back", f
   local L = ctx.ns.L
   Ledger.setTab("history")
   Ledger.toggleHistory(3) -- the oldest one is open
-  local row = Ledger.view.rows[2]
+  local row = sessions(Ledger.view)[2]
   h.eq(row.historyIndex, 1)
   Ledger.list.onRowClick(row, "RightButton", "rowFrame")
   local menu = menus[#menus]
@@ -437,7 +446,7 @@ h.test("wiring: a note on a History session shows on its row and is searched", f
   history[2] = { startedAt = 4, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
   local Ledger, L = ctx.ns.UI.Ledger, ctx.ns.L
   Ledger.setTab("history")
-  Ledger.list.onRowClick(Ledger.view.rows[2], "RightButton", "f")
+  Ledger.list.onRowClick(sessions(Ledger.view)[2], "RightButton", "f")
   menuItem(menus[#menus], L["Add note"]).click()
   h.eq(popup.hasEditBox, true)
   local box = { text = "", SetText = function(self, t) self.text = t end, GetText = function(self) return self.text end,
@@ -447,16 +456,16 @@ h.test("wiring: a note on a History session shows on its row and is searched", f
   box.text = "  Wingrest herbs "
   popup.OnAccept({ editBox = box })
   h.eq(history[2].note, "Wingrest herbs")
-  h.eq(Ledger.view.rows[2].name:find("Wingrest herbs", 1, true) ~= nil, true)
+  h.eq(sessions(Ledger.view)[2].name:find("Wingrest herbs", 1, true) ~= nil, true)
   -- Editing shows the note; the search finds it.
-  Ledger.list.onRowClick(Ledger.view.rows[2], "RightButton", "f")
+  Ledger.list.onRowClick(sessions(Ledger.view)[2], "RightButton", "f")
   menuItem(menus[#menus], L["Edit note"]).click()
   popup.OnShow({ GetEditBox = function() return box end })
   h.eq(box.text, "Wingrest herbs")
   ctx.ns.db.filter.search = "wingrest"
   Ledger.refresh()
-  h.eq(#Ledger.view.rows, 1)
-  h.eq(Ledger.view.rows[1].entry, history[2])
+  h.eq(#sessions(Ledger.view), 1)
+  h.eq(sessions(Ledger.view)[1].entry, history[2])
   h.eq(ctx.errors, {})
 end)
 
@@ -1283,7 +1292,7 @@ h.test("wiring: hovering a History session shows the colored tooltip", function(
   local L = ctx.ns.UI.Ledger
   L.setTab("history")
   local C = ctx.ns.Theme.colors
-  local shown = ctx.ns.UI.Widgets.showTextTooltip({}, L.view.rows[1].hint)
+  local shown = ctx.ns.UI.Widgets.showTextTooltip({}, sessions(L.view)[1].hint)
   h.eq(shown, true)
   h.eq(ops[1][1], "line"); h.eq(ops[1][3], C.tipTitle[1]) -- the date, gold
   local doubles, last = 0, ops[#ops]
@@ -1303,17 +1312,17 @@ h.test("wiring: a History session opens at the top and collapses on a second cli
   slash(ctx, "reset")
   local L = ctx.ns.UI.Ledger
   L.setTab("history")
-  h.eq(#L.view.rows, 2)
-  L.list.onRowClick(L.view.rows[2]) -- open the older session
+  h.eq(#sessions(L.view), 2)
+  L.list.onRowClick(sessions(L.view)[2]) -- open the older session
   h.eq(L.historyIndex, 2)
-  h.eq(#L.view.rows, 3)
-  h.eq(L.view.rows[1].historyIndex, 2) -- on top
-  h.eq(L.view.rows[2].quantity, 3) -- its item
-  h.eq(L.view.rows[3].historyIndex, 1)
-  L.list.onRowClick(L.view.rows[1]) -- click it again
+  h.eq(#sessions(L.view), 3)
+  h.eq(sessions(L.view)[1].historyIndex, 2) -- on top
+  h.eq(sessions(L.view)[2].quantity, 3) -- its item
+  h.eq(sessions(L.view)[3].historyIndex, 1)
+  L.list.onRowClick(sessions(L.view)[1]) -- click it again
   h.eq(L.historyIndex, nil)
-  h.eq(#L.view.rows, 2)
-  L.list.onRowClick(L.view.rows[1])
+  h.eq(#sessions(L.view), 2)
+  L.list.onRowClick(sessions(L.view)[1])
   L.setTab("session")
   L.setTab("history")
   h.eq(L.historyIndex, nil) -- leaving the tab collapses
@@ -3023,5 +3032,28 @@ h.test("wiring: Bags shows free slots, gold on hand and net worth; Bank has no m
   h.eq(L.view.totals.money, 100)
   L.setTab("bank")
   h.eq(L.view.totals.money, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: History Sessions shows day headings; a click folds one", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local Ledger = ctx.ns.UI.Ledger
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  Ledger.setTab("history")
+  Ledger.setSubtab("sessions")
+  local rows = Ledger.view.rows
+  h.eq(rows[1].isHeading, true)
+  h.eq(rows[1].name, ctx.ns.L["Today"])
+  h.eq(#rows, 3)
+  Ledger.list.onRowClick(rows[1], "LeftButton", "f")
+  h.eq(#Ledger.view.rows, 1)
+  h.eq(Ledger.view.headerInfo, "2 sessions")
+  h.eq(Ledger.rowMenu(Ledger.view.rows[1]), nil)
+  Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
+  h.eq(#Ledger.view.rows, 3)
   h.eq(ctx.errors, {})
 end)

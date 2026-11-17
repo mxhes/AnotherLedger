@@ -35,6 +35,9 @@ Ledger.tab = ns.UI.Tabs.DEFAULT
 -- History Zones ({ zone, sub }).
 Ledger.subtab = nil
 Ledger.zoneOpen = {}
+-- History Sessions: folded day / week headings ({ [periodKey] = true }), kept
+-- for the Lua session (a /reload or logout opens them again).
+Ledger.periodFold = {}
 -- Layout mode: "full" (the ledger) or "compact" (the glance); db.mode.
 Ledger.mode = "full"
 
@@ -200,6 +203,8 @@ local function currentContext(now)
   viewOpts.now = now
   viewOpts.filter = db and db.filter
   viewOpts.sort = Ledger.currentSort()
+  viewOpts.dateFn = date
+  viewOpts.folded = Ledger.periodFold
   local setting = ns.Util.setting
   viewOpts.includeGold = setting("includeGold", true)
   viewOpts.showCurrencies = setting("showCurrencies", true)
@@ -507,6 +512,12 @@ end
 
 -- History Zones: a zone row opens its subzones (and closes another zone), a
 -- subzone row its items; clicking the opened one again collapses it.
+-- Folds or unfolds a History day / week heading.
+function Ledger.togglePeriod(key)
+  Ledger.periodFold[key] = not Ledger.periodFold[key] or nil
+  Ledger.refresh()
+end
+
 function Ledger.toggleZone(zoneKey, subKey)
   local open = Ledger.zoneOpen
   if subKey == nil then
@@ -690,6 +701,8 @@ function Ledger.init()
     if button == "RightButton" then
       local entries = Ledger.rowMenu(row)
       if entries then UI.Widgets.openMenu(frame, entries, "button") end
+    elseif row.periodKey then
+      Ledger.togglePeriod(row.periodKey)
     elseif row.historyIndex then
       Ledger.toggleHistory(row.historyIndex)
     elseif row.zoneKey then

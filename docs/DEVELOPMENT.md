@@ -170,6 +170,10 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **History headings**: sorted by Recent, `View.buildHistory` puts a heading
+  row (`isHeading`, `periodKey` from `History.period`: a day this week, else
+  an ISO week via `History.isoWeek`) over the visible sessions of each
+  period. `Ledger.periodFold` holds the folded keys for the Lua session.
 - **Bags footer**: `buildInventory` sets `totals.sellSplit` (best value of
   the rows not kept, by `bestKind`; the footer tooltip's Sell split). The
   Bags tab adds `View.addWorth(view, GetMoney())` (`totals.money`,
