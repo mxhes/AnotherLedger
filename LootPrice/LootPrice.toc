@@ -27,6 +27,7 @@ Session.lua
 History.lua
 Inventory.lua
 Options.lua
+Profiles.lua
 View.lua
 Waypoint.lua
 Slash.lua

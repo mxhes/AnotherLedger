@@ -99,8 +99,9 @@ end
 -- db.settings, so changing them needs no rebuild.
 function Core.buildPrices(env, db, now, getKey)
   local Sources = ns.Sources
-  local function setting(key) return db.settings[key] end
-  local function selected() return db.settings.priceSource end
+  -- db.settings is nil after logout (Profiles.beforeLogout).
+  local function setting(key) return db.settings and db.settings[key] end
+  local function selected() return setting("priceSource") end
 
   local sources, disenchant, market = {}, nil, nil
   local keyOfName = {} -- source name (stored with a cached price) -> option key
@@ -820,6 +821,8 @@ function events.ADDON_LOADED(name)
   LootPriceDB = ns.DB.applyDefaults(LootPriceDB, ns.DB.defaults)
   LootPriceCharDB = ns.DB.applyDefaults(LootPriceCharDB, ns.DB.charDefaults)
   ns.DB.migrateAccount(LootPriceDB)
+  -- After migrateAccount: this drops the old settings table.
+  ns.Profiles.init(LootPriceDB, LootPriceCharDB)
   ns.db = LootPriceDB
   ns.chardb = LootPriceCharDB
 end
@@ -881,7 +884,7 @@ end
 -- starts and shows it again when combat ends, but only if it was shown before.
 function events.PLAYER_REGEN_DISABLED()
   local window = ns.UI and ns.UI.Window
-  if window and ns.db and ns.db.settings.combatHide then window.combatHide() end
+  if window and ns.db and ns.Options.get(ns.db, "combatHide") then window.combatHide() end
 end
 
 function events.PLAYER_REGEN_ENABLED()
@@ -982,6 +985,8 @@ function events.PLAYER_LOGOUT()
   end
   -- The History is saved once, in LootPriceDB.histories (Core.linkHistory).
   if Core.character and ns.chardb then ns.chardb.history = nil end
+  -- The active profile is saved once, in LootPriceDB.profiles.
+  if ns.Profiles then ns.Profiles.beforeLogout(ns.db) end
 end
 
 Core.events = events

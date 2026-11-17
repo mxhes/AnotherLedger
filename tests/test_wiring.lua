@@ -105,6 +105,12 @@ local function boot(opts)
   env.COPPER_AMOUNT = "%d Copper"
   env.CreateFrame = function(_, name) return newFake(env, name) end
   env.UIParent = newFake(env)
+  -- A test that seeds `settings` (the shape before profiles) gets them as an
+  -- already migrated "Default" profile, so the options still apply.
+  local seed = opts.db
+  if type(seed) == "table" and type(seed.settings) == "table" and seed.profiles == nil then
+    seed.profiles, seed.profilesMigrated = { Default = seed.settings }, true
+  end
   env.LootPriceDB = opts.db
   env.LootPriceCharDB = opts.chardb
 
@@ -593,7 +599,7 @@ h.test("wiring: a /reload keeps the session with keep off, a relog starts fresh"
   ctx.now = 1050
   fire(ctx, "PLAYER_LOGOUT")
   local db, chardb = ctx.env.LootPriceDB, ctx.env.LootPriceCharDB
-  h.eq(db.settings.keepSession, false)
+  h.eq(db.profiles.Default.keepSession, false)
 
   local reload = boot({ db = db, chardb = chardb, now = 2000 })
   startWorld(reload, true)
@@ -2638,5 +2644,44 @@ h.test("wiring: keeping an item in Bags splits the footer into kept and sellable
   menuItem(menuFor(2589), L["Sell again (not kept)"]).click()
   h.eq(Ledger.view.totals.kept, nil)
   h.eq(summary.cells.kept.label:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: logout clears settings alias, the profile is saved once", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Options.set(ns.db, "alpha", 0.5)
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootPriceDB, ctx.env.LootPriceCharDB
+  h.eq(db.settings, nil)
+  h.eq(db.profiles.Default.alpha, 0.5)
+  h.eq(chardb.profile, "Default")
+  local relog = boot({ db = db, chardb = chardb, now = 5000 })
+  startWorld(relog, false)
+  h.eq(relog.ns.Options.get(relog.ns.db, "alpha"), 0.5)
+  h.eq(relog.ns.db.settings == relog.env.LootPriceDB.profiles.Default, true)
+  h.eq(ctx.errors, {}); h.eq(relog.errors, {})
+end)
+
+h.test("wiring: old settings start fresh, account options are kept", function()
+  local ctx = boot({ db = { settings = { alpha = 0.3, historyLimit = -1 } } })
+  -- boot() turns seeded settings into a profile; undo that for this test.
+  ctx.env.LootPriceDB.profiles, ctx.env.LootPriceDB.profilesMigrated = nil, nil
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  h.eq(ns.Options.get(ns.db, "alpha"), 1)
+  h.eq(ns.Options.get(ns.db, "historyLimit"), -1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: switching profile applies the look", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Profiles.create(ns.db, "Night", { colorPreset = "midnight" })
+  ns.Profiles.activate(ns.db, ns.chardb, "Night")
+  h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), ns.Theme.preset("midnight").colors.panelTint)
+  h.eq(ctx.env.LootPriceCharDB.profile, "Night")
   h.eq(ctx.errors, {})
 end)

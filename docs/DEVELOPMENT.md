@@ -35,6 +35,7 @@ only inside functions.
 | `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
+| `Profiles.lua` | settings profiles (per character), export / import strings |
 | `View.lua` | the rows and totals a tab shows, History Zones, the Daily farm pick, the compact view |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
 | `Slash.lua`, `Demo.lua` | slash commands, `/lp demo` |
