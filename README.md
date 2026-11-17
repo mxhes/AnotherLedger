@@ -164,12 +164,35 @@ anything that deletes History asks first.
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
 | Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Zones: all characters, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot, Font, Font outline, Font shadow, List text, Totals text, Section titles |
 | Session and alerts | Keep session, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Crafted and bought, Pause when AFK, Session per instance, Session per zone, Zone change delay, Export History, Clear History, History kept |
-| Colors | Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
+| Colors | Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
+| Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Export profile, Import profile |
+
+**Color preset** changes the whole look at once: the window, the lines, the
+tabs, the buttons and the scrollbar. **LootPrice** is the dark leather look,
+**Blizzard** is black and bronze with red buttons like the game's own
+windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
+accent and **Parchment** is the light spellbook look (it also turns on a thin
+font outline so white item names and gold amounts stay readable). Item
+quality and coin colors always stay the game's own. After a preset you can
+still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
 window changes while you pick, Cancel puts the old color back); right-click it
-for the default. By default text is white, and vendor values are cream, auction
-values blue and destroy values grey, in the list and in the tooltips.
+for the preset's color. **Reset colors** goes back to the LootPrice preset.
+Tooltips keep the game's dark tooltip on every preset.
+
+**Profiles**: every option is part of a profile, except **History kept**,
+**Zones: all characters** and **Minimap button**, which count for the whole
+account. Each character picks its own profile; new characters use
+**Default**. **New profile** starts from the defaults, **Copy profile** from
+the current one; Default can't be renamed or deleted. **Export profile** shows
+the profile as one line of text to copy into a chat or a file; **Import
+profile** opens a box to paste such a line, asks for a name (and before
+overwriting a profile of that name) and switches to it. Settings an import
+does not understand are skipped and counted in chat. Window position and
+size, filters, the ignore and keep lists and History are not part of a
+profile. Updating to the version with profiles starts with the default
+settings once.
 
 **Font outline** (None, Thin, Thick) puts a dark outline around all LootPrice
 text, which reads better over a bright background; **Font shadow** turns the

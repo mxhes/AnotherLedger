@@ -22,7 +22,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "colorBackground", "colorBorder", "colorButtons", "resetColors" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
-    if s.type ~= "button" then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end
+    if s.type ~= "button" and not s.get then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end
     h.eq(O.HEIGHTS[s.type] ~= nil, true, s.key)
   end
 end)

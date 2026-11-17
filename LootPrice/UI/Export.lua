@@ -6,8 +6,9 @@ ns.UI = ns.UI or {}
 
 -- Copy box for the CSV exports (/lp export [session | zones], or the button in
 -- the options): a movable frame with a scrolling, multi-line edit box whose
--- text is selected, ready for Ctrl+C. Client-only; every WoW global is
--- touched inside functions only.
+-- text is selected, ready for Ctrl+C. The same frame is the paste box of the
+-- profile import (Export.edit: editable, with an Import button). Client-only;
+-- every WoW global is touched inside functions only.
 local Export = {}
 ns.UI.Export = Export
 
@@ -15,6 +16,8 @@ local L_TITLE = L["History export (CSV)"]
 local L_SESSION_TITLE = L["Session export (CSV)"]
 local L_ZONES_TITLE = L["Zones export (CSV)"]
 local L_HINT = L["Ctrl+C copies the selected text. Esc closes."]
+local L_PASTE_HINT = L["Ctrl+V pastes a profile line. Esc closes."]
+local L_IMPORT = L["Import"]
 local WIDTH, HEIGHT = 520, 360
 
 local function build()
@@ -43,6 +46,18 @@ local function build()
   local hint = W.text(frame, T.fonts.small, T.colors.hint, "LEFT")
   hint:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 10)
   hint:SetText(L_HINT)
+  frame.hint = hint
+
+  -- Import button (paste mode only): hands the typed text to frame.onAccept.
+  local import = W.button(frame, L_IMPORT, 80)
+  import:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 6)
+  import:SetScript("OnClick", function()
+    if frame.onAccept then frame.onAccept(frame.edit:GetText() or "") end
+  end)
+  import:Hide()
+  frame.importButton = import
+  frame.mode = "copy"
+  frame.onAccept = false
 
   local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -36)
@@ -54,9 +69,9 @@ local function build()
   edit:SetFontObject(T.fonts.small)
   edit:SetWidth(WIDTH - 50)
   edit:SetScript("OnEscapePressed", function() frame:Hide() end)
-  -- Read-only: typing puts the export text back.
+  -- Read-only in copy mode: typing puts the export text back.
   edit:SetScript("OnTextChanged", function(self, userInput)
-    if userInput and frame.text then
+    if userInput and frame.mode == "copy" and frame.text then
       self:SetText(frame.text)
       self:HighlightText()
     end
@@ -75,11 +90,33 @@ function Export.show(text, title)
   if not Export.frame then Export.frame = build() end
   local frame = Export.frame
   frame.titleText:SetText(title or L_TITLE)
+  frame.mode, frame.onAccept = "copy", false
+  frame.hint:SetText(L_HINT)
+  frame.importButton:Hide()
   frame.text = text or ""
   frame.edit:SetText(frame.text)
   frame:Show()
   frame.edit:SetFocus()
   frame.edit:HighlightText()
+end
+
+-- The paste box: empty and editable, titled `title`; the Import button calls
+-- `onAccept(text)`.
+function Export.edit(title, onAccept)
+  if not Export.frame then Export.frame = build() end
+  local frame = Export.frame
+  frame.titleText:SetText(title or "")
+  frame.mode, frame.onAccept = "edit", onAccept
+  frame.hint:SetText(L_PASTE_HINT)
+  frame.importButton:Show()
+  frame.text = ""
+  frame.edit:SetText("")
+  frame:Show()
+  frame.edit:SetFocus()
+end
+
+function Export.hide()
+  if Export.frame then Export.frame:Hide() end
 end
 
 local function ignored()

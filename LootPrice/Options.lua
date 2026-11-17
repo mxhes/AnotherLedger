@@ -65,6 +65,7 @@ Options.CATEGORIES = {
   { id = "display", label = L["Display"] },
   { id = "session", label = L["Session and alerts"] },
   { id = "colors", label = L["Colors"] },
+  { id = "profiles", label = L["Profiles"] },
 }
 
 -- What the panel shows, top to bottom: for every section a header entry
@@ -174,9 +175,12 @@ local function store(db, spec)
   return db.settings
 end
 
+-- An option with `get` / `store` functions keeps its value elsewhere (the
+-- profile choice: LootPriceCharDB); Options.applyAll skips it.
 function Options.get(db, key)
   local spec = Options.byKey[key]
   if not spec then return nil end
+  if spec.get then return spec.get() end
   local t = store(db, spec)
   local value
   if type(t) == "table" then value = t[key] end -- may be false
@@ -197,9 +201,13 @@ end
 function Options.set(db, key, value)
   local spec = Options.byKey[key]
   if not spec or type(db) ~= "table" then return nil end
+  local v = Options.normalize(spec, value)
+  if spec.store then
+    spec.store(v)
+    return v
+  end
   local field = spec.account and "account" or "settings"
   if type(db[field]) ~= "table" then db[field] = {} end
-  local v = Options.normalize(spec, value)
   db[field][key] = v
   if spec.apply then spec.apply(v) end
   return v
@@ -218,7 +226,7 @@ end
 -- Applies every stored value (login): repairs invalid saved values as it goes.
 function Options.applyAll(db)
   for _, spec in ipairs(Options.specs) do
-    if spec.type ~= "button" then Options.set(db, spec.key, Options.get(db, spec.key)) end
+    if spec.type ~= "button" and not spec.store then Options.set(db, spec.key, Options.get(db, spec.key)) end
   end
 end
 

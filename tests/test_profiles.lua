@@ -158,3 +158,36 @@ h.test("decode ignores account options", function()
   h.eq(taken, 1); h.eq(skipped, 1)
   h.eq(P.encode({ historyLimit = 5 }), "LP1:")
 end)
+
+-- Profiles section of the options -------------------------------------------
+
+h.test("profiles section", function()
+  local sections = O.sections()
+  local last = sections[#sections]
+  h.eq(last.id, "profiles")
+  local keys = {}
+  for _, spec in ipairs(last.specs) do
+    keys[#keys + 1] = spec.key
+    h.eq(#spec.label <= 24, true, spec.key)
+    h.eq(type(spec.tooltip), "string", spec.key)
+  end
+  h.eq(table.concat(keys, ","), "profile,profileNew,profileCopy,profileRename,profileDelete,profileExport,profileImport")
+end)
+
+h.test("the profile dropdown reads and switches the character's profile", function()
+  local db, chardb = fresh()
+  ns.db, ns.chardb = db, chardb
+  P.create(db, "Farm")
+  h.eq(O.get(db, "profile"), "Default")
+  local values = {}
+  for _, c in ipairs(O.choices(O.spec("profile"))) do values[#values + 1] = c.value end
+  h.eq(values, { "Default", "Farm" })
+  O.set(db, "profile", "Farm")
+  h.eq(P.active(chardb), "Farm")
+  h.eq(db.settings == db.profiles.Farm, true)
+  h.eq(db.settings.profile, nil) -- not stored in a profile
+  O.applyAll(db) -- skips it
+  h.eq(P.active(chardb), "Farm")
+  h.eq(P.encode({ profile = "Farm" }), "LP1:")
+  ns.db, ns.chardb = nil, nil
+end)

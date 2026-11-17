@@ -391,6 +391,10 @@ local function build()
   frame:EnableMouse(true)
   local tabbed = Panel.buildTabbed(frame, pad, pad + O.titleHeight)
   frame.tabbed = tabbed
+  -- Wider than the two columns when the tab row needs it (six tabs, German).
+  local extent, n = 0, 0
+  for _, b in pairs(tabbed.strip.buttons or {}) do extent, n = extent + b:GetWidth(), n + 1 end
+  if n > 0 then width = math.max(width, 2 * pad + extent + (n - 1) * T.sizes.buttonGap) end
   frame:SetSize(width, 2 * pad + O.titleHeight + tabbed.height)
   -- Same background as the ledger window: its opacity and brightness too.
   ns.UI.Widgets.applyBackdrop(frame)

@@ -2685,3 +2685,57 @@ h.test("wiring: switching profile applies the look", function()
   h.eq(ctx.env.LootPriceCharDB.profile, "Night")
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: import through the box creates and activates a profile", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, L = ctx.ns, ctx.ns.L
+  local popups = {}
+  ctx.env.StaticPopup_Show = function(name) popups[#popups + 1] = ctx.env.StaticPopupDialogs[name] end
+  local line = ns.Profiles.encode({ alpha = 0.5, colorPreset = "midnight" })
+  ns.Options.spec("profileImport").action()
+  local frame = ns.UI.Export.frame
+  h.eq(frame.mode, "edit")
+  frame.onAccept(line .. ";nope=1")
+  h.eq(popups[#popups].hasEditBox, true)
+  popups[#popups].onAccept("Farm")
+  h.eq(ns.Profiles.active(ctx.env.LootPriceCharDB), "Farm")
+  h.eq(ns.Options.get(ns.db, "alpha"), 0.5)
+  h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), ns.Theme.preset("midnight").colors.panelTint)
+  local said = ctx.printed[#ctx.printed]
+  h.eq(said:find(string.format(L["Imported %d settings, skipped %d."], 2, 1), 1, true) ~= nil, true)
+  -- the same name again asks before overwriting
+  ns.Options.spec("profileImport").action()
+  frame.onAccept(ns.Profiles.encode({ alpha = 0.25 }))
+  popups[#popups].onAccept("farm")
+  h.eq(popups[#popups].hasEditBox, nil) -- the confirmation
+  h.eq(ns.Options.get(ns.db, "alpha"), 0.5)
+  popups[#popups].OnAccept()
+  h.eq(ns.Options.get(ns.db, "alpha"), 0.25)
+  -- export shows the copy box again (read-only)
+  ns.Options.spec("profileExport").action()
+  h.eq(frame.mode, "copy")
+  h.eq(frame.text, ns.Profiles.encode(ns.db.settings))
+  -- garbage: a message, nothing created
+  ns.Options.spec("profileImport").action()
+  local n = #ns.Profiles.names(ns.db)
+  frame.onAccept("hello")
+  h.eq(#ns.Profiles.names(ns.db), n)
+  h.eq(ctx.printed[#ctx.printed]:find(L["This is not a LootPrice profile."], 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the options window is wide enough for every tab", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.UI.OptionsPanel.toggle()
+  local frame = ns.UI.OptionsPanel.frame
+  local S = ns.Theme.sizes
+  local extent, n = 0, 0
+  for _, b in pairs(frame.tabbed.strip.buttons) do extent, n = extent + b:GetWidth(), n + 1 end
+  extent = extent + (n - 1) * S.buttonGap
+  h.eq(n, #ns.Options.sections())
+  h.eq(frame:GetWidth() >= extent + 2 * (S.padding + 4), true)
+  h.eq(ctx.errors, {})
+end)

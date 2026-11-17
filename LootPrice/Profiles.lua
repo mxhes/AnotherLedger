@@ -248,3 +248,158 @@ function Profiles.decode(text)
 end
 
 ns.Profiles = Profiles
+
+-- ---------------------------------------------------------------------------
+-- The Profiles section of the options. The actions look the UI up when they
+-- run (Widgets popups, the Export window), so this file stays loadable in tests.
+
+local L_NEW_NAME = L["Name of the new profile:"]
+local L_RENAME_TO = L["New name of the profile:"]
+local L_IMPORT_NAME = L["Name of the imported profile:"]
+local L_CREATE = L["Create"]
+local L_RENAME = L["Rename"]
+local L_DELETE = L["Delete"]
+local L_IMPORT = L["Import"]
+local L_OVERWRITE = L["Overwrite"]
+local L_DELETE_Q = L["Delete the profile %s?"]
+local L_OVERWRITE_Q = L["Overwrite the profile %s?"]
+local L_IMPORTED = L["Imported %d settings, skipped %d."]
+local L_EXPORT_TITLE = L["Profile export"]
+local L_IMPORT_TITLE = L["Profile import"]
+
+local function say(msg)
+  if ns.Util and ns.Util.say then ns.Util.say(msg) end
+end
+
+local function widgets() return ns.UI and ns.UI.Widgets end
+
+local function refreshPanel()
+  local panel = ns.UI and ns.UI.OptionsPanel
+  if panel and panel.refreshAll then panel.refreshAll() end
+end
+
+local function current() return Profiles.active(ns.chardb) end
+
+-- Asks for a name, then `fn(name)`; errors go to chat.
+local function askName(question, accept, initial, fn)
+  local W = widgets()
+  if W and W.prompt then W.prompt(question, accept, initial or "", fn) end
+end
+
+local function done(ok, err)
+  if not ok and err then say(err) end
+  refreshPanel()
+  return ok
+end
+
+local function define(spec)
+  spec.category = "profiles"
+  return ns.Options.define(spec)
+end
+
+define({
+  key = "profile", type = "dropdown", label = L["Profile"],
+  tooltip = L["The settings this character uses. Every character can use its own profile or share one."],
+  choices = function()
+    local out = {}
+    for _, name in ipairs(ns.db and Profiles.names(ns.db) or { Profiles.DEFAULT }) do
+      out[#out + 1] = { value = name, label = name }
+    end
+    return out
+  end,
+  get = current,
+  store = function(v) if ns.db then Profiles.activate(ns.db, ns.chardb, v) end end,
+  picked = refreshPanel,
+})
+
+define({
+  key = "profileNew", type = "button", label = L["New profile"],
+  tooltip = L["Creates a profile with the default settings and switches to it."],
+  action = function()
+    askName(L_NEW_NAME, L_CREATE, "", function(name)
+      local trimmed = name:gsub("^%s+", ""):gsub("%s+$", "")
+      local ok, err = Profiles.create(ns.db, trimmed)
+      if ok then Profiles.activate(ns.db, ns.chardb, trimmed) end
+      done(ok, err)
+    end)
+  end,
+})
+
+define({
+  key = "profileCopy", type = "button", label = L["Copy profile"],
+  tooltip = L["Creates a profile with the settings of this one and switches to it."],
+  action = function()
+    askName(L_NEW_NAME, L_CREATE, "", function(name)
+      local trimmed = name:gsub("^%s+", ""):gsub("%s+$", "")
+      local ok, err = Profiles.create(ns.db, trimmed, ns.db.settings)
+      if ok then Profiles.activate(ns.db, ns.chardb, trimmed) end
+      done(ok, err)
+    end)
+  end,
+})
+
+define({
+  key = "profileRename", type = "button", label = L["Rename profile"],
+  tooltip = L["Gives this profile a new name. Default can't be renamed."],
+  action = function()
+    askName(L_RENAME_TO, L_RENAME, current(), function(name)
+      done(Profiles.rename(ns.db, ns.chardb, current(), name))
+    end)
+  end,
+})
+
+define({
+  key = "profileDelete", type = "button", label = L["Delete profile"],
+  tooltip = L["Deletes this profile and switches to Default. Characters that used it use Default from now on."],
+  action = function()
+    local name = current()
+    if name == Profiles.DEFAULT then return done(Profiles.delete(ns.db, ns.chardb, name)) end
+    local W = widgets()
+    if W and W.confirm then
+      W.confirm(string.format(L_DELETE_Q, name), L_DELETE, function() done(Profiles.delete(ns.db, ns.chardb, name)) end)
+    end
+  end,
+})
+
+define({
+  key = "profileExport", type = "button", label = L["Export profile"],
+  tooltip = L["Shows this profile as one line of text to copy and share."],
+  action = function()
+    local Export = ns.UI and ns.UI.Export
+    if Export then Export.show(Profiles.encode(ns.db.settings), L_EXPORT_TITLE) end
+  end,
+})
+
+-- Import: paste box -> decode -> name -> (overwrite?) -> create and switch.
+local function importAs(settings, taken, skipped, name)
+  local trimmed = type(name) == "string" and name:gsub("^%s+", ""):gsub("%s+$", "") or ""
+  local function finish(replace)
+    local ok, err = Profiles.create(ns.db, trimmed, settings, replace)
+    if not ok then return done(ok, err) end
+    local Export = ns.UI and ns.UI.Export
+    if Export and Export.hide then Export.hide() end
+    Profiles.activate(ns.db, ns.chardb, trimmed)
+    say(string.format(L_IMPORTED, taken, skipped))
+    done(true)
+  end
+  if find(ns.db, trimmed) then
+    local W = widgets()
+    if W and W.confirm then W.confirm(string.format(L_OVERWRITE_Q, trimmed), L_OVERWRITE, function() finish(true) end) end
+    return
+  end
+  finish(false)
+end
+
+define({
+  key = "profileImport", type = "button", label = L["Import profile"],
+  tooltip = L["Paste a profile line from an export. It becomes a new profile under a name you choose."],
+  action = function()
+    local Export = ns.UI and ns.UI.Export
+    if not Export then return end
+    Export.edit(L_IMPORT_TITLE, function(text)
+      local settings, taken, skipped = Profiles.decode(text)
+      if not settings then return say(taken) end
+      askName(L_IMPORT_NAME, L_IMPORT, "", function(name) importAs(settings, taken, skipped, name) end)
+    end)
+  end,
+})

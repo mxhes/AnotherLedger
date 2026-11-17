@@ -65,12 +65,17 @@ Each of these is one call in one place; the UI never names them.
   `Options.define({ key, category, type, label, tooltip, ..., apply })` in
   `Options.lua`. `label` is short (24 characters at most, a test checks it);
   `tooltip` says what it does and is shown on hover with the default.
-  `category` is `window`, `prices`, `display`, `session` or `colors`. Types: `slider`
+  `category` is `window`, `prices`, `display`, `session`, `colors` or `profiles`. Types: `slider`
   (`min`, `max`, `step`, `format`), `dropdown` (`choices` list or function),
   `checkbox`, `number` (whole number, empty = unlimited, optional `zeroText`),
   `text`, `color` (`"rrggbb"`), `button` (`action`). Values are validated by type and fall back to
   the default; `apply` runs on change and for the saved value at login. Read it
-  with `Options.get(ns.db, key)`. A new kind of control is one factory in
+  with `Options.get(ns.db, key)`. Optional fields: `account = true` stores the
+  value in `LootPriceDB.account` (shared by every profile: `historyLimit`,
+  `accountZones`, `minimapButton`); `get` / `store` functions keep the value
+  elsewhere (the profile choice) and `Options.applyAll` skips such an option;
+  `picked(db, value)` runs only on a choice in the panel (`Options.pick`), not
+  at login (the color preset writes the single colors there). A new kind of control is one factory in
   `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its height in `Options.HEIGHTS`.
   The panel's column width, gaps and control sizes are `Theme.options`.
 - **Price source**: a file in `Sources/` (in the `.toc` after
@@ -100,6 +105,32 @@ Each of these is one call in one place; the UI never names them.
 
 ## How things work
 
+- **Color presets**: `Theme.presets` (`id`, `label`, `colors` = every
+  `Theme.colors` key except `Theme.FIXED_COLORS` as `"rrggbb"`, optional
+  `outline`). The `lootprice` entry is built from `Theme.colors` at load.
+  `Theme.applyPreset(id)` sets them in place. The option `colorPreset` comes
+  first in Colors, so `Options.applyAll` lays down the palette and the single
+  colors go on top; picking a preset in the panel writes the single colors
+  (and the outline). A color option's default is its preset's color
+  (`Options.defaultFor(key, settings)`); `Options.presetEdited` drives the
+  "(edited)" label. Item quality colors (`Theme.qualityColor`) and coin colors
+  are fixed at the game's values. Tooltip colors (`tip*`) must stay readable on
+  the dark game tooltip (`Theme.TOOLTIP_BG`); no panel color option sets them
+  except Tooltip labels. tests/test_theme.lua checks completeness and contrast
+  per preset.
+- **Profiles** (`Profiles.lua`): `LootPriceDB.profiles[name]` holds the
+  options; `LootPriceCharDB.profile` names the character's (Default when
+  missing or deleted). At `ADDON_LOADED`, after `DB.migrateAccount`,
+  `Profiles.init` points `LootPriceDB.settings` at the active profile (filled
+  with defaults except the single colors, whose default is the preset), so
+  every `Options.get(ns.db, key)` reads it; at `PLAYER_LOGOUT`
+  `Profiles.beforeLogout` clears that alias so the profile is saved once.
+  The first login with profiles drops the old settings table
+  (`profilesMigrated`). `Profiles.encode` / `decode`: `LP1:key=value;...`, only
+  values that differ from the default, booleans `t` / `f`, numbers in full,
+  `% ; =` percent-encoded; decode takes a value only if `Options.normalize`
+  keeps it as it is. The import paste box is `UI/Export.lua` in edit mode
+  (`Export.edit(title, onAccept)`).
 - **Colors**: `Options.COLOR_OPTIONS` lists each color option with the
   `Theme.colors` keys it sets; its default in `DB.defaults.settings` must equal
   those theme colors (a test checks). `Theme.setColor` overwrites the r, g, b
@@ -325,14 +356,17 @@ Each of these is one call in one place; the UI never names them.
 
 ## Saved state
 
-- `LootPriceDB` (account): `settings` (options, including the minimap angle),
+- `LootPriceDB` (account): `profiles` (options per profile; `settings` is the
+  active one while logged in and is not saved), `account` (account-wide
+  options), `minimapAngle`, `profilesMigrated` / `accountMigrated` (one-time
+  migrations),
   `window` (position, full size `width` / `height`, compact size `compact`,
   `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort`,
   `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
   `histories` (every character's History, see "Account-wide History").
 - `LootPriceCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
-  and the bank scan.
+  and the bank scan, and `profile` (the name of the profile it uses).
   `history` is only written here by versions before the account-wide History.
 
 ## Events
