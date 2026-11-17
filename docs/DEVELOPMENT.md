@@ -65,10 +65,11 @@ Each of these is one call in one place; the UI never names them.
   `Options.define({ key, category, type, label, tooltip, ..., apply })` in
   `Options.lua`. `label` is short (24 characters at most, a test checks it);
   `tooltip` says what it does and is shown on hover with the default.
-  `category` is `window`, `prices`, `display`, `session`, `colors` or `profiles`. Types: `slider`
+  `category` is `window`, `prices`, `display` (tab List), `session`, `history`, `look` (fonts and colors) or `profiles`. Types: `slider`
   (`min`, `max`, `step`, `format`), `dropdown` (`choices` list or function),
   `checkbox`, `number` (whole number, empty = unlimited, optional `zeroText`),
-  `text`, `color` (`"rrggbb"`), `button` (`action`). Values are validated by type and fall back to
+  `text`, `color` (`"rrggbb"`), `button` (`action`). `tooltipExtra = function()
+  -> text` adds a live line to the tooltip (the profile's characters). Values are validated by type and fall back to
   the default; `apply` runs on change and for the saved value at login. Read it
   with `Options.get(ns.db, key)`. Optional fields: `account = true` stores the
   value in `LootLedgerDB.account` (shared by every profile: `historyLimit`,
@@ -86,7 +87,12 @@ Each of these is one call in one place; the UI never names them.
 - **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx) return view end, ... })`
   in `UI/Tabs.lua`; optional `sessionControls` (clock and buttons), `ticks`
   (rates follow the clock), `watches` (data kind that redraws it), `hasItem`
-  and `subtabs` (see the comment at the top of the file).
+  and `subtabs` (see the comment at the top of the file). A view with its own
+  `sorts` list keeps its own sort (`LootLedgerDB.sorts[slot]`, first
+  `defaultSort`, see `Tabs.sortSlot` / `Ledger.currentSort`); the others share
+  `LootLedgerDB.sort`. The filter bar reads and sets it through the accessor
+  `Ledger.init` hands it. A view may set `headerInfo` (a short text the header
+  shows right of the title on tabs without the session controls).
 - **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`;
   `help` shows in `/ll help`. A key binding is a `<Binding>` in `Bindings.xml`
   that runs the command (`SlashCmdList["LOOTLEDGER"]("name")`) plus its name in
@@ -118,7 +124,10 @@ Each of these is one call in one place; the UI never names them.
   the dark game tooltip (`Theme.TOOLTIP_BG`); no panel color option sets them
   except Tooltip labels. tests/test_theme.lua checks completeness and contrast
   per preset.
-- **Profiles** (`Profiles.lua`): `LootLedgerDB.profiles[name]` holds the
+- **Profiles** (`Profiles.lua`): `LootLedgerDB.profileUsers` maps
+  `"Name-Realm"` to the profile it uses (noted at login by `Core.linkHistory`
+  and on a switch; rename and delete keep it current) for the "Used by" line.
+  `LootLedgerDB.profiles[name]` holds the
   options; `LootLedgerCharDB.profile` names the character's (Default when
   missing or deleted). At `ADDON_LOADED`, after `DB.migrateAccount`,
   `Profiles.init` points `LootLedgerDB.settings` at the active profile (filled
@@ -146,8 +155,8 @@ Each of these is one call in one place; the UI never names them.
   `Theme.sourceColor(source)` (`Tooltip.money(..., source)`, `Rows.tooltipLines`,
   `Summary.tooltipLines`). The swatch opens the game picker through
   `Widgets.pickColor`.
-- **Footer**: `Summary.tableLayout` gives height 0 and no lines for History and
-  Zones (`view.history`); the table frame hides and the list reaches the bottom.
+- **Footer**: History and Zones show the same table as the Session tab: the
+  listed sessions (or places) added up, rates over their recorded time.
 
 - **Item keys**: `LootParse.itemKey(link)` is the item ID for plain items and
   `"<id>:<sorted bonus IDs>"` for variants; every item map, the price cache and
@@ -362,7 +371,9 @@ Each of these is one call in one place; the UI never names them.
   rename at their next login), `minimapAngle`, `profilesMigrated` / `accountMigrated` (one-time
   migrations),
   `window` (position, full size `width` / `height`, compact size `compact`,
-  `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort`,
+  `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort` (item
+  lists) and `sorts` (History Sessions / Zones), `optionsWindow` (where the
+  options panel was dragged to, `{ x, y }` from the screen center), `profileUsers`,
   `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
   `histories` (every character's History, see "Account-wide History").
 - `LootLedgerCharDB` (character): the session (items, gold, places with time,

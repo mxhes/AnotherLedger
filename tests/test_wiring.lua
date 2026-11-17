@@ -262,9 +262,33 @@ h.test("wiring: the sort button keeps the Gold/h label in Zones after a redraw",
   local Ledger = ctx.ns.UI.Ledger
   Ledger.setTab("history")
   Ledger.setSubtab("zones")
-  ctx.env.LootLedgerDB.sort = "perHour"
+  Ledger.setSort("perHour")
   Ledger.refresh()
   h.eq(ctx.ns.UI.FilterBar.sortButton:GetText(), "Sort: Gold/h")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: each History view keeps its own sort; Sessions starts newest first", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local Ledger, F = ctx.ns.UI.Ledger, ctx.ns.UI.FilterBar
+  local db = ctx.env.LootLedgerDB
+  db.sort = "name"
+  Ledger.setTab("history")
+  Ledger.setSubtab("sessions")
+  h.eq(Ledger.currentSort(), "recent")
+  h.eq(F.sortButton:GetText(), "Sort: Recent")
+  F.sortButton._scripts.OnClick() -- recent -> perHour, Session tab untouched
+  h.eq(Ledger.currentSort(), "perHour")
+  h.eq(db.sort, "name")
+  Ledger.setSubtab("zones")
+  h.eq(Ledger.currentSort(), "ah")
+  Ledger.setTab("session")
+  h.eq(Ledger.currentSort(), "name")
+  h.eq(F.sortButton:GetText(), "Sort: Name")
+  Ledger.setTab("history")
+  Ledger.setSubtab("sessions")
+  h.eq(Ledger.currentSort(), "perHour")
   h.eq(ctx.errors, {})
 end)
 
@@ -786,6 +810,8 @@ h.test("wiring: bank is scanned while open and shown from the saved scan", funct
   L.setTab("bank")
   h.eq(#L.view.rows, 0)
   h.eq(L.view.note, "Open your bank once to scan it.")
+  -- the default bank record (scannedAt 0) is no scan: never "empty"
+  h.eq(L.view.empty, "Not scanned yet.")
   fire(ctx, "BANKFRAME_OPENED")
   h.eq(ctx.errors, {})
   h.eq(#L.view.rows, 2)
@@ -1068,6 +1094,27 @@ h.test("wiring: the options panel builds a widget for every registered option", 
   P.toggle() -- closes
   h.eq(ctx.errors, {})
   h.eq(ctx.ns.UI.Ledger.frame.header ~= nil, true)
+end)
+
+h.test("wiring: the options panel opens where it was dragged to", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local P = ctx.ns.UI.OptionsPanel
+  h.eq(P.savedPosition(ctx.ns.db), nil) -- never dragged: next to the ledger
+  P.toggle()
+  local frame = P.frame
+  frame.GetCenter = function() return 120, -40 end -- UIParent's fake center is 0, 0
+  frame._scripts.OnDragStart(frame)
+  frame._scripts.OnDragStop(frame)
+  h.eq(P.savedPosition(ctx.ns.db), { x = 120, y = -40 })
+  local placed
+  frame.SetPoint = function(_, point, _, _, x, y) placed = { point, x, y } end
+  P.toggle() -- closes
+  P.toggle() -- opens at the saved place
+  h.eq(placed, { "CENTER", 120, -40 })
+  ctx.ns.db.optionsWindow = { x = "bad" }
+  h.eq(P.savedPosition(ctx.ns.db), nil)
+  h.eq(ctx.errors, {})
 end)
 
 h.test("wiring: hovering an option shows its tooltip with the default", function()
@@ -2466,23 +2513,29 @@ h.test("wiring: money looted without a known message counts once", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: History and Zones have no footer, Session gets it back", function()
+h.test("wiring: History and Zones show the footer with the session count", function()
   local ctx = boot()
   startWorld(ctx, false)
   local L, footer = ctx.ns.UI.Ledger, ctx.ns.UI.Window.frame.footer
   local summary = ctx.ns.UI.Summary.instance
+  local history = ctx.env.LootLedgerCharDB.history
+  for i = 1, 2 do history[i] = { startedAt = 10 - i, elapsed = 3600, gold = 100, nItems = 0, vendor = 0, ah = 0, items = {} } end
   L.refresh()
-  h.eq(footer:GetHeight(), 72)
+  local sessionHeight = footer:GetHeight()
+  h.eq(sessionHeight > 1, true)
   L.setTab("history")
-  -- a hair, never 0: a zero-height footer leaves the list above it undrawn
-  h.eq(footer:GetHeight() > 0 and footer:GetHeight() < 0.01, true)
-  h.eq(summary.table:IsShown(), false)
+  h.eq(footer:GetHeight() > 1, true)
+  h.eq(summary.table:IsShown(), true)
+  h.eq(L.view.headerInfo, "2 sessions")
+  h.eq(ctx.ns.UI.Header.instance.info:GetText(), "2 sessions")
+  h.eq(ctx.ns.UI.Header.instance.info:IsShown(), true)
+  h.eq(L.view.gold.total, 200)
   L.setSubtab("zones")
   h.eq(L.view.kind, "zones")
-  h.eq(footer:GetHeight() > 0 and footer:GetHeight() < 0.01, true)
+  h.eq(footer:GetHeight() > 1, true)
   L.setTab("session")
-  h.eq(footer:GetHeight(), 72)
-  h.eq(summary.table:IsShown(), true)
+  h.eq(footer:GetHeight(), sessionHeight)
+  h.eq(ctx.ns.UI.Header.instance.info:IsShown(), false) -- the clock's place
   h.eq(ctx.errors, {})
 end)
 
@@ -2757,5 +2810,27 @@ h.test("wiring: the options window is wide enough for every tab", function()
   extent = extent + (n - 1) * S.buttonGap
   h.eq(n, #ns.Options.sections())
   h.eq(frame:GetWidth() >= extent + 2 * (S.padding + 4), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Session summary in chat sums up a saved session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Core.recordGold(250000)
+  ctx.now = ctx.now + 3600
+  slash(ctx, "reset")
+  for _, line in ipairs(ctx.printed) do h.eq(line:find("session saved", 1, true), nil) end -- off by default
+  ns.Options.set(ns.db, "sessionChat", true)
+  ns.Core.recordGold(250000)
+  ctx.now = ctx.now + 1800
+  slash(ctx, "reset")
+  local found
+  for _, line in ipairs(ctx.printed) do
+    if line:find("session saved: 30m", 1, true) then found = line end
+  end
+  h.eq(found ~= nil, true)
+  h.eq(found:find(ns.Money.format(250000), 1, true) ~= nil, true)
+  h.eq(found:find(ns.Money.format(500000) .. "/h", 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)

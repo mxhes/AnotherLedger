@@ -375,7 +375,7 @@ h.test("View.buildHistory: the place joins the name, the details the hint", func
   }
   local v = ns.View.buildHistory(list, { formatDate = function() return "D" end })
   h.eq(v.rows[1].name, "+ D")
-  h.eq(v.rows[1].detail, "1h 0m \194\183 The Stonevault (Heroic) \194\183 1 item")
+  h.eq(v.rows[1].detail, "1h 0m \194\183 1 item \194\183 The Stonevault (Heroic)")
   h.eq(v.rows[1].value, 10150)
   h.eq(ns.View.buildHistory(list, { includeGold = false }).rows[1].value, 150)
   h.eq(v.totals.best, 150)

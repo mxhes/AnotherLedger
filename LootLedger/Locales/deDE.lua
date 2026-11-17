@@ -96,8 +96,8 @@ ns.Locale.register("deDE", {
   -- Options: sections
   ["Window"] = "Fenster",
   ["Prices"] = "Preise",
-  ["Display"] = "Anzeige",
-  ["Session and alerts"] = "Sitzung und Hinweise",
+  ["List"] = "Liste",
+  ["Look"] = "Aussehen",
   ["Other"] = "Sonstiges",
 
   -- Options
@@ -241,7 +241,7 @@ ns.Locale.register("deDE", {
   ["Shows the LootLedger button on the minimap. Left-click shows or hides the window, right-click opens these options."] = "Zeigt den LootLedger-Knopf an der Minikarte. Linksklick zeigt oder versteckt das Fenster, Rechtsklick öffnet diese Optionen.",
   ["Moves the minimap button back to the bottom left of the minimap."] = "Setzt den Minikarten-Knopf zurück nach unten links an die Minikarte.",
   ["Opens a copy box with your History as CSV, for a spreadsheet. Same as /ll export."] = "Öffnet ein Kopierfeld mit deinem Verlauf als CSV für eine Tabellenkalkulation. Wie /ll export.",
-  ["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."] = "Wie viele Sitzungen der Verlauf behält. 0 behält keine, leer behält alle. Ein kleinerer Wert fragt erst nach und löscht dann die ältesten.",
+  ["How many sessions each character's History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."] = "Wie viele Sitzungen der Verlauf jedes Charakters behält. 0 behält keine, leer behält alle. Ein kleinerer Wert fragt erst nach und löscht dann die ältesten.",
   ["Delete the %d oldest sessions of your History? This can't be undone."] = "Die %d ältesten Sitzungen aus dem Verlauf löschen? Das lässt sich nicht rückgängig machen.",
   ["Delete"] = "Löschen",
   ["Clear History"] = "Verlauf leeren",
@@ -252,7 +252,6 @@ ns.Locale.register("deDE", {
   ["New loot scrolls the Session list to its row. Off keeps the list where it is; a row in view still flashes."] = "Neue Beute scrollt die Sitzungsliste zu ihrer Zeile. Aus lässt die Liste stehen; eine sichtbare Zeile blinkt trotzdem.",
 
   -- Colors
-  ["Colors"] = "Farben",
   ["Text"] = "Text",
   ["Titles and totals"] = "Titel und Summen",
   ["Hints"] = "Hinweise",
@@ -338,6 +337,7 @@ ns.Locale.register("deDE", {
   ["No saved sessions yet. A session is saved when you reset it."] = "Noch keine gespeicherten Sitzungen. Eine Sitzung wird beim Zurücksetzen gespeichert.",
   ["Your bags are empty."] = "Deine Taschen sind leer.",
   ["Your bank is empty."] = "Deine Bank ist leer.",
+  ["Not scanned yet."] = "Noch nicht erfasst.",
   ["the clock is stopped: loot is not counted. /ll start or the Start button starts it."] = "die Uhr steht: Beute wird nicht gezählt. /ll start oder der Start-Knopf startet sie.",
   ["No drops yet."] = "Noch keine Beute.",
   ["Paused: click the clock to start."] = "Pausiert: Klick auf die Uhr startet.",
@@ -412,4 +412,13 @@ ns.Locale.register("deDE", {
   ["Kept"] = "Behalten",
   ["Sellable"] = "Verkaufbar",
   ["(kept)"] = "(behalten)",
+
+  -- History count, profiles, session summary
+  ["1 session"] = "1 Sitzung",
+  [" sessions"] = " Sitzungen",
+  ["Used by: "] = "Benutzt von: ",
+  ["Session summary in chat"] = "Sitzungsbilanz im Chat",
+  ["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] = "Wenn eine Sitzung im Verlauf gespeichert wird (Zurücksetzen, neue Sitzung pro Zone oder Instanz, frischer Login), fasst eine Chatzeile sie zusammen: Dauer, Ort, Wert und Gold pro Stunde.",
+  ["session saved: %s"] = "Sitzung gespeichert: %s",
+  [" in "] = " in ",
 })

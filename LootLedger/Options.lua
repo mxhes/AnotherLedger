@@ -13,6 +13,7 @@ local L = ns.L
 --     label   = "Opacity",            -- short; the details go in tooltip
 --     tooltip = "Fades the window...", -- shown on hover with the default (Options.tooltip)
 --     zeroText = "Off",               -- number: text of 0 (optional)
+--     tooltipExtra = function() -> text or nil, -- a live line for the tooltip (optional)
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = L["A"] }, ... }, -- dropdown (or a function returning that list)
 --     (labels go through ns.L, Locale.lua: L["Opacity"])
@@ -62,9 +63,10 @@ end
 Options.CATEGORIES = {
   { id = "window", label = L["Window"] },
   { id = "prices", label = L["Prices"] },
-  { id = "display", label = L["Display"] },
-  { id = "session", label = L["Session and alerts"] },
-  { id = "colors", label = L["Colors"] },
+  { id = "display", label = L["List"] },
+  { id = "session", label = L["Session"] },
+  { id = "history", label = L["History"] },
+  { id = "look", label = L["Look"] },
   { id = "profiles", label = L["Profiles"] },
 }
 
@@ -252,6 +254,9 @@ function Options.tooltip(spec)
   local Tip = ns.Tooltip
   local tip = Tip.new(spec.label)
   if spec.tooltip then Tip.para(tip, spec.tooltip) end
+  -- Live facts (the profile's characters), worked out on hover.
+  local extra = spec.tooltipExtra and spec.tooltipExtra()
+  if type(extra) == "string" and extra ~= "" then Tip.note(tip, extra) end
   if spec.type ~= "button" then
     Tip.note(tip, L["Default: "] .. Options.valueText(spec, Options.normalize(spec, nil)))
   end
@@ -350,6 +355,13 @@ Options.define({
 
 Options.define({ key = "keepSession", category = "session", type = "checkbox", label = L["Keep session"],
   tooltip = L["The session and its clock carry over to your next login instead of starting fresh. Same as /ll keep."] })
+
+-- Off: "You create" messages and items received while a merchant, mailbox,
+-- trade or auction house window is open are not loot.
+Options.define({
+  key = "countCrafted", category = "session", type = "checkbox", label = L["Crafted and bought"],
+  tooltip = L["Counts items you craft, and items you get at a vendor, mailbox, trade or the auction house, as loot."],
+})
 
 Options.define({
   key = "priceSource", category = "prices",
@@ -510,12 +522,9 @@ Options.define({
   zeroText = L["Off"],
 })
 
--- Off: "You create" messages and items received while a merchant, mailbox,
--- trade or auction house window is open are not loot.
-Options.define({
-  key = "countCrafted", category = "session", type = "checkbox", label = L["Crafted and bought"],
-  tooltip = L["Counts items you craft, and items you get at a vendor, mailbox, trade or the auction house, as loot."],
-})
+
+Options.define({ key = "sessionChat", category = "session", type = "checkbox", label = L["Session summary in chat"],
+  tooltip = L["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] })
 
 Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause when AFK"],
   tooltip = L["Stops the clock while you are AFK and starts it again when you are back."] })
@@ -548,20 +557,20 @@ Options.define({
 -- Daily farm strip at the top of the window (View.dailyFarm): the saved place
 -- with the best gold per hour; only places with this much recorded time count.
 Options.define({
-  key = "dailyFarm", category = "display", type = "checkbox", label = L["Daily farm"],
+  key = "dailyFarm", category = "history", type = "checkbox", label = L["Daily farm"],
   tooltip = L["Shows the Daily strip: the place in your History with the best gold per hour at today's prices."],
   apply = refreshUI,
 })
 
 Options.define({
-  key = "dailyFarmMinutes", category = "display", type = "slider", label = L["Daily farm: min. time"],
+  key = "dailyFarmMinutes", category = "history", type = "slider", label = L["Daily farm: min. time"],
   tooltip = L["How long you must have farmed a place before the Daily strip can pick it."],
   min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
 })
 
 -- History Zones and the Daily farm across characters (Core.zoneHistory).
 Options.define({
-  key = "accountZones", account = true, category = "display", type = "checkbox", label = L["Zones: all characters"],
+  key = "accountZones", account = true, category = "history", type = "checkbox", label = L["Zones: all characters"],
   tooltip = L["History Zones and the Daily strip use the History of all your characters. Off: only this character's. The Sessions list always shows this character's."],
   apply = refreshUI,
 })
@@ -655,7 +664,7 @@ Options.define({
 
 -- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.
 Options.define({
-  key = "fontFace", category = "display",
+  key = "fontFace", category = "look",
   type = "dropdown",
   label = L["Font"],
   tooltip = L["Typeface of all LootLedger text. WoW default uses the game font of your client's language. Other addons are not affected."],
@@ -684,7 +693,7 @@ local function applyFontStyle()
   if type(timer) == "table" and type(timer.After) == "function" then timer.After(0, Ledger.relayout) end
 end
 Options.define({
-  key = "fontOutline", category = "display", type = "dropdown", label = L["Font outline"],
+  key = "fontOutline", category = "look", type = "dropdown", label = L["Font outline"],
   tooltip = L["A dark outline around all LootLedger text, easier to read over a bright background. Thick is bolder."],
   choices = {
     { value = "none", label = L["None"] },
@@ -694,7 +703,7 @@ Options.define({
   apply = applyFontStyle,
 })
 Options.define({
-  key = "fontShadow", category = "display", type = "checkbox", label = L["Font shadow"],
+  key = "fontShadow", category = "look", type = "checkbox", label = L["Font shadow"],
   tooltip = L["A soft dark shadow under all LootLedger text, as the game draws it. Off gives flat text; with an outline it often looks cleaner."],
   apply = applyFontStyle,
 })
@@ -710,13 +719,13 @@ end
 local function applySizes()
   if ns.UI and ns.UI.Ledger and ns.UI.Ledger.applySizes then ns.UI.Ledger.applySizes() end
 end
-Options.define({ key = "fontSizeRows", category = "display", type = "dropdown", label = L["List text"],
+Options.define({ key = "fontSizeRows", category = "look", type = "dropdown", label = L["List text"],
   tooltip = L["Size of the list text. The rows grow and shrink with it."],
   choices = sizeChoices(8, 18), apply = applySizes })
-Options.define({ key = "fontSizeTotals", category = "display", type = "dropdown", label = L["Totals text"],
+Options.define({ key = "fontSizeTotals", category = "look", type = "dropdown", label = L["Totals text"],
   tooltip = L["Size of the footer table and Top finds."],
   choices = sizeChoices(8, 18), apply = applySizes })
-Options.define({ key = "fontSizeTitles", category = "display", type = "dropdown", label = L["Section titles"],
+Options.define({ key = "fontSizeTitles", category = "look", type = "dropdown", label = L["Section titles"],
   tooltip = L["Size of section titles such as Top finds."],
   choices = sizeChoices(10, 24), apply = applySizes })
 
@@ -740,7 +749,7 @@ Options.define({
 })
 
 Options.define({
-  key = "exportHistory", category = "session", type = "button", label = L["Export History"],
+  key = "exportHistory", category = "history", type = "button", label = L["Export History"],
   tooltip = L["Opens a copy box with your History as CSV, for a spreadsheet. Same as /ll export."],
   action = function()
     if ns.UI and ns.UI.Export then ns.UI.Export.history() end
@@ -748,7 +757,7 @@ Options.define({
 })
 
 Options.define({
-  key = "clearHistory", category = "session", type = "button", label = L["Clear History"],
+  key = "clearHistory", category = "history", type = "button", label = L["Clear History"],
   tooltip = L["Deletes every session of this character's History, after asking. /ll undo brings them back until you log out or reload."],
   action = function()
     local history = ns.chardb and ns.chardb.history
@@ -758,30 +767,51 @@ Options.define({
   end,
 })
 
--- How many finished sessions the History tab keeps. Lowering it asks first
--- (in the panel), then prunes at once.
+-- Every History list the limit applies to: each character's in
+-- LootLedgerDB.histories plus this character's own (the same table once
+-- Core.linkHistory ran), each once.
+local function historyLists()
+  local lists, seen = {}, {}
+  local function add(list)
+    if type(list) == "table" and not seen[list] then
+      seen[list] = true
+      lists[#lists + 1] = list
+    end
+  end
+  if ns.db and type(ns.db.histories) == "table" then
+    for _, list in pairs(ns.db.histories) do add(list) end
+  end
+  add(ns.chardb and ns.chardb.history)
+  return lists
+end
+Options.historyLists = historyLists
+
+-- How many finished sessions History keeps per character (an account-wide
+-- option: every character's list). Lowering it asks first (in the panel),
+-- then prunes at once.
 Options.define({
-  key = "historyLimit", account = true, category = "session",
+  key = "historyLimit", account = true, category = "history",
   type = "number",
   label = L["History kept"],
-  tooltip = L["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."],
+  tooltip = L["How many sessions each character's History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."],
   -- The panel asks before a lower limit deletes saved sessions.
   confirm = function(v)
-    local history = ns.chardb and ns.chardb.history
-    local n = type(history) == "table" and #history or 0
-    if not num(v) or v < 0 or n <= v then return nil end
-    return string.format(L["Delete the %d oldest sessions of your History? This can't be undone."], n - v)
+    if not num(v) or v < 0 then return nil end
+    local extra = 0
+    for _, list in ipairs(historyLists()) do extra = extra + math.max(0, #list - v) end
+    if extra == 0 then return nil end
+    return string.format(L["Delete the %d oldest sessions of your History? This can't be undone."], extra)
   end,
   apply = function(v)
-    if ns.History and ns.chardb and type(ns.chardb.history) == "table" then
-      ns.History.prune(ns.chardb.history, v)
+    if ns.History then
+      for _, list in ipairs(historyLists()) do ns.History.prune(list, v) end
     end
     refreshUI()
   end,
 })
 
 -- ---------------------------------------------------------------------------
--- Colors (category "colors"): each option sets one or more Theme.colors in
+-- Colors (category "look", after the fonts): each option sets one or more Theme.colors in
 -- place (Theme.setColor), then the UI recolors live: the texts, lines and
 -- backdrops made by UI/Widgets.lua (Widgets.recolor), the window look and a
 -- refresh for the rest. Tooltips read the colors when they are shown.
@@ -845,7 +875,7 @@ local PRESET_LABELS = { midnight = L["Midnight"], tsm = L["TSM-style"], parchmen
 -- Color preset: first in Colors so Options.applyAll sets the whole palette
 -- before the single colors are applied on top of it.
 Options.define({
-  key = "colorPreset", category = "colors", type = "dropdown", label = L["Color preset"],
+  key = "colorPreset", category = "look", type = "dropdown", label = L["Color preset"],
   tooltip = L["Sets the whole look of the window, the buttons and the tooltips at once. You can change single colors afterwards."],
   choices = function()
     local out = {}
@@ -875,14 +905,14 @@ Options.define({
 })
 
 for _, o in ipairs(COLOR_OPTIONS) do
-  Options.define({ key = o[1], category = "colors", type = "color", label = o[2], tooltip = o[3],
+  Options.define({ key = o[1], category = "look", type = "color", label = o[2], tooltip = o[3],
     colors = o[4], apply = applyColors(o[4]),
     -- The preset dropdown shows "(edited)" from now on.
     picked = function() refreshPanel() end })
 end
 
 Options.define({
-  key = "resetColors", category = "colors", type = "button", label = L["Reset colors"],
+  key = "resetColors", category = "look", type = "button", label = L["Reset colors"],
   tooltip = L["Sets every color back to its default."],
   action = function()
     if not ns.db then return end

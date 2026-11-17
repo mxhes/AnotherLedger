@@ -10,10 +10,10 @@ h.test("Options: the built-in options are registered in panel order", function()
   local keys = {}
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "startHidden", "combatHide",
-    "keepSession", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
+    "keepSession", "countCrafted", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
     "goldDisplay", "coinIcons", "includeGold", "alertGold", "alertSound", "goalGold", "goalMinutes",
-    "countCrafted", "afkPause", "instanceSession", "zoneSession", "zoneSessionMinutes",
+    "sessionChat", "afkPause", "instanceSession", "zoneSession", "zoneSessionMinutes",
     "showCurrencies", "dailyFarm", "dailyFarmMinutes", "accountZones", "showTopFinds", "showFooterGold", "compactDrops",
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
@@ -206,7 +206,7 @@ h.test("Options.entries: a header per section, every option exactly once, in sec
       h.eq(e.category, section, e.key) -- listed under its own section
     end
   end
-  h.eq(headers, { "Window", "Prices", "Display", "Session and alerts", "Colors" })
+  h.eq(headers, { "Window", "Prices", "List", "Session", "History", "Look" })
   for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
 end)
 
@@ -221,7 +221,7 @@ h.test("Options.sections: one per category in order, every option once, in its o
       h.eq(spec.category, s.id, spec.key)
     end
   end
-  h.eq(ids, { "window", "prices", "display", "session", "colors" }) -- no empty Other
+  h.eq(ids, { "window", "prices", "display", "session", "history", "look" }) -- no empty Other
   for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
 end)
 
@@ -362,10 +362,10 @@ end)
 local function hex(key) return ns.Theme.colorToHex(ns.Theme.colors[key]) end
 local function presetHex(id, key) return ns.Theme.preset(id).colors[key] end
 
-h.test("colorPreset is the first Colors option, a dropdown of five", function()
+h.test("colorPreset is the first color option of Look, a dropdown of five", function()
   local first
   for _, s in ipairs(O.list()) do
-    if s.category == "colors" then first = s; break end
+    if s.category == "look" and s.key:match("^color") then first = s; break end
   end
   h.eq(first.key, "colorPreset")
   h.eq(first.type, "dropdown")

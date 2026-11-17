@@ -81,6 +81,7 @@ end)
 
 h.test("Compact.rateText: money per hour, a dash per hour without a rate", function()
   h.eq(ns.UI.Compact.rateText(nil), "\226\128\148/h")
+  h.eq(ns.UI.Compact.rateText(0), "\226\128\148/h") -- nothing earned yet
   h.eq(ns.UI.Compact.rateText(5000.4, ns.Money.format), ns.Money.format(5000) .. "/h")
 end)
 

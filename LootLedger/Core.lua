@@ -565,9 +565,25 @@ function Core.stopSession()
   refreshUI()
 end
 
+-- Pure. The chat line of a finished session (option "sessionChat"): its
+-- length, main place, worth (best value, plus the raw gold with
+-- `includeGold`) and gold per hour.
+function Core.sessionSummary(entry, includeGold)
+  local History = ns.History
+  local value = History.bestOf(entry) + (includeGold ~= false and entry.gold or 0)
+  local text = string.format(L["session saved: %s"], History.duration(entry.elapsed))
+  local place = History.place(entry)
+  if place then text = text .. L[" in "] .. place end
+  text = text .. ", " .. ns.Money.format(value)
+  local rate = History.perHour(value, entry.elapsed)
+  if rate then text = text .. " (" .. ns.Money.format(ns.Money.roundRate(rate)) .. L["/h"] .. ")" end
+  return text .. "."
+end
+
 -- Saves a finished session to the History tab (per character). Empty sessions
 -- and sessions with demo loot (fake, `session.demo`) are skipped; the History
--- option decides how many are kept.
+-- option decides how many are kept. With the option "sessionChat" a chat
+-- line sums the session up.
 function Core.archiveSession(session)
   local History = ns.History
   if not ns.chardb or not History or type(session) ~= "table" or session.demo then return end
@@ -577,6 +593,9 @@ function Core.archiveSession(session)
   if not entry then return end
   if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
   History.add(ns.chardb.history, entry, limit)
+  if ns.Util.setting("sessionChat", false) then
+    say(Core.sessionSummary(entry, ns.Util.setting("includeGold", true)))
+  end
 end
 
 -- ---------------------------------------------------------------------------
@@ -601,6 +620,8 @@ function Core.linkHistory()
   if type(ns.db.histories) ~= "table" then ns.db.histories = {} end
   ns.chardb.history = ns.History.adopt(ns.db.histories, key, ns.chardb.history)
   Core.character = key
+  -- The options panel lists which characters use a profile.
+  if ns.Profiles then ns.Profiles.noteUser(ns.db, key, ns.Profiles.active(ns.chardb)) end
 end
 
 local function historyList()
@@ -829,7 +850,7 @@ function events.ADDON_LOADED(name)
   if LootLedgerCharDB == nil and type(LootPriceCharDB) == "table" then
     LootLedgerCharDB, LootPriceCharDB = LootPriceCharDB, nil
   end
-  LootLedgerDB =ns.DB.applyDefaults(LootLedgerDB, ns.DB.defaults)
+  LootLedgerDB = ns.DB.applyDefaults(LootLedgerDB, ns.DB.defaults)
   LootLedgerCharDB = ns.DB.applyDefaults(LootLedgerCharDB, ns.DB.charDefaults)
   ns.DB.migrateAccount(LootLedgerDB)
   -- After migrateAccount: this drops the old settings table.
@@ -861,7 +882,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
 
   Core.linkHistory()
-  local keep = ns.db.settings.keepSession or isReloadingUi
+  local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
   local previous = ns.chardb.session
   ns.session = ns.Session.login(previous, keep, now)
   ns.chardb.session = ns.session

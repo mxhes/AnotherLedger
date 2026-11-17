@@ -18,8 +18,10 @@ ns.UI = ns.UI or {}
 --     watches = "bags",              -- data kind whose change redraws the tab
 --     invalidate = function() end,   -- optional: drop cached data of `watches`
 --     hasItem = function(itemID, ctx) return bool end, -- is the item listed?
---     sorts = { "ah", ... },         -- optional: the sorts the view offers
---     subtabs = { { key, label, build, hasItem?, sorts? }, ... }, -- optional:
+--     sorts = { "ah", ... },         -- optional: the sorts the view offers; the
+--                                    -- view then keeps its own sort (Tabs.sortSlot)
+--     defaultSort = "recent",        -- optional: its first sort (else sorts[1])
+--     subtabs = { { key, label, build, hasItem?, sorts?, defaultSort? }, ... }, -- optional:
 --       a second tab row while this tab is shown; the first is the default and
 --       the selected one builds the view (saved in db.subtab[key]).
 --   })
@@ -95,6 +97,17 @@ function Tabs.sorts(key, subKey)
   return viewSpec(key, subKey).sorts
 end
 
+-- Where the shown view keeps its sort: a view with its own sorts list keeps
+-- its own (db.sorts[slot], first `defaultSort`, else its first sort); the
+-- item lists (Session, Bags, Bank) share db.sort. Returns slot, default or nil.
+function Tabs.sortSlot(key, subKey)
+  local spec = viewSpec(key, subKey)
+  if type(spec.sorts) ~= "table" then return nil end
+  local sub = Tabs.subtab(key, subKey)
+  local slot = sub and (Tabs.get(key).key .. "/" .. sub.key) or Tabs.get(key).key
+  return slot, spec.defaultSort or spec.sorts[1]
+end
+
 -- Drops the cached data of every tab watching `what` ("bags", "bank", ...).
 function Tabs.invalidate(what)
   for _, key in ipairs(Tabs.KEYS) do
@@ -136,6 +149,12 @@ local function savedBank(ctx)
   return type(bank) == "table" and bank or nil
 end
 
+-- Whether the saved bank record comes from a real scan (the default record
+-- has scannedAt 0).
+local function wasScanned(bank)
+  return bank ~= nil and ns.Util.isNumber(bank.scannedAt) and bank.scannedAt > 0
+end
+
 Tabs.define({
   key = "bank", label = L["Bank"], title = L["Bank Ledger"],
   watches = "bank",
@@ -145,7 +164,7 @@ Tabs.define({
     local hours = ns.Util.setting("staleHours", nil)
     view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank and bank.scannedAt, hours and hours * 3600)
     view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
-      bank and L["Your bank is empty."] or L["Open your bank once to scan it."])
+      wasScanned(bank) and L["Your bank is empty."] or L["Not scanned yet."])
     return view
   end,
   hasItem = function(itemID, ctx)
@@ -185,26 +204,43 @@ local function zoneEntries(ctx)
   return entries
 end
 
+-- The item IDs of the Zones entries of the last build ({ [itemID] = true }).
+local zoneItemIDs
+
+local function itemIDsOf(entries)
+  local ids = {}
+  for _, e in ipairs(entries) do
+    if type(e) == "table" and type(e.items) == "table" then
+      for _, it in pairs(e.items) do
+        if type(it) == "table" and ns.Util.isNumber(it.id) then ids[it.id] = true end
+      end
+    end
+  end
+  return ids
+end
+
 Tabs.define({
   key = "history", label = L["History"], title = L["Session History"],
   build = buildSessions,
   hasItem = sessionsHasItem,
   subtabs = {
+    -- The sorts View.buildHistory knows; newest first until you pick another.
     { key = "sessions", label = L["Sessions"], build = buildSessions, hasItem = sessionsHasItem,
-      sorts = { "ah", "recent", "perHour" } }, -- the sorts View.buildHistory knows
+      sorts = { "ah", "recent", "perHour" }, defaultSort = "recent" },
     {
       key = "zones", label = L["Zones"],
       sorts = { "ah", "perHour", "vendor", "name", "recent" },
       build = function(ctx)
         local ledger = ctx.ledger
         if type(ledger.zoneOpen) ~= "table" then ledger.zoneOpen = {} end
-        return ns.View.buildZones(zoneEntries(ctx), ctx.opts, ledger.zoneOpen)
+        local entries = zoneEntries(ctx)
+        zoneItemIDs = itemIDsOf(entries)
+        return ns.View.buildZones(entries, ctx.opts, ledger.zoneOpen)
       end,
-      hasItem = function(itemID, ctx)
-        for _, e in ipairs(zoneEntries(ctx)) do
-          if type(e) == "table" and ns.Session.hasItemID(e.items, itemID) then return true end
-        end
-        return false
+      -- Item info arrives in bursts (hundreds at login): look the item up in
+      -- the IDs of the last build instead of gathering every History again.
+      hasItem = function(itemID)
+        return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
       end,
     },
   },

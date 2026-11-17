@@ -169,11 +169,37 @@ end
 
 local context = { opts = viewOpts, ledger = Ledger, zoneHistory = zoneHistory }
 
+-- The sort of the shown view: History Sessions and Zones keep their own
+-- (db.sorts, Tabs.sortSlot), the item lists share db.sort.
+function Ledger.currentSort()
+  local db = ns.db
+  if not db then return nil end
+  local slot, default = ns.UI.Tabs.sortSlot(Ledger.tab, Ledger.subtab)
+  if not slot then return db.sort end
+  local saved = type(db.sorts) == "table" and db.sorts[slot] or nil
+  for _, key in ipairs(ns.UI.Tabs.sorts(Ledger.tab, Ledger.subtab)) do
+    if key == saved then return saved end
+  end
+  return default
+end
+
+function Ledger.setSort(key)
+  local db = ns.db
+  if not db then return end
+  local slot = ns.UI.Tabs.sortSlot(Ledger.tab, Ledger.subtab)
+  if not slot then
+    db.sort = key
+    return
+  end
+  if type(db.sorts) ~= "table" then db.sorts = {} end
+  db.sorts[slot] = key
+end
+
 local function currentContext(now)
   local db = ns.db
   viewOpts.now = now
   viewOpts.filter = db and db.filter
-  viewOpts.sort = db and db.sort
+  viewOpts.sort = Ledger.currentSort()
   local setting = ns.Util.setting
   viewOpts.includeGold = setting("includeGold", true)
   viewOpts.showCurrencies = setting("showCurrencies", true)
@@ -682,7 +708,8 @@ function Ledger.init()
   end)
 
   attach(UI.FilterBar, function()
-    UI.FilterBar.attach(frame.header.row2, ns.db, Ledger.refresh)
+    UI.FilterBar.attach(frame.header.row2, ns.db, Ledger.refresh,
+      { get = Ledger.currentSort, set = Ledger.setSort })
   end)
 
   attach(UI.Tabs, function()

@@ -423,6 +423,14 @@ function History.itemCount(n)
   return tostring(n) .. L_ITEMS
 end
 
+local L_ONE_SESSION, L_SESSIONS = L["1 session"], L[" sessions"]
+
+-- "1 session", "12 sessions".
+function History.sessionCount(n)
+  if n == 1 then return L_ONE_SESSION end
+  return tostring(n) .. L_SESSIONS
+end
+
 local L_TODAY, L_YESTERDAY = L["Today"], L["Yesterday"]
 local WEEKDAYS = { L["Sun"], L["Mon"], L["Tue"], L["Wed"], L["Thu"], L["Fri"], L["Sat"] }
 -- The date of an older session (the German client writes 15.11.2026).

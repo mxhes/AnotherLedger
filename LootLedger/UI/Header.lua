@@ -150,6 +150,13 @@ function Header.attach(row, handlers)
   clockButton:SetScript("OnLeave", W.hideTooltip)
   header.pausedText, header.clockButton = paused, clockButton
 
+  -- Tabs without the session controls (Bags, Bank, History) use the room for
+  -- a short fact about their list (view.headerInfo: item or session count).
+  local info = W.text(row, T.fonts.small, T.colors.hint, "RIGHT")
+  info:SetPoint("RIGHT", modeButton, "LEFT", -gap * 3, 0)
+  info:Hide()
+  header.info = info
+
   -- Shows the controls for the mode, the tab and the running state.
   header.timerAnchor = "toggle"
   function header:Apply()
@@ -168,6 +175,7 @@ function Header.attach(row, handlers)
     end
     self.modeButton:SetGlyph(compact and "full" or "compact")
     self.timer:SetShown(compact or self.sessionShown)
+    self.info:SetShown(not compact and not self.sessionShown and (self.infoText or "") ~= "")
     self.toggle:SetShown(not compact and self.sessionShown)
     self.reset:SetShown(not compact and self.sessionShown)
     -- Stopped: compact shows the red Paused marker next to a dimmed clock; the
@@ -204,13 +212,23 @@ function Header.attach(row, handlers)
     self:Apply()
   end
 
-  -- Ledger part: the clock is the same work on a full refresh and on a tick.
+  function header:SetInfo(text)
+    self.infoText = text
+    self.info:SetText(text or "")
+    self:Apply()
+  end
+
+  -- Ledger part: the clock is the same work on a full refresh and on a tick;
+  -- the info text only changes with a full refresh.
   local part = {}
-  function part:Update(_, session, now)
+  function part:Tick(_, session, now)
     header:SetElapsed(ns.Session.elapsed(session, now))
     header:SetRunning(session.running)
   end
-  part.Tick = part.Update
+  function part:Update(view, session, now)
+    self:Tick(view, session, now)
+    header:SetInfo(type(view) == "table" and view.headerInfo or nil)
+  end
   -- Font outline: the clock box grows with the glyphs (Fonts.applySizes).
   function part:Relayout() header.timer:SetWidth(T.sizes.timerWidth) end
   if ns.UI.Ledger then ns.UI.Ledger.register(part) end

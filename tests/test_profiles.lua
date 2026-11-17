@@ -212,3 +212,28 @@ h.test("rename keeps other characters on the renamed profile", function()
   P.init(db, d)
   h.eq(P.active(d), "Farm")
 end)
+
+h.test("users: who uses a profile follows rename and delete", function()
+  local db, chardb = fresh()
+  P.create(db, "Farm")
+  P.noteUser(db, "Wren-Realm", "Farm")
+  P.noteUser(db, "Ada-Realm", "Farm")
+  P.noteUser(db, "Bob-Realm", "Default")
+  h.eq(P.users(db, "Farm"), { "Ada-Realm", "Wren-Realm" })
+  P.rename(db, chardb, "Farm", "Gold")
+  h.eq(P.users(db, "Farm"), {})
+  h.eq(P.users(db, "Gold"), { "Ada-Realm", "Wren-Realm" })
+  P.delete(db, chardb, "Gold")
+  h.eq(P.users(db, "Default"), { "Ada-Realm", "Bob-Realm", "Wren-Realm" })
+  P.noteUser(db, nil, "Default") -- unknown character: nothing noted
+  h.eq(#P.users(db, "Default"), 3)
+end)
+
+h.test("the profile tooltip lists its characters", function()
+  local db, chardb = fresh()
+  ns.db, ns.chardb = db, chardb
+  P.noteUser(db, "Wren-Realm", "Default")
+  local text = ns.Tooltip.text(O.tooltip(O.spec("profile")))
+  h.eq(text:find("Used by: Wren-Realm", 1, true) ~= nil, true)
+  ns.db, ns.chardb = nil, nil
+end)

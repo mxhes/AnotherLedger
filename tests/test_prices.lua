@@ -92,7 +92,7 @@ end)
 h.test("Prices formatAge/isStale", function()
   h.eq(P.formatAge(30), "1m"); h.eq(P.formatAge(120), "2m")
   h.eq(P.formatAge(14 * 3600), "14h"); h.eq(P.formatAge(3 * 86400), "3d")
-  h.eq(P.isStale(43200), false); h.eq(P.isStale(43201), true)
+  h.eq(P.isStale(43199), false); h.eq(P.isStale(43200), true) -- from 12 h on, like the bank note
 end)
 
 local function one(cache, price, t, key)

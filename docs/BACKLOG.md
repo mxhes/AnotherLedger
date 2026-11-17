@@ -41,3 +41,6 @@ tooltip, keybindings, scroll memory per tab, quality presets, clear-filter
 hint, account-wide Zones, undo for deleted sessions, session and Zones CSV
 export. Later: merging History sessions (with undo), session per zone, the
 gold per hour graph, the keep list (kept / sellable in Bags and Bank).
+From the second review: separate sorts for History Sessions and Zones, the
+History footer, header counts, a movable options window, the session summary
+in chat and "Used by" for profiles.

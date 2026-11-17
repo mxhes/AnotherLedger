@@ -87,12 +87,10 @@ function Summary.notesText(view)
 end
 
 -- Which rows, columns and lines the table shows for `view`, and its height.
--- History and Zones (view.history) have no footer: nothing shows, height 0.
+-- History and Zones show the same table as the Session tab: the listed
+-- sessions (or places) added up, with rates over their recorded time.
 function Summary.tableLayout(view)
   view = view or NONE
-  if view.history then
-    return { rows = {}, rates = false, titles = false, notes = false, height = 0 }
-  end
   local s = ns.Theme.sizes
   local inventory = view.kind == "inventory"
   local layout = { rates = not inventory, titles = not inventory }

@@ -46,9 +46,10 @@ function Compact.requiredHeight()
     + S.compactDropsTop + (MAX_DROPS + 1) * S.compactRowHeight + S.compactGap
 end
 
--- Pure. The big number: gold per hour, or an em dash under a minute.
+-- Pure. The big number: gold per hour, or an em dash under a minute and
+-- while nothing has earned money yet (a bare "0/h" reads like a broken count).
 function Compact.rateText(perHour, formatMoney)
-  if perHour == nil then return DASH .. L_PER_HOUR end
+  if perHour == nil or perHour <= 0 then return DASH .. L_PER_HOUR end
   return (formatMoney or ns.Money.formatColored)(math.floor(perHour + 0.5)) .. L_PER_HOUR
 end
 

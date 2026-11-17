@@ -44,12 +44,12 @@ installed.
 Open it with `/ll`, the minimap button or a data broker display (Titan Panel,
 ElvUI, ...). It has two layouts; switch with the **arrow button** next to the
 gear, a double-click on the title, or `/ll compact`. Each layout keeps its own
-size.
+size; the corner nearest to the screen edge stays where it is when you switch.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`), the last four
 drops with their value and source tag (framed, as in the list), and the Daily
-farm line. Hover the gold per
+farm line. Until the session earns something the rate shows `—/h`. Hover the gold per
 hour for the breakdown: time, items, raw gold, total, the best find, how far
 the goal is and, after a few minutes, a small graph of your gold per hour over
 the session (one bar per stretch of clock time) to see when a spot dries up.
@@ -61,12 +61,15 @@ clock is stopped).
 
 - **Header**: the session clock (red while stopped), **Start / Stop**,
   **Reset**, the layout arrow, the gear (options) and close. While the clock
-  is stopped, loot and gold are not counted; the chat says so once.
+  is stopped, loot and gold are not counted; the chat says so once. On Bags
+  and Bank the header shows how many items are listed, on History how many
+  sessions.
 - **Filter bar**: quality (the button shows how many are shown, e.g.
   `Quality 6/8`; the menu starts with one-click choices such as `Uncommon and
   better`), minimum value in gold, text search and the sort (Value, Vendor,
   Name, Recent). Filters are remembered; the small x next to the sort clears
-  them all.
+  them all. Session, Bags and Bank share one sort; History's Sessions and
+  Zones each keep their own (Sessions start newest first).
 - **Daily strip**: today's best farm (see below).
 - **Tabs**: Session, Bags, Bank and History (below).
 - **List**: one row per item: icon, name and quantity, and on the right its
@@ -86,8 +89,9 @@ clock is stopped).
 - **Footer**: the value and gold per hour of your **Items**, the **Raw gold**
   you looted (creatures, containers, group shares, quest rewards) and the
   **Total**. Hover it for vendor / AH / best totals. With a session goal, the
-  line under the table says how far you are (`Goal 62%`). History and Zones
-  have no footer; their list runs to the bottom of the window.
+  line under the table says how far you are (`Goal 62%`). On History and
+  Zones the footer adds up the listed sessions or places, with gold per hour
+  over their recorded time.
 - **Top finds**: the three most valuable finds of the session.
 
 Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options),
@@ -106,10 +110,11 @@ row and price. Currencies are listed after the items.
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
   for all characters; **Kept items** in the options lists it.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
-  visit the banker once; after that the tab shows the last scan and its age.
+  visit the banker once (until then the list says `Not scanned yet.`); after
+  that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
   started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your note,
-  its length, main place and item count, and its value (with the raw gold,
+  its length, item count and main place, and its value (with the raw gold,
   unless **Raw gold in Total** is off). A session is saved when you reset it, when a new
   login starts a fresh one, or (option) when you enter or leave a dungeon. A
   session keeps the prices of the day it was saved, so its value doesn't change
@@ -152,7 +157,8 @@ value comes mostly from items that sell poorly is marked `slow selling`.
 
 Open them with the gear, a right-click on the minimap button, or Esc >
 Options > AddOns > LootLedger. Hover any option for what it does and its
-default. Changes apply at once. **Opacity** and **Brightness** apply to the
+default. Changes apply at once. Drag the options window to move it; it opens
+there from then on (until then, next to the ledger). **Opacity** and **Brightness** apply to the
 options window as well. **Lock window** also hides the resize grip;
 with **Snap to grid** the window snaps onto the lines of the Edit Mode grid
 when you drop it close to one;
@@ -162,9 +168,10 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
-| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Zones: all characters, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot, Font, Font outline, Font shadow, List text, Totals text, Section titles |
-| Session and alerts | Keep session, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Crafted and bought, Pause when AFK, Session per instance, Session per zone, Zone change delay, Export History, Clear History, History kept |
-| Colors | Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
+| List | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Session per instance, Session per zone, Zone change delay |
+| History | Daily farm, Daily farm: min. time, Zones: all characters, Export History, Clear History, History kept |
+| Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Export profile, Import profile |
 
 **Color preset** changes the whole look at once: the window, the lines, the
@@ -182,10 +189,14 @@ window changes while you pick, Cancel puts the old color back); right-click it
 for the preset's color. **Reset colors** goes back to the LootLedger preset.
 Tooltips keep the game's dark tooltip on every preset.
 
+**Session summary in chat** writes one line whenever a session is saved to
+History: its length, main place, worth and gold per hour. **History kept**
+counts per character and applies to all of them.
+
 **Profiles**: every option is part of a profile, except **History kept**,
 **Zones: all characters** and **Minimap button**, which count for the whole
 account. Each character picks its own profile; new characters use
-**Default**. **New profile** starts from the defaults, **Copy profile** from
+**Default**. Hover **Profile** to see which characters use the chosen one. **New profile** starts from the defaults, **Copy profile** from
 the current one; Default can't be renamed or deleted. **Export profile** shows
 the profile as one line of text to copy into a chat or a file; **Import
 profile** opens a box to paste such a line, asks for a name (and before

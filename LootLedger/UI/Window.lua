@@ -522,8 +522,18 @@ function Window.setFarmRow(shown)
   applyHeaderHeight()
 end
 
+-- Pure. The CENTER offset (x, y) of a window resized from oldW x oldH to
+-- newW x newH so that the corner nearest to the screen edge stays put: a
+-- window in the left half keeps its left edge (else its right edge), one in
+-- the top half its top edge (else its bottom edge).
+function Window.keepCorner(x, y, oldW, oldH, newW, newH)
+  local dx, dy = (newW - oldW) / 2, (newH - oldH) / 2
+  return x <= 0 and x + dx or x - dx, y >= 0 and y - dy or y + dy
+end
+
 -- Switches the layout mode: the old mode's size is saved, the new mode's size
--- and minimum applied, the parts shown / hidden. Position stays.
+-- and minimum applied, the parts shown / hidden. The corner nearest to the
+-- screen edge stays where it is (Window.keepCorner).
 function Window.applyMode(mode)
   if not Window.MODES[mode] then mode = "full" end
   local frame = Window.frame
@@ -531,10 +541,20 @@ function Window.applyMode(mode)
     Window.mode = mode
     return
   end
-  if mode ~= Window.mode then save() end
+  -- The first call (login) only applies the saved layout: the saved center
+  -- is already that layout's own.
+  local changed = mode ~= Window.mode and Window.modeApplied == true
+  if changed then save() end
+  local oldW, oldH = frame:GetWidth(), frame:GetHeight()
   Window.mode = mode
   applyBounds(frame)
-  frame:SetSize(modeSize(frame))
+  local newW, newH = modeSize(frame)
+  frame:SetSize(newW, newH)
+  local x, y = centerOffset(frame)
+  if changed and x then
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER", Window.keepCorner(x, y, oldW, oldH, newW, newH))
+  end
   local parts = Window.modeParts(mode)
   local full = mode == "full"
   local h = frame.header
@@ -549,6 +569,7 @@ function Window.applyMode(mode)
   applyHeaderHeight()
   ensureOnScreen(frame)
   save()
+  Window.modeApplied = true
 end
 
 function Window.setTitle(text)

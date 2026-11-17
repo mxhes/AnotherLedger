@@ -84,6 +84,16 @@ h.test("Window.modeParts: compact shows only the compact body", function()
   h.eq(W.modeParts("nonsense"), full)
 end)
 
+h.test("Window.keepCorner: the corner nearest the screen edge stays put", function()
+  local keep = ns.UI.Window.keepCorner
+  -- top left: 400 x 400 at (-500, 300) -> 260 x 200 keeps left edge -700 and top edge 500
+  h.eq({ keep(-500, 300, 400, 400, 260, 200) }, { -570, 400 })
+  -- bottom right keeps the right and bottom edges
+  h.eq({ keep(500, -300, 400, 400, 260, 200) }, { 570, -400 })
+  -- back again restores the old center
+  h.eq({ keep(-570, 400, 260, 200, 400, 400) }, { -500, 300 })
+end)
+
 h.test("Window.headerHeight: compact is the title row only", function()
   local W, S = ns.UI.Window, ns.Theme.sizes
   h.eq(W.headerHeight(true, true, "compact"), S.headerRowHeight)

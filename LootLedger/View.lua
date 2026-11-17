@@ -342,7 +342,9 @@ function View.buildInventory(items, opts)
     end
   end
   if any then totals.kept, totals.sellable = keptValue, totals.best - keptValue end
-  return { rows = rows, top = {}, totals = totals, kind = "inventory", empty = View.emptyText(rows, opts.filter) }
+  return { rows = rows, top = {}, totals = totals, kind = "inventory", empty = View.emptyText(rows, opts.filter),
+    -- The header's info text (right of the title): how many items are listed.
+    headerInfo = #rows > 0 and ns.History.itemCount(#rows) or nil }
 end
 
 local function perHour(amount, elapsed)
@@ -394,7 +396,7 @@ local savedFilter = {} -- its filter: the qualities only (reused)
 local SESSION_SORT = { ah = SORTS.ah, recent = SORTS.recent, perHour = SORTS.perHour }
 
 -- One History session row. Line 1: the start and the note ("+ Today 20:21 ·
--- Wingrest herbs"); line 2 (`detail`): length, main place and item count. Its
+-- Wingrest herbs"); line 2 (`detail`): length, item count and main place. Its
 -- amount is the best value of the items (without ignored ones) plus, with
 -- includeGold, the raw gold. The tooltip is built on hover (a function,
 -- ns.Tooltip.resolve). `totals` = { vendor, ah, best } of History.totals.
@@ -403,10 +405,11 @@ local function sessionRow(e, i, open, opts, totals)
   local dateFn = opts.shortDate or opts.formatDate
   local when = dateFn and dateFn(e.startedAt) or tostring(e.startedAt)
   local value = totals.best + (opts.includeGold ~= false and e.gold or 0)
-  local parts = { History.duration(e.elapsed) }
+  -- The place last: a narrow window cuts the line at its end, and a long
+  -- place name may lose its tail, the item count never.
+  local parts = { History.duration(e.elapsed), History.itemCount(totals.count) }
   local place = History.place(e)
   if place then parts[#parts + 1] = place end
-  parts[#parts + 1] = History.itemCount(totals.count)
   local note = History.note(e)
   local label = note and (when .. DETAIL_SEP .. note) or when
   local detail = detailText(parts)
@@ -431,7 +434,8 @@ end
 -- search looks at the start, length and place). The session at `openIndex`
 -- (if any) always shows, moves to the top and lists its items (and
 -- currencies) under it, filtered by quality and sorted by the item sort.
--- The totals add up the listed sessions, with rates over their summed length.
+-- The totals add up the listed sessions, with rates over their summed length;
+-- the header says how many sessions that is (view.headerInfo).
 function View.buildHistory(list, opts, openIndex)
   opts = opts or {}
   if type(list) ~= "table" then list = {} end
@@ -478,7 +482,8 @@ function View.buildHistory(list, opts, openIndex)
     if r ~= opened then rows[#rows + 1] = r end
   end
   local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true,
-    empty = View.emptyText(rows, filter, L_NO_HISTORY) }
+    empty = View.emptyText(rows, filter, L_NO_HISTORY),
+    headerInfo = #sessionRows > 0 and History.sessionCount(#sessionRows) or nil }
   addGold(view, gold, opts.includeGold)
   return View.applyRates(view, elapsed)
 end

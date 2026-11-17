@@ -5,7 +5,8 @@ local L = ns.L
 ns.UI = ns.UI or {}
 
 -- Header row 2: quality menu, minimum value (gold), search and sort. Edits
--- db.filter / db.sort in place and calls onChange() after every edit. Client-only
+-- db.filter in place, the sort through FilterBar.getSort / setSort (the shown
+-- view's sort, see Ledger.currentSort), and calls onChange() after every edit. Client-only
 -- widgets; every WoW global is touched inside functions only. The helpers up
 -- to "Menus" are pure.
 local FilterBar = {}
@@ -130,11 +131,31 @@ function FilterBar.sortLabel(key, sorts)
   return SORT_LABELS[key] or SORT_LABELS.ah
 end
 
+-- The sort of the shown view: the accessor given to attach, else db.sort.
+function FilterBar.getSort()
+  local access = FilterBar.sortAccess
+  if access then return access.get() end
+  return FilterBar.sortDb and FilterBar.sortDb.sort
+end
+
+function FilterBar.setSort(key)
+  local access = FilterBar.sortAccess
+  if access then
+    access.set(key)
+  elseif FilterBar.sortDb then
+    FilterBar.sortDb.sort = key
+  end
+end
+
+local function sortText()
+  return L_SORT_PREFIX .. FilterBar.sortLabel(FilterBar.getSort(), FilterBar.activeSorts)
+end
+
 -- The sorts the shown view offers (nil = FilterBar.SORTS); relabels the button.
 function FilterBar.setSorts(sorts)
   FilterBar.activeSorts = sorts
-  local button, db = FilterBar.sortButton, FilterBar.sortDb
-  if button and db then button:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, sorts)) end
+  local button = FilterBar.sortButton
+  if button and FilterBar.sortDb then button:SetText(sortText()) end
 end
 
 function FilterBar.isActive(db)
@@ -221,9 +242,11 @@ local function makeEdit(parent, hint, width)
   return e
 end
 
--- Called by Ledger.init with (header.row2, ns.db, Ledger.refresh).
-function FilterBar.attach(row, db, onChange)
+-- Called by Ledger.init with (header.row2, ns.db, Ledger.refresh, sortAccess);
+-- `sortAccess` = { get, set } of the shown view's sort (optional: db.sort).
+function FilterBar.attach(row, db, onChange, sortAccess)
   if FilterBar.instance then return FilterBar.instance end
+  FilterBar.sortDb, FilterBar.sortAccess = db, sortAccess
   local T = ns.Theme
   local makeButton = ns.UI.Widgets.button
   FilterBar.repair(db)
@@ -255,14 +278,14 @@ function FilterBar.attach(row, db, onChange)
   local minBox = makeEdit(row, L_MIN_HINT, widths().min)
   minBox:SetPoint("LEFT", quality, "RIGHT", gap + 4, 0)
 
-  local sort = makeButton(row, L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts), widths().sort)
+  local sort = makeButton(row, sortText(), widths().sort)
   sort:SetPoint("RIGHT", row, "RIGHT", 0, 0)
   sort:SetScript("OnClick", function()
-    db.sort = FilterBar.nextSort(db.sort, FilterBar.activeSorts)
-    sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts))
+    FilterBar.setSort(FilterBar.nextSort(FilterBar.getSort(), FilterBar.activeSorts))
+    sort:SetText(sortText())
     changed()
   end)
-  FilterBar.sortButton, FilterBar.sortDb = sort, db
+  FilterBar.sortButton = sort
 
   -- Clear button left of the sort, only while a filter is active; the search
   -- box stretches up to it (or to the sort while it is hidden).
@@ -330,7 +353,7 @@ function FilterBar.attach(row, db, onChange)
     end
     minBox:RefreshHint()
     search:RefreshHint()
-    sort:SetText(L_SORT_PREFIX .. FilterBar.sortLabel(db.sort, FilterBar.activeSorts))
+    sort:SetText(sortText())
     local active = FilterBar.isActive(db)
     underline:SetShown(active)
     clear:SetShown(active)

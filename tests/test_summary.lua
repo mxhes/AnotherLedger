@@ -155,13 +155,14 @@ h.test("table worst case still fits the minimum width with coin icons", function
   assert(ok, err)
 end)
 
-h.test("tableLayout: History and Zones have no footer", function()
+h.test("tableLayout: History and Zones show the session table", function()
   for _, kind in ipairs({ "history", "zones" }) do
     local l = S.tableLayout({ kind = kind, history = true, totals = { unpriced = 2, filtered = true } })
-    h.eq(l.height, 0, kind)
-    h.eq(l.rows, {}, kind)
-    h.eq(l.titles, false, kind)
-    h.eq(l.notes, false, kind)
+    h.eq(l.rows, { "items", "gold", "total" }, kind)
+    h.eq(l.titles, true, kind)
+    h.eq(l.rates, true, kind)
+    h.eq(l.notes, true, kind)
+    h.eq(l.height > 0, true, kind)
   end
 end)
 

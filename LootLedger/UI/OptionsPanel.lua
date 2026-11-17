@@ -108,7 +108,7 @@ function Panel.WIDGETS.number(block, spec)
   title:SetText(spec.label)
 
   local box = inputBox(block, sizes().numberBox)
-  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -sizes().controlTop)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -sizes().controlTop)
   box:SetMaxLetters(10)
 
   -- Unlimited shows as an empty box.
@@ -166,10 +166,9 @@ function Panel.WIDGETS.text(block, spec)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, 0)
   title:SetText(spec.label)
 
-  local top = sizes().controlTop
-  local box = inputBox(block, sizes().numberBox)
-  box:SetPoint("TOPLEFT", block, "TOPLEFT", 6, -top)
-  box:SetPoint("TOPRIGHT", block, "TOPRIGHT", -4, -top)
+  -- As wide as the dropdowns and buttons, not the whole column.
+  local box = inputBox(block, sizes().control)
+  box:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -sizes().controlTop)
   box:SetMaxLetters(200)
 
   local function show(value) box:SetText(tostring(value)) end
@@ -389,6 +388,16 @@ local function build()
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)
   frame:EnableMouse(true)
+  -- Dragging the panel moves it; the place is kept (Panel.savePosition) and
+  -- used from then on instead of the spot next to the ledger window.
+  frame:SetMovable(true)
+  frame:RegisterForDrag("LeftButton")
+  frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+  frame:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    if self.SetUserPlaced then self:SetUserPlaced(false) end
+    Panel.savePosition(self)
+  end)
   local tabbed = Panel.buildTabbed(frame, pad, pad + O.titleHeight)
   frame.tabbed = tabbed
   -- Wider than the two columns when the tab row needs it (six tabs, German).
@@ -432,7 +441,26 @@ function Panel.refreshAll()
   end
 end
 
--- Opens the panel next to the ledger window, or closes it.
+-- Remembers where the panel was dragged to (db.optionsWindow, CENTER offset
+-- from the screen center).
+function Panel.savePosition(frame)
+  if not ns.db then return end
+  local fx, fy = frame:GetCenter()
+  local ux, uy = UIParent:GetCenter()
+  if not (fx and ux) then return end
+  ns.db.optionsWindow = { x = fx - ux, y = fy - uy }
+end
+
+-- Pure. Where the panel opens: { x, y } (CENTER offset) once it was dragged,
+-- else nil (next to the ledger window).
+function Panel.savedPosition(db)
+  local p = type(db) == "table" and db.optionsWindow
+  if type(p) == "table" and ns.Util.isNumber(p.x) and ns.Util.isNumber(p.y) then return p end
+  return nil
+end
+
+-- Opens the panel where it was dragged to (else next to the ledger window),
+-- or closes it.
 function Panel.toggle()
   if not ns.db then return end
   if not Panel.frame then Panel.frame = build() end
@@ -441,9 +469,12 @@ function Panel.toggle()
     frame:Hide()
     return
   end
+  local saved = Panel.savedPosition(ns.db)
   local anchor = ns.UI.Window and ns.UI.Window.frame
   frame:ClearAllPoints()
-  if anchor then
+  if saved then
+    frame:SetPoint("CENTER", UIParent, "CENTER", saved.x, saved.y)
+  elseif anchor then
     frame:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 4, 0)
   else
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)

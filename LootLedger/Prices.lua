@@ -28,8 +28,9 @@ end
 
 Prices.formatAge = ns.Util.shortAge
 
+-- Old from STALE_AFTER on (the Bank tab's scan note uses the same rule).
 function Prices.isStale(seconds)
-  return seconds > Prices.STALE_AFTER
+  return seconds >= Prices.STALE_AFTER
 end
 
 -- Drops cached prices last seen more than `maxAge` seconds ago, unusable

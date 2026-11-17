@@ -141,6 +141,9 @@ function Profiles.rename(db, chardb, old, new)
   db.renamed[key] = valid
   db.renamed[valid] = nil
   if type(chardb) == "table" and chardb.profile == key then chardb.profile = valid end
+  for character, used in pairs(type(db.profileUsers) == "table" and db.profileUsers or {}) do
+    if used == key then db.profileUsers[character] = valid end
+  end
   return true
 end
 
@@ -156,6 +159,9 @@ function Profiles.delete(db, chardb, name)
     end
   end
   if type(chardb) == "table" and chardb.profile == key then chardb.profile = Profiles.DEFAULT end
+  for character, used in pairs(type(db.profileUsers) == "table" and db.profileUsers or {}) do
+    if used == key then db.profileUsers[character] = Profiles.DEFAULT end
+  end
   if wasActive then Profiles.activate(db, chardb, Profiles.DEFAULT) end
   return true
 end
@@ -168,6 +174,26 @@ function Profiles.activate(db, chardb, name)
   if type(chardb) == "table" then chardb.profile = key end
   point(db, key)
   if ns.Options and ns.Options.applyAll then ns.Options.applyAll(db) end
+end
+
+-- Which character uses which profile, for the panel ("Used by: ..."):
+-- LootLedgerDB.profileUsers = { ["Name-Realm"] = profile name }. Each
+-- character notes itself at login and when it switches; rename and delete
+-- keep the map current.
+function Profiles.noteUser(db, character, name)
+  if type(db) ~= "table" or type(character) ~= "string" or type(name) ~= "string" then return end
+  if type(db.profileUsers) ~= "table" then db.profileUsers = {} end
+  db.profileUsers[character] = name
+end
+
+-- The characters that use profile `name`, sorted.
+function Profiles.users(db, name)
+  local out = {}
+  for character, used in pairs(type(db) == "table" and type(db.profileUsers) == "table" and db.profileUsers or {}) do
+    if used == name then out[#out + 1] = character end
+  end
+  table.sort(out)
+  return out
 end
 
 -- ---------------------------------------------------------------------------
@@ -323,7 +349,17 @@ define({
     return out
   end,
   get = current,
-  store = function(v) if ns.db then Profiles.activate(ns.db, ns.chardb, v) end end,
+  store = function(v)
+    if not ns.db then return end
+    Profiles.activate(ns.db, ns.chardb, v)
+    Profiles.noteUser(ns.db, ns.Core and ns.Core.character, current())
+  end,
+  -- The tooltip lists the characters that use the chosen profile.
+  tooltipExtra = function()
+    local users = ns.db and Profiles.users(ns.db, current()) or {}
+    if #users == 0 then return nil end
+    return L["Used by: "] .. table.concat(users, ", ")
+  end,
   picked = refreshPanel,
 })
 

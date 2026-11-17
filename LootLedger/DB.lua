@@ -59,6 +59,8 @@ DB.defaults = {
     soldMedium = 10,
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
+    -- A chat line with the length, place and worth of each saved session.
+    sessionChat = false,
     instanceSession = false,
     -- A new session per zone, after this many minutes in the new zone.
     zoneSession = false,
@@ -107,7 +109,9 @@ DB.defaults = {
     minValue = 0,
     search = "",
   },
-  sort = "ah",
+  sort = "ah", -- sort of the item lists (Session, Bags, Bank)
+  -- Views with their own sort (History Sessions / Zones): { ["history/zones"] = "perHour" }.
+  sorts = {},
   tab = "session", -- last shown tab: session / bags / bank / history
   subtab = {}, -- last shown sub-tab per tab: { history = "sessions" / "zones" }
   -- LibDBIcon's saved state (hide, minimapPos) when that library draws the

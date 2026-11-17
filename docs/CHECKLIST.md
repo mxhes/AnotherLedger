@@ -1,7 +1,7 @@
 # LootLedger checklist
 
 What still has to be confirmed in the Forever client, and the release steps.
-Open: settings profiles and color presets (2026-11-17), below.
+Open: settings profiles, color presets and the review fixes (2026-11-17), below.
 
 Code that relies on an unconfirmed client API carries an
 `UNVERIFIED (check in client)` comment; add a line here whenever you add one,
@@ -19,8 +19,17 @@ and remove both once it is confirmed.
   text reads on the tan (the dark-text version smeared under the outline).
 - Rare and epic items now use the game's exact colors (darker blue and purple
   than before): still readable on the dark presets.
-- Options window: all six tabs fit (also in German) and the window is wider
-  only when needed.
+- Options window: all seven tabs (Window, Prices, List, Session, History,
+  Look, Profiles) fit, also in German, and the window is wider only when
+  needed. Text and number boxes line up with the dropdowns. Dragging it on an
+  empty spot moves it; it reopens there, also after a /reload.
+- Review fixes (2026-11-17): the Bank tab says "Not scanned yet." before the
+  first visit; switching full / compact keeps the corner nearest the screen
+  edge in place (try top left and bottom right); History opens newest first
+  and its sort no longer changes the Session sort; History and Zones show the
+  footer; Bags / Bank / History show their count in the header without
+  covering the title; Hover Profile lists the characters (log in on a second
+  character first); Session summary in chat prints on Reset.
 - Profiles: switch, New, Copy, Rename, Delete (with the popup), and after a
   /reload and a relog the character keeps its profile; a second character
   starts on Default.
