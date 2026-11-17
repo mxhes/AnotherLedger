@@ -76,7 +76,10 @@ Each of these is one call in one place; the UI never names them.
   `accountZones`, `minimapButton`); `get` / `store` functions keep the value
   elsewhere (the profile choice) and `Options.applyAll` skips such an option;
   `picked(db, value)` runs only on a choice in the panel (`Options.pick`), not
-  at login (the color preset writes the single colors there). A new kind of control is one factory in
+  at login (the color preset writes the single colors there).
+  `intercept(db, value)` runs in `Options.pick` first; `true` sets nothing
+  (TSM price's "Custom..." entry, `Options.CUSTOM`, opens a text box). A
+  dropdown with `free = true` also keeps any typed string. A new kind of control is one factory in
   `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its height in `Options.HEIGHTS`.
   The panel's column width, gaps and control sizes are `Theme.options`.
 - **Price source**: a file in `Sources/` (in the `.toc` after

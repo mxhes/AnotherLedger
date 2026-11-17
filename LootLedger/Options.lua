@@ -106,6 +106,9 @@ function Options.spec(key)
   return Options.byKey[key]
 end
 
+-- The value of a "Custom..." dropdown entry; never stored.
+Options.CUSTOM = "\1custom"
+
 -- The choices of a dropdown option; a function is asked each time, so a list
 -- that grows later (price sources) is always current.
 function Options.choices(spec)
@@ -146,8 +149,9 @@ function Options.normalize(spec, value)
       v = tonumber(string.format("%.6g", v))
     end
     return v
-  elseif spec.type == "text" then
-    if type(value) ~= "string" then return default end
+  elseif spec.type == "text" or (spec.type == "dropdown" and spec.free) then
+    -- A `free` dropdown also keeps any typed text (TSM price strings).
+    if type(value) ~= "string" or value == Options.CUSTOM then return default end
     local trimmed = value:gsub("^%s+", ""):gsub("%s+$", "")
     if trimmed == "" then return default end
     return trimmed
@@ -217,10 +221,13 @@ end
 
 -- A player's choice in the options panel: Options.set, then the option's
 -- `picked(db, value)` (things only a fresh choice does, e.g. a color preset
--- writing the single colors; never run by Options.applyAll).
+-- writing the single colors; never run by Options.applyAll). An option's
+-- `intercept(db, value)` runs first; when it returns true nothing is set
+-- (the "Custom..." entry opening a text box).
 function Options.pick(db, key, value)
-  local v = Options.set(db, key, value)
   local spec = Options.byKey[key]
+  if spec and spec.intercept and spec.intercept(db, value) then return Options.get(db, key) end
+  local v = Options.set(db, key, value)
   if spec and spec.picked and type(db) == "table" then spec.picked(db, v) end
   return v
 end
@@ -373,10 +380,38 @@ Options.define({
   apply = refreshUI,
 })
 
--- The TSM price string, read live by Sources/TSM.lua (same as /ll tsm).
+-- The TSM price string, read live by Sources/TSM.lua (same as /ll tsm): the
+-- common TSM prices, a typed one as its own entry, and "Custom..." to type one.
+local TSM_PRICES = { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent", "DBHistorical" }
 Options.define({
-  key = "tsmSource", category = "prices", type = "text", label = L["TSM price"],
+  key = "tsmSource", category = "prices", type = "dropdown", free = true, label = L["TSM price"],
   tooltip = L["The TSM price used for AH values, e.g. DBMarket or DBMinBuyout. Same as /ll tsm."],
+  choices = function()
+    local list, known = {}, {}
+    for _, p in ipairs(TSM_PRICES) do
+      list[#list + 1] = { value = p, label = p }
+      known[p] = true
+    end
+    local t = ns.db and ns.db.settings
+    local current = type(t) == "table" and t.tsmSource or nil
+    if type(current) == "string" and current ~= "" and not known[current] and current ~= Options.CUSTOM then
+      list[#list + 1] = { value = current, label = current }
+    end
+    list[#list + 1] = { value = Options.CUSTOM, label = L["Custom..."] }
+    return list
+  end,
+  intercept = function(db, value)
+    if value ~= Options.CUSTOM then return false end
+    local W = ns.UI and ns.UI.Widgets
+    if W and W.prompt then
+      W.prompt(L["TSM price:"], L["OK"], Options.get(db, "tsmSource"), function(text)
+        Options.pick(db, "tsmSource", text)
+        local Panel = ns.UI.OptionsPanel
+        if Panel and Panel.refreshAll then Panel.refreshAll() end
+      end)
+    end
+    return true
+  end,
   apply = refreshUI,
 })
 

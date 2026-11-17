@@ -264,7 +264,7 @@ local function parse(spec, raw)
     return nil
   elseif spec.type == "slider" or spec.type == "number" then
     return tonumber(raw)
-  elseif spec.type == "dropdown" then
+  elseif spec.type == "dropdown" and not spec.free then
     for _, c in ipairs(ns.Options.choices(spec)) do
       if tostring(c.value) == raw then return c.value end
     end

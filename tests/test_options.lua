@@ -127,6 +127,40 @@ h.test("Options.normalize: text is trimmed and falls back when empty, tsmSource 
   h.eq(O.normalize(O.spec("alertGold"), -1), -1)
 end)
 
+h.test("Options: TSM price is a dropdown that keeps any typed price", function()
+  local t = O.spec("tsmSource")
+  h.eq(t.type, "dropdown")
+  h.eq(O.normalize(t, "  DBRecent "), "DBRecent")
+  h.eq(O.normalize(t, "first(DBMinBuyout, DBMarket)"), "first(DBMinBuyout, DBMarket)")
+  h.eq(O.normalize(t, ""), "DBMarket")
+  h.eq(O.normalize(t, 5), "DBMarket")
+  local saved = ns.db
+  ns.db = db({ tsmSource = "DBMarket" })
+  local values = {}
+  for _, c in ipairs(O.choices(t)) do values[#values + 1] = c.value end
+  h.eq(values, { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent", "DBHistorical", O.CUSTOM })
+  ns.db = db({ tsmSource = "max(DBMarket, 100g)" })
+  values = {}
+  for _, c in ipairs(O.choices(t)) do values[#values + 1] = c.value end
+  h.eq(values, { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent", "DBHistorical", "max(DBMarket, 100g)", O.CUSTOM })
+  h.eq(O.valueText(t, "max(DBMarket, 100g)"), "max(DBMarket, 100g)")
+  ns.db = saved
+end)
+
+h.test("Options.pick: Custom... asks for a TSM price and leaves the value until then", function()
+  local saved, savedUI = ns.db, ns.UI
+  local d = db({ tsmSource = "DBRecent" })
+  ns.db = d
+  local asked
+  ns.UI = { Widgets = { prompt = function(text, accept, initial, fn) asked = { initial = initial, fn = fn } end } }
+  h.eq(O.pick(d, "tsmSource", O.CUSTOM), "DBRecent")
+  h.eq(d.settings.tsmSource, "DBRecent")
+  h.eq(asked.initial, "DBRecent")
+  asked.fn("  min(DBMarket, DBRecent) ")
+  h.eq(d.settings.tsmSource, "min(DBMarket, DBRecent)")
+  ns.db, ns.UI = saved, savedUI
+end)
+
 h.test("Options: daily farm is on by default with a 20 minute minimum (5..120)", function()
   h.eq(O.get(db(), "dailyFarm"), true)
   h.eq(O.get(db(), "dailyFarmMinutes"), 20)

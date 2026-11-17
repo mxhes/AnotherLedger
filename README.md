@@ -250,7 +250,7 @@ clock.
 | `/ll compact` | switch between the compact and the full layout |
 | `/ll reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
 | `/ll keep on` / `off` | keep the session across logins |
-| `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` |
+| `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
 | `/ll export` | the History as CSV in a copy box |
 | `/ll export session`, `/ll export zones` | the session's items, or every Zones place, as CSV |
 | `/ll undo` | take back the last merge or delete in History (or the cleared History) |

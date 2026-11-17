@@ -443,4 +443,7 @@ ns.Locale.register("deDE", {
   ["If this character can"] = "Wenn dieser Charakter kann",
   ["Never"] = "Nie",
   [" (after 5% AH cut)"] = " (nach 5% AH-Gebühr)",
+  ["Custom..."] = "Eigener...",
+  ["TSM price:"] = "TSM-Preis:",
+  ["OK"] = "OK",
 })
