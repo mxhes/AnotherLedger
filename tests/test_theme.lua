@@ -113,6 +113,13 @@ h.test("text, coin and quality colors are readable on the dark panel", function(
   h.eq(contrast(mix, tint) >= 3, true, "divider")
 end)
 
+h.test("quality colors are Blizzard's", function()
+  local want = { [0] = "9d9d9d", "ffffff", "1eff00", "0070dd", "a335ee", "ff8000", "e6cc80", "00ccff" }
+  for q = 0, 7 do
+    h.eq(T.colorToHex({ T.qualityColor(q) }), want[q], "quality " .. q)
+  end
+end)
+
 h.test("coin colors are the game's", function()
   local function hex(c)
     return string.format("%02x%02x%02x", math.floor(c[1] * 255 + 0.5),

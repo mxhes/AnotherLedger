@@ -397,18 +397,20 @@ function Theme.readableOn(color, fill, dim)
   return dark and DARK or LIGHT
 end
 
--- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom: the familiar
--- game colors (rare and epic brightened because the in-game ones are too dark
--- on the dark panel).
+-- Item quality 0..5 (poor..legendary) plus 6 artifact, 7 heirloom: the game's
+-- exact colors. Fixed: no color preset changes them.
+local function rgb(hex)
+  return { tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 }
+end
 local QUALITY = {
-  [0] = { 0.62, 0.62, 0.62 }, -- 9d9d9d
-  [1] = { 1.00, 1.00, 1.00 }, -- ffffff
-  [2] = { 0.12, 1.00, 0.00 }, -- 1eff00
-  [3] = { 0.29, 0.61, 1.00 }, -- 4a9bff
-  [4] = { 0.76, 0.36, 1.00 }, -- c25bff
-  [5] = { 1.00, 0.50, 0.00 }, -- ff8000
-  [6] = { 0.90, 0.80, 0.50 }, -- e6cc80
-  [7] = { 0.00, 0.80, 1.00 }, -- 00ccff
+  [0] = rgb("9d9d9d"),
+  [1] = rgb("ffffff"),
+  [2] = rgb("1eff00"),
+  [3] = rgb("0070dd"),
+  [4] = rgb("a335ee"),
+  [5] = rgb("ff8000"),
+  [6] = rgb("e6cc80"),
+  [7] = rgb("00ccff"),
 }
 
 -- Returns r, g, b; an unknown quality gets the common (white) color.
