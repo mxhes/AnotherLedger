@@ -9,6 +9,9 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Daily farm: my level: `C_Map.GetMapLevels(mapID)` returns the map's
+  level range on Forever; with the option on, a place far below your level
+  drops out of the Daily strip (`UNVERIFIED` in `Core.lua`, `Core.levelFits`).
 - Pause in cities: `IsResting` and `PLAYER_UPDATE_RESTING` exist on Forever;
   entering a city freezes the clock (compact says Resting), loot still
   counts, leaving starts it again; a clock stopped by hand stays stopped

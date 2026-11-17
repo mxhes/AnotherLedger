@@ -816,6 +816,17 @@ function Core.instanceChanged(previous, current)
   return previous ~= current
 end
 
+-- Option "dailyFarmLevel": whether the player's `level` is inside the level
+-- range of map `mapID`; nil when unknown (no API, no range).
+-- UNVERIFIED (check in client) on Forever: C_Map.GetMapLevels.
+function Core.levelFits(env, mapID, level)
+  local C = env.C_Map
+  if not (type(C) == "table" and type(C.GetMapLevels) == "function" and num(mapID) and num(level)) then return nil end
+  local ok, low, high = pcall(C.GetMapLevels, mapID)
+  if not (ok and num(low) and num(high) and high > 0) then return nil end
+  return level >= low and level <= high
+end
+
 -- Option "minSessionMinutes": a session shorter than this continues instead
 -- of being saved on a split or at login (a manual Reset still saves it).
 -- Without `now` (a saved session at login) only its elapsedBase counts, so

@@ -444,6 +444,8 @@ ns.Locale.register("deDE", {
   ["Never"] = "Nie",
   [" (after 5% AH cut)"] = " (nach 5% AH-Gebühr)",
   ["Custom..."] = "Eigener...",
+  ["Daily farm: my level"] = "Tagesfarm: mein Level",
+  ["The Daily strip only picks places whose map is meant for your current level. Places without a known level range still count."] = "Die Tagesleiste wählt nur Orte, deren Karte für dein aktuelles Level gedacht ist. Orte ohne bekannten Levelbereich zählen weiter.",
   ["Monday"] = "Montag",
   ["Tuesday"] = "Dienstag",
   ["Wednesday"] = "Mittwoch",

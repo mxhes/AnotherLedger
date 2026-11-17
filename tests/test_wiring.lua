@@ -3057,3 +3057,21 @@ h.test("wiring: History Sessions shows day headings; a click folds one", functio
   h.eq(#Ledger.view.rows, 3)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: Daily farm: my level leaves out a place of another level at once", function()
+  local ctx = bootWithFarm({ 2022, 0.4, 0.6 })
+  local L, ns = ctx.ns.UI.Ledger, ctx.ns
+  local level = 70
+  ctx.env.UnitLevel = function() return level end
+  ctx.env.C_Map = ctx.env.C_Map or {}
+  ctx.env.C_Map.GetMapLevels = function(mapID) if mapID == 2022 then return 60, 70 end end
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest")
+  ns.Options.set(ns.db, "dailyFarmLevel", true)
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest") -- 70 fits 60-70
+  level = 80
+  L.refresh()
+  h.eq(L.view.dailyFarm, nil) -- the only place is below your level now
+  h.eq(ctx.errors, {})
+end)

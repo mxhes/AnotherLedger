@@ -47,6 +47,8 @@ DB.defaults = {
     -- Daily farm strip and the minimum recorded time of a place it may pick.
     dailyFarm = true,
     dailyFarmMinutes = 20,
+    -- The Daily farm only picks places whose map fits your level.
+    dailyFarmLevel = false,
     -- Top finds block and the Raw gold row of the footer table.
     showTopFinds = true,
     showFooterGold = true,

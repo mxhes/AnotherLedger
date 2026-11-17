@@ -805,6 +805,26 @@ h.test("View.dailyFarm skips places under the minimum time, quest items and no-t
   h.eq(V.dailyFarm({ zentry({ [1] = 9 }, nil, { "Z" }) }, { lookup = zlookup }, 0), nil)
 end)
 
+h.test("View.dailyFarm with levelFits skips places of another level, keeps unknown ones", function()
+  local function entries(withPosA)
+    local b = zsub(1800, {}, 300)
+    b.pos = { [10] = { x = 0.5, y = 0.5, n = 1 } }
+    local a = zsub(3600, { [1] = 4 })
+    if withPosA then a.pos = { [20] = { x = 0.1, y = 0.1, n = 1 } } end
+    return { zentry({ [1] = 4 }, { Z = { subs = { A = a } }, Y = { subs = { B = b } } }) }
+  end
+  local fits = function(mapID) return mapID ~= 10 end
+  local f = V.dailyFarm(entries(true), { lookup = zlookup, levelFits = fits }, 1200)
+  h.eq(f.best.sub, "A")
+  h.eq(#f.runnersUp, 0)
+  -- a place without a position is kept
+  f = V.dailyFarm(entries(false), { lookup = zlookup, levelFits = function() return false end }, 1200)
+  h.eq(f.best.sub, "A")
+  -- unknown level range (nil): kept
+  f = V.dailyFarm(entries(true), { lookup = zlookup, levelFits = function() return nil end }, 1200)
+  h.eq(f.best.sub, "B")
+end)
+
 h.test("View.dailyFarm returns nil without qualifying places", function()
   h.eq(V.dailyFarm({}, { lookup = zlookup }, 1200), nil)
   h.eq(V.dailyFarm(farmEntries(), { lookup = zlookup }, 7200), nil)

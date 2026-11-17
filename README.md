@@ -154,6 +154,8 @@ your characters, like Zones) with the best gold per hour at today's prices, e.g.
 (Waking Shores)`. Only saved sessions count (so farming doesn't move today's
 pick), and a place needs 20 minutes of recorded time by default. A place whose
 value comes mostly from items that sell poorly is marked `slow selling`.
+With **Daily farm: my level** on, only places whose map is meant for your
+current level count (places without a known level range still do).
 
 - **Click**: sets a waypoint to where you looted there (TomTom, or the map pin).
 - **Shift-click**: opens History > Zones at that place (from the compact
@@ -179,7 +181,7 @@ anything that deletes History asks first.
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
-| History | Daily farm, Daily farm: min. time, Zones: all characters, Export History, Clear History, History kept |
+| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 

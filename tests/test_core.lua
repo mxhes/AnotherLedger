@@ -431,3 +431,12 @@ h.test("Core.isShort: under the minimum minutes, 0 = off", function()
   h.eq(Core.isShort({ elapsedBase = 60, running = true, runningSince = 5 }, nil, 2), true)
   h.eq(Core.isShort({ elapsedBase = 1800, running = false }, nil, 2), false)
 end)
+
+h.test("Core.levelFits: the map's level range against the player level", function()
+  local env = { C_Map = { GetMapLevels = function(mapID) if mapID == 7 then return 35, 45 end end } }
+  h.eq(Core.levelFits(env, 7, 42), true)
+  h.eq(Core.levelFits(env, 7, 50), false)
+  h.eq(Core.levelFits(env, 8, 42), nil) -- no range for that map
+  h.eq(Core.levelFits({}, 7, 42), nil)
+  h.eq(Core.levelFits(env, 7, nil), nil)
+end)

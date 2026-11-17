@@ -248,6 +248,7 @@ local function farmKey(listKey, minutes)
     tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)),
     tostring(setting("ahCut", nil)), tostring(setting("ahMinGain", nil)), tostring(setting("destroyMode", nil)),
     m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
+    tostring(setting("dailyFarmLevel", nil)), tostring(viewOpts.level),
   }, "|")
 end
 
@@ -257,6 +258,13 @@ local function dailyFarm(now)
   local history, listKey = ns.Core.zoneHistory()
   if type(history) ~= "table" then return nil end
   local minutes = setting("dailyFarmMinutes", 20)
+  -- Option "Daily farm: my level": places for the player's level only.
+  viewOpts.levelFits, viewOpts.level = nil, nil
+  if setting("dailyFarmLevel", false) and type(UnitLevel) == "function" then
+    local level = UnitLevel("player")
+    viewOpts.level = level
+    viewOpts.levelFits = function(mapID) return ns.Core.levelFits(_G, mapID, level) end
+  end
   local key = farmKey(listKey, minutes)
   if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
   local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)

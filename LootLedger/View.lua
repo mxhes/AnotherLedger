@@ -930,6 +930,7 @@ function View.dailyFarm(entries, opts, minSeconds)
   copyOpts(farmOpts, opts)
   farmOpts.filter, farmOpts.sort = nil, nil
   local withGold = opts.includeGold ~= false
+  local levelFits = type(opts.levelFits) == "function" and opts.levelFits or nil
 
   local places, rowsOf = {}, {}
   local zones = aggregateZones(entries, opts.isQuest)
@@ -942,9 +943,12 @@ function View.dailyFarm(entries, opts, minSeconds)
           local perHour = placePerHour(value, s.time)
           -- A place that earned nothing is never worth going to (and its row
           -- would not exist in Zones to open).
-          if perHour and value > 0 then
-            local p = { zone = zone, sub = sub, time = s.time, value = value, perHour = perHour,
-              pos = spotOf(s.pos) }
+          local pos = spotOf(s.pos)
+          -- Option "Daily farm: my level": a place whose map is for another
+          -- level is left out (no position or an unknown range: kept).
+          local fits = not (levelFits and pos) or levelFits(pos.mapID) ~= false
+          if perHour and value > 0 and fits then
+            local p = { zone = zone, sub = sub, time = s.time, value = value, perHour = perHour, pos = pos }
             places[#places + 1] = p
             rowsOf[p] = rows
           end

@@ -170,6 +170,10 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Daily farm level** (`dailyFarmLevel`): the Ledger passes
+  `opts.levelFits(mapID)` (`Core.levelFits` with `UnitLevel`) to
+  `View.dailyFarm`, which skips a place with a position whose map answers
+  `false`; the level is part of the farm cache key.
 - **History headings**: sorted by Recent, `View.buildHistory` puts a heading
   row (`isHeading`, `periodKey` from `History.period`: a day this week, else
   an ISO week via `History.isoWeek`) over the visible sessions of each

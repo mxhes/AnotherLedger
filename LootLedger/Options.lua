@@ -643,6 +643,13 @@ Options.define({
   min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
 })
 
+-- View.dailyFarm with opts.levelFits (Core.levelFits).
+Options.define({
+  key = "dailyFarmLevel", category = "history", type = "checkbox", label = L["Daily farm: my level"],
+  tooltip = L["The Daily strip only picks places whose map is meant for your current level. Places without a known level range still count."],
+  apply = refreshUI,
+})
+
 -- History Zones and the Daily farm across characters (Core.zoneHistory).
 Options.define({
   key = "accountZones", account = true, category = "history", type = "checkbox", label = L["Zones: all characters"],
