@@ -258,6 +258,8 @@ function Window.endDrag()
   frame:SetUserPlaced(false) -- db.window is the only position store
   snapFrame(frame)
   save()
+  -- Redraw so the source tags snap to whole screen pixels at the new place.
+  if ns.UI.Ledger and ns.UI.Ledger.refresh then ns.UI.Ledger.refresh() end
 end
 
 local function makeRow(parent, anchorTo, firstRow)

@@ -13,6 +13,40 @@ h.test("Widgets.buttonColors: bronze edge, gold on hover, dimmed when disabled",
   h.eq(W.buttonColors("unknown"), n)
 end)
 
+h.test("Widgets.pixelError: distance past the nearest whole pixel", function()
+  h.near(W.pixelError(10.3, 1), 0.3, 1e-9)
+  h.near(W.pixelError(10.7, 1), -0.3, 1e-9)
+  h.near(W.pixelError(3.4, 0.8), 0.2, 1e-9) -- 4 pixels of 0.8 = 3.2
+end)
+
+h.test("Widgets.pixels / snapPoint: whole screen pixels through PixelUtil, plain units without", function()
+  -- a region whose rect follows its last SetPoint offset
+  local region = { GetEffectiveScale = function() return 0.5 end }
+  function region:ClearAllPoints() self.pt = nil end
+  function region:SetPoint(point, rel, relPoint, x, y) self.pt = { point, rel, relPoint, x, y } end
+  function region:GetLeft() return 100.3 + self.pt[4] end
+  function region:GetTop() return 200.9 + self.pt[5] end
+  h.eq(W.pixelSize(region), nil)
+  h.eq(W.pixels(region, 1), 1) -- no PixelUtil: the units as they are
+  W.snapPoint(region, "LEFT", "rel", "RIGHT", 2, 0)
+  h.eq(region.pt, { "LEFT", "rel", "RIGHT", 2, 0 })
+  _G.PixelUtil = { GetPixelToUIUnitFactor = function() return 0.4 end } -- one pixel = 0.8 units
+  local ok, err = pcall(function()
+    h.near(W.pixelSize(region), 0.8, 1e-9)
+    h.near(W.pixels(region, 1), 0.8, 1e-9)
+    h.near(W.pixels(region, 1.7), 1.6, 1e-9) -- 2.125 pixels -> 2
+    h.near(W.pixels(region, 0.1), 0.8, 1e-9) -- at least one pixel
+    W.snapPoint(region, "LEFT", "rel", "RIGHT", 2, 0)
+    local left, top = region:GetLeft(), region:GetTop()
+    h.near(W.pixelError(left, 0.8), 0, 1e-9); h.near(W.pixelError(top, 0.8), 0, 1e-9)
+    h.eq(math.abs(region.pt[4] - 2) < 0.8 and math.abs(region.pt[5]) < 0.8, true)
+    -- a region without a usable scale keeps the plain units
+    h.eq(W.pixels({ GetEffectiveScale = function() return nil end }, 2), 2)
+  end)
+  _G.PixelUtil = nil
+  if not ok then error(err, 0) end
+end)
+
 h.test("Widgets.buttonColors: a warning button keeps its red tint in every state", function()
   for _, state in ipairs({ "normal", "hover", "disabled" }) do
     local c = W.buttonColors(state, true)

@@ -266,6 +266,24 @@ h.test("sourceBoxWidth: every box as wide as the widest tag, own text before mea
   h.eq(Rows.sourceBoxWidth(10, 20), 20 + 2 * S.rowTagPad)
 end)
 
+h.test("sourceBoxPixels: whole pixels, the letters centered", function()
+  local Rows, S = ns.UI.Rows, ns.Theme.sizes
+  -- 10 px font: 8 px letters in a 12 px box, 1 px edge + 1 px gap each side
+  h.eq(Rows.sourceBoxPixels(10), { height = 12, textTop = 1 })
+  -- 11.7 px font (the client screenshot): 9 px letters; 14 px left 1 px above
+  -- and 2 below, so the box grows to 15 for 2 and 2
+  local g = Rows.sourceBoxPixels(11.7)
+  h.eq(g.height, 15); h.eq(g.textTop, 2)
+  for _, px in ipairs({ 9, 10, 11.7, 12, 13.3, 14, 16 }) do
+    local b = Rows.sourceBoxPixels(px)
+    local letters = math.floor(px * S.rowTagCapRatio + 0.5)
+    h.eq((b.height - letters) % 2, 0)
+  end
+  h.eq(Rows.sourceBoxPixels(nil), nil)
+  -- the box stays clear of the row's top edge (and the separator above it)
+  h.eq(S.rowLineInset + 10 / 2 - Rows.sourceBoxPixels(10).height / 2 >= 1, true)
+end)
+
 h.test("rowText: the price per unit option shows one item of a stack", function()
   local row = { name = "Ore", quantity = 4, bestKind = "ah", value = 2000, ahEach = 500, ahTotal = 2000 }
   h.eq(R.rowText(row, ns.Money.format, false).amount, ns.Money.format(2000))

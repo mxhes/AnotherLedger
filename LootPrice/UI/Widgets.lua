@@ -102,6 +102,62 @@ function Widgets.line(parent, color, layer, alpha)
   return tex
 end
 
+-- Gives a line of Widgets.line another theme color (still recolored live).
+function Widgets.setLineColor(tex, color, alpha)
+  tint(tex, color, alpha)
+  tracked[tex] = { "line", color, alpha }
+end
+
+-- ---------------------------------------------------------------------------
+-- Whole screen pixels. One UI unit is 1.17 or 1.4 screen pixels at most UI
+-- scales, and frames start anywhere inside a pixel, so a thin line comes out
+-- 0, 1 or 2 px thick depending on where it lands. A region whose size AND
+-- position are whole pixels draws every edge exactly. Uses
+-- PixelUtil.GetPixelToUIUnitFactor and Region:GetLeft / GetTop right after
+-- SetPoint (both fine in the client); without them the plain UI units are used.
+
+local function effectiveScale(region)
+  local s = region.GetEffectiveScale and region:GetEffectiveScale()
+  return type(s) == "number" and s > 0 and s or nil
+end
+
+-- One screen pixel in `region`'s units, or nil when unknown.
+function Widgets.pixelSize(region)
+  local P = _G.PixelUtil
+  local scale = effectiveScale(region)
+  if not (scale and type(P) == "table" and type(P.GetPixelToUIUnitFactor) == "function") then return nil end
+  local factor = P.GetPixelToUIUnitFactor()
+  if type(factor) ~= "number" or factor <= 0 then return nil end
+  return factor / scale
+end
+
+-- Pure. How far `v` lies past the nearest whole pixel of size `p`.
+function Widgets.pixelError(v, p)
+  return v - math.floor(v / p + 0.5) * p
+end
+
+-- `units` UI units of `region` rounded to whole screen pixels, at least one.
+function Widgets.pixels(region, units)
+  units = units or 1
+  local p = Widgets.pixelSize(region)
+  if not p then return units end
+  return math.max(1, math.floor(units / p + 0.5)) * p
+end
+
+-- SetPoint, then moved by less than a pixel so the region's left and top edge
+-- sit on whole screen pixels (with a whole pixel size, so do the others). Run
+-- it again whenever the window moved.
+function Widgets.snapPoint(region, point, rel, relPoint, x, y)
+  region:ClearAllPoints()
+  region:SetPoint(point, rel, relPoint, x, y)
+  local p = Widgets.pixelSize(region)
+  if not p then return end
+  local left, top = region:GetLeft(), region:GetTop()
+  if type(left) ~= "number" or type(top) ~= "number" then return end
+  region:ClearAllPoints()
+  region:SetPoint(point, rel, relPoint, x - Widgets.pixelError(left, p), y - Widgets.pixelError(top, p))
+end
+
 -- ---------------------------------------------------------------------------
 -- Bronze dark buttons: one style for every button of the addon (dark fill,
 -- bronze edge, cream text; gold edge on hover, dimmed text when disabled; a

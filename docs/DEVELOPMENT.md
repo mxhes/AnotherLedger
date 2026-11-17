@@ -254,9 +254,24 @@ Each of these is one call in one place; the UI never names them.
   (`LootPrice<Key>`) in `Ledger.init`; typeface and px sizes change live and
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
   (`Theme.fontFiles`). On retail `SetFont` returns nothing, so only an explicit
-  `false` means a font cannot load. Every framed source tag box is as wide as
-  the widest tag (`Rows.sourceBoxWidth`, from `list.measured.source`), so the
-  boxes line up and each text sits centered.
+  `false` means a font cannot load.
+- **Source tags** (Vendor / Auction / Destroy): one widget for the list rows
+  and the compact drops, `Rows.sourceTag` / `Rows.setSourceTag`. Four edge
+  textures in the source color (tracked, so a color option recolors them
+  live). A thin line drawn from a fractional screen position comes out 0, 1
+  or 2 px thick, so everything about the box is whole screen pixels: its size,
+  edge thickness (`rowTagEdge`) and text offset are computed in pixels
+  (`Widgets.pixelSize`, from `PixelUtil.GetPixelToUIUnitFactor`), and
+  `Widgets.snapPoint` anchors it and then moves it by less than a pixel onto
+  the grid (read back with `GetLeft` / `GetTop`). The window moves the boxes
+  off the grid again, so `Window.endDrag` redraws. Height
+  (`Rows.sourceBoxPixels`): font + `rowTagPadY` px above and below, one pixel
+  more when the letters (`rowTagCapRatio` of the font) would sit half a pixel
+  off; the text line sits at a whole pixel offset from the top. Width: the
+  widest tag (`Rows.sourceBoxWidth`, from `list.measured.source`, also kept as
+  `Rows.widestSource` for the compact drops), text centered.
+  `rowLineInset` keeps the box clear of the separator above the row; the
+  separators are whole pixels thick too.
 - **Snap to grid** (`snapToGrid`): `Window.endDrag` runs the pure
   `Window.snapToGrid` with the Edit Mode grid spacing (lines through the screen
   center and every spacing from it, in UIParent units, converted to the

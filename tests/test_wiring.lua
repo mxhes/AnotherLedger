@@ -2104,6 +2104,11 @@ h.test("wiring: /lp compact switches the window to the compact layout and back",
   local C = ctx.ns.UI.Compact
   h.eq(C.drops[1].name:GetText():find("x3", 1, true) ~= nil, true)
   h.eq(C.drops[1].frame:IsShown(), true); h.eq(C.drops[2].frame:IsShown(), false)
+  -- the drop's source tag is framed like a list row's, as wide as the widest tag
+  local tag = C.drops[1].tag
+  h.eq(#tag.edges, 4); h.eq(tag:IsShown(), true)
+  h.eq(tag.text:GetText(), ctx.ns.UI.Rows.SOURCE_TEXT.vendor)
+  h.eq(tag._w, ctx.ns.UI.Rows.widestSource)
   h.eq(C.total:GetText() ~= "", true)
   -- the Daily farm row and the tabs stay hidden while compact
   W.setFarmRow(true)

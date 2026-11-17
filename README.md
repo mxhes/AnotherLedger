@@ -48,7 +48,8 @@ size.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`), the last four
-drops with their value and source, and the Daily farm line. Hover the gold per
+drops with their value and source tag (framed, as in the list), and the Daily
+farm line. Hover the gold per
 hour for the breakdown: time, items, raw gold, total, the best find, how far
 the goal is and, after a few minutes, a small graph of your gold per hour over
 the session (one bar per stretch of clock time) to see when a spot dries up.

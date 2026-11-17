@@ -258,6 +258,22 @@ function Rows.sourceBoxWidth(sourceW, textW)
   return own
 end
 
+local function round(v) return math.floor(v + 0.5) end
+
+-- Geometry of a source tag box in whole screen pixels, for a tag font of
+-- `fontPx` pixels: { height, textTop (the text line's offset from the box
+-- top) }. The box is the font plus rowTagPadY px above and below, one pixel
+-- taller when the letters (rowTagCapRatio of the font; the tags have no
+-- descenders) would otherwise sit half a pixel off the middle. nil without a
+-- font size.
+function Rows.sourceBoxPixels(fontPx)
+  if not positive(fontPx) then return nil end
+  local S = ns.Theme.sizes
+  local h = round(fontPx) + 2 * S.rowTagPadY
+  local letters = round(fontPx * S.rowTagCapRatio)
+  if (h - letters) % 2 == 1 then h = h + 1 end
+  return { height = h, textTop = round((h - fontPx) / 2) }
+end
 -- Width of the name FontString: its natural width, but at most what is left
 -- of the name column once the quantity (and its gap) is reserved, so a long
 -- name is clipped (ellipsis) and the quantity stays visible.
@@ -373,6 +389,93 @@ end
 
 local NONE = {}
 
+-- Framed source tag (Vendor / Auction / Destroy) of the list rows and the
+-- compact drops: four edges in the source color and the text centered both
+-- ways. Every size and offset is whole screen pixels, so once the box itself
+-- is placed with Widgets.snapPoint every edge is equally thin. Shown with
+-- Rows.setSourceTag.
+function Rows.sourceTag(parent)
+  local T, W = theme(), ns.UI.Widgets
+  local box = CreateFrame("Frame", nil, parent)
+  box.edges = {}
+  for i = 1, 4 do box.edges[i] = W.line(box, T.colors.ink, "BORDER", T.alphas.sourceTagEdge) end
+  box.edgePx, box.textTop = false, false
+  local text = box:CreateFontString(nil, "OVERLAY", T.fonts.sourceTag)
+  text:SetJustifyH("CENTER")
+  text:SetJustifyV("TOP")
+  text:SetWordWrap(false)
+  box.text = text
+  return box
+end
+
+-- Anchors the four edges again when their thickness changed.
+local function placeEdges(box, px)
+  if box.edgePx == px then return end
+  box.edgePx = px
+  local top, bottom, left, right = box.edges[1], box.edges[2], box.edges[3], box.edges[4]
+  top:ClearAllPoints()
+  top:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
+  top:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, 0)
+  top:SetHeight(px)
+  bottom:ClearAllPoints()
+  bottom:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", 0, 0)
+  bottom:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, 0)
+  bottom:SetHeight(px)
+  -- The sides run between the top and bottom edge, so no corner is drawn twice.
+  left:ClearAllPoints()
+  left:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -px)
+  left:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", 0, px)
+  left:SetWidth(px)
+  right:ClearAllPoints()
+  right:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, -px)
+  right:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, px)
+  right:SetWidth(px)
+end
+
+-- The natural width of a FontString's text, also when its box is narrower.
+local function textWidth(fs)
+  local w = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+  if positive(w) then return w end
+  return fs:GetStringWidth()
+end
+
+-- Shows the tag of `source` ("vendor" / "ah" / "de") in its color, as wide as
+-- `widest` (the widest tag with its frame, so tags line up; nil = its own
+-- width). Hidden (1 px wide) without a source.
+function Rows.setSourceTag(box, source, widest)
+  local text = source and SOURCE_TEXT[source]
+  if not text then
+    box:SetWidth(1)
+    box:Hide()
+    return
+  end
+  local T, W = theme(), ns.UI.Widgets
+  local S = T.sizes
+  local c = T.colors[SOURCE_COLOR[source]] or T.colors.ink
+  box.text:SetText(text)
+  W.setTextColor(box.text, c)
+  for _, edge in ipairs(box.edges) do W.setLineColor(edge, c, T.alphas.sourceTagEdge) end
+  -- p = one screen pixel in UI units (1 when unknown: then all in units).
+  local p = W.pixelSize(box) or 1
+  placeEdges(box, math.max(1, round(S.rowTagEdge / p)) * p)
+  local _, size = box.text:GetFont()
+  local g = Rows.sourceBoxPixels(positive(size) and size / p or nil)
+  local height = g and g.height * p or S.rowTagHeight
+  local width = math.ceil(Rows.sourceBoxWidth(widest, textWidth(box.text)) / p - 0.01) * p
+  box:SetSize(width, height)
+  -- The text line across the box at a whole pixel offset from its top.
+  local top = g and g.textTop * p or 0
+  if box.textTop ~= top then
+    box.textTop = top
+    box.text:ClearAllPoints()
+    box.text:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -top)
+    box.text:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, -top)
+    if not g then box.text:SetPoint("BOTTOM", box, "BOTTOM", 0, 0) end
+    box.text:SetJustifyV(g and "TOP" or "MIDDLE")
+  end
+  box:Show()
+end
+
 local function validWidth(w)
   return type(w) == "number" and w > 0
 end
@@ -423,8 +526,8 @@ local function layoutRow(f, block)
   -- its framed source tag, then the age tag or the "?" mark.
   place(f.amount, f, "TOPLEFT", x0 + c.amountX, -inset)
   f.amount:SetWidth(math.max(1, c.amountW))
-  f.srcBox:ClearAllPoints()
-  f.srcBox:SetPoint("LEFT", f.amount, "RIGHT", S.rowLabelGap, 0)
+  -- On whole screen pixels, so its frame is equally thin on every row.
+  ns.UI.Widgets.snapPoint(f.srcBox, "LEFT", f.amount, "RIGHT", S.rowLabelGap, 0)
   f.tag:ClearAllPoints()
   f.tag:SetPoint("LEFT", f.srcBox, "RIGHT", c.tagGap > 0 and c.tagGap or S.rowTagGap, 0)
 end
@@ -452,7 +555,6 @@ local function createRow(parent, owner)
   sep:SetTexture(T.textures.rowHighlight)
   local sc = T.colors.rowSeparator
   sep:SetVertexColor(sc[1], sc[2], sc[3], sc[4])
-  sep:SetHeight(T.sizes.rowSeparator)
   sep:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", T.sizes.rowSeparatorInset, 0)
   sep:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
   f.separator = sep
@@ -488,16 +590,8 @@ local function createRow(parent, owner)
   amount:SetJustifyH("RIGHT")
   f.market = line2()
 
-  -- Framed source tag (Vendor / AH / DE): a small backdrop box around its text.
-  local srcBox = CreateFrame("Frame", nil, f, "BackdropTemplate")
-  srcBox:SetHeight(T.sizes.rowTagHeight)
-  if srcBox.SetBackdrop then
-    srcBox:SetBackdrop({ edgeFile = T.textures.rowHighlight, edgeSize = 1 })
-  end
-  local src = srcBox:CreateFontString(nil, "OVERLAY", T.fonts.sourceTag)
-  src:SetPoint("CENTER", srcBox, "CENTER", 0, 0)
-  src:SetWordWrap(false)
-  f.srcBox, f.src = srcBox, src
+  -- Framed source tag (Vendor / Auction / Destroy).
+  f.srcBox = Rows.sourceTag(f)
 
   f.name, f.qty, f.amount, f.tag = name, qty, amount, tag
   f:SetScript("OnSizeChanged", function(self) layoutRow(self) end)
@@ -532,22 +626,9 @@ local function fillRow(f, row)
   setColor(f.amount, T.colors.ink)
   f.market:SetText(t.market or "")
   setColor(f.market, t.isDetail and T.colors.hint or T.colors.ink)
-  -- Source tag: framed, in its source color; hidden without a source.
-  if t.source then
-    local c = T.colors[SOURCE_COLOR[t.source]] or T.colors.ink
-    f.src:SetText(t.sourceText)
-    setColor(f.src, c)
-    if f.srcBox.SetBackdropBorderColor then f.srcBox:SetBackdropBorderColor(c[1], c[2], c[3], 0.8) end
-    -- Every box gets the width of the widest tag (with its frame), so the
-    -- boxes line up and each text sits centered in its box.
-    local m = (f.owner and f.owner.measured) or NONE
-    local sw = f.src:GetStringWidth()
-    f.srcBox:SetWidth(Rows.sourceBoxWidth(m.source, sw))
-    f.srcBox:Show()
-  else
-    f.srcBox:SetWidth(1)
-    f.srcBox:Hide()
-  end
+  -- Source tag: framed, in its source color, as wide as the widest tag (the
+  -- boxes line up); hidden without a source.
+  Rows.setSourceTag(f.srcBox, t.source, ((f.owner and f.owner.measured) or NONE).source)
   -- After the tag: the age of a cached AH value, else "?" on an unpriced row.
   local tagText = t.tag or (t.unpriced and t.source and TEXT.UNPRICED) or nil
   f.tag:SetText(tagText or "")
@@ -626,6 +707,8 @@ function Rows.attach(area, onMeasure)
     }
     local old = self.measured
     self.measured = m
+    -- The compact drops line their tags up with the same width.
+    Rows.widestSource = m.source
     self.measureFallback = not (m.source and m.tag and m.amount and m.qtyWorst)
     local changed = old and (old.source ~= m.source
       or old.tag ~= m.tag or old.amount ~= m.amount or old.qtyWorst ~= m.qtyWorst)
@@ -676,6 +759,8 @@ function Rows.attach(area, onMeasure)
   local function placeRow(f, i)
     local y = -(i - 1) * T.sizes.rowHeight
     f:SetHeight(T.sizes.rowHeight)
+    -- Whole screen pixels: every separator equally thin.
+    f.separator:SetHeight(ns.UI.Widgets.pixels(f, T.sizes.rowSeparator))
     f.iconBorder:SetSize(T.sizes.iconSize, T.sizes.iconSize)
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)

@@ -150,6 +150,12 @@ Theme.durations = {
   flashStrong = 2.2,
 }
 
+-- Opacity of regions tinted with a theme color whose own alpha is opaque.
+Theme.alphas = {
+  -- Frame of the source tags (Vendor / Auction / Destroy), in the tag's color.
+  sourceTagEdge = 0.8,
+}
+
 Theme.sizes = {
   minWidth = 350,
   -- Window chrome 2 * 12 + header 84 (filters, buttons, tabs) + Top finds (3 rows) 88
@@ -224,8 +230,9 @@ Theme.sizes = {
   rowRightInset = 4,
   -- Window chrome around the row area: 2 * (padding 8 + 4) + scrollbar 10 + 2.
   rowChrome = 36,
-  -- Space between the top/bottom row edge and the two text lines.
-  rowLineInset = 2,
+  -- Space between the top/bottom row edge and the two text lines (3: the
+  -- source tag's frame keeps clear of the separator above the row).
+  rowLineInset = 3,
   -- Separator at the bottom edge of a row (inside the row height): thickness and
   -- left inset (= the icon's left edge).
   rowSeparator = 1,
@@ -243,10 +250,17 @@ Theme.sizes = {
   rowLabelGap = 2,
   rowVendorColW = 84,
   -- Source tag after the value (Vendor / AH / DE): fallback width with its
-  -- frame, inner padding each side, frame height.
+  -- frame, inner padding left / right; screen pixels above / below the text
+  -- (Rows.sourceBoxPixels); height of the tag's letters as a share of the
+  -- font size (Arial Narrow capitals with their soft top row, measured in the
+  -- client), to center them on whole pixels; fallback height while the font
+  -- size is unknown; frame thickness (rounded to whole screen pixels).
   rowSourceW = 52,
   rowTagPad = 3,
-  rowTagHeight = 13,
+  rowTagPadY = 1,
+  rowTagCapRatio = 0.77,
+  rowTagHeight = 12,
+  rowTagEdge = 1,
   rowTagW = 36,
   -- Padding added around each measured string width.
   rowMeasurePad = 2,

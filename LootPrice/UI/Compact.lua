@@ -89,8 +89,6 @@ end
 -- ---------------------------------------------------------------------------
 -- Widgets
 
-local function setColor(fs, c) ns.UI.Widgets.setTextColor(fs, c) end
-
 local part = {}
 
 function part:Update(view)
@@ -121,14 +119,10 @@ function part:Update(view)
       w.name:SetText(t.name .. " " .. t.qty)
       ns.UI.Widgets.setTextRGB(w.name, r, g, b, 1)
       w.amount:SetText(t.amount)
-      if t.source then
-        local col = T.colors[ns.UI.Rows.SOURCE_COLOR[t.source]] or T.colors.ink
-        w.tag:SetText(t.sourceText)
-        setColor(w.tag, col)
-        w.tag:Show()
-      else
-        w.tag:Hide()
-      end
+      -- The same framed tag as the list rows, lined up with the widest one.
+      ns.UI.Rows.setSourceTag(w.tag, t.source, ns.UI.Rows.widestSource)
+      -- On whole screen pixels, so its frame is equally thin on every side.
+      ns.UI.Widgets.snapPoint(w.tag, "RIGHT", w.frame, "RIGHT", 0, 0)
       w.frame:Show()
     else
       w.frame:Hide()
@@ -197,10 +191,11 @@ function Compact.attach(area)
     local y = -S.compactDropsTop - (i - 1) * S.compactRowHeight
     f:SetPoint("TOPLEFT", area, "TOPLEFT", 0, y)
     f:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, y)
-    local tag = W.text(f, T.fonts.sourceTag, T.colors.ink, "RIGHT")
+    local tag = ns.UI.Rows.sourceTag(f)
     tag:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+    tag:Hide()
     local amount = W.text(f, T.fonts.rowSmall, T.colors.ink, "RIGHT")
-    amount:SetPoint("RIGHT", tag, "LEFT", -S.rowLabelGap - S.rowTagPad, 0)
+    amount:SetPoint("RIGHT", tag, "LEFT", -S.rowLabelGap, 0)
     local name = W.text(f, T.fonts.rowSmall, T.colors.ink, "LEFT")
     name:SetPoint("LEFT", f, "LEFT", 0, 0)
     name:SetPoint("RIGHT", amount, "LEFT", -S.rowNameGap, 0)
