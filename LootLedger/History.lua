@@ -114,6 +114,7 @@ function History.snapshot(session, lookup, now, minGain)
     startedAt = nonNeg(session.startedAt), elapsed = elapsed, gold = gold,
     nItems = count, vendor = vendor, ah = ah, best = best,
     places = places, items = items, currencies = currencies, zones = zones,
+    mobs = ns.Mobs and ns.Mobs.copy(session.mobs) or nil,
   }
 end
 
@@ -352,6 +353,7 @@ function History.merge(a, b)
     nItems = count, vendor = a.vendor + b.vendor, ah = a.ah + b.ah, best = History.bestOf(a) + History.bestOf(b),
     places = mergePlaces(first.places, second.places), items = items,
     currencies = mergeCurrencies(a.currencies, b.currencies), zones = mergeZones(a.zones, b.zones),
+    mobs = ns.Mobs and ns.Mobs.merge(a.mobs, b.mobs) or nil,
   }
   local older, newer = a, b
   if b.startedAt < a.startedAt then older, newer = b, a end

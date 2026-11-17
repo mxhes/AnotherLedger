@@ -32,6 +32,7 @@ only inside functions.
 | `Tooltip.lua` | rich tooltips built as data (Daily, History, Zones, options) and rendered with the theme colors |
 | `DB.lua` | saved-variable defaults and repair |
 | `LootParse.lua` | loot, money and currency chat messages into links, copper and currencies; item keys with bonus IDs |
+| `Mobs.lua` | loot, gold, kills and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window and the combat log |
 | `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |

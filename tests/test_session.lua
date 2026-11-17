@@ -399,3 +399,16 @@ h.test("Session.reset and resume keep a resting clock frozen", function()
   h.eq(s.resting, nil)
   h.eq(S.elapsed(s, 510), 10)
 end)
+
+h.test("Session mobs: new and reset start empty, a kept login keeps them", function()
+  local s = S.new(0)
+  h.eq(s.mobs, {})
+  s.mobs["npc:1"] = { kind = "npc", kills = 1, looted = 0, gold = 0, items = {}, places = {} }
+  local back = S.login(s, true, 100)
+  h.eq(back.mobs["npc:1"].kills, 1)
+  S.reset(s, 200)
+  h.eq(s.mobs, {})
+  local old = S.new(0)
+  old.mobs = nil -- saved before mobs were kept
+  h.eq(S.login(old, true, 100).mobs, {})
+end)

@@ -1,6 +1,7 @@
 local h = ...
 -- (History.csv / details / snapshot places are tested at the end of this file)
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "LootParse.lua", "Prices.lua", "Session.lua",
+  "Mobs.lua", "History.lua" })
 local H = ns.History
 
 local function session(items, gold)
@@ -277,4 +278,23 @@ h.test("History.period: today, yesterday, this week's days, then ISO weeks", fun
   local fri = 20777 * 86400 + 12 * 3600 -- Friday 2026-11-20
   key, label = H.period(now, fri, utc)
   h.eq({ key, label }, { "d:2026-11-17", "Tuesday" })
+end)
+
+h.test("History.snapshot keeps the mobs, merge adds them up", function()
+  local s = session({ { 1, 2 } })
+  s.mobs = { ["npc:1"] = { name = "Kobold", kind = "npc", kills = 2, looted = 1, gold = 5,
+    items = { [1] = 2 }, places = { Elwynn = 1 } } }
+  local e = H.snapshot(s, nil, 200)
+  h.eq(e.mobs["npc:1"].kills, 2)
+  s.mobs["npc:1"].kills = 9
+  h.eq(e.mobs["npc:1"].kills, 2) -- a copy
+  local other = H.snapshot(session({ { 1, 1 } }), nil, 200)
+  other.startedAt = 50
+  other.mobs = { ["npc:1"] = { kind = "npc", kills = 1, looted = 1, gold = 0, items = { [1] = 1 }, places = {} } }
+  local m = H.merge(e, other)
+  h.eq(m.mobs["npc:1"].kills, 3)
+  h.eq(m.mobs["npc:1"].items[1], 3)
+  -- entries saved before mobs were kept merge fine
+  e.mobs = nil
+  h.eq(H.merge(e, other).mobs["npc:1"].kills, 1)
 end)

@@ -32,6 +32,8 @@ function Session.new(now)
     gold = 0,
     -- The last loot events (compact mode's "Last drops"), newest first.
     recent = {},
+    -- Loot, kills and gold per mob and node (Mobs.lua).
+    mobs = {},
   }
 end
 
@@ -323,6 +325,7 @@ function Session.reset(session, now)
   session.places = {}
   session.zones = {}
   session.recent = {}
+  session.mobs = {}
   session.demo = nil
   session.goalsNoted = nil -- the new session's goals are announced again
   local ticking = session.running and not session.resting
@@ -428,6 +431,7 @@ function Session.login(saved, keep, now)
     if type(saved.places) ~= "table" then saved.places = {} end
     if type(saved.zones) ~= "table" then saved.zones = {} end
     if type(saved.recent) ~= "table" then saved.recent = {} end
+    if type(saved.mobs) ~= "table" then saved.mobs = {} end
     local at = saved.at
     if type(at) ~= "table" or type(at.zone) ~= "string" or type(at.sub) ~= "string" then saved.at = nil end
     Session.resume(saved, now)
