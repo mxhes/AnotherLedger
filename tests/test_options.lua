@@ -453,3 +453,15 @@ h.test("tooltip titles and notes are not tied to the panel colors", function()
     end
   end
 end)
+
+h.test("account options read and write db.account", function()
+  local d = db()
+  for _, key in ipairs({ "historyLimit", "accountZones", "minimapButton" }) do
+    h.eq(O.spec(key).account, true, key)
+  end
+  O.set(d, "historyLimit", -1)
+  h.eq(d.account.historyLimit, -1)
+  h.eq(d.settings.historyLimit, nil)
+  h.eq(O.get(d, "historyLimit"), -1)
+  h.eq(O.get(db(), "accountZones"), true) -- default without db.account
+end)

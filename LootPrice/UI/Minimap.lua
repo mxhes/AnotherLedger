@@ -35,7 +35,8 @@ end
 -- ---------------------------------------------------------------------------
 -- Button
 
-local function settings() return ns.db and ns.db.settings end
+-- The angle lives in LootPriceDB.minimapAngle (not in a profile).
+local function settings() return ns.db end
 
 local function place(button)
   local s = settings()
@@ -108,7 +109,7 @@ end
 function Minimap.resetPosition()
   if ns.UI.Broker and ns.UI.Broker.resetIcon() then return end
   local s = settings()
-  if s then s.minimapAngle = ns.DB.defaults.settings.minimapAngle end
+  if s then s.minimapAngle = ns.DB.defaults.minimapAngle end
   if Minimap.button then place(Minimap.button) end
 end
 

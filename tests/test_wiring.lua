@@ -1477,9 +1477,9 @@ h.test("wiring: lock, scale, start hidden, gold display, sort and stale options 
   h.eq(ns.Money.format(12345678), "1234" .. ns.Money.ICONS.gold)
   ns.Options.set(ns.db, "windowScale", 0.8)
   -- the minimap reset button restores the default angle
-  ns.db.settings.minimapAngle = 10
+  ns.db.minimapAngle = 10
   ns.Options.spec("minimapReset").action()
-  h.eq(ns.db.settings.minimapAngle, 225)
+  h.eq(ns.db.minimapAngle, 225)
   h.eq(ctx.errors, {})
 end)
 

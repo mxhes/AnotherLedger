@@ -166,11 +166,21 @@ function Options.normalize(spec, value)
   return default
 end
 
+-- Where an option's value is stored: db.account for `account = true`
+-- options (shared by every profile), else db.settings (the active profile).
+local function store(db, spec)
+  if type(db) ~= "table" then return nil end
+  if spec.account then return db.account end
+  return db.settings
+end
+
 function Options.get(db, key)
   local spec = Options.byKey[key]
   if not spec then return nil end
-  local settings = type(db) == "table" and db.settings or nil
-  return Options.normalize(spec, settings and settings[key])
+  local t = store(db, spec)
+  local value
+  if type(t) == "table" then value = t[key] end -- may be false
+  return Options.normalize(spec, value)
 end
 
 -- Text typed into a number option -> value, or nil when it is not understood.
@@ -187,9 +197,10 @@ end
 function Options.set(db, key, value)
   local spec = Options.byKey[key]
   if not spec or type(db) ~= "table" then return nil end
-  db.settings = db.settings or {}
+  local field = spec.account and "account" or "settings"
+  if type(db[field]) ~= "table" then db[field] = {} end
   local v = Options.normalize(spec, value)
-  db.settings[key] = v
+  db[field][key] = v
   if spec.apply then spec.apply(v) end
   return v
 end
@@ -542,7 +553,7 @@ Options.define({
 
 -- History Zones and the Daily farm across characters (Core.zoneHistory).
 Options.define({
-  key = "accountZones", category = "display", type = "checkbox", label = L["Zones: all characters"],
+  key = "accountZones", account = true, category = "display", type = "checkbox", label = L["Zones: all characters"],
   tooltip = L["History Zones and the Daily strip use the History of all your characters. Off: only this character's. The Sessions list always shows this character's."],
   apply = refreshUI,
 })
@@ -703,7 +714,7 @@ Options.define({ key = "fontSizeTitles", category = "display", type = "dropdown"
 
 -- Round button on the minimap (UI/Minimap.lua).
 Options.define({
-  key = "minimapButton", category = "window",
+  key = "minimapButton", account = true, category = "window",
   type = "checkbox",
   label = L["Minimap button"],
   tooltip = L["Shows the LootPrice button on the minimap. Left-click shows or hides the window, right-click opens these options."],
@@ -742,7 +753,7 @@ Options.define({
 -- How many finished sessions the History tab keeps. Lowering it asks first
 -- (in the panel), then prunes at once.
 Options.define({
-  key = "historyLimit", category = "session",
+  key = "historyLimit", account = true, category = "session",
   type = "number",
   label = L["History kept"],
   tooltip = L["How many sessions History keeps. 0 keeps none, empty keeps all. Lowering it asks first, then deletes the oldest."],

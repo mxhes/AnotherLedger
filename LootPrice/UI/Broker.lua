@@ -107,10 +107,9 @@ function Broker.init()
 
   local icon = libStub("LibDBIcon-1.0")
   if icon and Broker.object then
-    local s = ns.db.settings
     local saved = ns.db.minimapIcon
-    saved.hide = not s.minimapButton
-    if not ns.Util.isNumber(saved.minimapPos) then saved.minimapPos = s.minimapAngle end
+    saved.hide = not ns.Options.get(ns.db, "minimapButton")
+    if not ns.Util.isNumber(saved.minimapPos) then saved.minimapPos = ns.db.minimapAngle end
     icon:Register(NAME, Broker.object, saved)
     Broker.icon = icon
   end
@@ -128,7 +127,7 @@ end
 
 function Broker.resetIcon()
   if not Broker.icon then return false end
-  ns.db.minimapIcon.minimapPos = ns.DB.defaults.settings.minimapAngle
+  ns.db.minimapIcon.minimapPos = ns.DB.defaults.minimapAngle
   Broker.icon:Refresh(NAME, ns.db.minimapIcon)
   return true
 end

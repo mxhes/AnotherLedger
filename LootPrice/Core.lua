@@ -819,6 +819,7 @@ function events.ADDON_LOADED(name)
   if name ~= ADDON then return end
   LootPriceDB = ns.DB.applyDefaults(LootPriceDB, ns.DB.defaults)
   LootPriceCharDB = ns.DB.applyDefaults(LootPriceCharDB, ns.DB.charDefaults)
+  ns.DB.migrateAccount(LootPriceDB)
   ns.db = LootPriceDB
   ns.chardb = LootPriceCharDB
 end

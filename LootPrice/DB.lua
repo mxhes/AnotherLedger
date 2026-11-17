@@ -17,10 +17,10 @@ DB.defaults = {
     combatHide = false,
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,
-    -- Minimap button: shown, and its place on the minimap rim in degrees
-    -- (0 = right, counter-clockwise; the default is bottom left).
+    -- Minimap button shown (account-wide, like historyLimit and accountZones:
+    -- options with `account = true` are stored in LootPriceDB.account; their
+    -- defaults stay here).
     minimapButton = true,
-    minimapAngle = 225,
     lockWindow = false,
     snapToGrid = true,
     windowScale = 1,
@@ -94,6 +94,11 @@ DB.defaults = {
     colorBorder = "8c6b3d",
     colorButtons = "1a120a",
   },
+  -- Account-wide options (Options.define `account = true`): { [key] = value }.
+  account = {},
+  -- Place of the own minimap button on the rim in degrees (0 = right,
+  -- counter-clockwise; the default is bottom left).
+  minimapAngle = 225,
   window = { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false,
     compact = { width = 260, height = 210 } },
   mode = "full", -- layout: "full" (the ledger) or "compact" (the glance)
@@ -136,6 +141,21 @@ end
 -- Fills missing keys of `saved` from `defaults` (recursively), replaces values
 -- whose type differs from the default's, keeps unknown keys. Returns the table
 -- to use; never mutates `defaults` and shares no tables with it.
+-- Once: the account-wide options and the minimap angle move out of the old
+-- settings table (which profiles replace) to LootPriceDB.account and
+-- LootPriceDB.minimapAngle, keeping the player's values.
+local ACCOUNT_KEYS = { "historyLimit", "accountZones", "minimapButton" }
+function DB.migrateAccount(db)
+  if type(db) ~= "table" or db.accountMigrated == true then return end
+  if type(db.account) ~= "table" then db.account = {} end
+  local old = type(db.settings) == "table" and db.settings or {}
+  for _, key in ipairs(ACCOUNT_KEYS) do
+    if old[key] ~= nil and db.account[key] == nil then db.account[key] = old[key] end
+  end
+  if type(old.minimapAngle) == "number" then db.minimapAngle = old.minimapAngle end
+  db.accountMigrated = true
+end
+
 function DB.applyDefaults(saved, defaults)
   if type(saved) ~= "table" then return copy(defaults) end
   for k, d in pairs(defaults) do

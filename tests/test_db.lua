@@ -6,7 +6,7 @@ h.test("DB.defaults shape", function()
   local d = DB.defaults
   h.eq(d.version, 1)
   h.eq(d.cache, {})
-  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, minimapButton = true, minimapAngle = 225,
+  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, minimapButton = true,
     lockWindow = false, snapToGrid = true, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full", coinIcons = true,
     includeGold = true, refreshSeconds = 30, staleHours = 12, alertGold = 0, alertSound = false,
     fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
@@ -79,4 +79,25 @@ h.test("applyDefaults never mutates defaults and shares no tables", function()
   h.eq(r.filter.qualities[1], false)
   h.eq(r.filter.qualities[2], true)
   h.eq(D.filter.qualities[1], true)
+end)
+
+h.test("migration keeps account options", function()
+  local db = { settings = { historyLimit = -1, accountZones = false, minimapButton = false, minimapAngle = 90, alpha = 0.5 } }
+  ns.DB.migrateAccount(db)
+  h.eq(db.account, { historyLimit = -1, accountZones = false, minimapButton = false })
+  h.eq(db.minimapAngle, 90)
+  h.eq(db.accountMigrated, true)
+  db.settings.historyLimit = 7
+  db.settings.minimapAngle = 1
+  ns.DB.migrateAccount(db)
+  h.eq(db.account.historyLimit, -1)
+  h.eq(db.minimapAngle, 90)
+end)
+
+h.test("migration of a fresh install sets nothing but the flag", function()
+  local db = { settings = {} }
+  ns.DB.migrateAccount(db)
+  h.eq(db.account, {})
+  h.eq(db.minimapAngle, nil)
+  h.eq(db.accountMigrated, true)
 end)
