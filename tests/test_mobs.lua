@@ -74,28 +74,6 @@ h.test("Mobs.credit adds copper per source for a money slot; players are skipped
   h.eq(mobs["obj:1731"].kind, "node")
 end)
 
-h.test("Mobs.addKill counts kills and keeps the name", function()
-  local mobs = {}
-  M.addKill(mobs, "npc:2546", "Kobold", "Elwynn Forest")
-  M.addKill(mobs, "npc:2546", nil, "Elwynn Forest")
-  h.eq(mobs["npc:2546"].kills, 2)
-  h.eq(mobs["npc:2546"].name, "Kobold")
-  h.eq(mobs["npc:2546"].looted, 0)
-end)
-
-h.test("Mobs.combat: party kill and died-after-damage count once", function()
-  local state = {}
-  h.eq(M.combat(state, "SPELL_DAMAGE", "Player-1-2", 0x511, A), nil)
-  h.eq(M.combat(state, "UNIT_DIED", "", 0, A), A)
-  h.eq(M.combat(state, "UNIT_DIED", "", 0, A), nil)
-  h.eq(M.combat(state, "PARTY_KILL", "Player-1-2", 0x511, A), nil) -- already counted
-  h.eq(M.combat(state, "PARTY_KILL", "Player-9-9", 0x548, B), nil) -- an outsider's kill
-  h.eq(M.combat(state, "UNIT_DIED", "", 0, B), nil) -- never fought by the group
-  h.eq(M.combat(state, "PARTY_KILL", "Player-1-2", 0x512, B), B)
-  h.eq(M.combat(state, "SWING_MISSED", "Player-1-3", 0x514, NODE), nil)
-  h.eq(M.combat(state, "UNIT_DESTROYED", "", 0, NODE), NODE)
-end)
-
 h.test("Mobs.copy keeps valid entries, merge adds them up", function()
   local a = { ["npc:1"] = { name = "Kobold", kind = "npc", kills = 2, looted = 2, gold = 50,
     items = { [2589] = 3 }, places = { Elwynn = 2 } }, bad = "x", ["npc:9"] = { kind = "npc", kills = "x" } }

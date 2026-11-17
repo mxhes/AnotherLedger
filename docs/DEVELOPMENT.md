@@ -32,7 +32,7 @@ only inside functions.
 | `Tooltip.lua` | rich tooltips built as data (Daily, History, Zones, options) and rendered with the theme colors |
 | `DB.lua` | saved-variable defaults and repair |
 | `LootParse.lua` | loot, money and currency chat messages into links, copper and currencies; item keys with bonus IDs |
-| `Mobs.lua` | loot, gold, kills and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window and the combat log |
+| `Mobs.lua` | loot, gold and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window |
 | `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
@@ -173,10 +173,11 @@ Each of these is one call in one place; the UI never names them.
   (disenchant, mill or prospect), shown as `Destroy`.
 - **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
   `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
-  loot left in a corpse counts for nobody; the combat log counts the group's
-  kills (`Mobs.combat`; the handler skips every subevent that cannot be a
-  kill before parsing a GUID, and parses only on kills). Mob names come from
-  name plates, target, mouseover and kill events, else the unit tooltip; a
+  loot left in a corpse counts for nobody. No kills: registering
+  `COMBAT_LOG_EVENT_UNFILTERED` is forbidden for addons on this client
+  (ADDON_ACTION_FORBIDDEN even inside the `pcall` of `Core.init`, so never
+  add it to `events`; a wiring test guards this), and `kills` stays 0. Mob
+  names come from name plates, target and mouseover, else the unit tooltip; a
   node takes the target of the player's last `UNIT_SPELLCAST_SENT` (the
   gathering cast) when the loot window opens within 30 s (no tooltip for
   objects). No name is saved without one: `View.buildMobs` shows
@@ -190,7 +191,7 @@ Each of these is one call in one place; the UI never names them.
   Zones entries (the running session included); a mob's `places` count
   corpses like `looted`, and the most counted is its main place. It values each mob's items
   like Zones (the entry's saved price, else live) and sorts by value, per
-  kill, kills or name; `Ledger.mobOpen` is the opened mob.
+  kill or name; `Ledger.mobOpen` is the opened mob.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its

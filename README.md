@@ -148,13 +148,12 @@ row and price. Currencies are listed after the items.
   the tooltip has the full name). Hover the footer to see which items have no
   auction price yet (`2 unpriced`).
 - **History > Mobs**: what each kind of mob and gathering node gave you, over
-  the same sessions as Zones: its kills, the value of its loot plus its gold,
-  and the value per kill (per time looted for nodes). Sort by **Value**,
-  **Per kill**, **Kills** or **Name**; click a mob to list its items. Loot is
-  credited when you take it from the loot window, split by corpse when one
-  window holds several; loot you leave in a corpse counts for nobody. Kills
-  are your group's kills from the combat log; mobs you never looted still
-  show their kills. A mob's coin counts what you got of it, so in a group
+  the same sessions as Zones: how often you looted it, the value of its loot
+  plus its gold, and the value per corpse or node looted. Sort by **Value**,
+  **Per kill** or **Name**; click a mob to list its items. Loot is credited
+  when you take it from the loot window, split by corpse when one window
+  holds several; loot you leave in a corpse counts for nobody. Kills are not
+  counted: the game does not let addons read the combat log. A mob's coin counts what you got of it, so in a group
   your share. A mob or node whose name was never seen shows its number. Only loot taken while the clock runs counts, and sessions
   saved before this version have no mob data.
 

@@ -3199,37 +3199,10 @@ h.test("wiring: cleared loot slots are credited to their mob, once per corpse", 
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: a group kill in the combat log counts with its name; a stopped clock counts nothing", function()
+h.test("wiring: loot is credited without kills; unknown names get a fallback", function()
   local ctx = boot()
   startWorld(ctx, false)
   local ns = ctx.ns
-  local ev
-  local unpackAll = table.unpack or unpack
-  ctx.env.CombatLogGetCurrentEventInfo = function() return unpackAll(ev, 1, 9) end
-  ev = { 1, "SWING_DAMAGE", false, "Player-1-2", "Me", 0x511, 0, MOB, "Kobold Vermin" }
-  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
-  ev = { 1, "UNIT_DIED", false, "", nil, 0, 0, MOB, "Kobold Vermin" }
-  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
-  h.eq(ns.session.mobs["npc:2546"].kills, 1)
-  h.eq(ns.session.mobs["npc:2546"].name, "Kobold Vermin")
-  slash(ctx, "stop")
-  local MOB2 = "Creature-0-3110-0-12-2546-000012ABCE"
-  ev = { 1, "PARTY_KILL", false, "Player-1-2", "Me", 0x511, 0, MOB2, "Kobold Vermin" }
-  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
-  lootWindowEnv(ctx, { { link = LINK, qty = 3, guid = MOB2 } })
-  fire(ctx, "LOOT_OPENED")
-  fire(ctx, "LOOT_SLOT_CLEARED", 1)
-  fire(ctx, "LOOT_CLOSED")
-  h.eq(ns.session.mobs["npc:2546"].kills, 1)
-  h.eq(ns.session.mobs["npc:2546"].looted, 0)
-  h.eq(ctx.errors, {})
-end)
-
-h.test("wiring: without the combat log API loot is still credited; unknown names get a fallback", function()
-  local ctx = boot()
-  startWorld(ctx, false)
-  local ns = ctx.ns
-  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
   lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = MOB } })
   fire(ctx, "LOOT_OPENED")
   fire(ctx, "LOOT_SLOT_CLEARED", 1)
@@ -3434,23 +3407,6 @@ h.test("wiring: a gathering node is named by the gathering cast, without a toolt
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: combat log events that cannot be a kill skip the GUID parsing", function()
-  local ctx = boot()
-  startWorld(ctx, false)
-  local ns = ctx.ns
-  local calls, idOf = 0, ns.Mobs.idOf
-  ns.Mobs.idOf = function(...) calls = calls + 1 return idOf(...) end
-  local unpackAll = table.unpack or unpack
-  local ev = { 1, "SPELL_AURA_APPLIED", false, "Player-1-2", "Me", 0x511, 0, MOB, "Kobold Vermin" }
-  ctx.env.CombatLogGetCurrentEventInfo = function() return unpackAll(ev, 1, 9) end
-  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
-  ev[2] = "SPELL_HEAL"
-  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
-  h.eq(calls, 0)
-  ns.Mobs.idOf = idOf
-  h.eq(ctx.errors, {})
-end)
-
 h.test("wiring: a mob's coin counts your share of it in a group", function()
   local ctx = boot()
   local money = 10000
@@ -3518,4 +3474,13 @@ h.test("wiring: an empty profession read at login keeps the saved professions", 
   fire(again, "SKILL_LINES_CHANGED") -- the game's own news: dropped
   h.eq(again.ns.db.professions["Me-Realm"], {})
   h.eq(again.errors, {})
+end)
+
+h.test("wiring: no combat log event is registered (forbidden for addons on this client)", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  for _, event in ipairs({ "COMBAT_LOG_EVENT_UNFILTERED", "COMBAT_LOG_EVENT" }) do
+    h.eq(ctx.ns.Core.events[event], nil, event)
+  end
+  h.eq(ctx.errors, {})
 end)

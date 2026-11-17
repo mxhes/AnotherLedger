@@ -262,7 +262,7 @@ Tabs.define({
     -- Mobs: what each mob and node dropped, over the same sessions as Zones.
     {
       key = "mobs", label = L["Mobs"],
-      sorts = { "ah", "perKill", "kills", "name" },
+      sorts = { "ah", "perKill", "name" },
       build = function(ctx)
         local entries = zoneEntries(ctx)
         zoneItemIDs = itemIDsOf(entries)

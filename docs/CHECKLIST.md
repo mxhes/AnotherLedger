@@ -13,8 +13,8 @@ and remove both once it is confirmed.
   `GetLootSlotInfo` and `GetLootSourceInfo` (GUID / quantity pairs, copper
   for money) work on Forever, and `LOOT_SLOT_CLEARED` fires per taken slot
   (also with auto loot): loot a shared AoE pile and check each mob gets its
-  own share. `COMBAT_LOG_EVENT_UNFILTERED` with
-  `CombatLogGetCurrentEventInfo` counts your group's kills once.
+  own share. No `ADDON_ACTION_FORBIDDEN` at login any more (BugGrabber
+  reported one for the combat log event, which is no longer registered).
   `C_TooltipInfo.GetHyperlink("unit:" .. guid)` names a mob never seen on a
   name plate. `UNIT_SPELLCAST_SENT("player", target)` gives the node's name
   as `target` for herbing, mining and skinning-like casts, so History > Mobs

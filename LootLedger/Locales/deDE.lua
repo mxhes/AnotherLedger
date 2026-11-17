@@ -446,7 +446,6 @@ ns.Locale.register("deDE", {
   ["Custom..."] = "Eigener...",
   ["Mobs"] = "Gegner",
   ["Per kill"] = "Pro Kill",
-  ["Kills"] = "Kills",
   [" kills"] = " Kills",
   ["1 kill"] = "1 Kill",
   [" looted"] = " geplündert",

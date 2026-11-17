@@ -27,7 +27,7 @@ local tradeWindows = {}
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
 local restingSeen = false -- the resting state Core.checkRest saw last (option "hideInCities")
 -- Mobs (Mobs.lua): the open loot window's slots, mob names seen this login
--- ({ [mob key] = name }) and the combat log bookkeeping. Never saved.
+-- ({ [mob key] = name }) and the corpses looted. Never saved.
 local lootSlots
 local mobNames = {}
 local mobState = {}
@@ -1224,33 +1224,16 @@ function events.LOOT_SLOT_CLEARED(slot)
   ns.Mobs.credit(mobs, entry, place, names, mobState)
 end
 
--- Every mob or node kill by the group (combat log; Mobs.combat), and the
--- names of the units hit.
--- UNVERIFIED (check in client) on Forever: CombatLogGetCurrentEventInfo and
--- its returns (timestamp, subevent, hideCaster, sourceGUID, sourceName,
--- sourceFlags, sourceRaidFlags, destGUID, destName).
+-- No combat log: registering COMBAT_LOG_EVENT_UNFILTERED is forbidden for
+-- addons on this client (ADDON_ACTION_FORBIDDEN, even inside pcall), so
+-- kills are not counted.
+
 -- The player's cast target: the node's name for a gathering cast.
 -- UNVERIFIED (check in client) on Forever: UNIT_SPELLCAST_SENT(unit, target).
 function events.UNIT_SPELLCAST_SENT(unit, target)
   if unit == "player" and type(target) == "string" and target ~= "" then
     castTarget = { name = target, at = time() }
   end
-end
-
-local KILL_EVENTS = { PARTY_KILL = true, UNIT_DIED = true, UNIT_DESTROYED = true }
-
-function events.COMBAT_LOG_EVENT_UNFILTERED()
-  if not Core.mobsCounting() or type(CombatLogGetCurrentEventInfo) ~= "function" then return end
-  local ok, _, subevent, _, sourceGUID, _, sourceFlags, _, destGUID, destName = pcall(CombatLogGetCurrentEventInfo)
-  if not (ok and type(subevent) == "string") then return end
-  -- Most events (auras, heals, casts) can be no kill: skip them cheaply.
-  if not (KILL_EVENTS[subevent] or subevent:find("_DAMAGE$") or subevent:find("_MISSED$")) then return end
-  local killed = ns.Mobs.combat(mobState, subevent, sourceGUID, sourceFlags, destGUID)
-  if not killed then return end
-  local key, kind = ns.Mobs.idOf(destGUID)
-  if not (key and kind == "npc") then return end
-  if type(destName) == "string" and destName ~= "" then mobNames[key] = destName end
-  ns.Mobs.addKill(ns.session.mobs, key, mobNames[key])
 end
 
 -- Names of mobs the player sees (name plates, target, mouseover).

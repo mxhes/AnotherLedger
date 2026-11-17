@@ -1224,9 +1224,6 @@ h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs la
   h.eq(v.rows[#v.rows].mobKey, "npc:2") -- nothing dropped: last
   h.eq(v.totals.best, 80)
   h.eq(v.gold.total, 60)
-  -- sort by kills
-  v = V.buildMobs(entries, { sort = "kills" })
-  h.eq(v.rows[1].mobKey, "npc:2")
   -- the opened mob lists its items under it
   v = V.buildMobs(entries, { sort = "ah" }, "npc:1")
   h.eq(v.rows[1].mobKey, "npc:1")

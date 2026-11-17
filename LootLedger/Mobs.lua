@@ -2,10 +2,11 @@ local ADDON, ns = ...
 
 local num = ns.Util.isNumber
 
--- What each mob (by NPC ID) and gathering node (by object ID) dropped, how
--- often it was looted and how many the group killed. Pure: the loot window
--- and combat log calls are passed in (Core wires them). Shape of `mobs`
--- (session.mobs and History entries):
+-- What each mob (by NPC ID) and gathering node (by object ID) dropped and
+-- how often it was looted. Pure: the loot window calls are passed in (Core
+-- wires them). `kills` stays 0: the combat log is closed to addons on this
+-- client; the field keeps the saved shape. Shape of `mobs` (session.mobs and
+-- History entries):
 --   mobs[key] = { name, kind = "npc" | "node", kills, looted, gold,
 --                 items = { [itemKey] = qty }, places = { [place] = n } }
 -- `key` is "npc:<id>" or "obj:<id>". `state` is the caller's per-login
@@ -152,39 +153,6 @@ function Mobs.credit(mobs, slot, place, names, state)
       end
     end
   end
-end
-
-function Mobs.addKill(mobs, key, name)
-  if type(key) ~= "string" then return end
-  local e = entry(mobs, key, kindOf(key))
-  e.kills = e.kills + 1
-  if type(name) == "string" and name ~= "" then e.name = name end
-end
-
--- Affiliation bits of combat log unit flags: mine, party, raid (0x1 .. 0x4).
-local function groupSource(flags)
-  return num(flags) and flags % 8 ~= 0
-end
-
--- One combat log event: damage or a miss from the group marks the target as
--- fought; PARTY_KILL from the group, or the death of a fought unit, returns
--- its GUID once.
-function Mobs.combat(state, subevent, sourceGUID, sourceFlags, destGUID)
-  if type(subevent) ~= "string" or type(destGUID) ~= "string" then return nil end
-  if subevent == "PARTY_KILL" then
-    if not groupSource(sourceFlags) then return nil end
-  elseif subevent == "UNIT_DIED" or subevent == "UNIT_DESTROYED" then
-    local fought = state.fought
-    if not (type(fought) == "table" and fought[destGUID]) then return nil end
-  else
-    if (subevent:find("_DAMAGE$") or subevent:find("_MISSED$")) and groupSource(sourceFlags) then
-      remember(state, "fought", destGUID)
-    end
-    return nil
-  end
-  if type(state.fought) == "table" then state.fought[destGUID] = nil end
-  if not remember(state, "killed", destGUID) then return nil end
-  return destGUID
 end
 
 local function validEntry(e)

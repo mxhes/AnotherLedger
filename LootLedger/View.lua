@@ -914,13 +914,13 @@ local function perKill(a, b)
   return byName(a, b)
 end
 
-local MOB_SORTS = { ah = SORTS.ah, name = SORTS.name, kills = descending("kills"), perKill = perKill }
+local MOB_SORTS = { ah = SORTS.ah, name = SORTS.name, perKill = perKill }
 
--- Under the value sorts a mob that dropped nothing goes last; by kills or
--- name the order is plain.
+-- Under the value sorts a mob that dropped nothing goes last; by name the
+-- order is plain.
 local function mobSort(key)
   local inner = MOB_SORTS[key] or MOB_SORTS.ah
-  if key == "kills" or key == "name" then return inner end
+  if key == "name" then return inner end
   return function(a, b)
     if a.sortsLast ~= b.sortsLast then return b.sortsLast end
     return inner(a, b)
