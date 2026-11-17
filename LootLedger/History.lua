@@ -42,9 +42,15 @@ end
 
 -- The option "Auction from" (percent the AH value must beat vendor by) when a
 -- caller passes none.
-local function gainOf(minGain)
+local function optionGain(minGain)
   if num(minGain) then return minGain end
   return ns.Util.setting and ns.Util.setting("ahMinGain", 0) or 0
+end
+
+-- The Auction from percent entry `e` was saved with; 0 for entries saved
+-- before the option (their best was the plain highest value).
+function History.gainOf(e)
+  return type(e) == "table" and num(e.ahMinGain) and e.ahMinGain or 0
 end
 
 -- One item's best unit value (Prices.best with the Auction from rule).
@@ -55,9 +61,11 @@ end
 -- Snapshot of `session`, or nil when it holds nothing worth keeping (no items,
 -- currencies or gold). `lookup(itemID, link)` returns { vendor, ah, de } or
 -- nil; `now` ends a still running clock; `minGain` the Auction from percent
--- (default: the option).
-function History.snapshot(session, lookup, now, minGain)
-  minGain = gainOf(minGain)
+-- and `ahCut` whether the lookup's AH prices are after the fee (default: the
+-- options). Both are saved with the entry (History.totals, opened sessions).
+function History.snapshot(session, lookup, now, minGain, ahCut)
+  minGain = optionGain(minGain)
+  if ahCut == nil then ahCut = not ns.Util.setting or ns.Util.setting("ahCut", true) ~= false end
   if type(session) ~= "table" or type(session.items) ~= "table" then return nil end
   local items, count, vendor, ah, best = {}, 0, 0, 0, 0
   for key, it in pairs(session.items) do
@@ -115,6 +123,7 @@ function History.snapshot(session, lookup, now, minGain)
     nItems = count, vendor = vendor, ah = ah, best = best,
     places = places, items = items, currencies = currencies, zones = zones,
     mobs = ns.Mobs and ns.Mobs.copy(session.mobs) or nil,
+    ahMinGain = minGain, ahCut = ahCut and true or false,
   }
 end
 
@@ -162,8 +171,9 @@ end
 -- The totals of an entry without the items on the ignore list (`ignored` =
 -- { [itemID] = name or true }, see Core.ignoredItems), at the unit prices it
 -- was saved with: vendor, ah, best, item count. Taking an item off the list
--- brings its value back.
-function History.totals(e, ignored, minGain)
+-- brings its value back. An item's best value follows the entry's own
+-- Auction from (History.gainOf), like its saved best.
+function History.totals(e, ignored)
   local vendor, ah, best, count = e.vendor, e.ah, History.bestOf(e), e.nItems
   if type(ignored) ~= "table" or next(ignored) == nil or type(e.items) ~= "table" then
     return vendor, ah, best, count
@@ -176,7 +186,7 @@ function History.totals(e, ignored, minGain)
       local d = num(p.de) and p.de or nil
       if v then vendor = vendor - v * it.qty end
       if a then ah = ah - a * it.qty end
-      best = best - bestUnit(v, a, d, gainOf(minGain)) * it.qty
+      best = best - bestUnit(v, a, d, History.gainOf(e)) * it.qty
       count = count - 1
     end
   end
@@ -354,6 +364,9 @@ function History.merge(a, b)
     places = mergePlaces(first.places, second.places), items = items,
     currencies = mergeCurrencies(a.currencies, b.currencies), zones = mergeZones(a.zones, b.zones),
     mobs = ns.Mobs and ns.Mobs.merge(a.mobs, b.mobs) or nil,
+    -- One Auction from only when both were saved with the same one.
+    ahMinGain = a.ahMinGain == b.ahMinGain and a.ahMinGain or nil,
+    ahCut = a.ahCut == true and b.ahCut == true,
   }
   local older, newer = a, b
   if b.startedAt < a.startedAt then older, newer = b, a end
@@ -519,7 +532,7 @@ end
 
 local WEEKDAY_NAMES = { L["Sunday"], L["Monday"], L["Tuesday"], L["Wednesday"], L["Thursday"], L["Friday"],
   L["Saturday"] }
-local L_WEEK = L["Week %d"]
+local L_WEEK, L_WEEK_YEAR = L["Week %d"], L["Week %d, %d"]
 
 -- The History heading a session started at `t` goes under, seen at `now`:
 -- key, label. Today, Yesterday and the other days of this (Monday) week by
@@ -536,7 +549,9 @@ function History.period(t, now, dateFn)
   if week == nowWeek and year == nowYear and d < today then
     return "d:" .. d, WEEKDAY_NAMES[(tonumber(dateFn("%w", t)) or 0) + 1]
   end
-  return string.format("w:%d-%02d", year, week), string.format(L_WEEK, week)
+  -- A week of another year says which.
+  local label = year == nowYear and string.format(L_WEEK, week) or string.format(L_WEEK_YEAR, week, year)
+  return string.format("w:%d-%02d", year, week), label
 end
 
 -- "1h 12m", "12m", "45s".

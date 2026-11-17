@@ -3270,3 +3270,58 @@ h.test("wiring: History > Mobs lists the mobs of History and the running session
   h.eq(ctx.ns.UI.FilterBar.sortLabel("perKill", ns.UI.Tabs.sorts("history", "mobs")), ns.L["Per kill"])
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: automatic show and hide keep the player's hidden choice", function()
+  local ctx = boot()
+  local resting = false
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showOnLoot", true)
+  ns.Options.set(ns.db, "hideInCities", true)
+  W.hide()
+  h.eq(ctx.env.LootLedgerDB.window.hidden, true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- first item: shown
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING") -- city: hidden
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING") -- out again: shown
+  h.eq(W.isShown(), true)
+  W.endDrag() -- any later save
+  h.eq(ctx.env.LootLedgerDB.window.hidden, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Hide in cities during combat keeps the window hidden after combat", function()
+  local ctx = boot()
+  local resting = false
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "hideInCities", true)
+  ns.Options.set(ns.db, "combatHide", true)
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING") -- reached the city in combat
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(W.isShown(), false)
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Open on first loot in combat waits for the combat to end", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showOnLoot", true)
+  ns.Options.set(ns.db, "combatHide", true)
+  W.hide()
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(W.isShown(), false)
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)

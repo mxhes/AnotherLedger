@@ -140,6 +140,9 @@ local function makeRow(item, opts)
 
   local qty = item.qty
   local vendorEach, ahEach, deEach, ahFromCache, ahAge
+  -- Whether ahEach is after the 5% fee (option "ahCut"): a live lookup says so
+  -- with ahGross, a saved History price by its entry (opts.savedAhCut).
+  local ahCut = false
   if opts.savedPrices then
     -- An opened History session: the prices it was saved with (its row's
     -- totals), live ones only for what it has none of. No age tag.
@@ -147,13 +150,16 @@ local function makeRow(item, opts)
     deEach = num(saved.de) and saved.de or (num(lookup.de) and lookup.de or nil)
     if num(saved.ah) then
       ahEach, ahFromCache = saved.ah, false
+      ahCut = opts.savedAhCut == true
     elseif num(lookup.ah) then
       ahEach, ahFromCache = lookup.ah, lookup.ahSource == "cache"
       ahAge = num(lookup.ahAge) and lookup.ahAge or nil
+      ahCut = num(lookup.ahGross)
     end
   else
     vendorEach = num(lookup.vendor) and lookup.vendor or (num(saved.vendor) and saved.vendor or nil)
     ahEach = num(lookup.ah) and lookup.ah or nil
+    ahCut = ahEach ~= nil and num(lookup.ahGross)
     ahFromCache = lookup.ahSource == "cache"
     ahAge = num(lookup.ahAge) and lookup.ahAge or nil
     if not ahEach and num(saved.ah) then
@@ -179,8 +185,7 @@ local function makeRow(item, opts)
     -- Bound items can never be sold on the AH: no "unpriced" count for them.
     bound = info and info.bound and true or false,
     ahFromCache = ahFromCache, ahAge = ahAge,
-    -- The AH value is after the 5% fee (option "ahCut"; Prices lookup rules).
-    ahCut = ahEach ~= nil and num(lookup.ahGross) or false,
+    ahCut = ahCut and true or false,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
     value = bestTotal or 0,
     lastSeen = item.lastSeen,
@@ -510,7 +515,7 @@ function View.buildHistory(list, opts, openIndex)
   for i, e in ipairs(list) do
     if History.valid(e) then
       local open = i == openIndex
-      t.vendor, t.ah, t.best, t.count = History.totals(e, opts.ignored, opts.ahMinGain)
+      t.vendor, t.ah, t.best, t.count = History.totals(e, opts.ignored)
       local row = sessionRow(e, i, open, opts, t)
       local shown = open or (row.value >= minValue
         and (not needle or string.find(row.sortName, needle, 1, true) ~= nil))
@@ -533,6 +538,9 @@ function View.buildHistory(list, opts, openIndex)
     local entry = list[openIndex]
     local o = copyOpts(savedOpts, opts)
     o.savedPrices = true
+    -- Its items at the rules it was saved with, so they add up to its row.
+    o.ahMinGain = History.gainOf(entry)
+    o.savedAhCut = entry.ahCut == true
     savedFilter.qualities = type(filter) == "table" and filter.qualities or nil
     o.filter = savedFilter
     append(rows, (collect(entry.items, o)))

@@ -1206,7 +1206,6 @@ function events.LOOT_CLOSED()
   end
 end
 
--- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
 -- Bags: gold on hand and net worth follow the character's money.
 function events.PLAYER_MONEY()
   dataChanged("bags")
@@ -1220,6 +1219,7 @@ function events.SKILL_LINES_CHANGED()
   Core.noteProfessions()
 end
 
+-- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
 function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
   if ns.session then Core.recordGold(moneyReward, true) end
 end

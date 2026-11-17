@@ -522,8 +522,6 @@ function Ledger.toggleMode()
   Ledger.setMode(Ledger.mode == "compact" and "full" or "compact")
 end
 
--- History Zones: a zone row opens its subzones (and closes another zone), a
--- subzone row its items; clicking the opened one again collapses it.
 -- Opens a History mob's items, or closes them on a second click.
 function Ledger.toggleMob(key)
   Ledger.mobOpen = Ledger.mobOpen ~= key and key or nil
@@ -536,6 +534,8 @@ function Ledger.togglePeriod(key)
   Ledger.refresh()
 end
 
+-- History Zones: a zone row opens its subzones (and closes another zone), a
+-- subzone row its items; clicking the opened one again collapses it.
 function Ledger.toggleZone(zoneKey, subKey)
   local open = Ledger.zoneOpen
   if subKey == nil then

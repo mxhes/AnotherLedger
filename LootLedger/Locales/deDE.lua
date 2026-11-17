@@ -470,6 +470,7 @@ ns.Locale.register("deDE", {
   ["Saturday"] = "Samstag",
   ["Sunday"] = "Sonntag",
   ["Week %d"] = "Woche %d",
+  ["Week %d, %d"] = "Woche %d, %d",
   ["Click to fold or unfold these sessions"] = "Klicken, um diese Sitzungen ein- oder auszuklappen",
   [" free"] = " frei",
   ["Gold on hand"] = "Gold dabei",

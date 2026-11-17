@@ -107,10 +107,14 @@ local function remember(state, field, guid)
   return true
 end
 
--- `looted` counts each corpse or node (GUID) once.
+-- `looted` counts each corpse or node (GUID) once. Returns true for a new one.
 function Mobs.noteLooted(mobs, key, guid, state)
   local e = entry(mobs, key, kindOf(key))
-  if type(guid) == "string" and remember(state, "lootedGUIDs", guid) then e.looted = e.looted + 1 end
+  if type(guid) == "string" and remember(state, "lootedGUIDs", guid) then
+    e.looted = e.looted + 1
+    return true
+  end
+  return false
 end
 
 -- One cleared loot slot: each source (a mob or node) gets its own share.
@@ -127,10 +131,12 @@ function Mobs.credit(mobs, slot, place, names, state)
       else
         e.gold = e.gold + s.qty
       end
-      if type(place) == "string" then e.places[place] = (e.places[place] or 0) + 1 end
       local name = type(names) == "table" and names[key] or nil
       if type(name) == "string" and name ~= "" then e.name = name end
-      Mobs.noteLooted(mobs, key, s.guid, state)
+      -- A place counts each corpse or node once, like `looted`.
+      if Mobs.noteLooted(mobs, key, s.guid, state) and type(place) == "string" then
+        e.places[place] = (e.places[place] or 0) + 1
+      end
     end
   end
 end

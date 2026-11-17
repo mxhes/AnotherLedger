@@ -1239,3 +1239,33 @@ h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs la
   h.eq(byKey["npc:1"].value, 60)
   h.eq(#V.buildMobs(nil, {}).rows, 0)
 end)
+
+h.test("makeRow: an opened History session tags only AH prices saved after the cut", function()
+  local function entry(cut)
+    return { startedAt = 1, elapsed = 60, gold = 0, nItems = 2, vendor = 10, ah = 10000, best = 10000, ahCut = cut,
+      items = {
+        [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1, price = { vendor = 10, ah = 10000 } },
+        [2] = { id = 2, key = 2, link = link("Peacebloom"), qty = 1, lastSeen = 1, price = { vendor = 5 } },
+      } }
+  end
+  local o = opts({ sort = "name", lookup = function() return { ah = 950, ahGross = 1000 } end })
+  local function byId(v)
+    local t = {}
+    for i = 2, #v.rows do t[v.rows[i].id] = v.rows[i] end
+    return t
+  end
+  local old = byId(V.buildHistory({ entry(nil) }, o, 1)) -- saved before the cut existed
+  h.eq(old[1].ahCut, false)
+  h.eq(old[2].ahCut, true) -- no saved AH price: the live, cut one
+  local new = byId(V.buildHistory({ entry(true) }, o, 1))
+  h.eq(new[1].ahCut, true)
+end)
+
+h.test("buildHistory: an opened session values its items at its own Auction from", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 1, vendor = 100, ah = 300, best = 100, ahMinGain = 300,
+    items = { [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1,
+      price = { vendor = 100, ah = 300 } } } }
+  local v = V.buildHistory({ e }, opts({ ahMinGain = 0 }), 1)
+  h.eq(v.rows[2].bestKind, "vendor")
+  h.eq(v.rows[2].bestTotal, v.rows[1].value)
+end)

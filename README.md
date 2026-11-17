@@ -124,7 +124,8 @@ row and price. Currencies are listed after the items.
   later. Sort the sessions by Value, Recent or Gold/h; the search (date, note,
   length, place) and the minimum value pick sessions, and the footer adds up
   the listed ones. Sorted by Recent, the sessions sit under headings (Today,
-  Yesterday, the other days of this week, then week numbers) with their count,
+  Yesterday, the other days of this week, then week numbers, with the year
+  for another year's weeks) with their count,
   length and value; click a heading to fold it. Click a session to list its items; right-click it to add a
   note (`Wingrest herbs, 2 alts`), merge it or delete it; hover it for places,
   currencies, values and gold per hour. **Merge with the older session** joins

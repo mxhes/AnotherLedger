@@ -298,3 +298,49 @@ h.test("History.snapshot keeps the mobs, merge adds them up", function()
   e.mobs = nil
   h.eq(H.merge(e, other).mobs["npc:1"].kills, 1)
 end)
+
+h.test("History.period: a week of another year names its year", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600 -- Tuesday 2026-11-17
+  local key, label = H.period(now - 365 * 86400, now, utc) -- Monday 2025-11-17
+  h.eq({ key, label }, { "w:2025-47", "Week 47, 2025" })
+end)
+
+h.test("History.snapshot: keeps the Auction from and AH cut it was saved with", function()
+  local session = { startedAt = 10, elapsedBase = 60, running = false, gold = 0,
+    items = { [1] = { id = 1, qty = 1, lastSeen = 1, price = { vendor = 100, ah = 300 } } } }
+  local e = ns.History.snapshot(session, nil, 100, 300, true)
+  h.eq(e.ahMinGain, 300)
+  h.eq(e.ahCut, true)
+  h.eq(e.best, 100) -- 300 does not beat 100 by 300%
+  e = ns.History.snapshot(session, nil, 100, 0, false)
+  h.eq(e.ahMinGain, 0)
+  h.eq(e.ahCut, false)
+end)
+
+h.test("History.totals: ignored items leave at the session's own Auction from", function()
+  local function entry(gain, best)
+    return { startedAt = 1, elapsed = 60, gold = 0, nItems = 2, vendor = 110, ah = 1300, best = best,
+      ahMinGain = gain, items = {
+        a = { id = 1, qty = 1, price = { vendor = 100, ah = 300 } },
+        b = { id = 2, qty = 1, price = { vendor = 10, ah = 1000 } },
+      } }
+  end
+  -- saved with +300%: item 1 was worth its vendor 100
+  h.eq(select(3, ns.History.totals(entry(300, 1100), { [1] = true })), 1000)
+  -- saved before the option (no ahMinGain): plain best, 300
+  h.eq(select(3, ns.History.totals(entry(nil, 1300), { [1] = true }, 300)), 1000)
+end)
+
+h.test("History.merge: Auction from kept only when both agree; AH cut only when both had it", function()
+  local function entry(t, gain, cut)
+    return { startedAt = t, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, best = 0, items = {},
+      ahMinGain = gain, ahCut = cut }
+  end
+  local m = ns.History.merge(entry(1, 50, true), entry(2, 50, true))
+  h.eq(m.ahMinGain, 50)
+  h.eq(m.ahCut, true)
+  m = ns.History.merge(entry(1, 50, true), entry(2, 0, false))
+  h.eq(m.ahMinGain, nil)
+  h.eq(m.ahCut, false)
+end)

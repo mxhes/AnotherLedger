@@ -53,6 +53,11 @@ h.test("Mobs.credit splits a shared slot by source quantity", function()
   M.credit(mobs, { kind = "item", link = LINEN, qty = 1, sources = { { guid = A, qty = 1 } } }, "Elwynn Forest", {}, state)
   h.eq(mobs["npc:2546"].looted, 1)
   h.eq(mobs["npc:2546"].items[2589], 3)
+  h.eq(mobs["npc:2546"].places["Elwynn Forest"], 1) -- places count corpses, not slots
+  -- another corpse of the same mob
+  M.credit(mobs, { kind = "item", link = LINEN, qty = 1, sources = { { guid = A .. "1", qty = 1 } } },
+    "Elwynn Forest", {}, state)
+  h.eq(mobs["npc:2546"].looted, 2)
   h.eq(mobs["npc:2546"].places["Elwynn Forest"], 2)
 end)
 

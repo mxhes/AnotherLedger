@@ -178,14 +178,18 @@ Each of these is one call in one place; the UI never names them.
   the combat log, else the unit tooltip, else "NPC 12345". Only while
   loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
-  Zones entries (the running session included), values each mob's items
+  Zones entries (the running session included); a mob's `places` count
+  corpses like `looted`, and the most counted is its main place. It values each mob's items
   like Zones (the entry's saved price, else live) and sorts by value, per
   kill, kills or name; `Ledger.mobOpen` is the opened mob.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
-  own action, a hand show / hide clears both, combat hide wins, and the
-  saved hidden flag is not touched.
+  own action. The two marks are independent (a loot-opened window hidden and
+  shown again by a city keeps `shownBy`), a hand show / hide clears both, and
+  while either is set the saved hidden flag is not touched. During combat
+  with Hide in combat (`Window.inCombat`) a show only marks the window for
+  `combatShow`, and a hide cancels that.
 - **Daily farm level** (`dailyFarmLevel`): the Ledger passes
   `opts.levelFits(mapID)` (`Core.levelFits` with `UnitLevel`) to
   `View.dailyFarm`, which skips a place with a position whose map answers
@@ -217,6 +221,11 @@ Each of these is one call in one place; the UI never names them.
   `SKILL_LINES_CHANGED`). The cache stores raw prices. `Prices.best(vendor,
   ah, de, minGainPct)` is the one best-value pick (View, History, Core):
   the AH counts only when it beats vendor by the `ahMinGain` percent.
+  A History entry keeps the rules it was saved with (`ahMinGain`, `ahCut`):
+  `History.totals` takes ignored items off at the entry's own Auction from
+  (`History.gainOf`, 0 for older entries), an opened session values its
+  items the same way, and its AH lines carry the cut note only when
+  `ahCut` was on.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
