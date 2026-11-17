@@ -167,6 +167,16 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Value rules** apply at lookup, never to saved History prices:
+  `Prices.new{ rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross
+  price stays in `ahGross`, and a row with it gets `ahCut = true` for the
+  tooltip) and drops `de` when `Prices.destroyAllowed(destroyMode, kind,
+  own, all)` says no. The kind comes from the item class
+  (`Prices.destroyKind`, via `GetItemInfoInstant`), the professions from
+  `db.professions[character]` (`Core.noteProfessions` at login and on
+  `SKILL_LINES_CHANGED`). The cache stores raw prices. `Prices.best(vendor,
+  ah, de, minGainPct)` is the one best-value pick (View, History, Core):
+  the AH counts only when it beats vendor by the `ahMinGain` percent.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
@@ -375,7 +385,9 @@ Each of these is one call in one place; the UI never names them.
   lists) and `sorts` (History Sessions / Zones), `optionsWindow` (where the
   options panel was dragged to, `{ x, y }` from the screen center), `profileUsers`,
   `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
-  `histories` (every character's History, see "Account-wide History").
+  `histories` (every character's History, see "Account-wide History"),
+  `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`, for the
+  option Destroy values).
 - `LootLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
   and the bank scan, and `profile` (the name of the profile it uses).
@@ -392,6 +404,7 @@ Each of these is one call in one place; the UI never names them.
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
+`SKILL_LINES_CHANGED`, the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 

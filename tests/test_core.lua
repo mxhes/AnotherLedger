@@ -68,6 +68,7 @@ end)
 
 h.test("Core.buildPrices wires sources, vendor, live TSM source and cache", function()
   local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
+  db.settings.ahCut = false -- raw AH prices here (the cut has its own test)
   local askedSource
   local env = {
     C_Item = { GetItemInfo = function() return 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25 end },
@@ -290,6 +291,7 @@ end)
 
 h.test("Core.buildPrices asks the sources in order and takes the disenchant value from TSM", function()
   local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
+  db.settings.ahCut = false
   local env = {
     TSM_API = { GetCustomPriceValue = function(src) return src == "Destroy" and 40 or nil end },
     Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 222 end } } },
@@ -404,4 +406,18 @@ h.test("Core.zoneSwitch: a new zone counts after the grace time, flights and det
   h.eq(Core.zoneSwitch(st, "Isle of Dorn", 730, false, 120), true)
   h.eq(st.zone, "Isle of Dorn")
   h.eq(Core.zoneSwitch(st, "Isle of Dorn", 900, false, 120), false)
+end)
+
+h.test("Core.professions reads the destroy professions of the character", function()
+  local env = {
+    GetProfessions = function() return 1, 2 end,
+    GetProfessionInfo = function(i)
+      if i == 1 then return "Enchanting", 0, 100, 150, 0, 0, 333 end
+      return "Herbalism", 0, 100, 150, 0, 0, 182
+    end,
+  }
+  local set = Core.professions(env)
+  h.eq(set.enchanting, true)
+  h.eq(set.inscription, nil)
+  h.eq(next(Core.professions({})), nil)
 end)

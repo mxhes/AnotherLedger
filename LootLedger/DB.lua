@@ -32,6 +32,12 @@ DB.defaults = {
     includeGold = true,
     refreshSeconds = 30,
     staleHours = 12,
+    -- Value rules (Prices.best / Prices lookup rules): AH values after the
+    -- 5% fee, the percent an AH value must beat vendor by (0 = any), and when
+    -- destroy values count: always / any (a character of mine can) / self / never.
+    ahCut = true,
+    ahMinGain = 0,
+    destroyMode = "always",
     alertGold = 0,
     alertSound = false,
     -- Crafted items and items received at a merchant / mailbox / trade / AH
@@ -124,6 +130,9 @@ DB.defaults = {
   kept = {},
   -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
   histories = {},
+  -- Destroy professions per character: { ["Name-Realm"] = { enchanting = true, ... } }
+  -- (Core.noteProfessions; option Destroy values).
+  professions = {},
 }
 
 -- Per-character defaults (LootLedgerCharDB): the last bank scan for the Bank tab.

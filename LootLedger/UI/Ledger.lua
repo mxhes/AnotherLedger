@@ -204,6 +204,7 @@ local function currentContext(now)
   viewOpts.includeGold = setting("includeGold", true)
   viewOpts.showCurrencies = setting("showCurrencies", true)
   viewOpts.market = Ledger.marketCutoffs(db)
+  viewOpts.ahMinGain = setting("ahMinGain", 0)
   viewOpts.compactDrops = setting("compactDrops", nil)
   viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
   viewOpts.kept = db and type(db.kept) == "table" and db.kept or nil
@@ -240,6 +241,7 @@ local function farmKey(listKey, minutes)
   return table.concat({
     listKey, tostring(minutes), tostring(viewOpts.includeGold), ignored .. ":" .. idSum,
     tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)),
+    tostring(setting("ahCut", nil)), tostring(setting("ahMinGain", nil)), tostring(setting("destroyMode", nil)),
     m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
   }, "|")
 end

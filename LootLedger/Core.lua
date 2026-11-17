@@ -118,8 +118,19 @@ function Core.buildPrices(env, db, now, getKey)
     end
   end
 
+  -- Value rules, read at every lookup (options ahCut and destroyMode).
+  local function rules()
+    return {
+      ahCut = setting("ahCut") ~= false,
+      destroyAllowed = function(itemID, link)
+        return Core.destroyAllowed(env, db, setting("destroyMode"), itemID, link)
+      end,
+    }
+  end
+
   return ns.Prices.new({
     sources = sources,
+    rules = rules,
     vendor = function(itemID, link) return Sources.Vendor.get(env, itemID, link) end,
     disenchant = disenchant,
     market = market,
@@ -134,6 +145,57 @@ function Core.buildPrices(env, db, now, getKey)
   })
 end
 
+-- Destroy professions (Enchanting, Inscription, Jewelcrafting) of the
+-- logged-in character: { enchanting = true, ... }. GetProfessions returns the
+-- profession indices; GetProfessionInfo's 7th return is the skill line.
+-- UNVERIFIED (check in client) on Forever: GetProfessions / GetProfessionInfo.
+function Core.professions(env)
+  local lines = {}
+  if type(env.GetProfessions) ~= "function" or type(env.GetProfessionInfo) ~= "function" then
+    return ns.Prices.professionSet(lines)
+  end
+  local ok, a, b, c, d, e = pcall(env.GetProfessions)
+  if not ok then return ns.Prices.professionSet(lines) end
+  for _, index in ipairs({ a or false, b or false, c or false, d or false, e or false }) do
+    if index then
+      local got, _, _, _, _, _, _, skillLine = pcall(env.GetProfessionInfo, index)
+      if got and type(skillLine) == "number" then lines[#lines + 1] = skillLine end
+    end
+  end
+  return ns.Prices.professionSet(lines)
+end
+
+-- Saves this character's destroy professions (login, SKILL_LINES_CHANGED).
+function Core.noteProfessions()
+  local key = Core.character or Core.characterKey(_G)
+  if not (key and ns.db) then return end
+  if type(ns.db.professions) ~= "table" then ns.db.professions = {} end
+  ns.db.professions[key] = Core.professions(_G)
+end
+
+-- Option "destroyMode": whether an item's destroy value counts. The kind of
+-- destroy follows the item's class (C_Item.GetItemInfoInstant: 6th and 7th
+-- returns; UNVERIFIED (check in client) on Forever).
+function Core.destroyAllowed(env, db, mode, itemID, link)
+  if mode ~= "any" and mode ~= "self" then return mode ~= "never" end
+  local kind
+  local C = env.C_Item
+  local info = type(C) == "table" and C.GetItemInfoInstant or env.GetItemInfoInstant
+  if type(info) == "function" then
+    local ok, _, _, _, _, _, classID, subclassID = pcall(info, link or itemID)
+    if ok then kind = ns.Prices.destroyKind(classID, subclassID) end
+  end
+  local all, own = {}, nil
+  local key = Core.character or Core.characterKey(env)
+  for character, set in pairs(type(db.professions) == "table" and db.professions or {}) do
+    if type(set) == "table" then
+      for k, v in pairs(set) do if v then all[k] = true end end
+      if character == key then own = set end
+    end
+  end
+  return ns.Prices.destroyAllowed(mode, kind, own or {}, all)
+end
+
 -- Price lookup that never errors: nil before login is done or when a source
 -- fails. `link` (optional) prices the exact item variant.
 function Core.lookupPrice(itemID, link)
@@ -146,7 +208,7 @@ end
 -- Unit value of a price lookup: the best of vendor, AH and disenchant.
 function Core.unitValue(info)
   if type(info) ~= "table" then return nil end
-  return (ns.View.best(info.vendor, info.ah, info.de))
+  return (ns.Prices.best(info.vendor, info.ah, info.de, ns.Util.setting("ahMinGain", 0)))
 end
 
 -- What a session is worth now: every item at its best unit value plus the raw
@@ -882,6 +944,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
 
   Core.linkHistory()
+  Core.noteProfessions()
   local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
   local previous = ns.chardb.session
   ns.session = ns.Session.login(previous, keep, now)
@@ -968,6 +1031,10 @@ function events.LOOT_CLOSED()
 end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.
+function events.SKILL_LINES_CHANGED()
+  Core.noteProfessions()
+end
+
 function events.QUEST_TURNED_IN(questID, xpReward, moneyReward)
   if ns.session then Core.recordGold(moneyReward, true) end
 end

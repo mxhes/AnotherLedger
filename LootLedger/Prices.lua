@@ -11,7 +11,70 @@ local Prices = {
   STALE_AFTER = ((ns.DB and ns.DB.defaults.settings.staleHours) or 12) * 3600,
   WRITE_INTERVAL = 60,             -- an unchanged price is re-stamped at most this often
   CACHE_MAX_AGE = 30 * 86400,      -- cached prices older than 30 days are dropped at login
+  AH_CUT = 0.05,                   -- the auction house fee (option "ahCut")
 }
+
+-- ---------------------------------------------------------------------------
+-- Value rules (options ahCut, ahMinGain, destroyMode)
+
+-- The best of the vendor, AH and destroy values and which one it is
+-- ("vendor" / "ah" / "de"). The AH value only counts when it beats the vendor
+-- price by `minGainPct` percent (option "Auction from"; nil or 0 = any gain);
+-- an item without a vendor price counts its AH value whenever it has one.
+function Prices.best(vendor, ah, de, minGainPct)
+  local best, kind = nil, nil
+  if isNumber(vendor) then best, kind = vendor, "vendor" end
+  if isNumber(ah) and (best == nil or ah > best) then
+    local gain = isNumber(minGainPct) and minGainPct > 0 and minGainPct or 0
+    if not (isNumber(vendor) and vendor > 0) or ah >= vendor * (1 + gain / 100) then best, kind = ah, "ah" end
+  end
+  if isNumber(de) and (best == nil or de > best) then best, kind = de, "de" end
+  return best, kind
+end
+
+-- The profession a destroy of an item needs, from its class and subclass
+-- (GetItemInfoInstant): weapons and armor are disenchanted, herbs milled, ore
+-- prospected. nil for anything else.
+local WEAPON, ARMOR, TRADE_GOODS = 2, 4, 7
+local TRADE_HERB, TRADE_METAL_STONE = 9, 7
+function Prices.destroyKind(classID, subclassID)
+  if classID == WEAPON or classID == ARMOR then return "enchanting" end
+  if classID == TRADE_GOODS then
+    if subclassID == TRADE_HERB then return "inscription" end
+    if subclassID == TRADE_METAL_STONE then return "jewelcrafting" end
+  end
+  return nil
+end
+
+-- Profession skill lines (GetProfessionInfo's 7th return) that destroy items.
+local DESTROY_SKILLS = { [333] = "enchanting", [773] = "inscription", [755] = "jewelcrafting" }
+
+-- { enchanting = true, ... } of a list of skill line IDs.
+function Prices.professionSet(skillLines)
+  local set = {}
+  for _, id in ipairs(type(skillLines) == "table" and skillLines or {}) do
+    local kind = DESTROY_SKILLS[id]
+    if kind then set[kind] = true end
+  end
+  return set
+end
+
+local function anyOf(set)
+  return type(set) == "table" and next(set) ~= nil
+end
+
+-- Option "destroyMode": does an item's destroy value count? `mode` is
+-- "always" / "any" (one of my characters) / "self" (this character) / "never";
+-- `own` and `all` are profession sets of this character and of all of them.
+-- An item whose kind is unknown counts when the set has any destroy profession.
+function Prices.destroyAllowed(mode, kind, own, all)
+  if mode == "never" then return false end
+  if mode ~= "any" and mode ~= "self" then return true end
+  local set = mode == "self" and own or all
+  if type(set) ~= "table" then return false end
+  if kind == nil then return anyOf(set) end
+  return set[kind] == true
+end
 
 local function validEntry(e)
   return type(e) == "table" and isNumber(e.seenAt)
@@ -78,6 +141,7 @@ function Prices.new(opts)
     market = opts.market,
     cache = opts.cache,
     cacheAllowed = opts.cacheAllowed,
+    rules = opts.rules,
     key = opts.key,
     now = opts.now,
   }, Instance)
@@ -117,9 +181,35 @@ function Instance:_cacheUsable(entry)
   return not ok or allowed and true or false
 end
 
--- Returns { vendor, de, ah, ahSource, ahAge, saleRate, soldPerDay }; every
--- field may be missing (saleRate / soldPerDay are live only, never cached).
--- ahSource is the live source's name or "cache"; ahAge is 0 for a live price.
+-- The value rules of the moment (opts.rules), or nil.
+function Instance:_rules()
+  if not self.rules then return nil end
+  local ok, r = pcall(self.rules)
+  return ok and type(r) == "table" and r or nil
+end
+
+-- Applies the value rules to a lookup result: the AH cut (ah after the fee,
+-- ahGross the raw price) and the destroy rule (de dropped). The cache keeps
+-- the raw price, so the cut is applied exactly once.
+function Instance:_applyRules(result, itemID, link)
+  local rules = self:_rules()
+  if not rules then return result end
+  if rules.ahCut and isNumber(result.ah) then
+    result.ahGross = result.ah
+    result.ah = math.floor(result.ah * (1 - Prices.AH_CUT))
+  end
+  if result.de and rules.destroyAllowed then
+    local ok, allowed = pcall(rules.destroyAllowed, itemID, link)
+    if ok and allowed == false then result.de = nil end
+  end
+  return result
+end
+
+-- Returns { vendor, de, ah, ahGross, ahSource, ahAge, saleRate, soldPerDay };
+-- every field may be missing (saleRate / soldPerDay are live only, never
+-- cached). ahSource is the live source's name or "cache"; ahAge is 0 for a
+-- live price. With the AH cut (opts.rules) `ah` is after the fee and ahGross
+-- the raw price.
 function Instance:lookup(itemID, link)
   local result = {}
   local itemKey = itemID
@@ -154,14 +244,14 @@ function Instance:lookup(itemID, link)
   if price then
     result.ah, result.ahSource, result.ahAge = price, name, 0
     if key and self.cache then self:_remember(key, bucket, itemKey, price, now, name) end
-    return result
+    return self:_applyRules(result, itemID, link)
   end
 
   local entry = bucket and bucket[itemKey]
   if validEntry(entry) and isPositive(entry.price) and self:_cacheUsable(entry) then
     result.ah, result.ahSource, result.ahAge = entry.price, "cache", math.max(0, now - entry.seenAt)
   end
-  return result
+  return self:_applyRules(result, itemID, link)
 end
 
 ns.Prices = Prices

@@ -310,3 +310,9 @@ h.test("rowText: the price per unit option shows one item of a stack", function(
   row.quantity = 1
   h.eq(R.rowText(row, ns.Money.format, true).amount, ns.Money.format(2000))
 end)
+
+h.test("Rows.tooltipLines: an AH value after the cut says so", function()
+  local fm = ns.Money.format
+  local lines = R.tooltipLines({ quantity = 1, ahTotal = 95, ahEach = 95, ahCut = true }, fm)
+  h.eq(lines[1], "AH: " .. fm(95) .. " (after 5% AH cut)")
+end)

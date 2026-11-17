@@ -171,7 +171,7 @@ anything that deletes History asks first.
 | Tab | Options |
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
-| Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
+| Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Session per instance, Session per zone, Zone change delay |
 | History | Daily farm, Daily farm: min. time, Zones: all characters, Export History, Clear History, History kept |
@@ -262,6 +262,14 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
 
 ## Good to know
 
+- **Value rules**: *AH cut (5%)* (on by default) counts Auction values after
+  the auction house's fee; the item tooltip says so. *Auction from* counts an
+  item as Vendor unless its Auction value beats the vendor price by the set
+  percent. *Destroy values* can count destroy values only when one of your
+  characters (or this one) has the profession: Enchanting for gear,
+  Inscription for herbs, Jewelcrafting for ore. Your characters' professions
+  are noted when you log in on them. Sessions already in History keep the
+  prices they were saved with.
 - **Price age**: TSM and Auctionator don't say when they last scanned, so the
   age tag is the time since the source last gave a price for that item.
 - **Languages**: English and German. Loot and money messages are read from the

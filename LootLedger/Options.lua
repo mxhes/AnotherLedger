@@ -441,6 +441,34 @@ Options.define({
   end,
 })
 
+-- Value rules (Prices lookup rules and Prices.best): read at lookup time, so
+-- a change only needs a redraw.
+Options.define({
+  key = "ahCut", category = "prices", type = "checkbox", label = L["AH cut (5%)"],
+  tooltip = L["Counts Auction values after the auction house's 5% fee, so they show what you would actually get. Sessions already in History keep the prices they were saved with."],
+  apply = refreshUI,
+})
+
+Options.define({
+  key = "ahMinGain", category = "prices", type = "slider", label = L["Auction from"],
+  tooltip = L["An item counts at its Auction value only when that beats its vendor price by this much; else it counts as Vendor. Off counts the Auction value whenever it is higher. The tooltip always shows both."],
+  min = 0, max = 100, step = 5,
+  format = function(v) return v == 0 and L["Off"] or string.format(L["+%d%% over vendor"], v) end,
+  apply = refreshUI,
+})
+
+Options.define({
+  key = "destroyMode", category = "prices", type = "dropdown", label = L["Destroy values"],
+  tooltip = L["When an item counts its disenchant, mill or prospect value: always, only if one of your characters has the profession (Enchanting for gear, Inscription for herbs, Jewelcrafting for ore), only if this character has it, or never."],
+  choices = {
+    { value = "always", label = L["Always"] },
+    { value = "any", label = L["If one of my characters can"] },
+    { value = "self", label = L["If this character can"] },
+    { value = "never", label = L["Never"] },
+  },
+  apply = refreshUI,
+})
+
 -- Applied at login and whenever changed; the sort button of the filter bar
 -- still changes the order for the rest of the session.
 Options.define({

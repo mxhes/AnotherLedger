@@ -429,4 +429,18 @@ ns.Locale.register("deDE", {
   ["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] = "Wenn eine Sitzung im Verlauf gespeichert wird (Zurücksetzen, neue Sitzung pro Zone oder Instanz, frischer Login), fasst eine Chatzeile sie zusammen: Dauer, Ort, Wert und Gold pro Stunde.",
   ["session saved: %s"] = "Sitzung gespeichert: %s",
   [" in "] = " in ",
+
+  -- Value rules
+  ["AH cut (5%)"] = "AH-Gebühr (5%)",
+  ["Counts Auction values after the auction house's 5% fee, so they show what you would actually get. Sessions already in History keep the prices they were saved with."] = "Zählt Auktionswerte nach der Gebühr des Auktionshauses von 5%, also das, was du wirklich bekommst. Sitzungen im Verlauf behalten die Preise, mit denen sie gespeichert wurden.",
+  ["Auction from"] = "Auktion ab",
+  ["An item counts at its Auction value only when that beats its vendor price by this much; else it counts as Vendor. Off counts the Auction value whenever it is higher. The tooltip always shows both."] = "Ein Gegenstand zählt nur dann mit seinem Auktionswert, wenn dieser den Händlerpreis um so viel übertrifft; sonst zählt er als Händler. Aus zählt den Auktionswert, sobald er höher ist. Der Tooltip zeigt immer beide.",
+  ["+%d%% over vendor"] = "+%d%% über Händler",
+  ["Destroy values"] = "Zerlegewerte",
+  ["When an item counts its disenchant, mill or prospect value: always, only if one of your characters has the profession (Enchanting for gear, Inscription for herbs, Jewelcrafting for ore), only if this character has it, or never."] = "Wann ein Gegenstand seinen Entzauberungs-, Mahl- oder Sondierungswert zählt: immer, nur wenn einer deiner Charaktere den Beruf hat (Verzauberkunst für Ausrüstung, Inschriftenkunde für Kräuter, Juwelierskunst für Erz), nur wenn dieser Charakter ihn hat, oder nie.",
+  ["Always"] = "Immer",
+  ["If one of my characters can"] = "Wenn einer meiner Charaktere kann",
+  ["If this character can"] = "Wenn dieser Charakter kann",
+  ["Never"] = "Nie",
+  [" (after 5% AH cut)"] = " (nach 5% AH-Gebühr)",
 })

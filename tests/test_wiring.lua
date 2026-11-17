@@ -1053,7 +1053,8 @@ h.test("wiring: opacity, price source and combat hide options take effect", func
   h.eq(ctx.errors, {})
   local ns, W = ctx.ns, ctx.ns.UI.Window
   local frame = W.frame
-  -- price source: Auctionator only, TSM silent
+  -- price source: Auctionator only, TSM silent (raw prices: no AH cut)
+  ns.Options.set(ns.db, "ahCut", false)
   ctx.env.TSM_API = { GetCustomPriceValue = function() return 111 end }
   ctx.env.Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 222 end } } }
   ns.Options.set(ns.db, "priceSource", "tsm")
@@ -2838,5 +2839,61 @@ h.test("wiring: Session summary in chat sums up a saved session", function()
   h.eq(found ~= nil, true)
   h.eq(found:find(ns.Money.format(250000), 1, true) ~= nil, true)
   h.eq(found:find(ns.Money.format(500000) .. "/h", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: AH cut and Destroy values change the prices at once", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("Destroy", 1, true) then return 50000 end
+    return 10000
+  end }
+  h.eq(ns.Options.get(ns.db, "ahCut"), true)
+  local r = ns.prices:lookup(2589)
+  h.eq(r.ah, 9500); h.eq(r.ahGross, 10000)
+  ns.Options.set(ns.db, "ahCut", false)
+  h.eq(ns.prices:lookup(2589).ah, 10000)
+  -- Destroy: Linen Cloth's class comes from GetItemInfoInstant (armor here).
+  ctx.env.C_Item.GetItemInfoInstant = function(id) return id, "Armor", "Cloth", "", 1, 4, 1 end
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ns.Options.set(ns.db, "destroyMode", "self")
+  h.eq(ns.prices:lookup(2589).de, nil) -- no enchanter
+  h.eq(ns.Core.character, "Me-Realm")
+  ns.db.professions = { ["Me-Realm"] = { enchanting = true } }
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ns.Options.set(ns.db, "destroyMode", "never")
+  h.eq(ns.prices:lookup(2589).de, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: SKILL_LINES_CHANGED saves this character's destroy professions", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.GetProfessions = function() return 1, nil end
+  ctx.env.GetProfessionInfo = function() return "Enchanting", 0, 1, 100, 0, 0, 333 end
+  fire(ctx, "SKILL_LINES_CHANGED")
+  h.eq(ns.db.professions["Me-Realm"], { enchanting = true })
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Auction from turns a thin AH margin into a Vendor row", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src) return not src:find("Destroy", 1, true) and 30 or nil end }
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- vendor 25 each, AH 30 (28 after the cut)
+  local L = ns.UI.Ledger
+  L.refresh()
+  h.eq(L.view.rows[1].bestKind, "ah")
+  ns.Options.set(ns.db, "ahMinGain", 20)
+  L.refresh()
+  h.eq(L.view.rows[1].bestKind, "vendor")
   h.eq(ctx.errors, {})
 end)

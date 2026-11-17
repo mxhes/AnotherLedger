@@ -97,12 +97,9 @@ end
 
 -- The best of the three totals and which one it is ("vendor", "ah", "de").
 -- Ties prefer vendor, then AH (the surest money).
-function View.best(vendorTotal, ahTotal, deTotal)
-  local best, kind = nil, nil
-  if num(vendorTotal) then best, kind = vendorTotal, "vendor" end
-  if num(ahTotal) and (best == nil or ahTotal > best) then best, kind = ahTotal, "ah" end
-  if num(deTotal) and (best == nil or deTotal > best) then best, kind = deTotal, "de" end
-  return best, kind
+-- `minGain`: the option Auction from (Prices.best).
+function View.best(vendorTotal, ahTotal, deTotal, minGain)
+  return ns.Prices.best(vendorTotal, ahTotal, deTotal, minGain)
 end
 
 -- How well an item sells, from TSM region data. `t` = { rateGood, rateOk,
@@ -168,7 +165,7 @@ local function makeRow(item, opts)
   local vendorTotal = vendorEach and vendorEach * qty or nil
   local ahTotal = ahEach and ahEach * qty or nil
   local deTotal = deEach and deEach * qty or nil
-  local bestTotal, bestKind = View.best(vendorTotal, ahTotal, deTotal)
+  local bestTotal, bestKind = View.best(vendorTotal, ahTotal, deTotal, opts.ahMinGain)
   local rateLevel, volumeLevel = View.marketLevels(lookup.saleRate, lookup.soldPerDay, opts.market)
 
   return {
@@ -182,6 +179,8 @@ local function makeRow(item, opts)
     -- Bound items can never be sold on the AH: no "unpriced" count for them.
     bound = info and info.bound and true or false,
     ahFromCache = ahFromCache, ahAge = ahAge,
+    -- The AH value is after the 5% fee (option "ahCut"; Prices lookup rules).
+    ahCut = ahEach ~= nil and num(lookup.ahGross) or false,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
     value = bestTotal or 0,
     lastSeen = item.lastSeen,
@@ -459,7 +458,7 @@ function View.buildHistory(list, opts, openIndex)
   for i, e in ipairs(list) do
     if History.valid(e) then
       local open = i == openIndex
-      t.vendor, t.ah, t.best, t.count = History.totals(e, opts.ignored)
+      t.vendor, t.ah, t.best, t.count = History.totals(e, opts.ignored, opts.ahMinGain)
       local row = sessionRow(e, i, open, opts, t)
       local shown = open or (row.value >= minValue
         and (not needle or string.find(row.sortName, needle, 1, true) ~= nil))

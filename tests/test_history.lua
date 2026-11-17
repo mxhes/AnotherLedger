@@ -1,6 +1,6 @@
 local h = ...
 -- (History.csv / details / snapshot places are tested at the end of this file)
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Session.lua", "History.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua" })
 local H = ns.History
 
 local function session(items, gold)
@@ -241,4 +241,15 @@ h.test("History.merge: one session of two, the time between them never counts", 
   -- The inputs stay as they were (undo puts them back).
   h.eq(newer.items[7].qty, 2); h.eq(older.zones["Deadmines (Normal)"].subs.Mast.time, 900)
   h.eq(ns.History.merge(newer, "junk"), nil)
+end)
+
+h.test("snapshot / totals: Auction from decides each item's best value", function()
+  -- item 1: vendor 10, ah 100 (+900%); item 2: vendor 5 only
+  local s = session({ { 1, 3 }, { 2, 4 } }, 0)
+  h.eq(H.snapshot(s, lookup, 1000).best, 300 + 20)
+  local e = H.snapshot(s, lookup, 1000, 1000) -- AH must beat vendor by 1000%: it doesn't
+  h.eq(e.best, 30 + 20)
+  -- totals: an ignored item leaves with the value the rule gave it
+  local _, _, best = H.totals(e, { [1] = true }, 1000)
+  h.eq(best, 20)
 end)

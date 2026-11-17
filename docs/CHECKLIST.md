@@ -9,6 +9,13 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Value rules: with AH cut on, an Auction value is 5% lower and the item
+  tooltip says "after 5% AH cut". Destroy values "If this character can":
+  `GetProfessions` / `GetProfessionInfo` (7th return the skill line: 333
+  Enchanting, 773 Inscription, 755 Jewelcrafting) and `GetItemInfoInstant`
+  (6th / 7th returns class / subclass) work on Forever; an enchanter keeps
+  the Destroy value of gear, a non-enchanter loses it (`UNVERIFIED` in
+  `Core.lua`).
 - Rename to LootLedger: the addon shows as LootLedger in the AddOns list and
   options; `/ll` and `/lootledger` work; key bindings are under
   LootLedger. Renaming `SavedVariables/LootPrice.lua` to `LootLedger.lua`

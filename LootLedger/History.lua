@@ -40,10 +40,24 @@ local function copyPrice(p)
   return next(out) and out or nil
 end
 
+-- The option "Auction from" (percent the AH value must beat vendor by) when a
+-- caller passes none.
+local function gainOf(minGain)
+  if num(minGain) then return minGain end
+  return ns.Util.setting and ns.Util.setting("ahMinGain", 0) or 0
+end
+
+-- One item's best unit value (Prices.best with the Auction from rule).
+local function bestUnit(v, a, d, minGain)
+  return ns.Prices.best(v, a, d, minGain) or 0
+end
+
 -- Snapshot of `session`, or nil when it holds nothing worth keeping (no items,
 -- currencies or gold). `lookup(itemID, link)` returns { vendor, ah, de } or
--- nil; `now` ends a still running clock.
-function History.snapshot(session, lookup, now)
+-- nil; `now` ends a still running clock; `minGain` the Auction from percent
+-- (default: the option).
+function History.snapshot(session, lookup, now, minGain)
+  minGain = gainOf(minGain)
   if type(session) ~= "table" or type(session.items) ~= "table" then return nil end
   local items, count, vendor, ah, best = {}, 0, 0, 0, 0
   for key, it in pairs(session.items) do
@@ -68,7 +82,7 @@ function History.snapshot(session, lookup, now)
       count = count + 1
       if v then vendor = vendor + v * it.qty end
       if a then ah = ah + a * it.qty end
-      best = best + math.max(v or 0, a or 0, d or 0) * it.qty
+      best = best + bestUnit(v, a, d, minGain) * it.qty
     end
   end
   local currencies, nCurrencies = {}, 0
@@ -148,7 +162,7 @@ end
 -- { [itemID] = name or true }, see Core.ignoredItems), at the unit prices it
 -- was saved with: vendor, ah, best, item count. Taking an item off the list
 -- brings its value back.
-function History.totals(e, ignored)
+function History.totals(e, ignored, minGain)
   local vendor, ah, best, count = e.vendor, e.ah, History.bestOf(e), e.nItems
   if type(ignored) ~= "table" or next(ignored) == nil or type(e.items) ~= "table" then
     return vendor, ah, best, count
@@ -161,7 +175,7 @@ function History.totals(e, ignored)
       local d = num(p.de) and p.de or nil
       if v then vendor = vendor - v * it.qty end
       if a then ah = ah - a * it.qty end
-      best = best - math.max(v or 0, a or 0, d or 0) * it.qty
+      best = best - bestUnit(v, a, d, gainOf(minGain)) * it.qty
       count = count - 1
     end
   end

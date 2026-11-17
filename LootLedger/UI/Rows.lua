@@ -15,6 +15,7 @@ local TEXT = {
   UNPRICED = "?",
   EACH = ns.L[" each"],
   KEPT = ns.L["(kept)"],
+  AH_CUT = ns.L[" (after 5% AH cut)"],
 }
 
 -- The source tag after a row's value and the tooltip line of each value.
@@ -148,6 +149,7 @@ function Rows.tooltipLines(row, formatMoney)
       if c then label = ns.Money.colorCode(c) .. label .. "|r" end
       local line = label .. formatMoney(total)
       if multi and type(each) == "number" then line = line .. " (" .. formatMoney(each) .. TEXT.EACH .. ")" end
+      if src == "ah" and row.ahCut then line = line .. TEXT.AH_CUT end
       lines[#lines + 1] = line
     end
   end

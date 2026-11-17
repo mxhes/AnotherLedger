@@ -1073,3 +1073,30 @@ h.test("buildZones: opts.dailyPick marks the subzone and its zone row", function
   h.eq(v.rows[2].subKey, "A"); h.eq(v.rows[2].daily, true)
   h.eq(v.rows[3].zoneKey, "Y"); h.eq(v.rows[3].daily, nil)
 end)
+
+h.test("makeRow: opts.ahMinGain decides the best source", function()
+  reset()
+  local v = V.build(three(), opts({ sort = "ah", ahMinGain = 300 }))
+  local byId = {}
+  for _, r in ipairs(v.rows) do byId[r.id] = r end
+  h.eq(byId[1].bestKind, "ah")      -- 500 vs vendor 10
+  h.eq(byId[2].bestKind, "vendor")  -- 300 < 100 * 4
+  h.eq(byId[2].bestTotal, 200)
+  h.eq(V.build(three(), opts({ sort = "ah" })).totals.best, 2000 + 600 + 500)
+end)
+
+h.test("makeRow: an opened History session keeps its saved (already cut) AH price", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 1, vendor = 10, ah = 9500, best = 9500,
+    items = { [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1,
+      price = { vendor = 10, ah = 9500 } } } }
+  local v = V.buildHistory({ e }, opts({ lookup = function() return { ah = 10000, ahGross = 10500 } end }), 1)
+  h.eq(v.rows[2].ahEach, 9500)
+end)
+
+h.test("makeRow: a lookup after the AH cut marks the row", function()
+  local s = session({ { 7, "Cut", 1 } })
+  local v = V.build(s, opts({ lookup = function() return { ah = 95, ahGross = 100 } end }))
+  h.eq(v.rows[1].ahCut, true)
+  v = V.build(s, opts({ lookup = function() return { ah = 100 } end }))
+  h.eq(v.rows[1].ahCut, false)
+end)
