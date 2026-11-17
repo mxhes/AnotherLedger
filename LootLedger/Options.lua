@@ -347,6 +347,14 @@ Options.define({ key = "lockWindow", category = "window", type = "checkbox", lab
 Options.define({ key = "snapToGrid", category = "window", type = "checkbox", label = L["Snap to grid"],
   tooltip = L["When you let go of the window near a line of the Edit Mode grid, its edge or center snaps onto that line. Uses the grid spacing set in Edit Mode."] })
 
+-- Core: automatic show / hide (UI.Window.autoShow / autoHide).
+Options.define({ key = "showOnLoot", category = "window", type = "checkbox", label = L["Open on first loot"],
+  tooltip = L["Opens the window when a session gets its first item. Close it and it stays closed until the next session."] })
+Options.define({ key = "showInInstance", category = "window", type = "checkbox", label = L["Open in instances"],
+  tooltip = L["Opens the window when you enter a dungeon or raid and closes it again when you leave, unless you closed or opened it yourself in between."] })
+Options.define({ key = "hideInCities", category = "window", type = "checkbox", label = L["Hide in cities"],
+  tooltip = L["Hides the window in cities and inns (resting) and shows it again when you leave, unless you opened it yourself there."] })
+
 Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden"],
   tooltip = L["The window stays closed at login. Open it with the minimap button or /ll."] })
 

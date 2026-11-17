@@ -25,6 +25,7 @@ local bankOpen = false
 -- (their "You receive item" messages are not loot). [event base] = open.
 local tradeWindows = {}
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
+local restingSeen = false -- the resting state Core.checkRest saw last (option "hideInCities")
 local zoneState = {} -- the session's zone and a pending new one (Core.zoneSwitch)
 -- The open loot window: { money = GetMoney() at opening, chat = copper the
 -- money messages counted since }, or nil (see "Raw gold backstop").
@@ -376,6 +377,8 @@ function Core.recordLoot(link, qty, kind)
   if not key or notCounted() then return end
   local added, item = ns.Session.add(ns.session, itemID, link, qty, time(), key)
   if not added then return end
+  -- Option "showOnLoot": the session's first item opens the window.
+  if ns.Session.itemCount(ns.session) == 1 and item.qty == qty then Core.autoWindow("show", "loot", "showOnLoot") end
   notePlace()
   ns.Session.notePlaceLoot(ns.session, key, qty)
   ns.Session.noteRecent(ns.session, key, qty, time())
@@ -629,6 +632,11 @@ function Core.checkRest()
   local session = ns.session
   if not (session and ns.db) then return end
   local resting = type(IsResting) == "function" and IsResting() and true or false
+  -- Option "hideInCities": hide on entering a resting area, show on leaving.
+  if resting ~= restingSeen then
+    restingSeen = resting
+    if resting then Core.autoWindow("hide", "city", "hideInCities") else Core.autoWindow("undo", "city") end
+  end
   local want = resting and ns.Options.get(ns.db, "cityPause") and session.running and not session.afkPaused
   if want and not session.resting then
     ns.Session.rest(session, time())
@@ -816,6 +824,18 @@ function Core.instanceChanged(previous, current)
   return previous ~= current
 end
 
+-- The window's automatic show / hide (UI.Window.autoShow / autoHide /
+-- autoUndo). `option` (for show and hide) must be on; undo always runs, so
+-- turning the option off never leaves the window hidden.
+function Core.autoWindow(action, reason, option)
+  local W = ns.UI and ns.UI.Window
+  if not W or not ns.db then return end
+  if option and not ns.Options.get(ns.db, option) then return end
+  if action == "show" then W.autoShow(reason)
+  elseif action == "hide" then W.autoHide(reason)
+  else W.autoUndo(reason) end
+end
+
 -- Option "dailyFarmLevel": whether the player's `level` is inside the level
 -- range of map `mapID`; nil when unknown (no API, no range).
 -- UNVERIFIED (check in client) on Forever: C_Map.GetMapLevels.
@@ -846,6 +866,10 @@ local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
   local previous = lastInstance
   lastInstance = key
+  -- Option "showInInstance": open inside, close again on leaving.
+  if Core.instanceChanged(previous, key) then
+    if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
+  end
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
   if not Core.instanceChanged(previous, key) then return end
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move

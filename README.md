@@ -177,7 +177,7 @@ anything that deletes History asks first.
 
 | Tab | Options |
 | --- | --- |
-| Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
+| Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
@@ -239,6 +239,10 @@ minutes by default): a short detour or a cave entrance does not split the
 session, and flight paths never count. Loot from those minutes still belongs
 to the old session. An empty session just starts its clock over. While the
 clock is stopped nothing splits.
+
+**Open on first loot**, **Open in instances** and **Hide in cities** show or
+hide the window for you. Each only undoes what it did itself: close the
+window in a dungeon or open it in a city and it stays that way.
 
 **Pause in cities** (on by default) stops the clock while you are in a city or
 inn, so selling and mailing don't lower your gold per hour; loot and gold

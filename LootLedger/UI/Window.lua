@@ -132,8 +132,9 @@ local function save()
   local slot = sizeSlot(w)
   slot.width = frame:GetWidth()
   slot.height = frame:GetHeight()
-  -- Hidden only for combat (combat hide): keep the player's own state.
-  if not Window.hiddenByCombat then w.hidden = not frame:IsShown() end
+  -- Hidden for combat or shown / hidden by an automatic option: keep the
+  -- player's own state.
+  if not (Window.hiddenByCombat or Window.shownBy or Window.hiddenBy) then w.hidden = not frame:IsShown() end
 end
 
 -- Pure. (x, y) = CENTER offset of a w x h window from the screen center on a
@@ -626,6 +627,7 @@ function Window.show()
   local frame = ensure()
   if not frame then return end
   Window.hiddenByCombat = false
+  Window.shownBy, Window.hiddenBy = nil, nil
   frame:Show()
   save()
 end
@@ -634,8 +636,42 @@ function Window.hide()
   local frame = ensure()
   if not frame then return end
   Window.hiddenByCombat = false
+  Window.shownBy, Window.hiddenBy = nil, nil
   frame:Hide()
   save()
+end
+
+-- Automatic show / hide (options Open on first loot, Open in instances, Hide
+-- in cities): `reason` is remembered so Window.autoUndo only reverses its own
+-- action; showing or hiding by hand clears it. A combat-hidden window is left
+-- alone, and the saved hidden flag keeps the player's own choice.
+function Window.autoShow(reason)
+  if Window.hiddenByCombat then return end
+  local frame = ensure()
+  if not frame or frame:IsShown() then return end
+  Window.shownBy, Window.hiddenBy = reason, nil
+  frame:Show()
+end
+
+function Window.autoHide(reason)
+  if Window.hiddenByCombat then return end
+  local frame = Window.frame
+  if not frame or not frame:IsShown() then return end
+  Window.hiddenBy, Window.shownBy = reason, nil
+  frame:Hide()
+end
+
+function Window.autoUndo(reason)
+  if Window.hiddenByCombat then return end
+  local frame = Window.frame
+  if not frame then return end
+  if Window.shownBy == reason then
+    Window.shownBy = nil
+    if frame:IsShown() then frame:Hide() end
+  elseif Window.hiddenBy == reason then
+    Window.hiddenBy = nil
+    if not frame:IsShown() then frame:Show() end
+  end
 end
 
 function Window.toggle()

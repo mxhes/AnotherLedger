@@ -170,6 +170,11 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
+  `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
+  the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
+  own action, a hand show / hide clears both, combat hide wins, and the
+  saved hidden flag is not touched.
 - **Daily farm level** (`dailyFarmLevel`): the Ledger passes
   `opts.levelFits(mapID)` (`Core.levelFits` with `UnitLevel`) to
   `View.dailyFarm`, which skips a place with a position whose map answers

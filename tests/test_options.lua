@@ -9,7 +9,7 @@ end
 h.test("Options: the built-in options are registered in panel order", function()
   local keys = {}
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
-  h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "startHidden", "combatHide",
+  h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "showOnLoot", "showInInstance", "hideInCities", "startHidden", "combatHide",
     "keepSession", "countCrafted", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "ahCut", "ahMinGain", "destroyMode", "defaultSort",
     "goldDisplay", "coinIcons", "includeGold",

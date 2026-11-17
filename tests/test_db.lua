@@ -11,7 +11,7 @@ h.test("DB.defaults shape", function()
     includeGold = true, refreshSeconds = 30, staleHours = 12, ahCut = true, ahMinGain = 0, destroyMode = "always",
     alertGold = 0, alertSound = false,
     fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
-    countCrafted = false, showCurrencies = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showTopFinds = true, showFooterGold = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, instanceSession = false,
+    countCrafted = false, showCurrencies = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, showFooterGold = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, instanceSession = false,
     zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true,
     goalGold = 0, goalMinutes = 0, unitPrice = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, soldHigh = 100, soldMedium = 10,

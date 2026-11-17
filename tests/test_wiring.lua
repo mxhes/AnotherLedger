@@ -3075,3 +3075,89 @@ h.test("wiring: Daily farm: my level leaves out a place of another level at once
   h.eq(L.view.dailyFarm, nil) -- the only place is below your level now
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: Open on first loot shows a hidden window once per session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showOnLoot", true)
+  W.hide()
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(W.isShown(), true)
+  W.hide()
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- not the first item any more
+  h.eq(W.isShown(), false)
+  slash(ctx, "reset")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- a new session's first item
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Open in instances shows inside and hides again only its own opening", function()
+  local ctx = boot()
+  local where = { zone = "Dornogal" }
+  ctx.env.GetRealZoneText = function() return where.zone end
+  ctx.env.GetInstanceInfo = function()
+    if where.instance then return where.instance, "party", 1, "Normal" end
+    return where.zone, "none", 0, ""
+  end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showInInstance", true)
+  local function go(instance)
+    where.instance = instance
+    fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  end
+  W.hide()
+  go("The Stonevault")
+  h.eq(W.isShown(), true)
+  go(nil)
+  h.eq(W.isShown(), false)
+  -- closed by hand inside: leaving does nothing
+  go("The Stonevault")
+  W.hide()
+  go(nil)
+  h.eq(W.isShown(), false)
+  -- shown by hand before: leaving keeps it shown
+  W.show()
+  go("The Stonevault")
+  go(nil)
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Hide in cities hides while resting and only undoes its own hiding", function()
+  local ctx = boot()
+  local resting = false
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "hideInCities", true)
+  h.eq(W.isShown(), true)
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), false)
+  h.eq(ctx.env.LootLedgerDB.window.hidden, false) -- the player's own state is kept
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), true)
+  -- opened by hand in the city: stays open when leaving and entering again
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  W.show()
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), true)
+  -- a combat-hidden window is left alone
+  ns.Options.set(ns.db, "combatHide", true)
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  h.eq(W.isShown(), false)
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), false)
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
