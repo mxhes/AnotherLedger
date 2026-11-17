@@ -82,6 +82,7 @@ DB.defaults = {
     -- Colors ("rrggbb", Options COLOR_OPTIONS): text, titles / totals, hints,
     -- the Vendor / Auction / Destroy sources, tooltip labels, window background
     -- and border, button fill. They match Theme.colors.
+    colorPreset = "lootprice",
     colorText = "ffffff",
     colorTitles = "ffd100",
     colorHints = "ada18c",

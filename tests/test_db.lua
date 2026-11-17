@@ -14,7 +14,7 @@ h.test("DB.defaults shape", function()
     zoneSession = false, zoneSessionMinutes = 2,
     goalGold = 0, goalMinutes = 0, unitPrice = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, soldHigh = 100, soldMedium = 10,
-    colorText = "ffffff", colorTitles = "ffd100", colorHints = "ada18c", colorVendor = "eddeb8",
+    colorPreset = "lootprice", colorText = "ffffff", colorTitles = "ffd100", colorHints = "ada18c", colorVendor = "eddeb8",
     colorAuction = "80d1ff", colorDestroy = "b3b3b3", colorTipLabels = "ccbd9e", colorBackground = "261a0f",
     colorBorder = "8c6b3d", colorButtons = "1a120a" })
   h.eq(d.window, { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false,

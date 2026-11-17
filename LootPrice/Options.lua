@@ -111,7 +111,17 @@ function Options.choices(spec)
   return type(choices) == "table" and choices or {}
 end
 
-function Options.defaultFor(key)
+-- The default of an option. A color option's default is the color of the
+-- preset `settings.colorPreset` (default: the active settings, ns.db), so
+-- right-click "default" and the export compare against the chosen preset.
+function Options.defaultFor(key, settings)
+  local colors = Options.colorTargets and Options.colorTargets[key]
+  if colors then
+    if type(settings) ~= "table" then settings = ns.db and ns.db.settings end
+    local id = type(settings) == "table" and settings.colorPreset or nil
+    local p = ns.Theme and ns.Theme.preset(id)
+    if p and p.colors[colors[1]] then return p.colors[colors[1]] end
+  end
   local d = ns.DB and ns.DB.defaults and ns.DB.defaults.settings
   return d and d[key]
 end
@@ -181,6 +191,16 @@ function Options.set(db, key, value)
   local v = Options.normalize(spec, value)
   db.settings[key] = v
   if spec.apply then spec.apply(v) end
+  return v
+end
+
+-- A player's choice in the options panel: Options.set, then the option's
+-- `picked(db, value)` (things only a fresh choice does, e.g. a color preset
+-- writing the single colors; never run by Options.applyAll).
+function Options.pick(db, key, value)
+  local v = Options.set(db, key, value)
+  local spec = Options.byKey[key]
+  if spec and spec.picked and type(db) == "table" then spec.picked(db, v) end
   return v
 end
 
@@ -762,14 +782,15 @@ local function applyColors(targets)
 end
 
 -- key, label, tooltip, Theme.colors keys (the first one's default is the
--- option's default, DB.defaults.settings).
+-- option's default, DB.defaults.settings). Panel colors never also set a
+-- tooltip color: tooltips stay on the dark game tooltip on every preset.
 local COLOR_OPTIONS = {
   { "colorText", L["Text"], L["Color of the normal text: amounts, quantities, the clock and the buttons."],
     { "ink", "buttonText" } },
-  { "colorTitles", L["Titles and totals"], L["Color of the Total row, the compact window's gold per hour and the titles of windows and tooltips."],
-    { "gold", "tipTitle", "tipSection" } },
-  { "colorHints", L["Hints"], L["Color of quiet texts: column titles, hints and tooltip notes."],
-    { "hint", "columnTitle", "tipNote" } },
+  { "colorTitles", L["Titles and totals"], L["Color of the Total row, the compact window's gold per hour and the window titles."],
+    { "gold" } },
+  { "colorHints", L["Hints"], L["Color of quiet texts: column titles and hints."],
+    { "hint", "columnTitle" } },
   { "colorVendor", L["Vendor"], L["Color of the Vendor tag and of vendor values in tooltips."], { "tagVendor" } },
   { "colorAuction", L["Auction"], L["Color of the Auction tag and of auction house values in tooltips."], { "tagAh" } },
   { "colorDestroy", L["Destroy"], L["Color of the Destroy tag (disenchant, mill, prospect) and of its values in tooltips."],
@@ -781,10 +802,64 @@ local COLOR_OPTIONS = {
   { "colorButtons", L["Button background"], L["Fill of the buttons."], { "buttonFill" } },
 }
 Options.COLOR_OPTIONS = COLOR_OPTIONS
+Options.colorTargets = {}
+for _, o in ipairs(COLOR_OPTIONS) do Options.colorTargets[o[1]] = o[4] end
+
+-- Any single color differs from the preset `settings.colorPreset`.
+function Options.presetEdited(settings)
+  if type(settings) ~= "table" then return false end
+  for _, o in ipairs(COLOR_OPTIONS) do
+    local spec = Options.byKey[o[1]]
+    if spec and Options.normalize(spec, settings[o[1]]) ~= Options.defaultFor(o[1], settings) then return true end
+  end
+  return false
+end
+
+local function refreshPanel()
+  local panel = ns.UI and ns.UI.OptionsPanel
+  if panel and panel.refreshAll then panel.refreshAll() end
+end
+
+-- Preset names shown in the panel (Theme.presets keep the English ones).
+local PRESET_LABELS = { midnight = L["Midnight"], tsm = L["TSM-style"], parchment = L["Parchment"] }
+
+-- Color preset: first in Colors so Options.applyAll sets the whole palette
+-- before the single colors are applied on top of it.
+Options.define({
+  key = "colorPreset", category = "colors", type = "dropdown", label = L["Color preset"],
+  tooltip = L["Sets the whole look of the window, the buttons and the tooltips at once. You can change single colors afterwards."],
+  choices = function()
+    local out = {}
+    for _, p in ipairs(ns.Theme.presets) do out[#out + 1] = { value = p.id, label = PRESET_LABELS[p.id] or p.label } end
+    return out
+  end,
+  format = function(v)
+    local p = ns.Theme.preset(v)
+    local text = p and (PRESET_LABELS[p.id] or p.label) or tostring(v)
+    if ns.db and Options.presetEdited(ns.db.settings) then text = text .. L[" (edited)"] end
+    return text
+  end,
+  apply = function(v)
+    local changed = ns.Theme.applyPreset(v)
+    local UI = ns.UI
+    if UI and UI.Widgets and UI.Widgets.recolor then UI.Widgets.recolor(changed) end
+    applyWindowLook()
+    refreshUI()
+  end,
+  picked = function(db, v)
+    local p = ns.Theme.preset(v)
+    if not p then return end
+    for _, o in ipairs(COLOR_OPTIONS) do Options.set(db, o[1], p.colors[o[4][1]]) end
+    if p.outline then Options.set(db, "fontOutline", p.outline) end
+    refreshPanel()
+  end,
+})
 
 for _, o in ipairs(COLOR_OPTIONS) do
   Options.define({ key = o[1], category = "colors", type = "color", label = o[2], tooltip = o[3],
-    colors = o[4], apply = applyColors(o[4]) })
+    colors = o[4], apply = applyColors(o[4]),
+    -- The preset dropdown shows "(edited)" from now on.
+    picked = function() refreshPanel() end })
 end
 
 Options.define({
@@ -792,9 +867,8 @@ Options.define({
   tooltip = L["Sets every color back to its default."],
   action = function()
     if not ns.db then return end
-    for _, o in ipairs(COLOR_OPTIONS) do Options.set(ns.db, o[1], Options.defaultFor(o[1])) end
-    local panel = ns.UI and ns.UI.OptionsPanel
-    if panel and panel.refreshAll then panel.refreshAll() end
+    Options.pick(ns.db, "colorPreset", "lootprice")
+    refreshPanel()
   end,
 })
 

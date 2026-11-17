@@ -24,7 +24,8 @@ local function theme() return ns.Theme end
 local function sizes() return ns.Theme.options end
 
 local function get(spec) return ns.Options.get(ns.db, spec.key) end
-local function set(spec, value) return ns.Options.set(ns.db, spec.key, value) end
+-- A choice in the panel: Options.pick (runs the option's `picked` hook too).
+local function set(spec, value) return ns.Options.pick(ns.db, spec.key, value) end
 
 local function label(parent, font, color)
   return ns.UI.Widgets.text(parent, font, color)

@@ -18,7 +18,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit",
-    "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
+    "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
@@ -355,4 +355,101 @@ h.test("Options.set on a color changes the theme color in place, alpha kept", fu
   ns.db = saved
   h.eq(db.settings.colorBackground, "261a0f")
   h.eq(ns.Theme.colorToHex(ns.Theme.colors.ink), "ffffff")
+end)
+
+-- Color presets ---------------------------------------------------------------
+
+local function hex(key) return ns.Theme.colorToHex(ns.Theme.colors[key]) end
+local function presetHex(id, key) return ns.Theme.preset(id).colors[key] end
+
+h.test("colorPreset is the first Colors option, a dropdown of five", function()
+  local first
+  for _, s in ipairs(O.list()) do
+    if s.category == "colors" then first = s; break end
+  end
+  h.eq(first.key, "colorPreset")
+  h.eq(first.type, "dropdown")
+  local values = {}
+  for _, c in ipairs(O.choices(first)) do values[#values + 1] = c.value end
+  h.eq(table.concat(values, ","), "lootprice,blizzard,midnight,tsm,parchment")
+  h.eq(#first.label <= 24, true)
+  h.eq(O.defaultFor("colorPreset"), "lootprice")
+end)
+
+h.test("picking a preset writes the 11 colors", function()
+  local d = db()
+  ns.db = d
+  O.pick(d, "colorPreset", "midnight")
+  for _, o in ipairs(O.COLOR_OPTIONS) do
+    h.eq(d.settings[o[1]], presetHex("midnight", o[4][1]), o[1])
+  end
+  h.eq(hex("panelTint"), presetHex("midnight", "panelTint"))
+  h.eq(hex("divider"), presetHex("midnight", "divider"))
+  O.pick(d, "colorPreset", "lootprice")
+  ns.db = nil
+end)
+
+h.test("picking parchment turns the outline on, others leave it", function()
+  local d = db()
+  ns.db = d
+  O.pick(d, "colorPreset", "parchment")
+  h.eq(d.settings.fontOutline, "OUTLINE")
+  O.set(d, "fontOutline", "none")
+  O.pick(d, "colorPreset", "midnight")
+  h.eq(d.settings.fontOutline, "none")
+  O.pick(d, "colorPreset", "lootprice")
+  ns.db = nil
+end)
+
+h.test("applyAll keeps tweaks over preset", function()
+  local d = db({ colorPreset = "tsm", colorText = "ff0000" })
+  ns.db = d
+  O.applyAll(d)
+  h.eq(hex("ink"), "ff0000")
+  h.eq(hex("panelTint"), presetHex("tsm", "panelTint"))
+  h.eq(hex("divider"), presetHex("tsm", "divider"))
+  h.eq(d.settings.colorText, "ff0000")
+  O.pick(d, "colorPreset", "lootprice")
+  ns.db = nil
+end)
+
+h.test("edited marker after a color tweak", function()
+  local d = db()
+  ns.db = d
+  local spec = O.spec("colorPreset")
+  O.pick(d, "colorPreset", "midnight")
+  h.eq(O.valueText(spec, "midnight"), "Midnight")
+  O.set(d, "colorText", "ff0000")
+  h.eq(O.valueText(spec, "midnight"), "Midnight (edited)")
+  O.pick(d, "colorPreset", "lootprice")
+  ns.db = nil
+end)
+
+h.test("color default is the active preset's color", function()
+  local d = db()
+  ns.db = d
+  O.pick(d, "colorPreset", "midnight")
+  h.eq(O.defaultFor("colorBackground"), presetHex("midnight", "panelTint"))
+  h.eq(O.defaultFor("colorBackground", { colorPreset = "tsm" }), presetHex("tsm", "panelTint"))
+  O.pick(d, "colorPreset", "lootprice")
+  ns.db = nil
+end)
+
+h.test("Reset colors picks LootPrice", function()
+  local d = db()
+  ns.db = d
+  O.pick(d, "colorPreset", "blizzard")
+  O.spec("resetColors").action()
+  h.eq(d.settings.colorPreset, "lootprice")
+  for _, o in ipairs(O.COLOR_OPTIONS) do h.eq(d.settings[o[1]], ns.DB.defaults.settings[o[1]], o[1]) end
+  h.eq(hex("panelTint"), "261a0f")
+  ns.db = nil
+end)
+
+h.test("tooltip titles and notes are not tied to the panel colors", function()
+  for _, o in ipairs(O.COLOR_OPTIONS) do
+    for _, key in ipairs(o[4]) do
+      if o[1] ~= "colorTipLabels" then h.eq(key:sub(1, 3) ~= "tip", true, o[1] .. " -> " .. key) end
+    end
+  end
 end)
