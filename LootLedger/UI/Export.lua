@@ -23,7 +23,7 @@ local WIDTH, HEIGHT = 520, 360
 local function build()
   local T = ns.Theme
   local W = ns.UI.Widgets
-  local frame = CreateFrame("Frame", "LootPriceExport", UIParent, "BackdropTemplate")
+  local frame = CreateFrame("Frame", "LootLedgerExport", UIParent, "BackdropTemplate")
   frame:SetSize(WIDTH, HEIGHT)
   frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
   frame:SetFrameStrata("DIALOG")
@@ -79,7 +79,7 @@ local function build()
   scroll:SetScrollChild(edit)
   frame.edit = edit
 
-  if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootPriceExport") end
+  if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootLedgerExport") end
   frame:Hide()
   return frame
 end

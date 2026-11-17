@@ -1,4 +1,4 @@
-# LootPrice checklist
+# LootLedger checklist
 
 What still has to be confirmed in the Forever client, and the release steps.
 Open: settings profiles and color presets (2026-11-17), below.
@@ -9,6 +9,11 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Rename to LootLedger: the addon shows as LootLedger in the AddOns list and
+  options; `/lp`, `/ll` and `/lootledger` work; key bindings are under
+  LootLedger. Renaming `SavedVariables/LootPrice.lua` to `LootLedger.lua`
+  (account and character) brings History, lists and profiles over
+  (`UNVERIFIED` in `Core.lua`, `ADDON_LOADED`).
 - Color presets: each of the five looks right in the window, compact window,
   options window and tooltips; Parchment turns the outline on and its light
   text reads on the tan (the dark-text version smeared under the outline).

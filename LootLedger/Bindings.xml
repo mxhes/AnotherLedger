@@ -1,0 +1,14 @@
+<!-- Key bindings (the game's key bindings window, AddOns). The client loads
+     this file by its name; each binding runs a /lp command, and their names
+     are set by Slash.register (Slash.BINDINGS). -->
+<Bindings>
+  <Binding name="LOOTLEDGER_TOGGLE" header="LOOTLEDGER" category="ADDONS">
+    SlashCmdList["LOOTLEDGER"]("toggle")
+  </Binding>
+  <Binding name="LOOTLEDGER_COMPACT" category="ADDONS">
+    SlashCmdList["LOOTLEDGER"]("compact")
+  </Binding>
+  <Binding name="LOOTLEDGER_CLOCK" category="ADDONS">
+    SlashCmdList["LOOTLEDGER"]("clock")
+  </Binding>
+</Bindings>

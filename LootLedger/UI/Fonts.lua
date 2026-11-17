@@ -81,7 +81,7 @@ local faceChoices
 local function loads(path)
   local create = _G.CreateFont
   if type(create) ~= "function" then return false end
-  Fonts.probe = Fonts.probe or create("LootPriceFontProbe")
+  Fonts.probe = Fonts.probe or create("LootLedgerFontProbe")
   return Fonts.probe:SetFont(path, 12, "") ~= false
 end
 
@@ -187,13 +187,13 @@ local function gameShadow(base)
   return s
 end
 
--- Creates "LootPrice<Key>" as a copy of the game font object `baseName` in
+-- Creates "LootLedger<Key>" as a copy of the game font object `baseName` in
 -- typeface `face` (its size is set by applySizes). Returns the new object's
 -- name, or nil without the client API.
 local function ownFont(key, baseName)
   local create, base = _G.CreateFont, _G[baseName]
   if type(create) ~= "function" or type(base) ~= "table" then return nil end
-  local name = "LootPrice" .. key:sub(1, 1):upper() .. key:sub(2)
+  local name = "LootLedger" .. key:sub(1, 1):upper() .. key:sub(2)
   local font = create(name)
   font:CopyFontObject(base)
   local file, size, flags = base:GetFont()

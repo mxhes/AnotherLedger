@@ -2,7 +2,7 @@ local ADDON, ns = ...
 
 ns.UI = ns.UI or {}
 
--- LibDataBroker data source ("LootPrice": the session's best value plus raw
+-- LibDataBroker data source ("LootLedger": the session's best value plus raw
 -- gold and its rate, for Titan Panel, ElvUI, ChocolateBar, ...) and, with
 -- LibDBIcon, the minimap button through LibDBIcon (works with minimap button
 -- collectors). Without the libraries (not packaged, no other addon loads them)
@@ -11,7 +11,7 @@ ns.UI = ns.UI or {}
 local Broker = {}
 ns.UI.Broker = Broker
 
-local NAME = "LootPrice"
+local NAME = "LootLedger"
 local ICON = "Interface\\Icons\\INV_Misc_Coin_01"
 local UPDATE_SECONDS = 15
 

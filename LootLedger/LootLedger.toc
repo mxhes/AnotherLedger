@@ -1,10 +1,10 @@
 ## Interface: 16001
-## Title: LootPrice
+## Title: LootLedger
 ## Version: @project-version@
 ## Notes: Session ledger showing vendor and auction house value of everything you loot.
 ## Author: Maximilian Henjes
-## SavedVariables: LootPriceDB
-## SavedVariablesPerCharacter: LootPriceCharDB
+## SavedVariables: LootLedgerDB
+## SavedVariablesPerCharacter: LootLedgerCharDB
 ## OptionalDeps: TradeSkillMaster, Auctionator, LibStub, CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0
 ## IconTexture: Interface\Icons\INV_Misc_Coin_01
 

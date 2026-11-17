@@ -152,7 +152,7 @@ Theme.colors = {
 -- tests/test_theme.lua checks every preset is complete and readable.
 
 Theme.FIXED_COLORS = { moneyGold = true, moneySilver = true, moneyCopper = true }
--- The game tooltip LootPrice tooltips are drawn on: near-black on every preset.
+-- The game tooltip LootLedger tooltips are drawn on: near-black on every preset.
 Theme.TOOLTIP_BG = { 0, 0, 0 }
 
 -- Tooltip colors shared by the presets (the game tooltip stays dark).
@@ -166,7 +166,7 @@ local function withTips(colors, tips)
 end
 
 Theme.presets = {
-  { id = "lootprice", label = "LootPrice", colors = {} }, -- filled from Theme.colors below
+  { id = "lootledger", label = "LootLedger", colors = {} }, -- filled from Theme.colors below
   { id = "blizzard", label = "Blizzard", colors = withTips({
     ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "ffd100", dailyFarm = "ffd100",
     gold = "ffd100", goldLine = "c9a04a", divider = "c9a04a", rowSeparator = "c9a04a",
@@ -223,7 +223,7 @@ Theme.presets = {
   }) },
 }
 
-do -- LootPrice = the colors above, so it can never drift from them.
+do -- LootLedger = the colors above, so it can never drift from them.
   local own = Theme.presets[1].colors
   for key, c in pairs(Theme.colors) do
     if not Theme.FIXED_COLORS[key] then
@@ -459,7 +459,7 @@ function Theme.preset(id)
 end
 
 -- Sets every color of the preset `id` in place (alpha kept); an unknown id
--- gets the LootPrice look. Returns { [color table] = true } of the colors set
+-- gets the LootLedger look. Returns { [color table] = true } of the colors set
 -- (for Widgets.recolor).
 function Theme.applyPreset(id)
   local p = Theme.preset(id) or Theme.presets[1]

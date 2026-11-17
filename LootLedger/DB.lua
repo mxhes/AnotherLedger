@@ -18,7 +18,7 @@ DB.defaults = {
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,
     -- Minimap button shown (account-wide, like historyLimit and accountZones:
-    -- options with `account = true` are stored in LootPriceDB.account; their
+    -- options with `account = true` are stored in LootLedgerDB.account; their
     -- defaults stay here).
     minimapButton = true,
     lockWindow = false,
@@ -82,7 +82,7 @@ DB.defaults = {
     -- Colors ("rrggbb", Options COLOR_OPTIONS): text, titles / totals, hints,
     -- the Vendor / Auction / Destroy sources, tooltip labels, window background
     -- and border, button fill. They match Theme.colors.
-    colorPreset = "lootprice",
+    colorPreset = "lootledger",
     colorText = "ffffff",
     colorTitles = "ffd100",
     colorHints = "ada18c",
@@ -122,9 +122,9 @@ DB.defaults = {
   histories = {},
 }
 
--- Per-character defaults (LootPriceCharDB): the last bank scan for the Bank tab.
+-- Per-character defaults (LootLedgerCharDB): the last bank scan for the Bank tab.
 -- `history` (finished sessions, newest first, see History.lua) is this
--- character's list in LootPriceDB.histories while logged in; it is only
+-- character's list in LootLedgerDB.histories while logged in; it is only
 -- written here by versions before the account-wide History.
 DB.charDefaults = {
   bank = { scannedAt = 0, items = {} },
@@ -142,8 +142,8 @@ end
 -- whose type differs from the default's, keeps unknown keys. Returns the table
 -- to use; never mutates `defaults` and shares no tables with it.
 -- Once: the account-wide options and the minimap angle move out of the old
--- settings table (which profiles replace) to LootPriceDB.account and
--- LootPriceDB.minimapAngle, keeping the player's values.
+-- settings table (which profiles replace) to LootLedgerDB.account and
+-- LootLedgerDB.minimapAngle, keeping the player's values.
 local ACCOUNT_KEYS = { "historyLimit", "accountZones", "minimapButton" }
 function DB.migrateAccount(db)
   if type(db) ~= "table" or db.accountMigrated == true then return end

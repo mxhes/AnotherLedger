@@ -35,7 +35,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Button
 
--- The angle lives in LootPriceDB.minimapAngle (not in a profile).
+-- The angle lives in LootLedgerDB.minimapAngle (not in a profile).
 local function settings() return ns.db end
 
 local function place(button)
@@ -59,7 +59,7 @@ end
 
 local function showTooltip(button)
   GameTooltip:SetOwner(button, "ANCHOR_LEFT")
-  GameTooltip:SetText("LootPrice")
+  GameTooltip:SetText("LootLedger")
   GameTooltip:AddLine(L["Left click: show / hide the window"], 1, 1, 1)
   GameTooltip:AddLine(L["Right click: options"], 1, 1, 1)
   GameTooltip:AddLine(L["Drag: move the button"], 1, 1, 1)
@@ -67,7 +67,7 @@ local function showTooltip(button)
 end
 
 local function build()
-  local button = CreateFrame("Button", "LootPriceMinimapButton", _G.Minimap)
+  local button = CreateFrame("Button", "LootLedgerMinimapButton", _G.Minimap)
   button:SetSize(SIZE, SIZE)
   button:SetFrameStrata("MEDIUM")
   button:SetFrameLevel(8)

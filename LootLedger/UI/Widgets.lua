@@ -8,7 +8,7 @@ ns.UI = ns.UI or {}
 local Widgets = {}
 ns.UI.Widgets = Widgets
 
-local MENU_FRAME = "LootPriceMenu" -- global name of the legacy dropdown frame
+local MENU_FRAME = "LootLedgerMenu" -- global name of the legacy dropdown frame
 
 -- ---------------------------------------------------------------------------
 -- Colors
@@ -436,7 +436,7 @@ end
 -- `accept` is the confirm button's text; `onCancel` (optional) runs on Cancel
 -- or Esc. Without the popup API (tests) nothing happens and nothing is done.
 
-local CONFIRM = "LOOTPRICE_CONFIRM"
+local CONFIRM = "LOOTLEDGER_CONFIRM"
 local L_CANCEL = ns.L["Cancel"]
 
 function Widgets.confirm(text, accept, onAccept, onCancel)
@@ -458,7 +458,7 @@ end
 -- `onAccept(text)` gets what was typed (Enter or the `accept` button).
 -- The popup's edit box is GetEditBox() (newer clients) or the editBox /
 -- EditBox field.
-local PROMPT = "LOOTPRICE_PROMPT"
+local PROMPT = "LOOTLEDGER_PROMPT"
 Widgets.PROMPT_MAX_LETTERS = 60
 
 local function popupEditBox(popup)

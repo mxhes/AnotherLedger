@@ -437,7 +437,7 @@ function Core.heartbeat()
 end
 
 -- ---------------------------------------------------------------------------
--- Item lists (account-wide, { [itemID] = name or true } in LootPriceDB):
+-- Item lists (account-wide, { [itemID] = name or true } in LootLedgerDB):
 --   ignored: left out of every list, total, alert and goal. They are still
 --            recorded, so taking one off the list brings it back everywhere.
 --   kept:    items you keep (tools, gear sets): Bags and Bank split their
@@ -580,7 +580,7 @@ function Core.archiveSession(session)
 end
 
 -- ---------------------------------------------------------------------------
--- History lists. Every character's History lives in LootPriceDB.histories
+-- History lists. Every character's History lives in LootLedgerDB.histories
 -- ({ ["Name-Realm"] = list }), so History Zones and the Daily farm can use
 -- them all; ns.chardb.history is this character's list there while logged in
 -- (Core.linkHistory at login, unlinked at logout so it is not saved twice).
@@ -818,13 +818,24 @@ local events = {}
 
 function events.ADDON_LOADED(name)
   if name ~= ADDON then return end
-  LootPriceDB = ns.DB.applyDefaults(LootPriceDB, ns.DB.defaults)
-  LootPriceCharDB = ns.DB.applyDefaults(LootPriceCharDB, ns.DB.charDefaults)
-  ns.DB.migrateAccount(LootPriceDB)
+  -- The addon was called LootPrice. A player who renames the old saved files
+  -- (SavedVariables/LootPrice.lua -> LootLedger.lua, account and character)
+  -- brings LootPriceDB / LootPriceCharDB in: take them over once.
+  -- UNVERIFIED (check in client): the client runs the whole renamed file, so
+  -- the old global names are set when ADDON_LOADED fires.
+  if LootLedgerDB == nil and type(LootPriceDB) == "table" then
+    LootLedgerDB, LootPriceDB = LootPriceDB, nil
+  end
+  if LootLedgerCharDB == nil and type(LootPriceCharDB) == "table" then
+    LootLedgerCharDB, LootPriceCharDB = LootPriceCharDB, nil
+  end
+  LootLedgerDB =ns.DB.applyDefaults(LootLedgerDB, ns.DB.defaults)
+  LootLedgerCharDB = ns.DB.applyDefaults(LootLedgerCharDB, ns.DB.charDefaults)
+  ns.DB.migrateAccount(LootLedgerDB)
   -- After migrateAccount: this drops the old settings table.
-  ns.Profiles.init(LootPriceDB, LootPriceCharDB)
-  ns.db = LootPriceDB
-  ns.chardb = LootPriceCharDB
+  ns.Profiles.init(LootLedgerDB, LootLedgerCharDB)
+  ns.db = LootLedgerDB
+  ns.chardb = LootLedgerCharDB
 end
 
 -- The session is created on the first PLAYER_ENTERING_WORLD of the Lua
@@ -983,9 +994,9 @@ function events.PLAYER_LOGOUT()
     ns.Session.suspend(ns.session, time())
     ns.chardb.session = ns.session
   end
-  -- The History is saved once, in LootPriceDB.histories (Core.linkHistory).
+  -- The History is saved once, in LootLedgerDB.histories (Core.linkHistory).
   if Core.character and ns.chardb then ns.chardb.history = nil end
-  -- The active profile is saved once, in LootPriceDB.profiles.
+  -- The active profile is saved once, in LootLedgerDB.profiles.
   if ns.Profiles then ns.Profiles.beforeLogout(ns.db) end
 end
 

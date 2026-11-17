@@ -18,7 +18,7 @@ end)
 h.test("Locale: deDE has no keys the code does not use", function()
   local used = {}
   local isWindows = package.config:sub(1, 1) == "\\"
-  local cmd = isWindows and "dir /s /b LootPrice\\*.lua" or "find LootPrice -name '*.lua'"
+  local cmd = isWindows and "dir /s /b LootLedger\\*.lua" or "find LootLedger -name '*.lua'"
   local pipe = assert(io.popen(cmd))
   for path in pipe:lines() do
     path = path:gsub("\r", "")
@@ -33,7 +33,7 @@ h.test("Locale: deDE has no keys the code does not use", function()
   pipe:close()
   local captured
   local fake = { Locale = { register = function(_, strings) captured = strings end } }
-  assert(loadfile("LootPrice/Locales/deDE.lua"))("LootPrice", fake)
+  assert(loadfile("LootLedger/Locales/deDE.lua"))("LootLedger", fake)
   local unknown = {}
   for key in pairs(captured) do
     if not used[key] then unknown[#unknown + 1] = key end

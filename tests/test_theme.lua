@@ -173,11 +173,11 @@ h.test("every preset sets every color", function()
     end
     for key in pairs(p.colors) do h.eq(type(T.colors[key]), "table", p.id .. " unknown key " .. key) end
   end
-  h.eq(table.concat(ids, ","), "lootprice,blizzard,midnight,tsm,parchment")
+  h.eq(table.concat(ids, ","), "lootledger,blizzard,midnight,tsm,parchment")
 end)
 
-h.test("lootprice preset is today's look", function()
-  local p = T.preset("lootprice")
+h.test("lootledger preset is today's look", function()
+  local p = T.preset("lootledger")
   for key, hex in pairs(BEFORE) do
     if not T.FIXED_COLORS[key] then h.eq(p.colors[key], hex, key) end
   end
@@ -241,6 +241,6 @@ h.test("applyPreset changes colors in place and keeps alpha", function()
   h.eq(d[4], a)
   h.eq(changed[d], true)
   h.eq(changed[T.colors.moneyGold], nil)
-  T.applyPreset("nope") -- unknown: the LootPrice look
+  T.applyPreset("nope") -- unknown: the LootLedger look
   h.eq(T.colorToHex(T.colors.panelTint), BEFORE.panelTint)
 end)

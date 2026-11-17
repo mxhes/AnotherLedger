@@ -8,9 +8,9 @@ local L_KEEP_DEFAULT = L["The Default profile can't be renamed or deleted."]
 local L_UNKNOWN = L["There is no profile with this name."]
 
 -- Settings profiles. Every option (Options.lua) except the account-wide ones
--- lives in a profile: LootPriceDB.profiles = { [name] = settings }. Each
--- character picks one (LootPriceCharDB.profile, "Default" when missing). While
--- logged in, LootPriceDB.settings is the active profile's table, so every
+-- lives in a profile: LootLedgerDB.profiles = { [name] = settings }. Each
+-- character picks one (LootLedgerCharDB.profile, "Default" when missing). While
+-- logged in, LootLedgerDB.settings is the active profile's table, so every
 -- Options.get(ns.db, key) reads it; Profiles.beforeLogout clears that alias so
 -- the profile is saved once. Pure: no WoW globals.
 local Profiles = {}
@@ -133,7 +133,7 @@ function Profiles.rename(db, chardb, old, new)
   local t = db.profiles[key]
   db.profiles[key] = nil
   db.profiles[valid] = t
-  -- Other characters still name the old one: LootPriceDB.renamed = { [old] = new }.
+  -- Other characters still name the old one: LootLedgerDB.renamed = { [old] = new }.
   if type(db.renamed) ~= "table" then db.renamed = {} end
   for old, new in pairs(db.renamed) do
     if new == key then db.renamed[old] = valid end
@@ -176,7 +176,7 @@ end
 -- booleans t / f, numbers in full, text with % ; = percent-encoded.
 
 Profiles.PREFIX = "LP1:"
-local L_NOT_PROFILE = L["This is not a LootPrice profile."]
+local L_NOT_PROFILE = L["This is not a LootLedger profile."]
 local L_NOTHING = L["Nothing to import."]
 
 -- The options a profile string carries: stored in the profile, not buttons.

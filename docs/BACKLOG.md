@@ -32,7 +32,7 @@ merchant, one button sells all of them.
 Publish the addon on CurseForge, so the CI packager uploads every tagged
 release.
 - Needs: the CurseForge project, `## X-Curse-Project-ID` in
-  `LootPrice/LootPrice.toc`, and the `CF_API_KEY` CI variable in GitLab.
+  `LootLedger/LootLedger.toc`, and the `CF_API_KEY` CI variable in GitLab.
 
 ## Already built (from the same review)
 

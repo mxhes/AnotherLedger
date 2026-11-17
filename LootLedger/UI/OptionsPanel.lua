@@ -384,7 +384,7 @@ local function build()
   local pad = T.sizes.padding + 4
   local width = 2 * pad + COLUMNS * O.columnWidth + (COLUMNS - 1) * O.columnGap
 
-  local frame = CreateFrame("Frame", "LootPriceOptions", UIParent, "BackdropTemplate")
+  local frame = CreateFrame("Frame", "LootLedgerOptions", UIParent, "BackdropTemplate")
   frame:SetFrameStrata("DIALOG")
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)
@@ -419,7 +419,7 @@ local function build()
   end)
 
   -- Esc closes the panel.
-  if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootPriceOptions") end
+  if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, "LootLedgerOptions") end
   frame:Hide()
   return frame
 end
@@ -452,16 +452,16 @@ function Panel.toggle()
 end
 
 -- ---------------------------------------------------------------------------
--- Page in the game's own options window (Esc > Options > AddOns > LootPrice):
+-- Page in the game's own options window (Esc > Options > AddOns > LootLedger):
 -- the same widgets as the floating panel, so both always show the same values.
 
-local PAGE_NAME = "LootPrice"
+local PAGE_NAME = "LootLedger"
 
 local function buildPage()
   local T = theme()
   local pad = 16
 
-  local page = CreateFrame("Frame", "LootPriceOptionsPage")
+  local page = CreateFrame("Frame", "LootLedgerOptionsPage")
   page.name = PAGE_NAME
   local title = label(page, T.fonts.title, T.colors.gold)
   title:SetPoint("TOPLEFT", page, "TOPLEFT", pad, -pad)

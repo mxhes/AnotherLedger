@@ -1,4 +1,4 @@
-# LootPrice
+# LootLedger
 
 A World of Warcraft **Forever** addon that values everything you loot. The
 Session Ledger window lists each item with what it is worth (vendor, auction
@@ -17,17 +17,17 @@ prospecting gives) and the "sells well / poorly" info need TSM. Waypoints use To
 map pin.
 
 **Libraries** (only when you install from the source code): the release zip
-already contains them. A copy of the `LootPrice/` folder from the repository
+already contains them. A copy of the `LootLedger/` folder from the repository
 needs these four libraries in its `Libs/` folder, or the game warns
-`Error loading LootPrice/Libs/...` at login (the addon still works, with its own
+`Error loading LootLedger/Libs/...` at login (the addon still works, with its own
 minimap button and no data broker display):
 
 | Library | Goes to | Download |
 | --- | --- | --- |
-| LibStub | `LootPrice/Libs/LibStub/LibStub.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libstub) |
-| CallbackHandler-1.0 | `LootPrice/Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/callbackhandler) |
-| LibDataBroker-1.1 | `LootPrice/Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua` | [GitHub](https://github.com/tekkub/libdatabroker-1-1) |
-| LibDBIcon-1.0 | `LootPrice/Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libdbicon-1-0) |
+| LibStub | `LootLedger/Libs/LibStub/LibStub.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libstub) |
+| CallbackHandler-1.0 | `LootLedger/Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/callbackhandler) |
+| LibDataBroker-1.1 | `LootLedger/Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua` | [GitHub](https://github.com/tekkub/libdatabroker-1-1) |
+| LibDBIcon-1.0 | `LootLedger/Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libdbicon-1-0) |
 
 The file has to sit at exactly that path: copy just the library's folder
 (with the `.lua` file in it) out of the download. Installing them as separate
@@ -35,8 +35,8 @@ addons does not remove the warning.
 
 **Updating the libraries yourself**: you can also install any of the four as
 its own addon (in `Interface/AddOns/`, from the links above) and update it
-whenever you like. LootPrice then uses that copy; the one that comes with
-LootPrice is only used when it is newer or when you don't have the library
+whenever you like. LootLedger then uses that copy; the one that comes with
+LootLedger is only used when it is newer or when you don't have the library
 installed.
 
 ## The window
@@ -151,7 +151,7 @@ value comes mostly from items that sell poorly is marked `slow selling`.
 ## Options
 
 Open them with the gear, a right-click on the minimap button, or Esc >
-Options > AddOns > LootPrice. Hover any option for what it does and its
+Options > AddOns > LootLedger. Hover any option for what it does and its
 default. Changes apply at once. **Opacity** and **Brightness** apply to the
 options window as well. **Lock window** also hides the resize grip;
 with **Snap to grid** the window snaps onto the lines of the Edit Mode grid
@@ -168,7 +168,7 @@ anything that deletes History asks first.
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Export profile, Import profile |
 
 **Color preset** changes the whole look at once: the window, the lines, the
-tabs, the buttons and the scrollbar. **LootPrice** is the dark leather look,
+tabs, the buttons and the scrollbar. **LootLedger** is the dark leather look,
 **Blizzard** is black and bronze with red buttons like the game's own
 windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
 accent and **Parchment** is a light tan with light text and dark brown buttons
@@ -179,7 +179,7 @@ still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
 window changes while you pick, Cancel puts the old color back); right-click it
-for the preset's color. **Reset colors** goes back to the LootPrice preset.
+for the preset's color. **Reset colors** goes back to the LootLedger preset.
 Tooltips keep the game's dark tooltip on every preset.
 
 **Profiles**: every option is part of a profile, except **History kept**,
@@ -195,7 +195,7 @@ size, filters, the ignore and keep lists and History are not part of a
 profile. Updating to the version with profiles starts with the default
 settings once.
 
-**Font outline** (None, Thin, Thick) puts a dark outline around all LootPrice
+**Font outline** (None, Thin, Thick) puts a dark outline around all LootLedger
 text, which reads better over a bright background; **Font shadow** turns the
 game's soft text shadow on or off. Both change the window right away and leave
 other addons alone.
@@ -220,7 +220,7 @@ clock is stopped nothing splits.
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.
 
-**Key bindings**: Esc > Options > Key Bindings > AddOns > LootPrice has keys
+**Key bindings**: Esc > Options > Key Bindings > AddOns > LootLedger has keys
 for showing the window, switching compact / full and starting / stopping the
 clock.
 
@@ -228,7 +228,7 @@ clock.
 
 | Command | Does |
 | --- | --- |
-| `/lp` (or `/lootprice`) | show or hide the window |
+| `/lp` (or `/ll`, `/lootledger`) | show or hide the window |
 | `/lp show`, `/lp hide` | show or hide it |
 | `/lp start`, `/lp stop`, `/lp clock` | start, stop or switch the session clock |
 | `/lp compact` | switch between the compact and the full layout |
@@ -250,5 +250,10 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   age tag is the time since the source last gave a price for that item.
 - **Languages**: English and German. Loot and money messages are read from the
   game's own texts, so they work in every client language.
-- **Install**: copy the `LootPrice/` folder into
+- **Install**: copy the `LootLedger/` folder into
   `World of Warcraft/<client>/Interface/AddOns/`.
+- **Coming from LootPrice** (the addon's old name): delete the old `LootPrice`
+  folder. To keep your History, options and lists, rename the saved files
+  `LootPrice.lua` to `LootLedger.lua` while the game is closed, in
+  `WTF/Account/<account>/SavedVariables/` and in each character's
+  `SavedVariables/` folder under `WTF/Account/<account>/<realm>/<character>/`.

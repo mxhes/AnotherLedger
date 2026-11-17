@@ -279,7 +279,7 @@ local function build(db)
   local T = theme()
   local inset = T.sizes.padding + 4
 
-  local frame = CreateFrame("Frame", "LootPriceWindow", UIParent, "BackdropTemplate")
+  local frame = CreateFrame("Frame", "LootLedgerWindow", UIParent, "BackdropTemplate")
   frame:SetFrameStrata("MEDIUM")
   frame:SetToplevel(true)
   frame:SetClampedToScreen(true)

@@ -2,7 +2,7 @@ local ADDON, ns = ...
 
 local L = ns.L
 
--- Slash commands (/lp, /lootprice). A command is one Slash.define call:
+-- Slash commands (/lp, /lootledger, /ll). A command is one Slash.define call:
 --
 --   Slash.define({
 --     name = "reset",                          -- /lp reset
@@ -66,17 +66,18 @@ end
 -- Key bindings (Bindings.xml runs these commands): the names in the game's
 -- key bindings window, under AddOns.
 Slash.BINDINGS = {
-  BINDING_HEADER_LOOTPRICE = "LootPrice",
-  BINDING_NAME_LOOTPRICE_TOGGLE = L["Show / hide the window"],
-  BINDING_NAME_LOOTPRICE_COMPACT = L["Compact / full window"],
-  BINDING_NAME_LOOTPRICE_CLOCK = L["Start / stop the session clock"],
+  BINDING_HEADER_LOOTLEDGER = "LootLedger",
+  BINDING_NAME_LOOTLEDGER_TOGGLE = L["Show / hide the window"],
+  BINDING_NAME_LOOTLEDGER_COMPACT = L["Compact / full window"],
+  BINDING_NAME_LOOTLEDGER_CLOCK = L["Start / stop the session clock"],
 }
 
 -- Registers the slash commands and the key binding names with the client.
 function Slash.register()
-  SLASH_LOOTPRICE1 = "/lp"
-  SLASH_LOOTPRICE2 = "/lootprice"
-  SlashCmdList["LOOTPRICE"] = Slash.run
+  SLASH_LOOTLEDGER1 = "/lp"
+  SLASH_LOOTLEDGER2 = "/lootledger"
+  SLASH_LOOTLEDGER3 = "/ll"
+  SlashCmdList["LOOTLEDGER"] = Slash.run
   for name, text in pairs(Slash.BINDINGS) do _G[name] = text end
 end
 

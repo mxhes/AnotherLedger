@@ -1,11 +1,11 @@
 # BigWigs packager config (https://github.com/BigWigsMods/packager).
 #
-# Layout: the repo root is NOT the addon folder; the addon lives in LootPrice/.
+# Layout: the repo root is NOT the addon folder; the addon lives in LootLedger/.
 # The packager runs with this folder as its top directory
-# (`release.sh -t LootPrice`, see .gitlab-ci.yml), reads this file from here
-# and zips a single LootPrice/ folder with the .toc inside; the externals
-# below land in LootPrice/Libs/.
-package-as: LootPrice
+# (`release.sh -t LootLedger`, see .gitlab-ci.yml), reads this file from here
+# and zips a single LootLedger/ folder with the .toc inside; the externals
+# below land in LootLedger/Libs/.
+package-as: LootLedger
 
 # Libraries loaded by embeds.xml. A development copy without Libs/ still
 # works (own minimap button, no data broker).

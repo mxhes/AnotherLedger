@@ -176,7 +176,7 @@ local function store(db, spec)
 end
 
 -- An option with `get` / `store` functions keeps its value elsewhere (the
--- profile choice: LootPriceCharDB); Options.applyAll skips it.
+-- profile choice: LootLedgerCharDB); Options.applyAll skips it.
 function Options.get(db, key)
   local spec = Options.byKey[key]
   if not spec then return nil end
@@ -658,7 +658,7 @@ Options.define({
   key = "fontFace", category = "display",
   type = "dropdown",
   label = L["Font"],
-  tooltip = L["Typeface of all LootPrice text. WoW default uses the game font of your client's language. Other addons are not affected."],
+  tooltip = L["Typeface of all LootLedger text. WoW default uses the game font of your client's language. Other addons are not affected."],
   choices = function()
     if ns.UI and ns.UI.Fonts then return ns.UI.Fonts.choices() end
     return { { value = "default", label = L["WoW default"] } }
@@ -685,7 +685,7 @@ local function applyFontStyle()
 end
 Options.define({
   key = "fontOutline", category = "display", type = "dropdown", label = L["Font outline"],
-  tooltip = L["A dark outline around all LootPrice text, easier to read over a bright background. Thick is bolder."],
+  tooltip = L["A dark outline around all LootLedger text, easier to read over a bright background. Thick is bolder."],
   choices = {
     { value = "none", label = L["None"] },
     { value = "OUTLINE", label = L["Thin"] },
@@ -695,7 +695,7 @@ Options.define({
 })
 Options.define({
   key = "fontShadow", category = "display", type = "checkbox", label = L["Font shadow"],
-  tooltip = L["A soft dark shadow under all LootPrice text, as the game draws it. Off gives flat text; with an outline it often looks cleaner."],
+  tooltip = L["A soft dark shadow under all LootLedger text, as the game draws it. Off gives flat text; with an outline it often looks cleaner."],
   apply = applyFontStyle,
 })
 
@@ -725,7 +725,7 @@ Options.define({
   key = "minimapButton", account = true, category = "window",
   type = "checkbox",
   label = L["Minimap button"],
-  tooltip = L["Shows the LootPrice button on the minimap. Left-click shows or hides the window, right-click opens these options."],
+  tooltip = L["Shows the LootLedger button on the minimap. Left-click shows or hides the window, right-click opens these options."],
   apply = function(v)
     if ns.UI and ns.UI.Minimap then ns.UI.Minimap.setShown(v) end
   end,
@@ -814,7 +814,7 @@ local COLOR_OPTIONS = {
   { "colorAuction", L["Auction"], L["Color of the Auction tag and of auction house values in tooltips."], { "tagAh" } },
   { "colorDestroy", L["Destroy"], L["Color of the Destroy tag (disenchant, mill, prospect) and of its values in tooltips."],
     { "tagDe" } },
-  { "colorTipLabels", L["Tooltip labels"], L["Color of the labels on the left of LootPrice tooltips."], { "tipLabel" } },
+  { "colorTipLabels", L["Tooltip labels"], L["Color of the labels on the left of LootLedger tooltips."], { "tipLabel" } },
   { "colorBackground", L["Window background"], L["Background of the window and the options. Opacity and Brightness still apply to the window."],
     { "panelTint" } },
   { "colorBorder", L["Window border"], L["Edge of the window and the options."], { "panelBorder" } },
@@ -886,7 +886,7 @@ Options.define({
   tooltip = L["Sets every color back to its default."],
   action = function()
     if not ns.db then return end
-    Options.pick(ns.db, "colorPreset", "lootprice")
+    Options.pick(ns.db, "colorPreset", "lootledger")
     refreshPanel()
   end,
 })

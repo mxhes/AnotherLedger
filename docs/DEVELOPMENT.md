@@ -1,4 +1,4 @@
-# LootPrice development
+# LootLedger development
 
 How the addon is built and how to extend it. The player guide is
 [README.md](../README.md); the in-client checks and release steps are in
@@ -10,8 +10,8 @@ plans of each feature (history; not kept in sync with the code).
 
 - Lua 5.1 (the client's version). Local tests may run on 5.4, so avoid 5.2+
   features (`goto`, `//`, `table.unpack`, integer-only APIs).
-- No build step: the client loads `LootPrice/*.lua` in the order of
-  `LootPrice/LootPrice.toc`. Copy or symlink `LootPrice/` into
+- No build step: the client loads `LootLedger/*.lua` in the order of
+  `LootLedger/LootLedger.toc`. Copy or symlink `LootLedger/` into
   `World of Warcraft/<client>/Interface/AddOns/`.
 - Tests: `lua tests/run.lua` from the repo root (exit 1 on any failure).
   GitLab CI (`.gitlab-ci.yml`) runs them under Lua 5.1 and 5.4 on every push.
@@ -71,7 +71,7 @@ Each of these is one call in one place; the UI never names them.
   `text`, `color` (`"rrggbb"`), `button` (`action`). Values are validated by type and fall back to
   the default; `apply` runs on change and for the saved value at login. Read it
   with `Options.get(ns.db, key)`. Optional fields: `account = true` stores the
-  value in `LootPriceDB.account` (shared by every profile: `historyLimit`,
+  value in `LootLedgerDB.account` (shared by every profile: `historyLimit`,
   `accountZones`, `minimapButton`); `get` / `store` functions keep the value
   elsewhere (the profile choice) and `Options.applyAll` skips such an option;
   `picked(db, value)` runs only on a choice in the panel (`Options.pick`), not
@@ -89,7 +89,7 @@ Each of these is one call in one place; the UI never names them.
   and `subtabs` (see the comment at the top of the file).
 - **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`;
   `help` shows in `/lp help`. A key binding is a `<Binding>` in `Bindings.xml`
-  that runs the command (`SlashCmdList["LOOTPRICE"]("name")`) plus its name in
+  that runs the command (`SlashCmdList["LOOTLEDGER"]("name")`) plus its name in
   `Slash.BINDINGS` (and in the wiring test's allowed globals).
 - **Row menu**: `Ledger.rowMenu(row)` returns the right-click entries of a row
   (`{ text, onClick, title = true }`), shown with `Widgets.openMenu(frame,
@@ -107,7 +107,7 @@ Each of these is one call in one place; the UI never names them.
 
 - **Color presets**: `Theme.presets` (`id`, `label`, `colors` = every
   `Theme.colors` key except `Theme.FIXED_COLORS` as `"rrggbb"`, optional
-  `outline`). The `lootprice` entry is built from `Theme.colors` at load.
+  `outline`). The `lootledger` entry is built from `Theme.colors` at load.
   `Theme.applyPreset(id)` sets them in place. The option `colorPreset` comes
   first in Colors, so `Options.applyAll` lays down the palette and the single
   colors go on top; picking a preset in the panel writes the single colors
@@ -118,10 +118,10 @@ Each of these is one call in one place; the UI never names them.
   the dark game tooltip (`Theme.TOOLTIP_BG`); no panel color option sets them
   except Tooltip labels. tests/test_theme.lua checks completeness and contrast
   per preset.
-- **Profiles** (`Profiles.lua`): `LootPriceDB.profiles[name]` holds the
-  options; `LootPriceCharDB.profile` names the character's (Default when
+- **Profiles** (`Profiles.lua`): `LootLedgerDB.profiles[name]` holds the
+  options; `LootLedgerCharDB.profile` names the character's (Default when
   missing or deleted). At `ADDON_LOADED`, after `DB.migrateAccount`,
-  `Profiles.init` points `LootPriceDB.settings` at the active profile (filled
+  `Profiles.init` points `LootLedgerDB.settings` at the active profile (filled
   with defaults except the single colors, whose default is the preset), so
   every `Options.get(ns.db, key)` reads it; at `PLAYER_LOGOUT`
   `Profiles.beforeLogout` clears that alias so the profile is saved once.
@@ -211,13 +211,13 @@ Each of these is one call in one place; the UI never names them.
   `/lp export session` writes `View.itemsCsv` of an unfiltered `View.build`,
   `/lp export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
   quest items left out). Fields go through `History.csvField`.
-- **Ignore list** (`LootPriceDB.ignored = { [itemID] = name }`, Core
+- **Ignore list** (`LootLedgerDB.ignored = { [itemID] = name }`, Core
   `ignoreItem` / `unignoreItem` / `ignoredList`): `opts.ignored` makes
   `collect` skip those items, so every list, total, Top find, compact drop,
   Zones place and the Daily farm leave them out; `Core.sessionValue`, the drop
   alert and the goals too. They stay recorded. History rows subtract them at
   their saved unit prices (`History.totals(e, ignored)`).
-- **Keep list** (`LootPriceDB.kept`, Core `keepItem` / `unkeepItem` /
+- **Keep list** (`LootLedgerDB.kept`, Core `keepItem` / `unkeepItem` /
   `keptList`; both lists are made by `itemList(field)` in `Core.lua`):
   `opts.kept` makes `View.buildInventory` set `row.kept` and
   `totals.kept` / `totals.sellable` (only while a listed row is kept).
@@ -254,9 +254,9 @@ Each of these is one call in one place; the UI never names them.
   `History.NOTE_MAX` characters, cut on UTF-8 boundaries) follows the start on
   line 1 of the session row and is part of its search text. Entered through
   `Widgets.prompt` (the shared text popup).
-- **Account-wide History**: `LootPriceDB.histories = { ["Name-Realm"] = list }`.
+- **Account-wide History**: `LootLedgerDB.histories = { ["Name-Realm"] = list }`.
   At login `Core.linkHistory` adopts the character's old
-  `LootPriceCharDB.history` into it (`History.adopt`, no duplicates by start)
+  `LootLedgerCharDB.history` into it (`History.adopt`, no duplicates by start)
   and points `ns.chardb.history` at that list; `PLAYER_LOGOUT` drops the alias
   so the list is saved once. Without a character name (tests) History stays
   per character. `Core.zoneHistory()` gives Zones (`ctx.zoneHistory`), the
@@ -284,7 +284,7 @@ Each of these is one call in one place; the UI never names them.
   It also returns `items`, `gold`, `elapsed`, `top`, `goal` and `graph` for the hover
   breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
-  (`LootPrice<Key>`) in `Ledger.init`; typeface and px sizes change live and
+  (`LootLedger<Key>`) in `Ledger.init`; typeface and px sizes change live and
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
   (`Theme.fontFiles`). On retail `SetFont` returns nothing, so only an explicit
   `false` means a font cannot load.
@@ -356,7 +356,7 @@ Each of these is one call in one place; the UI never names them.
 
 ## Saved state
 
-- `LootPriceDB` (account): `profiles` (options per profile; `settings` is the
+- `LootLedgerDB` (account): `profiles` (options per profile; `settings` is the
   active one while logged in and is not saved), `account` (account-wide
   options), `renamed` (old profile name -> new, so other characters follow a
   rename at their next login), `minimapAngle`, `profilesMigrated` / `accountMigrated` (one-time
@@ -365,10 +365,13 @@ Each of these is one call in one place; the UI never names them.
   `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort`,
   `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
   `histories` (every character's History, see "Account-wide History").
-- `LootPriceCharDB` (character): the session (items, gold, places with time,
+- `LootLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
   and the bank scan, and `profile` (the name of the profile it uses).
   `history` is only written here by versions before the account-wide History.
+- The addon was called LootPrice. At `ADDON_LOADED`, Core takes over
+  `LootPriceDB` / `LootPriceCharDB` when the new tables are missing (a player
+  renamed the old saved files), then clears the old globals.
 
 ## Events
 
@@ -400,8 +403,8 @@ German entry the code no longer uses.
 
 ## Packaging
 
-The BigWigs packager with `LootPrice/.pkgmeta` (`-t LootPrice`) fetches the
-libraries into `LootPrice/Libs/` (git-ignored) and fills in the `.toc` version
+The BigWigs packager with `LootLedger/.pkgmeta` (`-t LootLedger`) fetches the
+libraries into `LootLedger/Libs/` (git-ignored) and fills in the `.toc` version
 from the git tag. CI builds the zip on every tag (job `package`) and offers a
 manual `package-dry-run` on `main`. CurseForge upload needs the CI variable
 `CF_API_KEY` and `## X-Curse-Project-ID: <id>` in the `.toc`.

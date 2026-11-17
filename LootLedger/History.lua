@@ -351,7 +351,7 @@ function History.merge(a, b)
 end
 
 -- The account-wide History table (`histories` = { [character] = list }) takes
--- over the character's own list `own` (LootPriceCharDB.history) at login:
+-- over the character's own list `own` (LootLedgerCharDB.history) at login:
 -- entries not yet in histories[name] (same start) are added. Returns the
 -- character's list in `histories`.
 function History.adopt(histories, name, own)

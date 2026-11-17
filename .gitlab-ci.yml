@@ -6,7 +6,7 @@
 # - package: on a tag, builds the zip (and uploads it to CurseForge when the
 #            CI variable CF_API_KEY is set and the .toc has X-Curse-Project-ID).
 # - package-dry-run: manual on main; builds the zip without uploading, to check
-#            the .pkgmeta layout (one LootPrice/ folder with the .toc inside).
+#            the .pkgmeta layout (one LootLedger/ folder with the .toc inside).
 #            Download the zip from the job's artifacts.
 
 stages:
@@ -43,7 +43,7 @@ package:
   rules:
     - if: $CI_COMMIT_TAG
   script:
-    - bash /tmp/release.sh -t LootPrice
+    - bash /tmp/release.sh -t LootLedger
 
 package-dry-run:
   extends: .packager
@@ -52,4 +52,4 @@ package-dry-run:
       when: manual
       allow_failure: true
   script:
-    - bash /tmp/release.sh -d -t LootPrice
+    - bash /tmp/release.sh -d -t LootLedger

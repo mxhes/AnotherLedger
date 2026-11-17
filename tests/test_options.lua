@@ -371,9 +371,9 @@ h.test("colorPreset is the first Colors option, a dropdown of five", function()
   h.eq(first.type, "dropdown")
   local values = {}
   for _, c in ipairs(O.choices(first)) do values[#values + 1] = c.value end
-  h.eq(table.concat(values, ","), "lootprice,blizzard,midnight,tsm,parchment")
+  h.eq(table.concat(values, ","), "lootledger,blizzard,midnight,tsm,parchment")
   h.eq(#first.label <= 24, true)
-  h.eq(O.defaultFor("colorPreset"), "lootprice")
+  h.eq(O.defaultFor("colorPreset"), "lootledger")
 end)
 
 h.test("picking a preset writes the 11 colors", function()
@@ -385,7 +385,7 @@ h.test("picking a preset writes the 11 colors", function()
   end
   h.eq(hex("panelTint"), presetHex("midnight", "panelTint"))
   h.eq(hex("divider"), presetHex("midnight", "divider"))
-  O.pick(d, "colorPreset", "lootprice")
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
 end)
 
@@ -397,7 +397,7 @@ h.test("picking parchment turns the outline on, others leave it", function()
   O.set(d, "fontOutline", "none")
   O.pick(d, "colorPreset", "midnight")
   h.eq(d.settings.fontOutline, "none")
-  O.pick(d, "colorPreset", "lootprice")
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
 end)
 
@@ -409,7 +409,7 @@ h.test("applyAll keeps tweaks over preset", function()
   h.eq(hex("panelTint"), presetHex("tsm", "panelTint"))
   h.eq(hex("divider"), presetHex("tsm", "divider"))
   h.eq(d.settings.colorText, "ff0000")
-  O.pick(d, "colorPreset", "lootprice")
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
 end)
 
@@ -421,7 +421,7 @@ h.test("edited marker after a color tweak", function()
   h.eq(O.valueText(spec, "midnight"), "Midnight")
   O.set(d, "colorText", "ff0000")
   h.eq(O.valueText(spec, "midnight"), "Midnight (edited)")
-  O.pick(d, "colorPreset", "lootprice")
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
 end)
 
@@ -431,16 +431,16 @@ h.test("color default is the active preset's color", function()
   O.pick(d, "colorPreset", "midnight")
   h.eq(O.defaultFor("colorBackground"), presetHex("midnight", "panelTint"))
   h.eq(O.defaultFor("colorBackground", { colorPreset = "tsm" }), presetHex("tsm", "panelTint"))
-  O.pick(d, "colorPreset", "lootprice")
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
 end)
 
-h.test("Reset colors picks LootPrice", function()
+h.test("Reset colors picks LootLedger", function()
   local d = db()
   ns.db = d
   O.pick(d, "colorPreset", "blizzard")
   O.spec("resetColors").action()
-  h.eq(d.settings.colorPreset, "lootprice")
+  h.eq(d.settings.colorPreset, "lootledger")
   for _, o in ipairs(O.COLOR_OPTIONS) do h.eq(d.settings[o[1]], ns.DB.defaults.settings[o[1]], o[1]) end
   h.eq(hex("panelTint"), "261a0f")
   ns.db = nil

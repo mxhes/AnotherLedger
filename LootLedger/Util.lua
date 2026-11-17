@@ -50,7 +50,7 @@ function Util.setting(key, fallback)
   return v
 end
 
-local PREFIX = "|cff33ff99LootPrice|r: "
+local PREFIX = "|cff33ff99LootLedger|r: "
 
 -- Chat line with the addon prefix.
 function Util.say(msg)

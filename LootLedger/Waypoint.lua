@@ -30,7 +30,7 @@ local function tomtom(env, place)
   local api = env.TomTom
   if type(api) ~= "table" or type(api.AddWaypoint) ~= "function" then return false end
   local p = place.pos
-  local ok, uid = pcall(api.AddWaypoint, api, p.mapID, p.x, p.y, { title = Waypoint.name(place), from = "LootPrice" })
+  local ok, uid = pcall(api.AddWaypoint, api, p.mapID, p.x, p.y, { title = Waypoint.name(place), from = "LootLedger" })
   return ok and uid ~= nil
 end
 
