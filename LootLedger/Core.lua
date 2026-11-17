@@ -26,6 +26,11 @@ local bankOpen = false
 local tradeWindows = {}
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
 local restingSeen = false -- the resting state Core.checkRest saw last (option "hideInCities")
+-- Mobs (Mobs.lua): the open loot window's slots, mob names seen this login
+-- ({ [mob key] = name }) and the combat log bookkeeping. Never saved.
+local lootSlots
+local mobNames = {}
+local mobState = {}
 local zoneState = {} -- the session's zone and a pending new one (Core.zoneSwitch)
 -- The open loot window: { money = GetMoney() at opening, chat = copper the
 -- money messages counted since }, or nil (see "Raw gold backstop").
@@ -836,6 +841,47 @@ function Core.autoWindow(action, reason, option)
   else W.autoUndo(reason) end
 end
 
+-- Mobs are recorded only while loot counts: a running clock (resting
+-- included), not in demo mode.
+function Core.mobsCounting()
+  local session = ns.session
+  return session ~= nil and session.running and not session.demo and type(session.mobs) == "table" or false
+end
+
+-- Reads every slot of the loot window that just opened (Mobs.readSlot).
+-- UNVERIFIED (check in client) on Forever: GetNumLootItems.
+function Core.snapshotLoot()
+  lootSlots = nil
+  if not Core.mobsCounting() or type(GetNumLootItems) ~= "function" then return end
+  local ok, n = pcall(GetNumLootItems)
+  if not (ok and num(n)) then return end
+  local slots = {}
+  for slot = 1, n do
+    local okSlot, s = pcall(ns.Mobs.readSlot, _G, slot)
+    if okSlot and s and #s.sources > 0 then slots[slot] = s end
+  end
+  lootSlots = slots
+end
+
+-- The name of the mob behind `guid`: the unit tooltip's first line (cached
+-- for the login), else, when `fallback`, "NPC 12345" / "Object 1731".
+-- UNVERIFIED (check in client) on Forever: C_TooltipInfo.GetHyperlink("unit:..").
+function Core.mobName(env, guid, key, fallback)
+  local C = env.C_TooltipInfo
+  if type(C) == "table" and type(C.GetHyperlink) == "function" then
+    local ok, data = pcall(C.GetHyperlink, "unit:" .. guid)
+    local line = ok and type(data) == "table" and type(data.lines) == "table" and data.lines[1]
+    local text = type(line) == "table" and line.leftText
+    if type(text) == "string" and text ~= "" then
+      mobNames[key] = text
+      return text
+    end
+  end
+  if not fallback then return nil end
+  local id = key:match(":(%d+)$") or "?"
+  return (key:sub(1, 4) == "obj:" and L["Object %s"] or L["NPC %s"]):format(id)
+end
+
 -- Option "dailyFarmLevel": whether the player's `level` is inside the level
 -- range of map `mapID`; nil when unknown (no API, no range).
 -- UNVERIFIED (check in client) on Forever: C_Map.GetMapLevels.
@@ -1093,9 +1139,62 @@ function events.LOOT_OPENED()
   if lootWindow then settleLoot(lootWindow) end
   local money = currentMoney()
   if money and ns.session then lootWindow = { money = money, chat = 0 } end
+  Core.snapshotLoot()
 end
 
+-- A slot taken from the loot window: its loot goes to the mob or node it
+-- came from (Mobs.credit).
+function events.LOOT_SLOT_CLEARED(slot)
+  local slots = lootSlots
+  local entry = slots and slots[slot]
+  if not entry then return end
+  slots[slot] = nil
+  if not Core.mobsCounting() then return end
+  local mobs = ns.session.mobs
+  local names = {}
+  for _, s in ipairs(entry.sources) do
+    local key = ns.Mobs.idOf(s.guid)
+    if key then
+      local e = mobs[key]
+      names[key] = mobNames[key] or Core.mobName(_G, s.guid, key, not (e and e.name))
+    end
+  end
+  ns.Mobs.credit(mobs, entry, (Core.placeOf(_G, difficulties)), names, mobState)
+end
+
+-- Every mob or node kill by the group (combat log; Mobs.combat), and the
+-- names of the units hit.
+-- UNVERIFIED (check in client) on Forever: CombatLogGetCurrentEventInfo and
+-- its returns (timestamp, subevent, hideCaster, sourceGUID, sourceName,
+-- sourceFlags, sourceRaidFlags, destGUID, destName).
+function events.COMBAT_LOG_EVENT_UNFILTERED()
+  if not Core.mobsCounting() or type(CombatLogGetCurrentEventInfo) ~= "function" then return end
+  local ok, _, subevent, _, sourceGUID, _, sourceFlags, _, destGUID, destName = pcall(CombatLogGetCurrentEventInfo)
+  if not ok then return end
+  local key, kind = ns.Mobs.idOf(destGUID)
+  if key and type(destName) == "string" and destName ~= "" then mobNames[key] = destName end
+  local killed = ns.Mobs.combat(mobState, subevent, sourceGUID, sourceFlags, destGUID)
+  if killed and key and kind == "npc" then
+    ns.Mobs.addKill(ns.session.mobs, key, mobNames[key], (Core.placeOf(_G, difficulties)))
+  end
+end
+
+-- Names of mobs the player sees (name plates, target, mouseover).
+local function noteUnitName(unit)
+  if type(UnitGUID) ~= "function" or type(UnitName) ~= "function" then return end
+  local ok, guid = pcall(UnitGUID, unit)
+  local key = ok and ns.Mobs.idOf(guid)
+  if not key then return end
+  local okName, name = pcall(UnitName, unit)
+  if okName and type(name) == "string" and name ~= "" then mobNames[key] = name end
+end
+
+function events.NAME_PLATE_UNIT_ADDED(unit) noteUnitName(unit) end
+function events.PLAYER_TARGET_CHANGED() noteUnitName("target") end
+function events.UPDATE_MOUSEOVER_UNIT() noteUnitName("mouseover") end
+
 function events.LOOT_CLOSED()
+  lootSlots = nil
   local window = lootWindow
   if not window then return end
   if C_Timer and C_Timer.After then

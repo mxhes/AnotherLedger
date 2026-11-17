@@ -171,6 +171,13 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
+  `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
+  loot left in a corpse counts for nobody; the combat log counts the group's
+  kills (`Mobs.combat`). Names come from name plates, target, mouseover and
+  the combat log, else the unit tooltip, else "NPC 12345". Only while
+  loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
+  entries' `mobs`.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
@@ -434,7 +441,9 @@ Each of these is one call in one place; the UI never names them.
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
-`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the
+`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the Mobs events
+(`LOOT_SLOT_CLEARED`, `COMBAT_LOG_EVENT_UNFILTERED`, `NAME_PLATE_UNIT_ADDED`,
+`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 

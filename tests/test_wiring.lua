@@ -3161,3 +3161,86 @@ h.test("wiring: Hide in cities hides while resting and only undoes its own hidin
   h.eq(W.isShown(), true)
   h.eq(ctx.errors, {})
 end)
+
+-- A loot window: slots = { { link, qty, guid } or { money = copper, guid } }.
+local MOB = "Creature-0-3110-0-12-2546-000012ABCD"
+local function lootWindowEnv(ctx, slots)
+  local env = ctx.env
+  env.GetNumLootItems = function() return #slots end
+  env.GetLootSlotType = function(i) return slots[i].money and 2 or 1 end
+  env.GetLootSlotLink = function(i) return slots[i].link end
+  env.GetLootSlotInfo = function(i) return 134400, "x", slots[i].qty or 0 end
+  env.GetLootSourceInfo = function(i) return slots[i].guid, slots[i].money or slots[i].qty end
+end
+
+h.test("wiring: cleared loot slots are credited to their mob, once per corpse", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local OTHER = "|cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r"
+  lootWindowEnv(ctx, { { link = LINK, qty = 3, guid = MOB }, { link = OTHER, qty = 1, guid = MOB },
+    { money = 250, guid = MOB } })
+  ctx.env.C_TooltipInfo = { GetHyperlink = function(l)
+    if l == "unit:" .. MOB then return { lines = { { leftText = "Kobold Vermin" } } } end
+  end }
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_SLOT_CLEARED", 3)
+  fire(ctx, "LOOT_CLOSED") -- slot 2 was left in the corpse
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(m.items[2589], 3)
+  h.eq(m.items[2592], nil)
+  h.eq(m.gold, 250)
+  h.eq(m.looted, 1)
+  h.eq(m.name, "Kobold Vermin")
+  -- clearing after the window closed credits nothing
+  fire(ctx, "LOOT_SLOT_CLEARED", 2)
+  h.eq(m.items[2592], nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a group kill in the combat log counts with its name; a stopped clock counts nothing", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local ev
+  local unpackAll = table.unpack or unpack
+  ctx.env.CombatLogGetCurrentEventInfo = function() return unpackAll(ev, 1, 9) end
+  ev = { 1, "SWING_DAMAGE", false, "Player-1-2", "Me", 0x511, 0, MOB, "Kobold Vermin" }
+  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
+  ev = { 1, "UNIT_DIED", false, "", nil, 0, 0, MOB, "Kobold Vermin" }
+  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
+  h.eq(ns.session.mobs["npc:2546"].kills, 1)
+  h.eq(ns.session.mobs["npc:2546"].name, "Kobold Vermin")
+  slash(ctx, "stop")
+  local MOB2 = "Creature-0-3110-0-12-2546-000012ABCE"
+  ev = { 1, "PARTY_KILL", false, "Player-1-2", "Me", 0x511, 0, MOB2, "Kobold Vermin" }
+  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
+  lootWindowEnv(ctx, { { link = LINK, qty = 3, guid = MOB2 } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.mobs["npc:2546"].kills, 1)
+  h.eq(ns.session.mobs["npc:2546"].looted, 0)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: without the combat log API loot is still credited; unknown names get a fallback", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "COMBAT_LOG_EVENT_UNFILTERED")
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = MOB } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["npc:2546"].items[2589], 2)
+  h.eq(ns.session.mobs["npc:2546"].name, "NPC 2546")
+  -- a name plate seen later names it
+  ctx.env.UnitGUID = function() return MOB end
+  ctx.env.UnitName = function() return "Kobold Vermin" end
+  fire(ctx, "NAME_PLATE_UNIT_ADDED", "nameplate1")
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["npc:2546"].name, "Kobold Vermin")
+  h.eq(ctx.errors, {})
+end)

@@ -444,6 +444,8 @@ ns.Locale.register("deDE", {
   ["Never"] = "Nie",
   [" (after 5% AH cut)"] = " (nach 5% AH-Gebühr)",
   ["Custom..."] = "Eigener...",
+  ["NPC %s"] = "NPC %s",
+  ["Object %s"] = "Objekt %s",
   ["Open on first loot"] = "Bei erster Beute öffnen",
   ["Opens the window when a session gets its first item. Close it and it stays closed until the next session."] = "Öffnet das Fenster, wenn eine Sitzung ihren ersten Gegenstand bekommt. Schließt du es, bleibt es bis zur nächsten Sitzung zu.",
   ["Open in instances"] = "In Instanzen öffnen",
