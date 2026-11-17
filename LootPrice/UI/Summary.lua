@@ -112,12 +112,15 @@ function Summary.tableLayout(view)
   return layout
 end
 
--- Value (best) and rate text of every row.
+-- Value (best) and rate text of every row, and both as numbers for the coin
+-- columns (`valueCopper`; `rateCopper` nil while there is no rate: the text
+-- is then the em dash).
 function Summary.rowTexts(view, formatMoney)
   view = view or NONE
   local totals, gold, combined = view.totals or NONE, view.gold or NONE, view.combined or NONE
   local function row(amount, perHour)
-    return { value = amountText(amount, formatMoney), rate = Summary.rateText(perHour, formatMoney) }
+    return { value = amountText(amount, formatMoney), rate = Summary.rateText(perHour, formatMoney),
+      valueCopper = tonumber(amount) or 0, rateCopper = perHour }
   end
   return {
     items = row(totals.best, totals.bestPerHour),
@@ -164,7 +167,8 @@ local function iconExtra()
 end
 
 function Summary.tableWorstWidth()
-  return (11 + 15 + 14 + 2 * iconExtra()) * ns.Theme.sizes.summaryCharPx + 6 + 8
+  local s = ns.Theme.sizes
+  return (11 + 15 + 14 + 2 * iconExtra()) * s.summaryCharPx + 6 + 8 + 2 * s.textOverhang
 end
 
 -- Width of the /h column: the 14-character worst-case rate.
@@ -193,6 +197,7 @@ function Summary.topLines(top, formatMoney)
       name = r.name or "?",
       qty = "x" .. (tonumber(r.quantity) or 0),
       value = formatMoney(r.value),
+      copper = r.value,
       quality = r.quality,
       link = r.link,
       tooltipLink = ns.UI.Rows and ns.UI.Rows.tooltipLink(r) or nil,
@@ -248,7 +253,7 @@ function Summary.attach(topBox, footer)
     edge:SetWidth(2)
     edge:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     edge:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
-    local value = makeText(row, T.fonts.topRow, ink, "RIGHT")
+    local value = ns.UI.Coins.new(row, T.fonts.topRow, ink)
     -- Keep clear of the resize grip in the window's bottom-right corner.
     value:SetPoint("RIGHT", row, "RIGHT", -(2 + S.gripSize), 0)
     local qty = makeText(row, T.fonts.topRow, ink, "RIGHT")
@@ -290,9 +295,15 @@ function Summary.attach(topBox, footer)
     return f
   end
   -- Value right edge: left of the /h column, or flush right without rates.
+  -- Both keep S.textOverhang free on their right: an outlined text draws past
+  -- its measured end (Fonts.applySizes).
   local function placeValue(fs, f, rates)
     fs:ClearAllPoints()
-    fs:SetPoint("RIGHT", f, "RIGHT", rates and -(rateW + 8) or 0, 0)
+    fs:SetPoint("RIGHT", f, "RIGHT", -(S.textOverhang + (rates and (rateW + 8 + S.textOverhang) or 0)), 0)
+  end
+  local function placeRate(fs, f)
+    fs:ClearAllPoints()
+    fs:SetPoint("RIGHT", f, "RIGHT", -S.textOverhang, 0)
   end
 
   local titles = { frame = makeLine() }
@@ -300,7 +311,7 @@ function Summary.attach(topBox, footer)
   titles.value:SetText(L_VALUE)
   placeValue(titles.value, titles.frame, true)
   titles.rate = makeText(titles.frame, T.fonts.summaryMarker, T.colors.columnTitle, "RIGHT")
-  titles.rate:SetPoint("RIGHT", titles.frame, "RIGHT", 0, 0)
+  placeRate(titles.rate, titles.frame)
   titles.rate:SetText(L_PER_HOUR_TITLE)
   summary.titles = titles
 
@@ -312,10 +323,11 @@ function Summary.attach(topBox, footer)
     c.label = makeText(f, T.fonts.summary, color, "LEFT")
     c.label:SetPoint("LEFT", f, "LEFT", 0, 0)
     c.label:SetText(ROW_LABELS[key])
-    c.value = makeText(f, T.fonts.summary, color, "RIGHT")
+    -- Value and rate in coin columns (UI/Coins.lua), lined up down the table.
+    c.value = ns.UI.Coins.new(f, T.fonts.summary, color)
     placeValue(c.value, f, true)
-    c.rate = makeText(f, T.fonts.summary, color, "RIGHT")
-    c.rate:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+    c.rate = ns.UI.Coins.new(f, T.fonts.summary, color)
+    placeRate(c.rate, f)
     cells[key] = c
   end
   summary.cells = cells
@@ -394,11 +406,19 @@ function Summary.attach(topBox, footer)
   -- the footer and the Top finds box.
   function summary:ApplySizes()
     rateW = rateColumnWidth()
+    -- Measure the amounts again in the new font (an outline, a size).
+    for _, key in ipairs(Summary.ROWS) do
+      ns.UI.Coins.clear(cells[key].value)
+      ns.UI.Coins.clear(cells[key].rate)
+    end
+    for i = 1, MAX_TOP do ns.UI.Coins.clear(self.rows[i].value) end
     titles.frame:SetHeight(S.footerRowHeight)
     for _, key in ipairs(Summary.ROWS) do cells[key].frame:SetHeight(S.footerRowHeight) end
     notesFrame:SetHeight(S.footerNoteHeight)
     for i = 1, MAX_TOP do placeTopRow(self.rows[i].frame, i) end
     placeValue(titles.value, titles.frame, true)
+    placeRate(titles.rate, titles.frame)
+    for _, key in ipairs(Summary.ROWS) do placeRate(cells[key].rate, cells[key].frame) end
     self.footerHeight, self.height = nil, nil
     self:Set(self.view)
   end
@@ -413,6 +433,7 @@ function Summary.attach(topBox, footer)
   -- Top finds: up to MAX_TOP lines; the box collapses without any.
   function summary:SetTop(top)
     local lines = Summary.topLines(top)
+    local values = {}
     for i = 1, MAX_TOP do
       local w, l = self.rows[i], lines[i]
       if l then
@@ -420,13 +441,15 @@ function Summary.attach(topBox, footer)
         W.setTextRGB(w.name, r, g, b, 1)
         w.name:SetText(l.name)
         w.qty:SetText(l.qty)
-        w.value:SetText(l.value)
+        ns.UI.Coins.set(w.value, l.copper, l.value)
+        values[#values + 1] = w.value
         w.tooltipLink, w.link = l.tooltipLink, l.link
         w.frame:Show()
       else
         w.frame:Hide()
       end
     end
+    ns.UI.Coins.align(values)
     -- Option "showTopFinds" off: the block stays collapsed.
     local shown = ns.Util.setting("showTopFinds", true)
     local height = shown and Summary.topBoxHeight(#lines) or 0
@@ -442,10 +465,16 @@ function Summary.attach(topBox, footer)
   -- change with the clock; a tick redraws the values too, which is cheap).
   function summary:SetValues(view)
     local texts = Summary.rowTexts(view)
+    local values, rates = {}, {}
     for _, key in ipairs(Summary.ROWS) do
-      cells[key].value:SetText(texts[key].value)
-      cells[key].rate:SetText(texts[key].rate)
+      local t, c = texts[key], cells[key]
+      ns.UI.Coins.set(c.value, t.valueCopper, t.value)
+      ns.UI.Coins.set(c.rate, t.rateCopper, t.rate)
+      values[#values + 1], rates[#rates + 1] = c.value, c.rate
     end
+    -- Each column in shared coin columns (the cells of hidden rows are hidden).
+    ns.UI.Coins.align(values)
+    ns.UI.Coins.align(rates)
   end
 
   function summary:Set(view)

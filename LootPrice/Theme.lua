@@ -209,6 +209,30 @@ Theme.sizes = {
   tabLine = 1, -- the line under the tab row (open below the selected tab)
   buttonGap = 2,
   timerWidth = 54,
+  -- Extra width per glyph of an outlined font (option "fontOutline", seen in
+  -- the client: Thick is about 1 px per letter wider than Thin). Added to the
+  -- glyph estimates (summaryCharPx, markerCharPx) and the clock (8 glyphs).
+  outlineGlyphPx = { OUTLINE = 1, THICKOUTLINE = 2 },
+  -- Coin columns (UI/Coins.lua): space between the gold, silver and copper
+  -- columns (about the space the one-line amounts had), and the line height
+  -- of a cell while its font cannot be measured.
+  coinGap = 3,
+  coinHeight = 12,
+  timerGlyphs = 8,
+  -- An outlined text (with its coin icons) also draws a few px past the end
+  -- the client measures (client screenshots: about 1 px Thin, 4 px Thick).
+  -- Fonts.applySizes copies the current value to textOverhang, the room kept
+  -- right of a right-aligned amount (rows, compact, footer).
+  outlineOverhangPx = { OUTLINE = 2, THICKOUTLINE = 5 },
+  textOverhang = 0,
+  -- Source tags with an outline: the client centers the text a little too far
+  -- left (screen px to move it right) and the outline needs more room above
+  -- and below (screen px added to rowTagPadY). Copied by Fonts.applySizes to
+  -- tagTextShift / tagPadExtra.
+  outlineTagShiftPx = { OUTLINE = 2, THICKOUTLINE = 3 },
+  outlineTagPadPx = { OUTLINE = 1, THICKOUTLINE = 1 },
+  tagTextShift = 0,
+  tagPadExtra = 0,
   topHeaderHeight = 22,
   topRowHeight = 20,
   dividerHeight = 2,

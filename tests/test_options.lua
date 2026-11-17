@@ -15,7 +15,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "goldDisplay", "coinIcons", "includeGold", "alertGold", "alertSound", "goalGold", "goalMinutes",
     "countCrafted", "afkPause", "instanceSession", "zoneSession", "zoneSessionMinutes",
     "showCurrencies", "dailyFarm", "dailyFarmMinutes", "accountZones", "showTopFinds", "showFooterGold", "compactDrops",
-    "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontSizeRows", "fontSizeTotals",
+    "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit",
     "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",

@@ -202,6 +202,51 @@ h.test("Fonts.install: without Arial Narrow the source tag keeps the game font",
   assert(ok, err)
 end)
 
+h.test("Fonts.flags / shadowOf: outline flags and the shadow on or off", function()
+  local F = load().UI.Fonts
+  h.eq(F.flags("", "none"), "")
+  h.eq(F.flags("MONOCHROME", "none"), "MONOCHROME") -- the game font's own flags
+  h.eq(F.flags("", "OUTLINE"), "OUTLINE")
+  h.eq(F.flags("", "THICKOUTLINE"), "THICKOUTLINE")
+  h.eq(F.flags("", "bogus"), "")
+  h.eq(F.shadowOf({ x = 1, y = -1, r = 0, g = 0, b = 0, a = 0.8 }, true), { 1, -1, 0, 0, 0, 0.8 })
+  h.eq(F.shadowOf({ x = 0, y = 0, a = 0 }, true), { 1, -1, 0, 0, 0, 1 }) -- a font without one gets one
+  h.eq(F.shadowOf(nil, true), { 1, -1, 0, 0, 0, 1 })
+  h.eq(F.shadowOf({ x = 2, y = -2, a = 1 }, false), { 0, 0, 0, 0, 0, 0 })
+end)
+
+h.test("Fonts.applyStyle: outline and shadow on every own font object, live", function()
+  local ns = load()
+  local created, newFont = fakeClient()
+  _G.CreateFont = function(name)
+    local f = newFont(name)
+    function f:SetShadowOffset(x, y) self.shadow = { x, y } end
+    function f:SetShadowColor(r, g, b, a) self.shadowColor = { r, g, b, a } end
+    return f
+  end
+  local base = newFont("GameFontHighlight")
+  function base:GetShadowOffset() return 1, -1 end
+  function base:GetShadowColor() return 0, 0, 0, 1 end
+  _G.GameFontHighlight = base
+  local ok, err = pcall(function()
+    ns.UI.Fonts.install({ settings = { fontOutline = "OUTLINE", fontShadow = false } })
+    local body = created.LootPriceBody
+    h.eq(body.flags, "OUTLINE"); h.eq(body.shadow, { 0, 0 })
+    h.eq(ns.UI.Fonts.applyStyle("OUTLINE", false), false) -- nothing changed
+    h.eq(ns.UI.Fonts.applyStyle("THICKOUTLINE", true), true)
+    h.eq(body.flags, "THICKOUTLINE"); h.eq(body.shadow, { 1, -1 }); h.eq(body.shadowColor, { 0, 0, 0, 1 })
+    h.eq(body.size, 12) -- size untouched
+    ns.UI.Fonts.applyStyle("none", true)
+    h.eq(body.flags, "")
+    -- a later size change keeps the outline
+    ns.UI.Fonts.applyStyle("OUTLINE", true)
+    ns.UI.Fonts.applySizes({ settings = { fontSizeRows = 15 } })
+    h.eq(body.flags, "OUTLINE"); h.near(body.size, 15)
+  end)
+  _G.CreateFont, _G.GameFontHighlight = nil, nil
+  assert(ok, err)
+end)
+
 h.test("Fonts.choices: SetFont returning nothing counts as loaded (retail)", function()
   local ns = load()
   local created = {}

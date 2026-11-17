@@ -4,7 +4,8 @@ local L = ns.L
 
 ns.UI = ns.UI or {}
 
--- Font options. The typeface (option "fontFace") and the sizes change live.
+-- Font options. The typeface (option "fontFace"), the outline ("fontOutline"),
+-- the shadow ("fontShadow") and the sizes change live.
 -- Three groups of the ledger have a size in px (list text, totals text, section
 -- titles): the px of the group's main font, its smaller fonts keep their
 -- proportion, and its row heights in Theme.sizes grow or shrink with it.
@@ -131,17 +132,59 @@ end
 -- ---------------------------------------------------------------------------
 -- Font objects
 
-local objects = {} -- [key] = { font, file, size, gameSize, flags } for the objects made here
+local objects = {} -- [key] = { font, file, size, gameSize, flags, shadow } for the objects made here
 local face = nil      -- current typeface (option "fontFace")
+local outline = "none" -- option "fontOutline"
+local shadow = true    -- option "fontShadow"
 
--- Sets the file and size of a font object, falling back to the game's own file
--- when the client refuses the chosen one.
+-- Option "fontOutline": the values the game's SetFont takes as flags.
+Fonts.OUTLINES = { none = true, OUTLINE = true, THICKOUTLINE = true }
+
+-- Pure. The flags a font object gets: the outline, or the game font's own
+-- flags with none.
+function Fonts.flags(gameFlags, chosen)
+  if chosen and chosen ~= "none" and Fonts.OUTLINES[chosen] then return chosen end
+  return gameFlags or ""
+end
+
+-- Pure. The shadow of a font object: { x, y, r, g, b, a }. On: the game
+-- font's own shadow, or 1 px down right in black when it has none. Off: none.
+function Fonts.shadowOf(game, on)
+  if not on then return { 0, 0, 0, 0, 0, 0 } end
+  game = game or {}
+  local x, y = game.x or 0, game.y or 0
+  if x == 0 and y == 0 then x, y = 1, -1 end
+  local a = game.a or 0
+  if a <= 0 then return { x, y, 0, 0, 0, 1 } end
+  return { x, y, game.r or 0, game.g or 0, game.b or 0, a }
+end
+
+-- Sets the file, size and outline of a font object, falling back to the game's
+-- own file when the client refuses the chosen one.
 local function setFace(entry, chosen)
   if entry.pinned then chosen = entry.pinned end
   local file = (chosen and chosen ~= Fonts.DEFAULT_FACE) and chosen or entry.file
-  if entry.font:SetFont(file, entry.size, entry.flags) == false then
-    entry.font:SetFont(entry.file, entry.size, entry.flags)
+  local flags = Fonts.flags(entry.flags, outline)
+  if entry.font:SetFont(file, entry.size, flags) == false then
+    entry.font:SetFont(entry.file, entry.size, flags)
   end
+end
+
+local function setShadow(entry)
+  local f = entry.font
+  if type(f.SetShadowOffset) ~= "function" or type(f.SetShadowColor) ~= "function" then return end
+  local s = Fonts.shadowOf(entry.shadow, shadow)
+  f:SetShadowOffset(s[1], s[2])
+  f:SetShadowColor(s[3], s[4], s[5], s[6])
+end
+
+-- The game font's own shadow, to restore it when the option is on again.
+local function gameShadow(base)
+  local s = {}
+  if type(base.GetShadowOffset) == "function" then s.x, s.y = base:GetShadowOffset() end
+  if type(base.GetShadowColor) == "function" then s.r, s.g, s.b, s.a = base:GetShadowColor() end
+  for k, v in pairs(s) do if type(v) ~= "number" then s[k] = nil end end
+  return s
 end
 
 -- Creates "LootPrice<Key>" as a copy of the game font object `baseName` in
@@ -156,7 +199,8 @@ local function ownFont(key, baseName)
   local file, size, flags = base:GetFont()
   if not (file and size) then return nil end
   local pinned = ns.Theme.fontFiles and ns.Theme.fontFiles[key] or nil
-  objects[key] = { font = font, file = file, size = size, gameSize = size, flags = flags, pinned = pinned }
+  objects[key] = { font = font, file = file, size = size, gameSize = size, flags = flags, pinned = pinned,
+    shadow = gameShadow(base) }
   return name
 end
 
@@ -166,9 +210,34 @@ function Fonts.applyFace(chosen)
   for _, entry in pairs(objects) do setFace(entry, chosen) end
 end
 
+-- The current outline's entry of a Theme.sizes table keyed by outline (0
+-- without an outline).
+function Fonts.outlineValue(key)
+  local t = ns.Theme.sizes[key]
+  return type(t) == "table" and t[outline] or 0
+end
+
+-- Extra width per glyph of the current outline (Theme.sizes.outlineGlyphPx).
+function Fonts.outlineGlyphPx() return Fonts.outlineValue("outlineGlyphPx") end
+
+-- Options "fontOutline" / "fontShadow": every font object made by install
+-- (the source tags too). Returns whether anything changed; the caller re-lays
+-- the window out, as an outline makes the text wider.
+function Fonts.applyStyle(newOutline, newShadow)
+  newOutline = Fonts.OUTLINES[newOutline] and newOutline or "none"
+  newShadow = newShadow and true or false
+  if newOutline == outline and newShadow == shadow then return false end
+  outline, shadow = newOutline, newShadow
+  for _, entry in pairs(objects) do
+    setFace(entry, face)
+    setShadow(entry)
+  end
+  return true
+end
+
 -- The theme's own values of every size applySizes derives, taken once before
 -- the first change, so a size is always computed from them (never compounded).
-local DERIVED = { "footerHeight", "summaryCharPx", "markerCharPx", "minWidth", "minHeight" }
+local DERIVED = { "footerHeight", "summaryCharPx", "markerCharPx", "timerWidth", "minWidth", "minHeight" }
 local base
 
 local function snapshot(sizes)
@@ -212,9 +281,15 @@ function Fonts.applySizes(db)
   -- The footer table's columns are budgeted with the glyph estimate of the
   -- totals font (unrounded: it is a fraction of a px); the window is never
   -- narrower than the widest table line.
+  -- An outline widens every glyph: the estimates and the clock grow with it.
   local totals = factors.summary or 1
-  set("summaryCharPx", base.summaryCharPx * totals)
-  set("markerCharPx", base.markerCharPx * totals)
+  local extra = Fonts.outlineGlyphPx()
+  set("summaryCharPx", base.summaryCharPx * totals + extra)
+  set("markerCharPx", base.markerCharPx * totals + extra)
+  set("timerWidth", base.timerWidth + s.timerGlyphs * extra)
+  set("textOverhang", Fonts.outlineValue("outlineOverhangPx"))
+  set("tagTextShift", Fonts.outlineValue("outlineTagShiftPx"))
+  set("tagPadExtra", Fonts.outlineValue("outlineTagPadPx"))
   local minWidth = base.minWidth
   if ns.UI.Summary and ns.UI.Summary.tableWorstWidth then
     minWidth = math.max(minWidth, math.ceil(ns.UI.Summary.tableWorstWidth() + 2 * (s.padding + 4)))
@@ -234,6 +309,9 @@ function Fonts.install(db)
   installed = true
   local T = ns.Theme
   face = ns.Options.get(db, "fontFace")
+  outline = ns.Options.get(db, "fontOutline")
+  if not Fonts.OUTLINES[outline] then outline = "none" end
+  shadow = ns.Options.get(db, "fontShadow") and true or false
   local keys = {}
   for key, value in pairs(T.fonts) do
     if key ~= "file" and type(value) == "string" then keys[#keys + 1] = key end
@@ -242,6 +320,9 @@ function Fonts.install(db)
     local name = ownFont(key, T.fonts[key])
     if name then T.fonts[key] = name end
   end
-  for _, entry in pairs(objects) do setFace(entry, face) end
+  for _, entry in pairs(objects) do
+    setFace(entry, face)
+    setShadow(entry)
+  end
   Fonts.applySizes(db)
 end

@@ -73,6 +73,9 @@ DB.defaults = {
     -- Font size in px of the list text, the totals and the section titles (applied live).
     -- Typeface: "default" (the WoW font) or a font file path.
     fontFace = "default",
+    -- Outline ("none" / "OUTLINE" / "THICKOUTLINE") and shadow of all text.
+    fontOutline = "none",
+    fontShadow = true,
     fontSizeRows = 12,
     fontSizeTotals = 12,
     fontSizeTitles = 16,

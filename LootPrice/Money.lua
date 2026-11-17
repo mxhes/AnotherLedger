@@ -112,5 +112,29 @@ function Money.formatColored(copper, colors)
   return sign .. text
 end
 
+-- The units of an amount for coin columns (UI/Coins.lua): { gold, silver,
+-- copper }, each that unit's number with its coin or letter (colored like
+-- formatColored when `colors` has the money colors), nil when the unit is not
+-- shown. Same units as Money.format; zero is copper "0"; the minus sign goes
+-- before the first unit. nil for a nil amount.
+function Money.parts(copper, colors)
+  if copper == nil then return nil end
+  local colored = type(colors) == "table" and colors.moneyGold and colors.moneySilver and colors.moneyCopper
+  local function piece(n, key, colorKey)
+    local text = n .. unit[key]
+    if colored then return hex(colors[colorKey]) .. text .. "|r" end
+    return text
+  end
+  local sign, g, s, c = split(copper)
+  local out = {}
+  if g > 0 then out.gold = piece(g, "gold", "moneyGold") end
+  if s > 0 then out.silver = piece(s, "silver", "moneySilver") end
+  if c > 0 or not (out.gold or out.silver) then out.copper = piece(c, "copper", "moneyCopper") end
+  if sign ~= "" then
+    local first = out.gold and "gold" or out.silver and "silver" or "copper"
+    out[first] = sign .. out[first]
+  end
+  return out
+end
 
 ns.Money = Money

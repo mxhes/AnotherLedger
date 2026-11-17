@@ -9,7 +9,7 @@ h.test("DB.defaults shape", function()
   h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, minimapButton = true, minimapAngle = 225,
     lockWindow = false, snapToGrid = true, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full", coinIcons = true,
     includeGold = true, refreshSeconds = 30, staleHours = 12, alertGold = 0, alertSound = false,
-    fontFace = "default", fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
+    fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
     countCrafted = false, showCurrencies = true, dailyFarm = true, dailyFarmMinutes = 20, showTopFinds = true, showFooterGold = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, instanceSession = false,
     zoneSession = false, zoneSessionMinutes = 2,
     goalGold = 0, goalMinutes = 0, unitPrice = false, accountZones = true,

@@ -40,6 +40,7 @@ only inside functions.
 | `Slash.lua`, `Demo.lua` | slash commands, `/lp demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
 | `UI/Widgets.lua` | bronze buttons, icon buttons, texts, lines, tooltips, menus |
+| `UI/Coins.lua` | amounts in gold / silver / copper columns (list, compact drops, footer, Top finds) |
 | `UI/Window.lua` | the frame: header rows, list area, footer, compact area, sizes per layout |
 | `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua` | list rows, header buttons and clock, footer table and Top finds, filter bar |
 | `UI/Tabs.lua` | tab registry and tab buttons |
@@ -255,6 +256,37 @@ Each of these is one call in one place; the UI never names them.
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
   (`Theme.fontFiles`). On retail `SetFont` returns nothing, so only an explicit
   `false` means a font cannot load.
+- **Font outline / shadow** (`fontOutline`, `fontShadow`): `Fonts.applyStyle`
+  sets the outline flags (`Fonts.flags`; "none" keeps the game font's own
+  flags) and the shadow (`Fonts.shadowOf`: the game font's shadow, saved at
+  install, or 1 px black when it has none) on every own font object, the
+  pinned source tag font too. `setFace` uses the current outline, so a size or
+  typeface change keeps it. An outline widens every glyph (about 1 px Thin,
+  2 px Thick: `Theme.sizes.outlineGlyphPx`), so `Fonts.applySizes` adds that
+  to the footer's glyph estimates (`summaryCharPx`, `markerCharPx`) and the
+  clock (`timerWidth`, `timerGlyphs`; `Header`'s part has a `Relayout`).
+  Outlined text and its coin icons also draw a few px past the end the client
+  measures, and the client centers outlined text a little left: per outline,
+  `outlineOverhangPx`, `outlineTagShiftPx` and `outlineTagPadPx` (measured
+  from client screenshots) become `textOverhang` (room right of an amount:
+  `Rows.labelGap`, the compact total and drops, the footer columns and
+  `Summary.tableWorstWidth`), `tagTextShift` and `tagPadExtra` (the source
+  tag's text and height). The tag's edges draw above its text. The
+  option then calls `Ledger.relayout` now and on the next frame (`C_Timer.After
+  0`), when the client has drawn the new font; `list:Relayout` empties the
+  pooled rows' texts first, as a FontString given the same text again can
+  keep its old width.
+- **Coin columns** (`UI/Coins.lua`): the amounts of the list rows, compact
+  drops, footer table and Top finds are cells with one right-aligned
+  FontString per unit (`Money.parts`) plus one for a plain text (em dash,
+  `bound`, `?`). `Coins.align(cells)` lays out the shown cells of one column
+  together: each unit column is as wide as its widest part, a unit no cell
+  uses takes no room (`Coins.columns`), `coinGap` between columns. So every
+  coin of a kind lines up down the column, and the parts are short enough
+  that an outlined font's width error stays small. `Rows.rowText`,
+  `Summary.rowTexts` and `Summary.topLines` hand over the number (`copper`,
+  `valueCopper`, `rateCopper`) next to the text; a cell's `GetText` returns
+  the whole amount as one text. The compact rate and total stay one text.
 - **Source tags** (Vendor / Auction / Destroy): one widget for the list rows
   and the compact drops, `Rows.sourceTag` / `Rows.setSourceTag`. Four edge
   textures in the source color (tracked, so a color option recolors them

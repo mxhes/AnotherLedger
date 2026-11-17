@@ -860,6 +860,42 @@ h.test("wiring: the font size options re-lay the window out live", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the font outline and shadow options restyle the text live and re-lay out", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local L, F = ns.UI.Ledger, ns.UI.Fonts
+  local relayouts, styled = 0, nil
+  local realRelayout, realStyle = L.relayout, F.applyStyle
+  L.relayout = function() relayouts = relayouts + 1; return realRelayout() end
+  F.applyStyle = function(o, s) styled = { o, s }; return realStyle(o, s) end
+  local S = ns.Theme.sizes
+  local timerW, charPx = S.timerWidth, S.summaryCharPx
+  ns.Options.set(ns.db, "fontOutline", "THICKOUTLINE")
+  -- now and again on the next frame (the stub timer runs it at once)
+  h.eq(styled, { "THICKOUTLINE", true }); h.eq(relayouts, 2)
+  -- the clock and the footer's glyph estimate grow with the outline
+  local extra = S.outlineGlyphPx.THICKOUTLINE
+  h.eq(S.timerWidth, timerW + S.timerGlyphs * extra)
+  h.eq(ns.UI.Header.instance.timer._w, S.timerWidth)
+  h.near(S.summaryCharPx, charPx + extra, 1e-9)
+  -- room for the outline's overhang, the tag's text shift and padding
+  h.eq(S.textOverhang, S.outlineOverhangPx.THICKOUTLINE)
+  h.eq(S.tagTextShift, S.outlineTagShiftPx.THICKOUTLINE)
+  h.eq(S.tagPadExtra, S.outlineTagPadPx.THICKOUTLINE)
+  h.eq(ns.UI.Rows.labelGap(), S.rowLabelGap + S.textOverhang)
+  h.eq(S.minWidth >= ns.UI.Summary.tableWorstWidth(), true)
+  ns.Options.set(ns.db, "fontShadow", false)
+  h.eq(styled, { "THICKOUTLINE", false }); h.eq(relayouts, 4)
+  ns.Options.set(ns.db, "fontOutline", "none")
+  h.eq(S.timerWidth, timerW); h.near(S.summaryCharPx, charPx, 1e-9)
+  h.eq(S.textOverhang, 0); h.eq(S.tagTextShift, 0); h.eq(S.tagPadExtra, 0)
+  ns.Options.set(ns.db, "fontOutline", "bogus") -- refused: the saved value stays valid
+  h.eq(ns.Options.get(ns.db, "fontOutline") ~= "bogus", true)
+  L.relayout, F.applyStyle = realRelayout, realStyle
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: the item icon option hides the row icons live", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -2315,6 +2351,28 @@ h.test("wiring: the coin icons option re-lays the window out and redraws the amo
   ns.Options.set(ns.db, "coinIcons", true)
   h.eq(ns.UI.Ledger.list.pool[1].amount:GetText():find("|T", 1, true) ~= nil, true)
   ns.UI.Ledger.relayout = orig
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: amounts show in shared coin columns in the list, footer, Top finds and compact", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2592, 1))
+  local ns = ctx.ns
+  ns.UI.Ledger.refresh()
+  local pool = ns.UI.Ledger.list.pool
+  local a, b = pool[1].amount, pool[2].amount
+  -- one FontString per unit, the same column places in every row
+  h.eq(type(a.parts.copper), "table"); h.eq(a.full ~= "", true)
+  h.eq(a.layoutKey ~= false, true); h.eq(a.layoutKey, b.layoutKey)
+  local s = ns.UI.Summary.instance
+  h.eq(s.cells.items.value.layoutKey, s.cells.total.value.layoutKey)
+  h.eq(s.cells.items.value:GetText() ~= "", true)
+  h.eq(s.rows[1].value:GetText() ~= "", true)
+  slash(ctx, "compact")
+  local C = ns.UI.Compact
+  h.eq(C.drops[1].amount.layoutKey, C.drops[2].amount.layoutKey)
   h.eq(ctx.errors, {})
 end)
 

@@ -629,6 +629,37 @@ Options.define({
   end,
 })
 
+-- Outline and shadow of all addon text (UI/Fonts.lua); applied live. An
+-- outline makes the text wider: the glyph estimates and the clock grow
+-- (Fonts.applySizes) and the window re-lays itself out, now and once more on
+-- the next frame, when the client has drawn the text in the new font.
+local function applyFontStyle()
+  local UI, db = ns.UI, ns.db
+  if not (UI and UI.Fonts and UI.Fonts.applyStyle and db) then return end
+  if not UI.Fonts.applyStyle(Options.get(db, "fontOutline"), Options.get(db, "fontShadow")) then return end
+  if UI.Fonts.applySizes then UI.Fonts.applySizes(db) end
+  local Ledger = UI.Ledger
+  if not (Ledger and Ledger.relayout) then return end
+  Ledger.relayout()
+  local timer = _G.C_Timer
+  if type(timer) == "table" and type(timer.After) == "function" then timer.After(0, Ledger.relayout) end
+end
+Options.define({
+  key = "fontOutline", category = "display", type = "dropdown", label = L["Font outline"],
+  tooltip = L["A dark outline around all LootPrice text, easier to read over a bright background. Thick is bolder."],
+  choices = {
+    { value = "none", label = L["None"] },
+    { value = "OUTLINE", label = L["Thin"] },
+    { value = "THICKOUTLINE", label = L["Thick"] },
+  },
+  apply = applyFontStyle,
+})
+Options.define({
+  key = "fontShadow", category = "display", type = "checkbox", label = L["Font shadow"],
+  tooltip = L["A soft dark shadow under all LootPrice text, as the game draws it. Off gives flat text; with an outline it often looks cleaner."],
+  apply = applyFontStyle,
+})
+
 -- Font sizes (UI/Fonts.lua): a dropdown of whole px sizes; applied live, the
 -- window re-lays itself out.
 local function sizeChoices(min, max)

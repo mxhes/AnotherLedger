@@ -68,7 +68,8 @@ end
 -- `detail` (History sessions, Zones places) or the TSM sale info.
 -- `formatMoney` defaults to the colored coin format (Money.formatColored);
 -- the tests pass Money.format for plain text.
---   { name, qty, amount, source ("vendor" / "ah" / "de" / nil), sourceText,
+--   { name, qty, amount, copper (the amount as a number when it is money,
+--     for the coin columns), source ("vendor" / "ah" / "de" / nil), sourceText,
 --     unpriced, tag (age of a cached AH value), tagStale, market, isDetail }
 -- Rows with their own total (History / Zones places, `bestLineTotal`) show it
 -- without a source; currencies show no amount; a row without a quantity
@@ -82,22 +83,23 @@ function Rows.rowText(row, formatMoney, unitPrice)
     return { name = row.name or "", qty = qty, amount = "", source = nil, sourceText = nil,
       unpriced = false, tag = nil, tagStale = false }
   end
-  local amount, source
+  local amount, source, copper
   if row.bestLineTotal ~= nil then
-    amount = formatMoney(row.bestLineTotal)
+    copper = row.bestLineTotal
   elseif row.bestKind ~= nil then
     source = row.bestKind
     local each = row[source .. "Each"]
     if unitPrice and (row.quantity or 0) > 1 and type(each) == "number" then
-      amount = formatMoney(math.floor(each + 0.5))
+      copper = math.floor(each + 0.5)
     else
-      amount = formatMoney(row.value or 0)
+      copper = row.value or 0
     end
   elseif row.bound then
     amount = TEXT.BOUND
   else
     amount = TEXT.UNPRICED
   end
+  if copper ~= nil then amount = formatMoney(copper) end
   -- The age tag belongs to a cached AH price, so only when that value counts.
   local tag, tagStale = nil, false
   if source == "ah" and row.ahFromCache and type(row.ahAge) == "number" then
@@ -114,6 +116,7 @@ function Rows.rowText(row, formatMoney, unitPrice)
     name = name,
     qty = qty,
     amount = amount,
+    copper = copper,
     source = source,
     sourceText = source and SOURCE_TEXT[source] or nil,
     unpriced = isUnpriced(row),
@@ -186,6 +189,13 @@ local function resolveWidths(measured)
   return widths, fb
 end
 
+-- Gap between an amount and its source tag: rowLabelGap plus the overhang of
+-- an outlined text (Theme.sizes.textOverhang, 0 without an outline).
+function Rows.labelGap()
+  local S = ns.Theme.sizes
+  return S.rowLabelGap + (S.textOverhang or 0)
+end
+
 -- WORST-CASE geometry, used only for the window's minimum width: `measured` =
 -- {source, tag, amount, qtyWorst} real widths of the worst case strings (source:
 -- the widest source tag with its frame; nil/0 fields use the Theme fallbacks).
@@ -197,7 +207,7 @@ function Rows.worstCase(measured)
   local S = ns.Theme.sizes
   local wd, fallback = resolveWidths(measured)
   local labelW = wd.source
-  local blockW = wd.amount + S.rowLabelGap + labelW + S.rowTagGap + wd.tag
+  local blockW = wd.amount + Rows.labelGap() + labelW + S.rowTagGap + wd.tag
   return {
     required = S.rowNameMin + S.rowNameGap + blockW,
     fallback = fallback,
@@ -227,7 +237,7 @@ function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW)
   local hasTag = positive(tagMaxW)
   local tagW = hasTag and tagMaxW + pad or 0
   local tagGap = hasTag and S.rowTagGap or 0
-  local blockW = amountW + S.rowLabelGap + labelW + tagGap + tagW
+  local blockW = amountW + Rows.labelGap() + labelW + tagGap + tagW
   local gap = S.rowNameGap
   local w = contentWidth
   if not positive(w) then w = S.rowNameMin + gap + blockW end
@@ -239,7 +249,7 @@ function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW)
     blockX = blockX,
     amountX = blockX,
     amountW = amountW,
-    labelX = blockX + amountW + S.rowLabelGap,
+    labelX = blockX + amountW + Rows.labelGap(),
     labelW = labelW,
     nameX = 0,
     nameW = math.max(0, blockX - gap),
@@ -262,14 +272,15 @@ local function round(v) return math.floor(v + 0.5) end
 
 -- Geometry of a source tag box in whole screen pixels, for a tag font of
 -- `fontPx` pixels: { height, textTop (the text line's offset from the box
--- top) }. The box is the font plus rowTagPadY px above and below, one pixel
+-- top) }. The box is the font plus rowTagPadY (+ tagPadExtra with an
+-- outline) px above and below, one pixel
 -- taller when the letters (rowTagCapRatio of the font; the tags have no
 -- descenders) would otherwise sit half a pixel off the middle. nil without a
 -- font size.
 function Rows.sourceBoxPixels(fontPx)
   if not positive(fontPx) then return nil end
   local S = ns.Theme.sizes
-  local h = round(fontPx) + 2 * S.rowTagPadY
+  local h = round(fontPx) + 2 * (S.rowTagPadY + (S.tagPadExtra or 0))
   local letters = round(fontPx * S.rowTagCapRatio)
   if (h - letters) % 2 == 1 then h = h + 1 end
   return { height = h, textTop = round((h - fontPx) / 2) }
@@ -398,7 +409,12 @@ function Rows.sourceTag(parent)
   local T, W = theme(), ns.UI.Widgets
   local box = CreateFrame("Frame", nil, parent)
   box.edges = {}
-  for i = 1, 4 do box.edges[i] = W.line(box, T.colors.ink, "BORDER", T.alphas.sourceTagEdge) end
+  -- The edges draw above the text, so a thick outline never hides them.
+  for i = 1, 4 do
+    local edge = W.line(box, T.colors.ink, "OVERLAY", T.alphas.sourceTagEdge)
+    if edge.SetDrawLayer then edge:SetDrawLayer("OVERLAY", 7) end
+    box.edges[i] = edge
+  end
   box.edgePx, box.textTop = false, false
   local text = box:CreateFontString(nil, "OVERLAY", T.fonts.sourceTag)
   text:SetJustifyH("CENTER")
@@ -463,13 +479,17 @@ function Rows.setSourceTag(box, source, widest)
   local height = g and g.height * p or S.rowTagHeight
   local width = math.ceil(Rows.sourceBoxWidth(widest, textWidth(box.text)) / p - 0.01) * p
   box:SetSize(width, height)
-  -- The text line across the box at a whole pixel offset from its top.
+  -- The text line across the box at a whole pixel offset from its top, moved
+  -- right by tagTextShift px with an outline (the client centers outlined
+  -- text a little too far left).
   local top = g and g.textTop * p or 0
-  if box.textTop ~= top then
-    box.textTop = top
+  local shift = (S.tagTextShift or 0) * p
+  local key = top .. ":" .. shift
+  if box.textTop ~= key then
+    box.textTop = key
     box.text:ClearAllPoints()
-    box.text:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -top)
-    box.text:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, -top)
+    box.text:SetPoint("TOPLEFT", box, "TOPLEFT", shift, -top)
+    box.text:SetPoint("TOPRIGHT", box, "TOPRIGHT", shift, -top)
     if not g then box.text:SetPoint("BOTTOM", box, "BOTTOM", 0, 0) end
     box.text:SetJustifyV(g and "TOP" or "MIDDLE")
   end
@@ -527,7 +547,7 @@ local function layoutRow(f, block)
   place(f.amount, f, "TOPLEFT", x0 + c.amountX, -inset)
   f.amount:SetWidth(math.max(1, c.amountW))
   -- On whole screen pixels, so its frame is equally thin on every row.
-  ns.UI.Widgets.snapPoint(f.srcBox, "LEFT", f.amount, "RIGHT", S.rowLabelGap, 0)
+  ns.UI.Widgets.snapPoint(f.srcBox, "LEFT", f.amount, "RIGHT", Rows.labelGap(), 0)
   f.tag:ClearAllPoints()
   f.tag:SetPoint("LEFT", f.srcBox, "RIGHT", c.tagGap > 0 and c.tagGap or S.rowTagGap, 0)
 end
@@ -586,8 +606,9 @@ local function createRow(parent, owner)
     setColor(fs, T.colors.ink)
     return fs
   end
-  local amount, tag = line2(), line2()
-  amount:SetJustifyH("RIGHT")
+  local tag = line2()
+  -- The value in coin columns (UI/Coins.lua), lined up with the other rows.
+  local amount = ns.UI.Coins.new(f, T.fonts.rowSmall, T.colors.ink)
   f.market = line2()
 
   -- Framed source tag (Vendor / Auction / Destroy).
@@ -622,8 +643,7 @@ local function fillRow(f, row)
   f.name:SetText(t.name)
   setRGB(f.name, r, g, b)
   f.qty:SetText(t.qty)
-  f.amount:SetText(t.amount)
-  setColor(f.amount, T.colors.ink)
+  ns.UI.Coins.set(f.amount, t.copper, t.amount)
   f.market:SetText(t.market or "")
   setColor(f.market, t.isDetail and T.colors.hint or T.colors.ink)
   -- Source tag: framed, in its source color, as wide as the widest tag (the
@@ -783,7 +803,13 @@ function Rows.attach(area, onMeasure)
   function list:Relayout()
     self:Measure()
     if onMeasure then onMeasure(self.measured) end
-    for i, f in ipairs(self.pool) do placeRow(f, i) end
+    for i, f in ipairs(self.pool) do
+      placeRow(f, i)
+      -- A FontString given the same text again may keep its old width; empty
+      -- texts make the redraw measure them in the new font (an outline).
+      for _, fs in ipairs({ f.name, f.qty, f.tag, f.market, f.srcBox.text }) do fs:SetText("") end
+      ns.UI.Coins.clear(f.amount)
+    end
     self:Render()
   end
 
@@ -794,8 +820,10 @@ function Rows.attach(area, onMeasure)
     self.offset = Rows.clampOffset(self.offset, total, n)
     local filled = math.min(n, total - self.offset) -- rows that show data
 
-    -- Pass 1: fill the rows and find the widest amount / tag among them.
-    local amountMax, tagMax = 0, 0
+    -- Pass 1: fill the rows and find the widest age tag among them; the
+    -- amounts are laid out together in coin columns (their width).
+    local tagMax = 0
+    local cells = {}
     for i = 1, filled do
       local f = rowFrame(i)
       local row = self.data[self.offset + i]
@@ -805,8 +833,7 @@ function Rows.attach(area, onMeasure)
       fillRow(f, row)
       f.separator:SetShown(self.offset + i < total)
       f:Show()
-      local aw = f.amount:GetStringWidth() or 0
-      if aw > amountMax then amountMax = aw end
+      cells[i] = f.amount
       if f.hasTag then
         local tw = f.tag:GetStringWidth() or 0
         if tw <= 0 then tw = T.sizes.rowTagW end
@@ -815,6 +842,7 @@ function Rows.attach(area, onMeasure)
     end
 
     -- Pass 2: one shared block layout for every rendered row.
+    local amountMax = ns.UI.Coins.align(cells)
     self.blockMeasure.amount, self.blockMeasure.tag = amountMax, tagMax
     if filled > 0 then
       local w = self.pool[1]:GetWidth()

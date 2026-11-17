@@ -32,7 +32,8 @@ local MAX_DROPS = 4
 -- Pure. Texts of one drop line: name, quantity, amount, source (nil without).
 function Compact.dropText(row, formatMoney)
   local t = ns.UI.Rows.rowText(row, formatMoney)
-  return { name = t.name, qty = t.qty, amount = t.amount, source = t.source, sourceText = t.sourceText }
+  return { name = t.name, qty = t.qty, amount = t.amount, copper = t.copper, source = t.source,
+    sourceText = t.sourceText }
 end
 
 -- Pure. Window height the compact body needs: chrome, the title row, the top
@@ -110,6 +111,7 @@ function part:Update(view)
   else
     Compact.dropsTitle:SetText(c.running and L_NO_DROPS or L_PAUSED)
   end
+  local cells = {}
   for i = 1, MAX_DROPS do
     local w = Compact.drops[i]
     local row = drops[i]
@@ -118,7 +120,8 @@ function part:Update(view)
       local r, g, b = T.qualityColor(row.quality)
       w.name:SetText(t.name .. " " .. t.qty)
       ns.UI.Widgets.setTextRGB(w.name, r, g, b, 1)
-      w.amount:SetText(t.amount)
+      ns.UI.Coins.set(w.amount, t.copper, t.amount)
+      cells[#cells + 1] = w.amount
       -- The same framed tag as the list rows, lined up with the widest one.
       ns.UI.Rows.setSourceTag(w.tag, t.source, ns.UI.Rows.widestSource)
       -- On whole screen pixels, so its frame is equally thin on every side.
@@ -128,6 +131,8 @@ function part:Update(view)
       w.frame:Hide()
     end
   end
+  -- The drops' values in shared coin columns.
+  ns.UI.Coins.align(cells)
 
   local farm = view.dailyFarm
   if farm and ns.UI.DailyFarm then
@@ -140,6 +145,33 @@ end
 
 -- The rate and total change with the clock (Ledger.tick rebuilds view.compact).
 part.Tick = part.Update
+
+-- Anchors the texts that follow an amount, keeping the overhang of an
+-- outlined text free (Theme.sizes.textOverhang): the total right of the rate,
+-- each drop's amount left of its tag.
+local function placeTexts()
+  local S = ns.Theme.sizes
+  local total, area = Compact.total, Compact.area
+  total:ClearAllPoints()
+  total:SetPoint("TOPRIGHT", area, "TOPRIGHT", -S.textOverhang, -3)
+  total:SetPoint("LEFT", Compact.perHour, "RIGHT", S.rowNameGap + S.textOverhang, 0)
+  for _, w in ipairs(Compact.drops or {}) do
+    w.amount:ClearAllPoints()
+    w.amount:SetPoint("RIGHT", w.tag, "LEFT", -ns.UI.Rows.labelGap(), 0)
+  end
+end
+
+-- Font outline or sizes changed: new gaps, and the texts measured again in
+-- the new font (a FontString given the same text may keep its old width).
+function part:Relayout()
+  placeTexts()
+  Compact.perHour:SetText("")
+  Compact.total:SetText("")
+  for _, w in ipairs(Compact.drops) do
+    w.name:SetText("")
+    ns.UI.Coins.clear(w.amount)
+  end
+end
 
 -- Attaches to the window's compact area (Window.frame.compact).
 function Compact.attach(area)
@@ -154,8 +186,6 @@ function Compact.attach(area)
   perHour:SetPoint("TOPLEFT", area, "TOPLEFT", 0, 0)
   if perHour.SetWordWrap then perHour:SetWordWrap(false) end
   local total = W.text(area, T.fonts.compactMid, T.colors.ink, "RIGHT")
-  total:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -3)
-  total:SetPoint("LEFT", perHour, "RIGHT", S.rowNameGap, 0)
   if total.SetWordWrap then total:SetWordWrap(false) end
   Compact.perHour, Compact.total = perHour, total
 
@@ -194,8 +224,7 @@ function Compact.attach(area)
     local tag = ns.UI.Rows.sourceTag(f)
     tag:SetPoint("RIGHT", f, "RIGHT", 0, 0)
     tag:Hide()
-    local amount = W.text(f, T.fonts.rowSmall, T.colors.ink, "RIGHT")
-    amount:SetPoint("RIGHT", tag, "LEFT", -S.rowLabelGap, 0)
+    local amount = ns.UI.Coins.new(f, T.fonts.rowSmall, T.colors.ink)
     local name = W.text(f, T.fonts.rowSmall, T.colors.ink, "LEFT")
     name:SetPoint("LEFT", f, "LEFT", 0, 0)
     name:SetPoint("RIGHT", amount, "LEFT", -S.rowNameGap, 0)
@@ -203,6 +232,7 @@ function Compact.attach(area)
     f:Hide()
     Compact.drops[i] = { frame = f, name = name, amount = amount, tag = tag }
   end
+  placeTexts()
 
   -- Daily farm line at the bottom: same text and clicks as the strip.
   local farm = CreateFrame("Button", nil, area)

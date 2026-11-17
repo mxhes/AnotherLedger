@@ -179,6 +179,15 @@ ns.Locale.register("deDE", {
   ["Raw gold row"] = "Rohgold-Zeile",
   ["Compact: last drops"] = "Kompakt: letzte Funde",
   ["Item icons"] = "Gegenstandssymbole",
+  ["Font outline"] = "Schriftkontur",
+  ["None"] = "Keine",
+  ["Thin"] = "Dünn",
+  ["Thick"] = "Dick",
+  ["A dark outline around all LootPrice text, easier to read over a bright background. Thick is bolder."] =
+    "Eine dunkle Kontur um alle LootPrice-Texte, besser lesbar vor hellem Hintergrund. Dick ist kräftiger.",
+  ["Font shadow"] = "Schriftschatten",
+  ["A soft dark shadow under all LootPrice text, as the game draws it. Off gives flat text; with an outline it often looks cleaner."] =
+    "Ein weicher dunkler Schatten unter allen LootPrice-Texten, wie ihn das Spiel zeichnet. Aus gibt flachen Text; mit Kontur wirkt das oft sauberer.",
   ["List text"] = "Listentext",
   ["Totals text"] = "Summentext",
   ["Section titles"] = "Abschnittstitel",

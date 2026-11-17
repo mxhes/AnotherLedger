@@ -256,6 +256,20 @@ h.test("Rows.modifiedClick hands a real link to the game only on a modified clic
   _G.HandleModifiedItemClick, _G.IsModifiedClick = nil, nil
 end)
 
+h.test("blockLayout: an outline's overhang widens the gap before the source tag", function()
+  local Rows, S = ns.UI.Rows, ns.Theme.sizes
+  local plain = Rows.blockLayout(400, 50, 98, nil)
+  S.textOverhang = 5
+  local ok, err = pcall(function()
+    local outlined = Rows.blockLayout(400, 50, 98, nil)
+    h.eq(outlined.labelX - outlined.amountX, plain.labelX - plain.amountX + 5)
+    h.eq(outlined.blockW, plain.blockW + 5)
+    h.eq(outlined.labelX + outlined.labelW, plain.labelX + plain.labelW) -- still flush right
+  end)
+  S.textOverhang = 0
+  if not ok then error(err, 0) end
+end)
+
 h.test("sourceBoxWidth: every box as wide as the widest tag, own text before measuring", function()
   local Rows, S = ns.UI.Rows, ns.Theme.sizes
   h.eq(Rows.sourceBoxWidth(50, 20), 50)
@@ -280,6 +294,11 @@ h.test("sourceBoxPixels: whole pixels, the letters centered", function()
     h.eq((b.height - letters) % 2, 0)
   end
   h.eq(Rows.sourceBoxPixels(nil), nil)
+  -- an outline adds padding above and below (Fonts.applySizes sets tagPadExtra)
+  S.tagPadExtra = 1
+  local ok, err = pcall(function() h.eq(Rows.sourceBoxPixels(10), { height = 14, textTop = 2 }) end)
+  S.tagPadExtra = 0
+  if not ok then error(err, 0) end
   -- the box stays clear of the row's top edge (and the separator above it)
   h.eq(S.rowLineInset + 10 / 2 - Rows.sourceBoxPixels(10).height / 2 >= 1, true)
 end)

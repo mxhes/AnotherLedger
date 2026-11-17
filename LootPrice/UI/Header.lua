@@ -211,6 +211,8 @@ function Header.attach(row, handlers)
     header:SetRunning(session.running)
   end
   part.Tick = part.Update
+  -- Font outline: the clock box grows with the glyphs (Fonts.applySizes).
+  function part:Relayout() header.timer:SetWidth(T.sizes.timerWidth) end
   if ns.UI.Ledger then ns.UI.Ledger.register(part) end
 
   Header.instance = header

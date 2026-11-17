@@ -90,7 +90,9 @@ clock is stopped).
   have no footer; their list runs to the bottom of the window.
 - **Top finds**: the three most valuable finds of the session.
 
-Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options).
+Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options),
+gold, silver and copper each in its own column, so the coins line up down the
+list, the footer, Top finds and the compact drops.
 Items that can't be sold on the auction house (soulbound, quest items) count
 at their vendor value. Gear with a different item level or sockets gets its own
 row and price. Currencies are listed after the items.
@@ -160,7 +162,7 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
-| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Zones: all characters, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot, Font, List text, Totals text, Section titles |
+| Display | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Daily farm, Daily farm: min. time, Zones: all characters, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot, Font, Font outline, Font shadow, List text, Totals text, Section titles |
 | Session and alerts | Keep session, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Crafted and bought, Pause when AFK, Session per instance, Session per zone, Zone change delay, Export History, Clear History, History kept |
 | Colors | Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 
@@ -168,6 +170,11 @@ anything that deletes History asks first.
 window changes while you pick, Cancel puts the old color back); right-click it
 for the default. By default text is white, and vendor values are cream, auction
 values blue and destroy values grey, in the list and in the tooltips.
+
+**Font outline** (None, Thin, Thick) puts a dark outline around all LootPrice
+text, which reads better over a bright background; **Font shadow** turns the
+game's soft text shadow on or off. Both change the window right away and leave
+other addons alone.
 
 By default crafted items and purchases (vendor, mail, trade, auction house)
 are not counted as loot; **Crafted and bought** turns that on.
