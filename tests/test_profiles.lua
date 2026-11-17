@@ -191,3 +191,24 @@ h.test("the profile dropdown reads and switches the character's profile", functi
   h.eq(P.encode({ profile = "Farm" }), "LP1:")
   ns.db, ns.chardb = nil, nil
 end)
+
+h.test("rename keeps other characters on the renamed profile", function()
+  local db, a = fresh()
+  local b = { profile = "Farm" }
+  P.create(db, "Farm")
+  P.activate(db, a, "Farm")
+  h.eq(P.rename(db, a, "Farm", "Gold"), true)
+  P.beforeLogout(db)
+  P.init(db, b) -- character B logs in later
+  h.eq(P.active(b), "Gold")
+  h.eq(db.settings == db.profiles.Gold, true)
+  -- renamed twice, and a new profile under the old name wins over the map
+  h.eq(P.rename(db, b, "Gold", "Silver"), true)
+  local c = { profile = "Farm" }
+  P.init(db, c)
+  h.eq(P.active(c), "Silver")
+  P.create(db, "Farm")
+  local d = { profile = "Farm" }
+  P.init(db, d)
+  h.eq(P.active(d), "Farm")
+end)

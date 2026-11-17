@@ -63,7 +63,10 @@ function Profiles.init(db, chardb)
   end
   if type(db.profiles) ~= "table" then db.profiles = {} end
   if type(db.profiles[Profiles.DEFAULT]) ~= "table" then db.profiles[Profiles.DEFAULT] = {} end
-  local name = type(chardb) == "table" and find(db, chardb.profile) or nil
+  local wanted = type(chardb) == "table" and chardb.profile or nil
+  local name = find(db, wanted)
+  -- A profile another character renamed: follow its new name.
+  if not name and type(db.renamed) == "table" then name = find(db, db.renamed[wanted]) end
   if not name or type(db.profiles[name]) ~= "table" then name = Profiles.DEFAULT end
   if type(chardb) == "table" then chardb.profile = name end
   point(db, name)
@@ -130,6 +133,13 @@ function Profiles.rename(db, chardb, old, new)
   local t = db.profiles[key]
   db.profiles[key] = nil
   db.profiles[valid] = t
+  -- Other characters still name the old one: LootPriceDB.renamed = { [old] = new }.
+  if type(db.renamed) ~= "table" then db.renamed = {} end
+  for old, new in pairs(db.renamed) do
+    if new == key then db.renamed[old] = valid end
+  end
+  db.renamed[key] = valid
+  db.renamed[valid] = nil
   if type(chardb) == "table" and chardb.profile == key then chardb.profile = valid end
   return true
 end
@@ -140,6 +150,11 @@ function Profiles.delete(db, chardb, name)
   if key == Profiles.DEFAULT then return false, L_KEEP_DEFAULT end
   local wasActive = db.settings == db.profiles[key]
   db.profiles[key] = nil
+  if type(db.renamed) == "table" then
+    for old, new in pairs(db.renamed) do
+      if new == key then db.renamed[old] = nil end
+    end
+  end
   if type(chardb) == "table" and chardb.profile == key then chardb.profile = Profiles.DEFAULT end
   if wasActive then Profiles.activate(db, chardb, Profiles.DEFAULT) end
   return true

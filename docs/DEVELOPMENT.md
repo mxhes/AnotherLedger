@@ -358,7 +358,8 @@ Each of these is one call in one place; the UI never names them.
 
 - `LootPriceDB` (account): `profiles` (options per profile; `settings` is the
   active one while logged in and is not saved), `account` (account-wide
-  options), `minimapAngle`, `profilesMigrated` / `accountMigrated` (one-time
+  options), `renamed` (old profile name -> new, so other characters follow a
+  rename at their next login), `minimapAngle`, `profilesMigrated` / `accountMigrated` (one-time
   migrations),
   `window` (position, full size `width` / `height`, compact size `compact`,
   `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort`,
