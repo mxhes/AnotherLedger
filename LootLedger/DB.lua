@@ -47,6 +47,7 @@ DB.defaults = {
     countCrafted = false,
     showCurrencies = true,
     hideWorthless = false,
+    itemTooltipDrops = true,
     -- Daily farm strip and the minimum recorded time of a place it may pick.
     dailyFarm = true,
     dailyFarmMinutes = 20,

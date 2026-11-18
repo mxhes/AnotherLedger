@@ -646,6 +646,11 @@ Options.define({
   apply = refreshUI,
 })
 
+Options.define({
+  key = "itemTooltipDrops", category = "display", type = "checkbox", label = L["Drop chance in tooltips"],
+  tooltip = L["Adds to every item tooltip which mobs and nodes drop it and how often (History > Mobs data: the sessions Zones counts and the running one)."],
+})
+
 -- Daily farm strip at the top of the window (View.dailyFarm): the saved place
 -- with the best gold per hour; only places with this much recorded time count.
 Options.define({

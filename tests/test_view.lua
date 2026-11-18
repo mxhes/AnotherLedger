@@ -1324,6 +1324,29 @@ h.test("View: drop chances from the corpses seen, in the mob tooltip and on its 
   h.eq(tipText(V.buildMobs({ mobEntry({ ["npc:1"] = old }, { [1] = 5 }) }, {}).rows[1]):find("Drop chance", 1, true), nil)
 end)
 
+h.test("View.dropIndex: per item, the mobs that drop it, likeliest first", function()
+  local kobold = mob(0, 4, 0, {}, nil, "Kobold")
+  kobold.seen, kobold.drops = 20, { [1] = 7, ["1:1500"] = 1, [2] = 20 }
+  local wolf = mob(0, 2, 0, {}, nil, nil)
+  wolf.seen, wolf.drops = 10, { [1] = 5 }
+  local old = mob(0, 9, 0, { [1] = 9 }, nil, "Old") -- no seen: not counted
+  local index = V.dropIndex({ { mobs = { ["npc:1"] = kobold, ["npc:2"] = wolf } }, { mobs = { ["npc:3"] = old } } })
+  local linen = index[1]
+  h.eq(#linen, 2)
+  h.eq(linen[1].name, "NPC 2"); h.eq(linen[1].n, 5); h.eq(linen[1].seen, 10) -- 50%
+  h.eq(linen[2].name, "Kobold"); h.eq(linen[2].n, 8) -- 7 + the variant: 40%
+  local lines = V.dropTooltipLines(index, 1)
+  h.eq(lines[1].heading, true)
+  h.eq(lines[2].left, "NPC 2"); h.eq(lines[2].right, "50% (5 of 10)")
+  h.eq(lines[3].right, "40% (8 of 20)")
+  h.eq(#lines, 3)
+  -- more mobs than lines: "and N more"
+  lines = V.dropTooltipLines(index, 1, 1)
+  h.eq(#lines, 3); h.eq(lines[3].more, true); h.eq(lines[3].left, "and 1 more")
+  h.eq(V.dropTooltipLines(index, 99), nil)
+  h.eq(V.dropTooltipLines(V.dropIndex(nil), 1), nil)
+end)
+
 h.test("View.mobsCsv: one line per mob by value, no filter", function()
   local entries = {
     mobEntry({ ["npc:1"] = mob(0, 3, 60, { [1] = 4 }, { Riverglades = 1, Hills = 3 }, "Kobold"),

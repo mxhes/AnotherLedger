@@ -49,6 +49,7 @@ only inside functions.
 | `UI/DailyFarm.lua`, `UI/Compact.lua` | the Daily strip; the compact layout's body |
 | `UI/OptionsPanel.lua` | the options panel and the page in the game's options window |
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
+| `UI/ItemTooltip.lua` | drop chances in the game's item tooltips (hooked at login) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
@@ -207,7 +208,15 @@ Each of these is one call in one place; the UI never names them.
   (per-login GUID sets in `mobState`). `View.buildMobs` sums them over the
   entries that have `seen` and sets `dropCount` / `dropSeen` on a mob's item
   rows; `View.dropChanceText`, `View.likelyDrops` and `Rows.tooltipLines`
-  show them. Stored in `session.mobs` and History
+  show them. The game's item tooltips (`UI/ItemTooltip.lua`, option
+  `itemTooltipDrops`): `View.dropIndex` over `Core.zoneHistory()` plus the
+  running session gives per item ID the mobs with `n` / `seen` (variants
+  added up), `View.dropTooltipLines` the lines. The index is cached until
+  the History key, the session's mob table or `Core.mobsVersion` (counted
+  up per loot window read) changes. Hooked through
+  `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ...)`,
+  else `OnTooltipSetItem` of GameTooltip and ItemRefTooltip. Stored in
+  `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
   Zones entries (the running session included); a mob's `places` count
   corpses like `looted`, and the most counted is its main place. It values each mob's items

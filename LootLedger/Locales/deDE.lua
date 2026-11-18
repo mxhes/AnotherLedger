@@ -494,6 +494,10 @@ ns.Locale.register("deDE", {
   ["Counts this character's saved sessions and the running one."] = "Zählt die gespeicherten Sitzungen dieses Charakters und die laufende.",
   ["Counts every character's saved sessions and the running one (option Zones: all characters)."] = "Zählt die gespeicherten Sitzungen aller Charaktere und die laufende (Option Gebiete: alle Charaktere).",
   -- Review round 2: ideas
+  ["LootLedger drop chance"] = "LootLedger-Dropchance",
+  ["%s (%d of %d)"] = "%s (%d von %d)",
+  ["Drop chance in tooltips"] = "Dropchance in Tooltips",
+  ["Adds to every item tooltip which mobs and nodes drop it and how often (History > Mobs data: the sessions Zones counts and the running one)."] = "Zeigt in jedem Gegenstands-Tooltip, welche Gegner und Vorkommen ihn wie oft fallen lassen (Daten aus Verlauf > Gegner: die Sitzungen, die Gebiete zählt, und die laufende).",
   ["Drop chance (%d looted)"] = "Dropchance (%d geplündert)",
   ["Drop chance: %s (%d of %d)"] = "Dropchance: %s (%d von %d)",
   ["Hide worthless"] = "Wertloses ausblenden",

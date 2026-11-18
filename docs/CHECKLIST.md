@@ -8,6 +8,12 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Item tooltips (`UI/ItemTooltip.lua`, UNVERIFIED):
+  `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, fn)`
+  runs for bag, chat link and loot window tooltips, and `tooltip:GetItem()`
+  gives the link there. Check: hover an item a mob dropped since drop
+  chances exist; the tooltip ends with `LootLedger drop chance` and the mobs.
+
 To look at in the client after the fourth review (2026-11-18), only run
 against the test fakes so far:
 

@@ -3409,6 +3409,45 @@ h.test("wiring: drop chances count what each corpse held and show in the item ro
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: item tooltips list the mobs that drop the item with their chance", function()
+  local ctx = boot()
+  local onItem
+  ctx.env.Enum = { TooltipDataType = { Item = 0 } }
+  ctx.env.TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
+    if kind == 0 then onItem = fn end
+  end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  h.eq(type(onItem), "function")
+  local function tooltipFor(link)
+    local tip = { lines = {} }
+    function tip:GetItem() return "Linen Cloth", link end
+    function tip:AddLine(t) self.lines[#self.lines + 1] = t end
+    function tip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = l .. " = " .. r end
+    function tip:Show() end
+    onItem(tip)
+    return table.concat(tip.lines, "\n")
+  end
+  h.eq(tooltipFor(LINK), "") -- nothing known yet
+  local corpses = { "Creature-0-3110-0-12-2546-000012AB01", "Creature-0-3110-0-12-2546-000012AB02" }
+  for i, guid in ipairs(corpses) do
+    lootWindowEnv(ctx, i == 1 and { { link = LINK, qty = 1, guid = guid } } or { { money = 10, guid = guid } })
+    fire(ctx, "LOOT_READY", false)
+    fire(ctx, "LOOT_OPENED", false)
+    fire(ctx, "LOOT_SLOT_CLEARED", 1)
+    fire(ctx, "LOOT_CLOSED")
+  end
+  local text = tooltipFor(LINK)
+  h.eq(text:find(ns.L["LootLedger drop chance"], 1, true) ~= nil, true)
+  h.eq(text:find("NPC 2546 = 50% (1 of 2)", 1, true) ~= nil, true)
+  -- it stays after Reset (History) and goes with the option off
+  slash(ctx, "reset")
+  h.eq(tooltipFor(LINK):find("50% (1 of 2)", 1, true) ~= nil, true)
+  ns.Options.set(ns.db, "itemTooltipDrops", false)
+  h.eq(tooltipFor(LINK), "")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: mob loot counts with the clock stopped and is saved with the session", function()
   local ctx = boot()
   startWorld(ctx, false)

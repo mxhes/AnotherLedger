@@ -7,6 +7,9 @@ local L = ns.L
 -- Slash commands live in Slash.lua, the /ll demo data in Demo.lua.
 local Core = {}
 ns.Core = Core
+-- Counts the loot windows read (mob data changed); UI/ItemTooltip.lua
+-- rebuilds its drop index when it moves.
+Core.mobsVersion = 0
 
 local say = ns.Util.say
 local num = ns.Util.isNumber
@@ -929,6 +932,7 @@ function Core.snapshotLoot()
   lootSlots = slots
   -- Drop chances: what each corpse held, taken or not.
   ns.Mobs.noteWindow(ns.session.mobs, slots, mobState)
+  Core.mobsVersion = Core.mobsVersion + 1 -- the item tooltips' index is stale
 end
 
 
@@ -1155,6 +1159,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   -- Before the options: LibDBIcon (if loaded) takes over the minimap button.
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
+  if ns.UI and ns.UI.ItemTooltip then ns.UI.ItemTooltip.init() end
   ns.Options.applyAll(ns.db)
   Core.checkRest()
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end

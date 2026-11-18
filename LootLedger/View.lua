@@ -1447,6 +1447,86 @@ function View.zonesCsv(entries, opts)
   return table.concat(out, "\n")
 end
 
+-- ---------------------------------------------------------------------------
+-- Drop chances for the game's item tooltips (UI/ItemTooltip.lua).
+
+-- The item ID of a drops key (an item ID, or "<id>:<bonus IDs>").
+local function idOfKey(key)
+  return tonumber(key) or tonumber(tostring(key):match("^(%d+)"))
+end
+
+-- Who drops what, over the Mobs entries (History plus the running session,
+-- like History > Mobs): { [itemID] = { { key, name, kind, n, seen }, ... } },
+-- `n` the corpses of that mob that had the item (variants of an item added
+-- up), `seen` the mob's corpses whose loot was read. Only data with `seen`
+-- (recorded since drop chances exist) counts.
+function View.dropIndex(entries)
+  local mobs = {}
+  for _, e in ipairs(type(entries) == "table" and entries or {}) do
+    if type(e) == "table" and type(e.mobs) == "table" then
+      for key, m in pairs(e.mobs) do
+        if type(key) == "string" and type(m) == "table" and num(m.seen) and m.seen > 0 then
+          local a = mobs[key]
+          if not a then
+            a = { kind = m.kind == "node" and "node" or "npc", seen = 0, drops = {} }
+            mobs[key] = a
+          end
+          -- The newest name, as in History > Mobs.
+          if type(m.name) == "string" and m.name ~= "" and (a.name == nil or e.live) then a.name = m.name end
+          a.seen = a.seen + m.seen
+          for itemKey, n in pairs(type(m.drops) == "table" and m.drops or NO_LOOKUP) do
+            local id = idOfKey(itemKey)
+            if id and num(n) and n > 0 then a.drops[id] = (a.drops[id] or 0) + n end
+          end
+        end
+      end
+    end
+  end
+  local index = {}
+  for key, a in pairs(mobs) do
+    local name = a.name or ((a.kind == "node" and L_OBJECT or L_NPC):format(key:match(":(%d+)$") or "?"))
+    for id, n in pairs(a.drops) do
+      local list = index[id]
+      if not list then
+        list = {}
+        index[id] = list
+      end
+      list[#list + 1] = { key = key, name = name, kind = a.kind, n = math.min(n, a.seen), seen = a.seen }
+    end
+  end
+  -- Likeliest first; ties: more corpses seen (a surer number), then name.
+  for _, list in pairs(index) do
+    table.sort(list, function(a, b)
+      local ca, cb = a.n / a.seen, b.n / b.seen
+      if ca ~= cb then return ca > cb end
+      if a.seen ~= b.seen then return a.seen > b.seen end
+      return a.name < b.name
+    end)
+  end
+  return index
+end
+
+View.DROP_TOOLTIP_LINES = 4
+local L_DROPS_FROM = L["LootLedger drop chance"]
+local L_DROP_OF = L["%s (%d of %d)"]
+local L_MORE_SOURCES = L["and %d more"]
+
+-- The lines an item tooltip gets: a heading, then up to `max` mobs as
+-- { left = name, right = "35% (7 of 20)" } and a "and N more" line; nil
+-- when nothing is known about the item.
+function View.dropTooltipLines(index, itemID, max)
+  local list = type(index) == "table" and index[itemID]
+  if type(list) ~= "table" or #list == 0 then return nil end
+  max = max or View.DROP_TOOLTIP_LINES
+  local lines = { { left = L_DROPS_FROM, heading = true } }
+  for i = 1, math.min(max, #list) do
+    local s = list[i]
+    lines[#lines + 1] = { left = s.name, right = L_DROP_OF:format(View.dropChanceText(s.n, s.seen), s.n, s.seen) }
+  end
+  if #list > max then lines[#lines + 1] = { left = L_MORE_SOURCES:format(#list - max), more = true } end
+  return lines
+end
+
 -- Every mob of the History Mobs data (no filter, by value): name, kind (npc
 -- or node), corpses looted, value (items plus raw gold when it counts), raw
 -- gold, value per loot, main place and how many different items.

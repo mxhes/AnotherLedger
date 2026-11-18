@@ -165,7 +165,9 @@ row and price. Currencies are listed after the items.
   chance; an opened mob's items show theirs in the tooltip (`Drop chance: 35%
   (7 of 20)`). The chance counts every corpse or node whose loot window you
   saw, also items you left in it; loot recorded before this version has no
-  chance yet. Loot is credited
+  chance yet. Every item tooltip in the game (bags, chat links, the loot
+  window) lists the mobs and nodes that drop it with their chance (option
+  **Drop chance in tooltips**). Loot is credited
   when you take it from the loot window (also with auto loot or a fast loot
   addon), split by corpse when one window
   holds several; loot you leave in a corpse counts for nobody. Mobs counts
@@ -207,7 +209,7 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
