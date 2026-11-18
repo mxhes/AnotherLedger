@@ -163,7 +163,6 @@ end
 -- Destroy professions (Enchanting, Inscription, Jewelcrafting) of the
 -- logged-in character: { enchanting = true, ... }. GetProfessions returns the
 -- profession indices; GetProfessionInfo's 7th return is the skill line.
--- UNVERIFIED (check in client) on Forever: GetProfessions / GetProfessionInfo.
 function Core.professions(env)
   local lines = {}
   if type(env.GetProfessions) ~= "function" or type(env.GetProfessionInfo) ~= "function" then
@@ -215,7 +214,7 @@ end
 
 -- Option "destroyMode": whether an item's destroy value counts. The kind of
 -- destroy follows the item's class (C_Item.GetItemInfoInstant: 6th and 7th
--- returns; UNVERIFIED (check in client) on Forever).
+-- returns).
 function Core.destroyAllowed(env, db, mode, itemID, link)
   if mode ~= "any" and mode ~= "self" then return mode ~= "never" end
   local kind
@@ -669,7 +668,6 @@ end
 -- Option "cityPause": rests the clock while the player is resting (city, inn)
 -- and wakes it when they leave or the option is turned off. A stopped clock
 -- (by hand or AFK) is never started here.
--- UNVERIFIED (check in client) on Forever: IsResting / PLAYER_UPDATE_RESTING.
 function Core.checkRest()
   local session = ns.session
   if not (session and ns.db) then return end
@@ -886,7 +884,6 @@ function Core.mobsCounting()
 end
 
 -- Reads every slot of the loot window that just opened (Mobs.readSlot).
--- UNVERIFIED (check in client) on Forever: GetNumLootItems.
 function Core.snapshotLoot()
   lootSlots = nil
   if not Core.mobsCounting() or type(GetNumLootItems) ~= "function" then return end
@@ -913,7 +910,6 @@ end
 
 -- The name of the mob behind `guid`: the unit tooltip's first line (cached
 -- for the login), else nil (History > Mobs then shows "NPC 12345").
--- UNVERIFIED (check in client) on Forever: C_TooltipInfo.GetHyperlink("unit:..").
 function Core.mobName(env, guid, key)
   local C = env.C_TooltipInfo
   -- Unit tooltips only: a node is named by its gathering cast (snapshotLoot).
@@ -931,7 +927,6 @@ end
 
 -- Option "dailyFarmLevel": whether the player's `level` is inside the level
 -- range of map `mapID`; nil when unknown (no API, no range).
--- UNVERIFIED (check in client) on Forever: C_Map.GetMapLevels.
 function Core.levelFits(env, mapID, level)
   local C = env.C_Map
   if not (type(C) == "table" and type(C.GetMapLevels) == "function" and num(mapID) and num(level)) then return nil end
@@ -1070,8 +1065,8 @@ function events.ADDON_LOADED(name)
   -- The addon was called LootPrice. A player who renames the old saved files
   -- (SavedVariables/LootPrice.lua -> LootLedger.lua, account and character)
   -- brings LootPriceDB / LootPriceCharDB in: take them over once.
-  -- UNVERIFIED (check in client): the client runs the whole renamed file, so
-  -- the old global names are set when ADDON_LOADED fires.
+  -- The client runs the whole renamed file, so the old global names are set
+  -- when ADDON_LOADED fires.
   if LootLedgerDB == nil and type(LootPriceDB) == "table" then
     LootLedgerDB, LootPriceDB = LootPriceDB, nil
   end
@@ -1229,7 +1224,6 @@ end
 -- kills are not counted.
 
 -- The player's cast target: the node's name for a gathering cast.
--- UNVERIFIED (check in client) on Forever: UNIT_SPELLCAST_SENT(unit, target).
 function events.UNIT_SPELLCAST_SENT(unit, target)
   if unit == "player" and type(target) == "string" and target ~= "" then
     castTarget = { name = target, at = time() }

@@ -42,9 +42,8 @@ local LOOT_SLOT_ITEM, LOOT_SLOT_MONEY = 1, 2
 -- One loot window slot: { kind = "item" | "money", link, qty, sources =
 -- { { guid, qty }, ... } }, or nil (currency, empty, no API). A money slot's
 -- qty is its copper, the sum of its sources.
--- UNVERIFIED (check in client) on Forever: GetLootSlotType, GetLootSlotLink,
--- GetLootSlotInfo (3rd return the quantity) and GetLootSourceInfo (guid, qty
--- pairs, copper for money).
+-- Uses GetLootSlotType, GetLootSlotLink, GetLootSlotInfo (3rd return the
+-- quantity) and GetLootSourceInfo (guid, qty pairs, copper for money).
 function Mobs.readSlot(env, slot)
   local ok, slotType = call(env, "GetLootSlotType", slot)
   if not ok or (slotType ~= LOOT_SLOT_ITEM and slotType ~= LOOT_SLOT_MONEY) then return nil end
