@@ -3379,6 +3379,36 @@ h.test("wiring: a fast loot addon empties the window on LOOT_READY; the mob stil
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: drop chances count what each corpse held and show in the item row tooltip", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local OTHER = "|cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r"
+  local corpses = { "Creature-0-3110-0-12-2546-000012AB01", "Creature-0-3110-0-12-2546-000012AB02",
+    "Creature-0-3110-0-12-2546-000012AB03", "Creature-0-3110-0-12-2546-000012AB04" }
+  for i, guid in ipairs(corpses) do
+    local slots = { { link = LINK, qty = 1, guid = guid } }
+    if i == 1 then slots[2] = { link = OTHER, qty = 1, guid = guid } end -- wool left in the first corpse
+    lootWindowEnv(ctx, slots)
+    fire(ctx, "LOOT_READY", false)
+    fire(ctx, "LOOT_OPENED", false)
+    fire(ctx, "LOOT_SLOT_CLEARED", 1)
+    fire(ctx, "LOOT_CLOSED")
+  end
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(m.seen, 4); h.eq(m.drops[2589], 4); h.eq(m.drops[2592], 1)
+  h.eq(m.items[2592], nil) -- left behind: no value, but it counts for the chance
+  local L = ns.UI.Ledger
+  L.setTab("history")
+  L.setSubtab("mobs")
+  L.toggleMob("npc:2546")
+  local row = L.view.rows[2]
+  h.eq(row.id, 2589)
+  local lines = table.concat(ns.UI.Rows.tooltipLines(row, ns.Money.format), "\n")
+  h.eq(lines:find("Drop chance: 100% (4 of 4)", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: mob loot counts with the clock stopped and is saved with the session", function()
   local ctx = boot()
   startWorld(ctx, false)

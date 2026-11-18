@@ -1011,7 +1011,33 @@ local L_LOOTED = L["Looted: "]
 local L_PER_LOOT_LABEL = L["Per loot: "]
 local L_WHERE = L["Where"]
 local L_BEST_DROPS = L["Best drops"]
+local L_DROP_CHANCES = L["Drop chance (%d looted)"]
 local MOB_TIP_LINES = 3
+
+-- A drop chance as text: "35%", one decimal under 10% ("2.5%"), "<0.1%"
+-- below that; nil without data (`seen` corpses, `n` of them had the item).
+function View.dropChanceText(n, seen)
+  if not (num(n) and num(seen) and seen > 0 and n > 0) then return nil end
+  local pct = 100 * math.min(n, seen) / seen
+  if pct < 0.1 then return "<0.1%" end
+  if pct < 10 then return string.format("%.1f%%", pct) end
+  return string.format("%d%%", math.floor(pct + 0.5))
+end
+
+-- The item rows with a drop chance, likeliest first (ties by name), at most `n`.
+function View.likelyDrops(rows, n)
+  local list = {}
+  for _, r in ipairs(rows) do
+    if num(r.dropCount) and num(r.dropSeen) and r.dropSeen > 0 then list[#list + 1] = r end
+  end
+  table.sort(list, function(a, b)
+    local ca, cb = a.dropCount / a.dropSeen, b.dropCount / b.dropSeen
+    if ca ~= cb then return ca > cb end
+    return byName(a, b)
+  end)
+  for i = #list, n + 1, -1 do list[i] = nil end
+  return list
+end
 
 -- A mob row's tooltip (ns.Tooltip): how often it was looted, its value, raw
 -- gold and value per loot, where it was looted most and its best drops.
@@ -1030,7 +1056,18 @@ local function mobHint(fig, label, open)
   end
   local best = topRows(fig.items, MOB_TIP_LINES)
   if #best > 0 then Tip.section(tip, L_BEST_DROPS) end
-  for _, r in ipairs(best) do Tip.money(tip, r.name .. " x" .. r.quantity, r.value) end
+  for _, r in ipairs(best) do
+    local chance = View.dropChanceText(r.dropCount, r.dropSeen)
+    Tip.money(tip, r.name .. " x" .. r.quantity .. (chance and ("  " .. chance) or ""), r.value)
+  end
+  -- The likeliest drops, from the corpses whose loot window was read.
+  local likely = View.likelyDrops(fig.items, MOB_TIP_LINES)
+  if #likely > 0 then
+    Tip.section(tip, string.format(L_DROP_CHANCES, fig.seen))
+    for _, r in ipairs(likely) do
+      Tip.pair(tip, r.name, View.dropChanceText(r.dropCount, r.dropSeen))
+    end
+  end
   Tip.hint(tip, open and L_CLICK_CLOSE or L_CLICK_OPEN)
   return tip
 end
@@ -1068,6 +1105,14 @@ function View.buildMobs(entries, opts, openKey)
           for p, n in pairs(type(m.places) == "table" and m.places or NO_LOOKUP) do
             if type(p) == "string" and num(n) then a.places[p] = (a.places[p] or 0) + n end
           end
+          -- Drop chances: only data that recorded `seen` (older data has none).
+          if num(m.seen) and m.seen > 0 then
+            a.seen = (a.seen or 0) + m.seen
+            if not a.drops then a.drops = {} end
+            for itemKey, n in pairs(type(m.drops) == "table" and m.drops or NO_LOOKUP) do
+              if num(n) and n > 0 then a.drops[itemKey] = (a.drops[itemKey] or 0) + n end
+            end
+          end
         end
       end
     end
@@ -1078,6 +1123,10 @@ function View.buildMobs(entries, opts, openKey)
   local mobRows, opened, openedItems = {}, nil, nil
   for key, a in pairs(all) do
     local items, t = collect(a.items, mobOpts)
+    for _, r in ipairs(items) do
+      local n = a.drops and a.drops[r.key]
+      if n then r.dropCount, r.dropSeen = n, a.seen end
+    end
     local gold = withGold and a.gold or 0
     local value = t.best + gold
     local label = a.name or ((a.kind == "node" and L_OBJECT or L_NPC):format(key:match(":(%d+)$") or "?"))
@@ -1088,7 +1137,7 @@ function View.buildMobs(entries, opts, openKey)
     local place = mainPlace(a.places)
     if place then parts[#parts + 1] = View.shortPlace(place) end
     local fig = { looted = a.looted, value = value, gold = a.gold, perLoot = perLoot, places = a.places,
-      items = items }
+      items = items, seen = a.seen }
     local row = {
       id = 0, key = "m:" .. key, mobKey = key, looted = a.looted, perLoot = perLoot,
       -- For the CSV export (View.mobsCsv).

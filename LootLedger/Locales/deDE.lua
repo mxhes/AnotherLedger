@@ -494,6 +494,8 @@ ns.Locale.register("deDE", {
   ["Counts this character's saved sessions and the running one."] = "Zählt die gespeicherten Sitzungen dieses Charakters und die laufende.",
   ["Counts every character's saved sessions and the running one (option Zones: all characters)."] = "Zählt die gespeicherten Sitzungen aller Charaktere und die laufende (Option Gebiete: alle Charaktere).",
   -- Review round 2: ideas
+  ["Drop chance (%d looted)"] = "Dropchance (%d geplündert)",
+  ["Drop chance: %s (%d of %d)"] = "Dropchance: %s (%d von %d)",
   ["Hide worthless"] = "Wertloses ausblenden",
   ["Hides items nothing pays for (no vendor, auction or destroy value, shown with a dash) from the lists and the compact drops. They stay recorded."] = "Blendet Gegenstände, für die nichts zahlt (kein Händler-, Auktions- oder Zerstörwert, mit Strich gezeigt), in den Listen und der kompakten Beute aus. Erfasst bleiben sie.",
   ["15 min: "] = "15 Min.: ",

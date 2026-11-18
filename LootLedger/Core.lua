@@ -927,6 +927,8 @@ function Core.snapshotLoot()
     end
   end
   lootSlots = slots
+  -- Drop chances: what each corpse held, taken or not.
+  ns.Mobs.noteWindow(ns.session.mobs, slots, mobState)
 end
 
 

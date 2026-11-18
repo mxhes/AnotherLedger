@@ -161,7 +161,11 @@ row and price. Currencies are listed after the items.
   the same sessions as Zones: how often you looted it, the value of its loot
   plus its gold, and the value per corpse or node looted. Sort by **Value**,
   **Per loot** or **Name**; click a mob to list its items, hover it for where
-  you looted it most and its best drops. Loot is credited
+  you looted it most, its best drops and its likeliest drops with their drop
+  chance; an opened mob's items show theirs in the tooltip (`Drop chance: 35%
+  (7 of 20)`). The chance counts every corpse or node whose loot window you
+  saw, also items you left in it; loot recorded before this version has no
+  chance yet. Loot is credited
   when you take it from the loot window (also with auto loot or a fast loot
   addon), split by corpse when one window
   holds several; loot you leave in a corpse counts for nobody. Mobs counts

@@ -8,7 +8,11 @@ local num = ns.Util.isNumber
 -- client; the field keeps the saved shape. Shape of `mobs` (session.mobs and
 -- History entries):
 --   mobs[key] = { name, kind = "npc" | "node", kills, looted, gold,
---                 items = { [itemKey] = qty }, places = { [place] = n } }
+--                 items = { [itemKey] = qty }, places = { [place] = n },
+--                 seen, drops = { [itemKey] = corpses } }
+-- `seen` counts the corpses or nodes whose loot window was read and `drops`
+-- how many of them had each item (Mobs.noteWindow), taken or not: the drop
+-- chance is drops / seen. Both are missing in data saved before they existed.
 -- `key` is "npc:<id>" or "obj:<id>". `state` is the caller's per-login
 -- bookkeeping (GUIDs seen), never saved.
 local Mobs = {}
@@ -117,6 +121,27 @@ function Mobs.noteLooted(mobs, key, guid, state)
   return false
 end
 
+-- The slots of a loot window just read (Mobs.readSlot, by slot number): each
+-- corpse or node in it is `seen` once, and each item it holds counts once in
+-- its `drops`, however many slots or how large the stack.
+function Mobs.noteWindow(mobs, slots, state)
+  if type(slots) ~= "table" then return end
+  for _, slot in pairs(slots) do
+    local itemKey = type(slot) == "table" and slot.kind == "item" and ns.LootParse.itemKey(slot.link) or nil
+    for _, s in ipairs(type(slot) == "table" and type(slot.sources) == "table" and slot.sources or {}) do
+      local key, kind = Mobs.idOf(s.guid)
+      if key then
+        local e = entry(mobs, key, kind)
+        if remember(state, "seenGUIDs", s.guid) then e.seen = (e.seen or 0) + 1 end
+        if itemKey and remember(state, "dropGUIDs", s.guid .. "|" .. itemKey) then
+          if type(e.drops) ~= "table" then e.drops = {} end
+          e.drops[itemKey] = (e.drops[itemKey] or 0) + 1
+        end
+      end
+    end
+  end
+end
+
 -- A money slot with every source's copper scaled by `factor` (your share in
 -- a group); other slots unchanged. A new table.
 function Mobs.scaleMoney(slot, factor)
@@ -174,6 +199,13 @@ local function addInto(dst, src)
       end
       for p, n in pairs(e.places) do
         if type(p) == "string" and num(n) then d.places[p] = (d.places[p] or 0) + n end
+      end
+      if num(e.seen) and e.seen > 0 then
+        d.seen = (d.seen or 0) + e.seen
+        if type(d.drops) ~= "table" then d.drops = {} end
+        for k, n in pairs(type(e.drops) == "table" and e.drops or {}) do
+          if num(n) and n > 0 then d.drops[k] = (d.drops[k] or 0) + n end
+        end
       end
     end
   end

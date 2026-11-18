@@ -201,7 +201,13 @@ Each of these is one call in one place; the UI never names them.
   window actually brought (chat plus the money change), so a group's split
   counts your share. Recorded with the clock stopped too, never in demo
   mode (`Core.mobsCounting`); `History.snapshot` saves a session that has
-  only mob loot. Stored in `session.mobs` and History
+  only mob loot. Drop chances: when the window is read
+  (`Core.snapshotLoot`), `Mobs.noteWindow` counts each source GUID once in
+  `seen` and each item once per GUID in `drops[itemKey]`, taken or not
+  (per-login GUID sets in `mobState`). `View.buildMobs` sums them over the
+  entries that have `seen` and sets `dropCount` / `dropSeen` on a mob's item
+  rows; `View.dropChanceText`, `View.likelyDrops` and `Rows.tooltipLines`
+  show them. Stored in `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
   Zones entries (the running session included); a mob's `places` count
   corpses like `looted`, and the most counted is its main place. It values each mob's items

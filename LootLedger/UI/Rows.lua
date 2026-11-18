@@ -17,6 +17,8 @@ local TEXT = {
   EACH = ns.L[" each"],
   KEPT = ns.L["(kept)"],
   AH_CUT = ns.L[" (after 5% AH cut)"],
+  -- History > Mobs, an opened mob's item: "Drop chance: 35% (7 of 20)".
+  DROP_CHANCE = ns.L["Drop chance: %s (%d of %d)"],
 }
 
 -- The source tag after a row's value and the tooltip line of each value.
@@ -155,6 +157,10 @@ function Rows.tooltipLines(row, formatMoney)
       if src == "ah" and row.ahCut then line = line .. TEXT.AH_CUT end
       lines[#lines + 1] = line
     end
+  end
+  local chance = ns.View and ns.View.dropChanceText(row.dropCount, row.dropSeen)
+  if chance then
+    lines[#lines + 1] = string.format(TEXT.DROP_CHANCE, chance, math.min(row.dropCount, row.dropSeen), row.dropSeen)
   end
   return lines
 end

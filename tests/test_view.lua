@@ -1299,6 +1299,31 @@ h.test("View.buildMobs adds up a mob over entries, value per loot, empty mobs la
   h.eq(#V.buildMobs(nil, {}).rows, 0)
 end)
 
+h.test("View: drop chances from the corpses seen, in the mob tooltip and on its item rows", function()
+  h.eq(V.dropChanceText(7, 20), "35%")
+  h.eq(V.dropChanceText(1, 40), "2.5%")
+  h.eq(V.dropChanceText(1, 5000), "<0.1%")
+  h.eq(V.dropChanceText(nil, 20), nil)
+  h.eq(V.dropChanceText(3, 0), nil)
+  local a = mob(0, 3, 0, { [1] = 4 }, nil, "Kobold")
+  a.seen, a.drops = 4, { [1] = 3 }
+  local b = mob(0, 1, 0, { [1] = 1 }, nil, "Kobold")
+  b.seen, b.drops = 6, { [1] = 1 } -- seen also counts corpses whose loot was left
+  -- an entry saved before drop chances: its corpses do not count
+  local old = mob(0, 5, 0, { [1] = 5 }, nil, "Kobold")
+  local entries = { mobEntry({ ["npc:1"] = a }, { [1] = 4 }), mobEntry({ ["npc:1"] = b }, { [1] = 1 }),
+    mobEntry({ ["npc:1"] = old }, { [1] = 5 }) }
+  local v = V.buildMobs(entries, { sort = "ah" }, "npc:1")
+  local item = v.rows[2]
+  h.eq(item.id, 1)
+  h.eq(item.dropCount, 4); h.eq(item.dropSeen, 10)
+  local tip = tipText(v.rows[1])
+  h.eq(tip:find("Drop chance (10 looted)", 1, true) ~= nil, true)
+  h.eq(tip:find("40%", 1, true) ~= nil, true)
+  -- no data: no section
+  h.eq(tipText(V.buildMobs({ mobEntry({ ["npc:1"] = old }, { [1] = 5 }) }, {}).rows[1]):find("Drop chance", 1, true), nil)
+end)
+
 h.test("View.mobsCsv: one line per mob by value, no filter", function()
   local entries = {
     mobEntry({ ["npc:1"] = mob(0, 3, 60, { [1] = 4 }, { Riverglades = 1, Hills = 3 }, "Kobold"),
