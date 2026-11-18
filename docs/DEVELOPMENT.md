@@ -183,7 +183,9 @@ Each of these is one call in one place; the UI never names them.
   value gets `worthless = true` and `Rows.rowText` shows a dash for it.
   `View.itemValue(item, lookup, ahMinGain)` is one item's value the same way
   (`Core.sessionValue`).
-- **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
+- **Mobs**: `LOOT_READY` reads every slot (`Mobs.readSlot`; `LOOT_OPENED`
+  only when no `LOOT_READY` came: fast loot addons empty the window on
+  `LOOT_READY`, before `LOOT_OPENED`), each
   `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
   loot left in a corpse counts for nobody. No kills: registering
   `COMBAT_LOG_EVENT_UNFILTERED` is forbidden for addons on this client
@@ -506,7 +508,7 @@ Each of these is one call in one place; the UI never names them.
 ## Events
 
 `CHAT_MSG_LOOT`, `CHAT_MSG_MONEY`, `CHAT_MSG_CURRENCY`, `QUEST_TURNED_IN`,
-`GET_ITEM_INFO_RECEIVED`, `LOOT_OPENED` / `LOOT_CLOSED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
+`GET_ITEM_INFO_RECEIVED`, `LOOT_READY` / `LOOT_OPENED` / `LOOT_CLOSED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
 `BAG_UPDATE_DELAYED`, `BANKFRAME_OPENED` / `BANKFRAME_CLOSED`,
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,

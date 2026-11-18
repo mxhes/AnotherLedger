@@ -3342,6 +3342,43 @@ h.test("wiring: cleared loot slots are credited to their mob, once per corpse", 
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: a fast loot addon empties the window on LOOT_READY; the mob still gets its loot", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local slots = { { link = LINK, qty = 3, guid = MOB }, { money = 250, guid = MOB } }
+  lootWindowEnv(ctx, slots)
+  -- the addon takes everything on LOOT_READY: the slots clear before LOOT_OPENED
+  fire(ctx, "LOOT_READY", true)
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_SLOT_CLEARED", 2)
+  for i = #slots, 1, -1 do slots[i] = nil end
+  fire(ctx, "LOOT_OPENED", true)
+  fire(ctx, "LOOT_CLOSED")
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(type(m), "table")
+  h.eq(m.items[2589], 3)
+  h.eq(m.gold, 250)
+  h.eq(m.looted, 1)
+  -- the next corpse, looted by hand (LOOT_READY, then LOOT_OPENED, then the clicks)
+  local SECOND = "Creature-0-3110-0-12-2546-000012ABCE"
+  slots[1] = { link = LINK, qty = 2, guid = SECOND }
+  fire(ctx, "LOOT_READY", false)
+  fire(ctx, "LOOT_OPENED", false)
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(m.items[2589], 5)
+  h.eq(m.looted, 2)
+  ns.UI.Ledger.setTab("history")
+  ns.UI.Ledger.setSubtab("mobs")
+  local found = false
+  for _, r in ipairs(ns.UI.Ledger.view.rows) do
+    if r.mobKey == "npc:2546" then found = true end
+  end
+  h.eq(found, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: loot is credited without kills; unknown names get a fallback", function()
   local ctx = boot()
   startWorld(ctx, false)

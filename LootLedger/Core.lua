@@ -1210,11 +1210,32 @@ end
 -- Loot window (raw gold backstop). A window that opens before the last one
 -- settled settles that one first.
 -- Looted money arrives before LOOT_CLOSED + 1 s.
-function events.LOOT_OPENED()
+local function openLootWindow()
   if lootWindow then settleLoot(lootWindow) end
   local money = currentMoney()
   if money and ns.session then lootWindow = { money = money, chat = 0 } end
   Core.snapshotLoot()
+end
+
+-- LOOT_READY comes before LOOT_OPENED. Fast loot addons (Leatrix Plus and
+-- the like) take every slot on LOOT_READY, so by LOOT_OPENED the slots are
+-- empty and their LOOT_SLOT_CLEARED may already have fired: the window is
+-- read here, and LOOT_OPENED reads it only when LOOT_READY did not.
+-- UNVERIFIED (check in client): LOOT_READY fires on this client and the slots
+-- still read in the frame a fast loot addon calls LootSlot.
+local readByReady = false
+
+function events.LOOT_READY()
+  readByReady = true
+  openLootWindow()
+end
+
+function events.LOOT_OPENED()
+  if readByReady then
+    readByReady = false
+    return
+  end
+  openLootWindow()
 end
 
 -- A slot taken from the loot window: its loot goes to the mob or node it
@@ -1269,6 +1290,7 @@ function events.UPDATE_MOUSEOVER_UNIT() noteUnitName("mouseover") end
 
 function events.LOOT_CLOSED()
   lootSlots = nil
+  readByReady = false
   local window = lootWindow
   if not window then return end
   if C_Timer and C_Timer.After then
