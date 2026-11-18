@@ -26,3 +26,23 @@ against the test fakes so far:
   "large session" confirmation too.
 - Session per zone no longer splits while resting in a city (`IsResting`).
 - Login without TSM and Auctionator: the chat hint shows once.
+
+## Release steps
+
+1. `main` is green: `lua tests/run.lua` passes locally and the `test` jobs
+   (Lua 5.1 and 5.4) pass in GitLab CI.
+2. The open checks above are done in the client, or knowingly left for a
+   later release.
+3. `## Interface:` in `LootLedger/LootLedger.toc` matches the client
+   (`/dump select(4, GetBuildInfo())`, 16001 today).
+4. Run the manual `package-dry-run` job on `main`: its log lists one
+   `LootLedger/` folder with the `.toc`, the code and `Libs/` (LibStub,
+   CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0), and no `docs/`,
+   `tests/` or `CLAUDE.md`.
+5. Tag `main` with the version (`git tag v0.2.0`, then
+   `git push origin v0.2.0`). The `package` job builds the zip (the `.toc`
+   version comes from the tag) and keeps it in the job's artifacts for 30
+   days.
+6. CurseForge (once): create the project, add `## X-Curse-Project-ID: <id>`
+   to the `.toc` and the masked CI variable `CF_API_KEY`; from then on every
+   tag uploads the zip.

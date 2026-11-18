@@ -5,6 +5,7 @@ Session Ledger window lists each item with what it is worth (vendor, auction
 house or disenchant, whichever is highest), adds up your gold per hour, and
 tells you where your best farm is today.
 
+- Source code and issues: <https://gitlab.com/mhhenjes/lootledger>
 - Developers: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - In-client checks and release steps: [docs/CHECKLIST.md](docs/CHECKLIST.md)
 
@@ -20,8 +21,8 @@ installed, else the game's own map pin.
 
 **Libraries** (only when you install from the source code): the release zip
 already contains them. A copy of the `LootLedger/` folder from the repository
-needs these four libraries in its `Libs/` folder, or the game warns
-`Error loading LootLedger/Libs/...` at login (the addon still works, with its own
+needs these four libraries in its `Libs/` folder, or the game warns `Error
+loading LootLedger/Libs/...` at login (the addon still works, with its own
 minimap button and no data broker display):
 
 | Library | Goes to | Download |
@@ -53,12 +54,14 @@ the session total (with a session goal: `Session 312g / 500g`, and a gold bar
 under them that fills up toward the goal), the last four drops with their
 value and source tag (framed, as in the list), and the Daily farm line. After
 a quarter hour, `15 min: 120g/h` right of the drops title is the gold per
-hour of the last 15 minutes, so you see when a spot slows down. Until the session earns something the rate shows `—/h`. Hover the gold per
-hour for the breakdown: time, items, raw gold, total, the best find, how far
-the goal is, the last 15 minutes' rate and, after a few minutes, a small graph of your gold per hour over
-the session (one bar per stretch of clock time) to see when a spot dries up.
-The same graph shows when you hover the totals of the Session tab. Click the clock to start or stop the session; a red `Paused`
-shows while it is stopped. Before the first drop the list says so (or that the
+hour of the last 15 minutes, so you see when a spot slows down. Until the
+session earns something the rate shows `—/h`. Hover the gold per hour for the
+breakdown: time, items, raw gold, total, the best find, how far the goal is,
+the last 15 minutes' rate and, after a few minutes, a small graph of your gold
+per hour over the session (one bar per stretch of clock time) to see when a
+spot dries up. The same graph shows when you hover the totals of the Session
+tab. Click the clock to start or stop the session; a red `Paused` shows while
+it is stopped. Before the first drop the list says so (or that the
 clock is stopped).
 
 **Full** is the detailed ledger:
@@ -105,11 +108,12 @@ clock is stopped).
 
 Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options),
 gold, silver and copper each in its own column, so the coins line up down the
-list, the footer, Top finds and the compact drops.
-Items that can't be sold on the auction house (soulbound, quest items) count
-at their vendor value; an item nothing pays for (no vendor, auction or
-destroy value) shows a dash; **Hide worthless** leaves those out of the lists. Gear with a different item level or sockets gets its own
-row and price. Currencies are listed after the items.
+list, the footer, Top finds and the compact drops. Items that can't be sold on
+the auction house (soulbound, quest items) count at their vendor value; an
+item nothing pays for (no vendor, auction or destroy value) shows a dash;
+**Hide worthless** leaves those out of the lists. Gear with a different item
+level or sockets gets its own row and price. Currencies are listed after the
+items.
 
 ## Tabs
 
@@ -123,27 +127,28 @@ row and price. Currencies are listed after the items.
   **Sell split** (what the items not kept bring at the vendor, on the AH and
   destroyed), and the header your free bag slots.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
-  visit the banker once (until then the list says `Not scanned yet.` and the total shows `—`); after
-  that the tab shows the last scan and its age.
+  visit the banker once (until then the list says `Not scanned yet.` and the
+  total shows `—`); after that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
-  started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your note,
-  its length, gold per hour, item count and main place, and its value (with the raw gold,
-  unless the option **Raw gold** leaves it out). A session is saved when you reset it, when a new
-  login starts a fresh one, or (option) when you enter or leave a dungeon. A
-  session keeps the prices of the day it was saved, so its value doesn't change
-  later. Sort the sessions by Value, Recent or Gold/h; the search (date, note,
-  length, place) and the minimum value pick sessions, and the footer adds up
-  the listed ones. Sorted by Recent, the sessions sit under headings (Today,
-  Yesterday, the other days of this week, then week numbers, with the year
-  for another year's weeks) with their count,
-  length and value; click a heading to fold it. Click a session to list its items; right-click it to add a
-  note (`Wingrest herbs, 2 alts`), merge it or delete it; hover it for places,
-  currencies, values and gold per hour. **Merge with the older session** joins
-  a session with the one started before it (say a dungeon run you left and
-  re-entered): items, gold, time and places add up, the time between the two
-  does not count. Merge again to join three or more. `/ll undo` takes back the
-  last merge or delete until you log out or reload. `/ll export` copies the History as CSV for
-  a spreadsheet. **Clear History** (options) deletes all of it.
+  started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your
+  note, its length, gold per hour, item count and main place, and its value
+  (with the raw gold, unless the option **Raw gold** leaves it out). A session
+  is saved when you reset it, when a new login starts a fresh one, or (option)
+  when you enter or leave a dungeon. A session keeps the prices of the day it
+  was saved, so its value doesn't change later. Sort the sessions by Value,
+  Recent or Gold/h; the search (date, note, length, place) and the minimum
+  value pick sessions, and the footer adds up the listed ones. Sorted by
+  Recent, the sessions sit under headings (Today, Yesterday, the other days of
+  this week, then week numbers, with the year for another year's weeks) with
+  their count, length and value; click a heading to fold it. Click a session
+  to list its items; right-click it to add a note (`Wingrest herbs, 2 alts`),
+  merge it or delete it; hover it for places, currencies, values and gold per
+  hour. **Merge with the older session** joins a session with the one started
+  before it (say a dungeon run you left and re-entered): items, gold, time and
+  places add up, the time between the two does not count. Merge again to join
+  three or more. `/ll undo` takes back the last merge or delete until you log
+  out or reload. `/ll export` copies the History as CSV for a spreadsheet.
+  **Clear History** (options) deletes all of it.
 - **History > Zones**: which places are worth farming. All sessions of all
   your characters (option **Zones: all characters**) grouped by zone and
   subzone, each with its time, gold per hour and item count (sort by
@@ -167,25 +172,26 @@ row and price. Currencies are listed after the items.
   saw, also items you left in it; loot recorded before this version has no
   chance yet. Every item tooltip in the game (bags, chat links, the loot
   window) lists the mobs and nodes that drop it with their chance (option
-  **Drop chance in tooltips**). Loot is credited
-  when you take it from the loot window (also with auto loot or a fast loot
-  addon), split by corpse when one window
-  holds several; loot you leave in a corpse counts for nobody. Mobs counts
-  even while the clock is stopped (the session's own lists and totals don't;
-  a session with only mob loot is still saved to History). Kills are not
-  counted: the game does not let addons read the combat log. A mob's coin counts what you got of it, so in a group
-  your share. A mob or node whose name was never seen shows its number. Only loot taken while the clock runs counts, and sessions
-  saved before this version have no mob data.
+  **Drop chance in tooltips**). Loot is credited when you take it from the
+  loot window (also with auto loot or a fast loot addon), split by corpse
+  when one window holds several; loot you leave in a corpse counts for
+  nobody. Mobs counts even while the clock is stopped (the session's own
+  lists and totals don't; a session with only mob loot is still saved to
+  History). Kills are not counted: the game does not let addons read the
+  combat log. A mob's coin counts what you got of it, so in a group your
+  share. A mob or node whose name was never seen shows its number. Sessions
+  saved before Mobs existed have no mob data.
 
 ## Daily farm
 
-The gold strip above the tabs names the subzone from your History (of all
-your characters, like Zones) with the best gold per hour at today's prices, e.g. `Daily: 1,240g/h  Wingrest
-(Waking Shores)`. Only saved sessions count (so farming doesn't move today's
-pick), and a place needs 20 minutes of recorded time by default. A place whose
-value comes mostly from items that sell poorly is marked `slow selling`.
-With **Daily farm: my level** on, only places whose map is meant for your
-current level count (places without a known level range still do).
+The gold strip above the tabs names the subzone from your History (of all your
+characters, like Zones) with the best gold per hour at today's prices, e.g.
+`Daily: 1,240g/h  Wingrest (Waking Shores)`. Only saved sessions count (so
+farming doesn't move today's pick), and a place needs 20 minutes of recorded
+time by default. A place whose value comes mostly from items that sell poorly
+is marked `slow selling`. With **Daily farm: my level** on, only places whose
+map is meant for your current level count (places without a known level range
+still do).
 
 - **Click**: sets a waypoint to where you looted there (TomTom, or the map pin).
 - **Shift-click**: opens History > Zones at that place (from the compact
@@ -199,11 +205,11 @@ current level count (places without a known level range still do).
 Open them with the gear, a right-click on the minimap button, or Esc >
 Options > AddOns > LootLedger. Hover any option for what it does and its
 default. Changes apply at once. Drag the options window to move it; it opens
-there from then on (until then, next to the ledger). **Opacity** and **Brightness** apply to the
-options window as well. **Lock window** also hides the resize grip;
-with **Snap to grid** the window snaps onto the lines of the Edit Mode grid
-when you drop it close to one;
-anything that deletes History asks first.
+there from then on (until then, next to the ledger). **Opacity** and
+**Brightness** apply to the options window as well. **Lock window** also
+hides the resize grip; with **Snap to grid** the window snaps onto the lines
+of the Edit Mode grid when you drop it close to one; anything that deletes
+History asks first.
 
 | Tab | Options |
 | --- | --- |
@@ -227,27 +233,27 @@ still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
 window changes while you pick, Cancel puts the old color back); right-click it
-for the preset's color. **Reset colors** goes back to the chosen preset's colors.
-Tooltips keep the game's dark tooltip on every preset.
+for the preset's color. **Reset colors** goes back to the chosen preset's
+colors. Tooltips keep the game's dark tooltip on every preset.
 
 **Session summary in chat** writes one line whenever a session is saved to
 History: its length, main place, worth and gold per hour. **Reset: ask for a
-note** opens the note box for the saved session after Reset (Escape skips it). **History kept**
-counts per character and applies to all of them.
+note** opens the note box for the saved session after Reset (Escape skips
+it). **History kept** counts per character and applies to all of them.
 
 **Profiles**: every option is part of a profile, except **History kept**,
 **Zones: all characters** and **Minimap button**, which count for the whole
-account. Each character picks its own profile; new characters use
-**Default**. Hover **Profile** to see which characters use the chosen one. **New profile** starts from the defaults, **Copy profile** from
-the current one; Default can't be renamed or deleted. **Reset profile** sets
-every option of the current profile back to its default (it asks first). **Export profile** shows
-the profile as one line of text to copy into a chat or a file; **Import
-profile** opens a box to paste such a line, asks for a name (and before
-overwriting a profile of that name) and switches to it. Settings an import
-does not understand are skipped and counted in chat. Window position and
-size, filters, the ignore and keep lists and History are not part of a
-profile. Updating to the version with profiles starts with the default
-settings once.
+account. Each character picks its own profile; new characters use **Default**.
+Hover **Profile** to see which characters use the chosen one. **New profile**
+starts from the defaults, **Copy profile** from the current one; Default can't
+be renamed or deleted. **Reset profile** sets every option of the current
+profile back to its default (it asks first). **Export profile** shows the
+profile as one line of text to copy into a chat or a file; **Import profile**
+opens a box to paste such a line, asks for a name (and before overwriting a
+profile of that name) and switches to it. Settings an import does not
+understand are skipped and counted in chat. Window position and size, filters,
+the ignore and keep lists and History are not part of a profile. Updating to
+the version with profiles starts with the default settings once.
 
 **Font outline** (None, Thin, Thick) puts a dark outline around all LootLedger
 text, which reads better over a bright background; **Font shadow** turns the
@@ -268,9 +274,9 @@ you change zones, so History rows stay apart when you hop between farm spots.
 It waits until you stayed in the new zone for the **Zone change delay** (2
 minutes by default): a short detour or a cave entrance does not split the
 session, and flight paths and time resting in a city or inn never count
-(selling in Orgrimmar does not end your Badlands session). Loot from those minutes still belongs
-to the old session. An empty session just starts its clock over. While the
-clock is stopped nothing splits.
+(selling in Orgrimmar does not end your Badlands session). Loot from those
+minutes still belongs to the old session. An empty session just starts its
+clock over. While the clock is stopped nothing splits.
 
 **Open on first loot**, **Open in instances** and **Hide in cities** show or
 hide the window for you. Each only undoes what it did itself: close the
@@ -329,8 +335,13 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   age tag is the time since the source last gave a price for that item.
 - **Languages**: English and German. Loot and money messages are read from the
   game's own texts, so they work in every client language.
-- **Install**: copy the `LootLedger/` folder into
-  `World of Warcraft/<client>/Interface/AddOns/`.
+- **Install**: unzip the release zip (it holds the libraries) into
+  `World of Warcraft/<client>/Interface/AddOns/`, so the `.toc` ends up in
+  `Interface/AddOns/LootLedger/`. From the source code, copy the
+  `LootLedger/` folder of the repository there and add the libraries (see
+  Requirements).
+- **Bugs and ideas**: open an issue at
+  <https://gitlab.com/mhhenjes/lootledger/-/issues>.
 - **Coming from LootPrice** (the addon's old name): delete the old `LootPrice`
   folder. To keep your History, options and lists, rename the saved files
   `LootPrice.lua` to `LootLedger.lua` while the game is closed, in
