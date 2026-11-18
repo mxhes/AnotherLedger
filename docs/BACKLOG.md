@@ -27,4 +27,6 @@ History > Mobs.
 From the fourth review: Hide worthless, gold per hour on History session
 rows, the Mobs hover tooltip, the compact 15 minute rate and goal bar, the
 chat hint without a price addon, Reset: ask for a note, `/ll export mobs`
-and unpriced items first from the footer note.
+and unpriced items first from the footer note. After it: Mobs counts with
+the clock stopped and with fast loot addons, and drop chances show in the
+Mobs tooltips and in the game's item tooltips.

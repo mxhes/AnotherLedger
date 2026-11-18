@@ -8,6 +8,9 @@ plans of each feature (history; not kept in sync with the code).
 
 ## Setup
 
+- Repository: <https://gitlab.com/mhhenjes/lootledger> (GitLab, branch
+  `main`; changes go in through merge requests).
+  `git clone https://gitlab.com/mhhenjes/lootledger.git`
 - Lua 5.1 (the client's version). Local tests may run on 5.4, so avoid 5.2+
   features (`goto`, `//`, `table.unpack`, integer-only APIs).
 - No build step: the client loads `LootLedger/*.lua` in the order of
@@ -63,52 +66,57 @@ draws it. Nothing redraws while the window is hidden; it catches up on show.
 
 Each of these is one call in one place; the UI never names them.
 
-- **Option**: a default in `DB.defaults.settings`, then
-  `Options.define({ key, category, type, label, tooltip, ..., apply })` in
-  `Options.lua`. `label` is short (24 characters at most, a test checks it);
-  `tooltip` says what it does and is shown on hover with the default.
-  `category` is `window`, `prices`, `display` (tab List), `session`, `history`, `look` (fonts and colors) or `profiles`. Types: `slider`
-  (`min`, `max`, `step`, `format`), `dropdown` (`choices` list or function),
-  `checkbox`, `number` (whole number, empty = unlimited, optional `zeroText`),
-  `text`, `color` (`"rrggbb"`), `button` (`action`). `tooltipExtra = function()
-  -> text` adds a live line to the tooltip (the profile's characters). Values are validated by type and fall back to
-  the default; `apply` runs on change and for the saved value at login. Read it
-  with `Options.get(ns.db, key)`. Optional fields: `account = true` stores the
-  value in `LootLedgerDB.account` (shared by every profile: `historyLimit`,
-  `accountZones`, `minimapButton`); `get` / `store` functions keep the value
-  elsewhere (the profile choice) and `Options.applyAll` skips such an option;
-  `picked(db, value)` runs only on a choice in the panel (`Options.pick`), not
-  at login (the color preset writes the single colors there).
-  `intercept(db, value)` runs in `Options.pick` first; `true` sets nothing
-  (TSM price's "Custom..." entry, `Options.CUSTOM`, opens a text box). A
-  dropdown with `free = true` also keeps any typed string. A new kind of control is one factory in
-  `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its height in `Options.HEIGHTS`.
-  The panel's column width, gaps and control sizes are `Theme.options`.
+- **Option**: a default in `DB.defaults.settings`, then `Options.define({ key,
+  category, type, label, tooltip, ..., apply })` in `Options.lua`. `label` is
+  short (24 characters at most, a test checks it); `tooltip` says what it does
+  and is shown on hover with the default. `category` is `window`, `prices`,
+  `display` (tab List), `session`, `history`, `look` (fonts and colors) or
+  `profiles`. Types: `slider` (`min`, `max`, `step`, `format`), `dropdown`
+  (`choices` list or function), `checkbox`, `number` (whole number, empty =
+  unlimited, optional `zeroText`), `text`, `color` (`"rrggbb"`), `button`
+  (`action`). `tooltipExtra = function() -> text` adds a live line to the
+  tooltip (the profile's characters). Values are validated by type and fall
+  back to the default; `apply` runs on change and for the saved value at
+  login. Read it with `Options.get(ns.db, key)`. Optional fields: `account =
+  true` stores the value in `LootLedgerDB.account` (shared by every profile:
+  `historyLimit`, `accountZones`, `minimapButton`); `get` / `store` functions
+  keep the value elsewhere (the profile choice) and `Options.applyAll` skips
+  such an option; `picked(db, value)` runs only on a choice in the panel
+  (`Options.pick`), not at login (the color preset writes the single colors
+  there). `intercept(db, value)` runs in `Options.pick` first; `true` sets
+  nothing (TSM price's "Custom..." entry, `Options.CUSTOM`, opens a text box).
+  A dropdown with `free = true` also keeps any typed string. A new kind of
+  control is one factory in `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its
+  height in `Options.HEIGHTS`. The panel's column width, gaps and control
+  sizes are `Theme.options`.
 - **Price source**: a file in `Sources/` (in the `.toc` after
-  `Sources\Sources.lua`) ending with `ns.Sources.register({ key, label,
-  create = function(env, setting) return { name, get = function(itemID, link) ... end } end })`.
-  It joins the lookup order and the AH price source dropdown. Optional:
-  `createDisenchant`, `createMarket` and `present(env)` (its addon is loaded;
-  `Sources.anyPresent` drives the login hint). See `Sources/Auctionator.lua`.
-- **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx) return view end, ... })`
-  in `UI/Tabs.lua`; optional `sessionControls` (clock and buttons), `ticks`
-  (rates follow the clock), `watches` (data kind that redraws it), `hasItem`
-  and `subtabs` (see the comment at the top of the file). A view with its own
-  `sorts` list keeps its own sort (`LootLedgerDB.sorts[slot]`, first
-  `defaultSort`, see `Tabs.sortSlot` / `Ledger.currentSort`); the others share
-  `LootLedgerDB.sort`. The filter bar reads and sets it through the accessor
-  `Ledger.init` hands it. A view may set `headerInfo` (a short text the header
-  shows right of the title on tabs without the session controls).
-- **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ... end })`;
-  `help` shows in `/ll help`. A key binding is a `<Binding>` in `Bindings.xml`
-  that runs the command (`SlashCmdList["LOOTLEDGER"]("name")`) plus its name in
-  `Slash.BINDINGS` (and in the wiring test's allowed globals).
+  `Sources\Sources.lua`) ending with `ns.Sources.register({ key, label, create
+  = function(env, setting) return { name, get = function(itemID, link) ... end
+  } end })`. It joins the lookup order and the AH price source dropdown.
+  Optional: `createDisenchant`, `createMarket` and `present(env)` (its addon
+  is loaded; `Sources.anyPresent` drives the login hint). See
+  `Sources/Auctionator.lua`.
+- **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx)
+  return view end, ... })` in `UI/Tabs.lua`; optional `sessionControls` (clock
+  and buttons), `ticks` (rates follow the clock), `watches` (data kind that
+  redraws it), `hasItem` and `subtabs` (see the comment at the top of the
+  file). A view with its own `sorts` list keeps its own sort
+  (`LootLedgerDB.sorts[slot]`, first `defaultSort`, see `Tabs.sortSlot` /
+  `Ledger.currentSort`); the others share `LootLedgerDB.sort`. The filter bar
+  reads and sets it through the accessor `Ledger.init` hands it. A view may
+  set `headerInfo` (a short text the header shows right of the title on tabs
+  without the session controls).
+- **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ...
+  end })`; `help` shows in `/ll help`. A key binding is a `<Binding>` in
+  `Bindings.xml` that runs the command (`SlashCmdList["LOOTLEDGER"]("name")`)
+  plus its name in `Slash.BINDINGS` (and in the wiring test's allowed
+  globals).
 - **Row menu**: `Ledger.rowMenu(row)` returns the right-click entries of a row
   (`{ text, onClick, title = true }`), shown with `Widgets.openMenu(frame,
   entries, "button")`. Menu entries may carry their own `kind`.
-- **Window part**: `ns.UI.Ledger.register(part)`; `part:Update(view, session, now)`
-  on every full redraw, optional `part:Tick(...)` each second while the clock
-  runs (keep it cheap).
+- **Window part**: `ns.UI.Ledger.register(part)`; `part:Update(view, session,
+  now)` on every full redraw, optional `part:Tick(...)` each second while the
+  clock runs (keep it cheap).
 - **Rich tooltip**: build it with `ns.Tooltip` (`new`, `pair`, `money`, `rate`,
   `para`, `labelled`, `section`, `note`, `warn`, `hint`) and show it with
   `ns.UI.Widgets.showTextTooltip(owner, tip)`. Colors are `Theme.colors.tip*`.
@@ -147,20 +155,19 @@ Each of these is one call in one place; the UI never names them.
   keeps it as it is. The import paste box is `UI/Export.lua` in edit mode
   (`Export.edit(title, onAccept)`).
 - **Colors**: `Options.COLOR_OPTIONS` lists each color option with the
-  `Theme.colors` keys it sets; its default in `DB.defaults.settings` must equal
-  those theme colors (a test checks). `Theme.setColor` overwrites the r, g, b
-  of the color table in place, so code that reads `Theme.colors` at draw time
-  (tooltips, rows on refresh) follows by itself. Regions colored once at
+  `Theme.colors` keys it sets; its default in `DB.defaults.settings` must
+  equal those theme colors (a test checks). `Theme.setColor` overwrites the r,
+  g, b of the color table in place, so code that reads `Theme.colors` at draw
+  time (tooltips, rows on refresh) follows by itself. Regions colored once at
   creation are remembered by `UI/Widgets.lua` (`setTextColor`, `line`,
   buttons, inputs, `applyBackdrop`) and `Widgets.recolor(changed)` paints them
   again; then `Window.applyLook` (opacity and brightness via
-  `Window.paintLook`, for the ledger window and the options panel alike) and
-  a refresh run. A text colored with a
-  non-theme color (item quality) goes through `Widgets.setTextRGB`, which
-  drops it from the list. Vendor / AH / Destroy labels in tooltips use
-  `Theme.sourceColor(source)` (`Tooltip.money(..., source)`, `Rows.tooltipLines`,
-  `Summary.tooltipLines`). The swatch opens the game picker through
-  `Widgets.pickColor`.
+  `Window.paintLook`, for the ledger window and the options panel alike) and a
+  refresh run. A text colored with a non-theme color (item quality) goes
+  through `Widgets.setTextRGB`, which drops it from the list. Vendor / AH /
+  Destroy labels in tooltips use `Theme.sourceColor(source)`
+  (`Tooltip.money(..., source)`, `Rows.tooltipLines`, `Summary.tooltipLines`).
+  The swatch opens the game picker through `Widgets.pickColor`.
 - **Footer**: History and Zones show the same table as the Session tab: the
   listed sessions (or places) added up, rates over their recorded time
   (Zones: only subzones with time count in the rate, `timedRates` in
@@ -170,61 +177,58 @@ Each of these is one call in one place; the UI never names them.
   (`Util.rawGold()` -> counted, row; `Util.goldCounted()`). `DB.migrateSettings`
   turns the old `includeGold` / `showFooterGold` booleans into it (in
   `Profiles.point` and on profile import).
-
 - **Item keys**: `LootParse.itemKey(link)` is the item ID for plain items and
   `"<id>:<sorted bonus IDs>"` for variants; every item map, the price cache and
   row keys use it. Price lookups take `(itemID, link)`.
-- **Value** of a row is the best of vendor, AH and disenchant (`Prices.best`); it
-  drives the sort `Value`, Top finds, the minimum filter and the drop alert.
-  Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) are never
-  counted as unpriced; an AH price a source still reports for them counts like
-  any other. The `de` value is TSM's `Destroy` price
-  (disenchant, mill or prospect), shown as `Destroy`; it counts whenever TSM
-  is loaded, whatever the AH price source. A row with no vendor, AH or destroy
-  value gets `worthless = true` and `Rows.rowText` shows a dash for it.
+- **Value** of a row is the best of vendor, AH and disenchant (`Prices.best`);
+  it drives the sort `Value`, Top finds, the minimum filter and the drop
+  alert. Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) are
+  never counted as unpriced; an AH price a source still reports for them
+  counts like any other. The `de` value is TSM's `Destroy` price (disenchant,
+  mill or prospect), shown as `Destroy`; it counts whenever TSM is loaded,
+  whatever the AH price source. A row with no vendor, AH or destroy value gets
+  `worthless = true` and `Rows.rowText` shows a dash for it.
   `View.itemValue(item, lookup, ahMinGain)` is one item's value the same way
   (`Core.sessionValue`).
-- **Mobs**: `LOOT_READY` reads every slot (`Mobs.readSlot`; `LOOT_OPENED`
-  only when no `LOOT_READY` came: fast loot addons empty the window on
-  `LOOT_READY`, before `LOOT_OPENED`), each
-  `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
-  loot left in a corpse counts for nobody. No kills: registering
-  `COMBAT_LOG_EVENT_UNFILTERED` is forbidden for addons on this client
-  (ADDON_ACTION_FORBIDDEN even inside the `pcall` of `Core.init`, so never
-  add it to `events`; a wiring test guards this), and `kills` stays 0. Mob
-  names come from name plates, target and mouseover, else the unit tooltip; a
-  node takes the target of the player's last `UNIT_SPELLCAST_SENT` (the
-  gathering cast) when the loot window opens within 30 s (no tooltip for
-  objects). No name is saved without one: `View.buildMobs` shows
-  "NPC 12345" / "Object 1731" and takes the newest saved name (the first
-  History entry's, the running session's over all). Coin slots wait for
-  `settleLoot`, which scales them (`Mobs.scaleMoney`) to the copper the
-  window actually brought (chat plus the money change), so a group's split
-  counts your share. Recorded with the clock stopped too, never in demo
-  mode (`Core.mobsCounting`); `History.snapshot` saves a session that has
-  only mob loot. Drop chances: when the window is read
+- **Mobs**: `LOOT_READY` reads every slot (`Mobs.readSlot`; `LOOT_OPENED` only
+  when no `LOOT_READY` came: fast loot addons empty the window on
+  `LOOT_READY`, before `LOOT_OPENED`), each `LOOT_SLOT_CLEARED` credits its
+  slot to the sources (`Mobs.credit`), so loot left in a corpse counts for
+  nobody. No kills: registering `COMBAT_LOG_EVENT_UNFILTERED` is forbidden for
+  addons on this client (ADDON_ACTION_FORBIDDEN even inside the `pcall` of
+  `Core.init`, so never add it to `events`; a wiring test guards this), and
+  `kills` stays 0. Mob names come from name plates, target and mouseover, else
+  the unit tooltip; a node takes the target of the player's last
+  `UNIT_SPELLCAST_SENT` (the gathering cast) when the loot window opens within
+  30 s (no tooltip for objects). No name is saved without one:
+  `View.buildMobs` shows "NPC 12345" / "Object 1731" and takes the newest
+  saved name (the first History entry's, the running session's over all). Coin
+  slots wait for `settleLoot`, which scales them (`Mobs.scaleMoney`) to the
+  copper the window actually brought (chat plus the money change), so a
+  group's split counts your share. Recorded with the clock stopped too, never
+  in demo mode (`Core.mobsCounting`); `History.snapshot` saves a session that
+  has only mob loot. Drop chances: when the window is read
   (`Core.snapshotLoot`), `Mobs.noteWindow` counts each source GUID once in
   `seen` and each item once per GUID in `drops[itemKey]`, taken or not
   (per-login GUID sets in `mobState`). `View.buildMobs` sums them over the
   entries that have `seen` and sets `dropCount` / `dropSeen` on a mob's item
-  rows; `View.dropChanceText`, `View.likelyDrops` and `Rows.tooltipLines`
-  show them. The game's item tooltips (`UI/ItemTooltip.lua`, option
+  rows; `View.dropChanceText`, `View.likelyDrops` and `Rows.tooltipLines` show
+  them. The game's item tooltips (`UI/ItemTooltip.lua`, option
   `itemTooltipDrops`): `View.dropIndex` over `Core.zoneHistory()` plus the
-  running session gives per item ID the mobs with `n` / `seen` (variants
-  added up), `View.dropTooltipLines` the lines. The index is cached until
-  the History key, the session's mob table or `Core.mobsVersion` (counted
-  up per loot window read) changes. Hooked through
+  running session gives per item ID the mobs with `n` / `seen` (variants added
+  up), `View.dropTooltipLines` the lines. The index is cached until the
+  History key, the session's mob table or `Core.mobsVersion` (counted up per
+  loot window read) changes. Hooked through
   `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ...)`,
   else `OnTooltipSetItem` of GameTooltip and ItemRefTooltip. Stored in
-  `session.mobs` and History
-  entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
-  Zones entries (the running session included); a mob's `places` count
-  corpses like `looted`, and the most counted is its main place. It values each mob's items
-  like Zones (the entry's saved price, else live) and sorts by value, per
-  loot (`perLoot` = value / `looted`) or name; `Ledger.mobOpen` is the opened
-  mob. A mob row's `hint` builds its tooltip on hover (looted, value, gold,
-  per loot, its top 3 places, its best drops). The view has no rates, so the
-  footer shows no per hour column.
+  `session.mobs` and History entries' `mobs`. `View.buildMobs` (History >
+  Mobs) adds them up over the Zones entries (the running session included); a
+  mob's `places` count corpses like `looted`, and the most counted is its main
+  place. It values each mob's items like Zones (the entry's saved price, else
+  live) and sorts by value, per loot (`perLoot` = value / `looted`) or name;
+  `Ledger.mobOpen` is the opened mob. A mob row's `hint` builds its tooltip on
+  hover (looted, value, gold, per loot, its top 3 places, its best drops). The
+  view has no rates, so the footer shows no per hour column.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
@@ -256,25 +260,25 @@ Each of these is one call in one place; the UI never names them.
   never) is kept, then started like a new one: `afkPaused` cleared, running,
   `startedAt` = the login. Empty sessions start over as before. `/ll reset`
   and the Reset button always archive.
-- **Value rules** apply at lookup, never to saved History prices:
-  `Prices.new{ rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross
-  price stays in `ahGross`, and a row with it gets `ahCut = true` for the
-  tooltip) and drops `de` when `Prices.destroyAllowed(destroyMode, kind,
-  own, all)` says no; `deBlocked = true` then tells makeRow and
-  `History.snapshot` to skip the `de` saved at loot time too. The kind comes from the item class
+- **Value rules** apply at lookup, never to saved History prices: `Prices.new{
+  rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross price stays in
+  `ahGross`, and a row with it gets `ahCut = true` for the tooltip) and drops
+  `de` when `Prices.destroyAllowed(destroyMode, kind, own, all)` says no;
+  `deBlocked = true` then tells makeRow and `History.snapshot` to skip the
+  `de` saved at loot time too. The kind comes from the item class
   (`Prices.destroyKind`, via `GetItemInfoInstant`), the professions from
-  `db.professions[character]` (`Core.noteProfessions` at login, where an
-  empty read keeps a saved set, and on `SKILL_LINES_CHANGED`; the union of
-  all characters is cached until they change, and the rules table until
-  `ahCut` or `destroyMode` does). The cache stores raw prices. `Prices.best(vendor,
-  ah, de, minGainPct)` is the one best-value pick (View, History, Core):
-  the AH counts only when it beats vendor by the `ahMinGain` percent.
-  A History entry keeps the Auction from it was saved with (`ahMinGain`):
-  `History.totals` takes ignored items off at it (`History.gainOf`, 0 for
-  older entries) and an opened session values its items the same way. A
-  saved price (`item.price`, History items) has `cut = true` when its `ah`
-  is after the AH cut (`Session.setPrice`, `History.snapshot`; a merge keeps
-  it only when every part was), and only those rows get the cut note.
+  `db.professions[character]` (`Core.noteProfessions` at login, where an empty
+  read keeps a saved set, and on `SKILL_LINES_CHANGED`; the union of all
+  characters is cached until they change, and the rules table until `ahCut` or
+  `destroyMode` does). The cache stores raw prices. `Prices.best(vendor, ah,
+  de, minGainPct)` is the one best-value pick (View, History, Core): the AH
+  counts only when it beats vendor by the `ahMinGain` percent. A History entry
+  keeps the Auction from it was saved with (`ahMinGain`): `History.totals`
+  takes ignored items off at it (`History.gainOf`, 0 for older entries) and an
+  opened session values its items the same way. A saved price (`item.price`,
+  History items) has `cut = true` when its `ah` is after the AH cut
+  (`Session.setPrice`, `History.snapshot`; a merge keeps it only when every
+  part was), and only those rows get the cut note.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
@@ -296,6 +300,7 @@ Each of these is one call in one place; the UI never names them.
   is the instance name alone.
 - **Stopped clock**: `Core.recordLoot`, `recordGold` and `recordCurrency`
   ignore events while the clock is stopped and say so once in chat per stop.
+  The Mobs record does not depend on the clock (see Mobs).
 - **Row lines**: line 2 of a row is `row.detail` when set (History sessions:
   length, gold per hour, item count, place; Zones places: time, gold per
   hour, item count),
@@ -305,8 +310,8 @@ Each of these is one call in one place; the UI never names them.
   (`ah`, `recent`, `perHour`; others work as `ah`). Search (start, length,
   place) and minimum value pick sessions; the opened one always shows, its
   items filtered by quality only. A row's value is the items' best plus raw
-  gold (`Util.goldCounted()`). Row names use `opts.shortDate` (`History.shortDate`),
-  tooltips `opts.formatDate`.
+  gold (`Util.goldCounted()`). Row names use `opts.shortDate`
+  (`History.shortDate`), tooltips `opts.formatDate`.
 - **Zones time**: a zone's time and the footer's rates count every subzone's
   time, also subzones whose loot the filter hides or that have none.
 - **Daily farm** (`View.dailyFarm`): saved History only, valued at current
@@ -367,7 +372,8 @@ Each of these is one call in one place; the UI never names them.
   `graphWidth`). `Widgets.addTooltipLines` adds a rich tooltip to a shown
   GameTooltip (the Session footer tooltip).
 - **Session goals** (`goalGold`, `goalMinutes`): `Core.checkGoals(withValue)`
-  after loot and gold (gold goal) and on the heartbeat (time goal); the pure `Core.goalsReached` decides, `session.goalsNoted` (cleared by
+  after loot and gold (gold goal) and on the heartbeat (time goal); the pure
+  `Core.goalsReached` decides, `session.goalsNoted` (cleared by
   `Session.reset`) keeps each goal from being announced twice. `opts.goal`
   (copper) gives `view.goal` / `compact.goal` = `{ value, goal }`: the
   unfiltered total like compact; `Summary.notesText` shows the percent.
@@ -375,15 +381,15 @@ Each of these is one call in one place; the UI never names them.
   `History.NOTE_MAX` characters, cut on UTF-8 boundaries) follows the start on
   line 1 of the session row and is part of its search text. Entered through
   `Widgets.prompt` (the shared text popup).
-- **Account-wide History**: `LootLedgerDB.histories = { ["Name-Realm"] = list }`.
-  At login `Core.linkHistory` adopts the character's old
+- **Account-wide History**: `LootLedgerDB.histories = { ["Name-Realm"] = list
+  }`. At login `Core.linkHistory` adopts the character's old
   `LootLedgerCharDB.history` into it (`History.adopt`, no duplicates by start)
   and points `ns.chardb.history` at that list; `PLAYER_LOGOUT` drops the alias
   so the list is saved once. Without a character name (tests) History stays
   per character. `Core.zoneHistory()` gives Zones (`ctx.zoneHistory`), the
-  Daily farm and the Zones export every character's lists
-  (`History.combine`, with a change key for the farm cache) or, with
-  `accountZones` off, the character's own.
+  Daily farm and the Zones export every character's lists (`History.combine`,
+  with a change key for the farm cache) or, with `accountZones` off, the
+  character's own.
 - **Merge**: `History.merge(a, b)` builds a new entry from two sessions
   without touching them: earliest start, summed elapsed time (the gap does not
   count), gold, values and currencies; items by key with quantities added and
@@ -408,7 +414,8 @@ Each of these is one call in one place; the UI never names them.
   (15 min) old to now, shown right of the drops title (`Compact.recentText`)
   and in the hover. With a goal, `Compact.goalFraction` sizes a gold bar
   (`sizes.compactGoalBarHeight`) over the divider; it follows a resize on the
-  next redraw.
+  next redraw. It also returns `items`, `gold`, `elapsed`, `top`, `goal` and
+  `graph` for the hover breakdown (`Compact.hint`) over the rate and total.
 - **Hide worthless** (`hideWorthless` -> `opts.hideWorthless`): `collect` and
   the compact drops skip `row.worthless` rows; totals are unchanged (they are
   worth 0).
@@ -425,8 +432,6 @@ Each of these is one call in one place; the UI never names them.
   (`Core.archiveSession` does); the Reset button and `/ll reset`
   (`Header.requestReset` -> `doReset`) then open `Ledger.editNote(entry)`.
   The automatic splits call `Core.resetSession` directly and never ask.
-  It also returns `items`, `gold`, `elapsed`, `top`, `goal` and `graph` for the hover
-  breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
   (`LootLedger<Key>`) in `Ledger.init`; typeface and px sizes change live and
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
@@ -503,16 +508,16 @@ Each of these is one call in one place; the UI never names them.
 - `LootLedgerDB` (account): `profiles` (options per profile; `settings` is the
   active one while logged in and is not saved), `account` (account-wide
   options), `renamed` (old profile name -> new, so other characters follow a
-  rename at their next login), `minimapAngle`, `profilesMigrated` / `accountMigrated` (one-time
-  migrations),
-  `window` (position, full size `width` / `height`, compact size `compact`,
-  `hidden`), `mode` (layout), `tab` and `subtab`, `filter`, `sort` (item
-  lists) and `sorts` (History Sessions / Zones), `optionsWindow` (where the
-  options panel was dragged to, `{ x, y }` from the screen center), `profileUsers`,
-  `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
-  `histories` (every character's History, see "Account-wide History"),
-  `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`, for the
-  option Destroy values).
+  rename at their next login), `minimapAngle`, `profilesMigrated` /
+  `accountMigrated` (one-time migrations), `window` (position, full size
+  `width` / `height`, compact size `compact`, `hidden`), `mode` (layout),
+  `tab` and `subtab`, `filter`, `sort` (item lists) and `sorts` (History
+  Sessions / Zones), `optionsWindow` (where the options panel was dragged to,
+  `{ x, y }` from the screen center), `profileUsers`, `minimapIcon`
+  (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep
+  list) and `histories` (every character's History, see "Account-wide
+  History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
+  for the option Destroy values).
 - `LootLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
   and the bank scan, and `profile` (the name of the profile it uses).
@@ -524,13 +529,14 @@ Each of these is one call in one place; the UI never names them.
 ## Events
 
 `CHAT_MSG_LOOT`, `CHAT_MSG_MONEY`, `CHAT_MSG_CURRENCY`, `QUEST_TURNED_IN`,
-`GET_ITEM_INFO_RECEIVED`, `LOOT_READY` / `LOOT_OPENED` / `LOOT_CLOSED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
-`BAG_UPDATE_DELAYED`, `BANKFRAME_OPENED` / `BANKFRAME_CLOSED`,
-`PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
-`PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
-`ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
-`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the Mobs events
-(`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
+`GET_ITEM_INFO_RECEIVED`, `LOOT_READY` / `LOOT_OPENED` / `LOOT_CLOSED`,
+`PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `BAG_UPDATE_DELAYED`,
+`BANKFRAME_OPENED` / `BANKFRAME_CLOSED`, `PLAYERBANKSLOTS_CHANGED` /
+`PLAYERREAGENTBANKSLOTS_CHANGED`, `PLAYER_REGEN_DISABLED` /
+`PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`, `ZONE_CHANGED` /
+`ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
+`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the Mobs
+events (`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
 `PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`; never
 `COMBAT_LOG_EVENT_UNFILTERED`, which is forbidden on this client), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
@@ -541,7 +547,7 @@ Each of these is one call in one place; the UI never names them.
 `tests/test_*.lua` get the harness as `...` (`h.test`, `h.eq`, `h.near`,
 `h.load`). `tests/test_wiring.lua` boots the whole addon from the `.toc`
 against a stub client (fake frames) and drives real events; add a wiring test
-for anything that crosses files. To keep its ~160 boots fast, the `.toc` files
+for anything that crosses files. To keep its ~170 boots fast, the `.toc` files
 are compiled to bytecode once per run (each boot only loads them into a fresh
 env) and all fake frames share one method table; keep new fake methods in that
 shared table. The real UI can't be tested outside the client:
@@ -552,9 +558,9 @@ anything relying on an unconfirmed client API gets an
 ## Localization
 
 Texts go through `ns.L` (English text as key). A language is one
-`Locales/<locale>.lua` with `ns.Locale.register("<locale>", { ["English"] = "translation" })`,
-listed in the `.toc` after `Locale.lua`. `tests/test_locale.lua` fails on a
-German entry the code no longer uses.
+`Locales/<locale>.lua` with `ns.Locale.register("<locale>", { ["English"] =
+"translation" })`, listed in the `.toc` after `Locale.lua`.
+`tests/test_locale.lua` fails on a German entry the code no longer uses.
 
 ## Packaging
 
@@ -566,4 +572,5 @@ fetches the libraries into `LootLedger/Libs/` (git-ignored) and fills in the
 `.toc` version from the git tag. CI builds the zip on every tag (job `package`)
 and offers a manual `package-dry-run` on any branch, which lists the zip's
 files in the job log. CurseForge upload needs the CI variable
-`CF_API_KEY` and `## X-Curse-Project-ID: <id>` in the `.toc`.
+`CF_API_KEY` and `## X-Curse-Project-ID: <id>` in the `.toc`. The release
+steps are in [CHECKLIST.md](CHECKLIST.md).

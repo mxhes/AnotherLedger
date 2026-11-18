@@ -1,6 +1,6 @@
 # LootLedger
 
-WoW **Forever** (retail engine, Interface 16001) addon in Lua 5.1: a "Session Ledger" window that values everything you loot (vendor, AH, disenchant), with Bags / Bank / History tabs, a compact layout and a Daily farm pick. The addon folder is `LootLedger/` inside the repo.
+WoW **Forever** (retail engine, Interface 16001) addon in Lua 5.1: a "Session Ledger" window that values everything you loot (vendor, AH, disenchant), with Bags / Bank / History tabs (Sessions, Zones, Mobs with drop chances), a compact layout and a Daily farm pick. The addon folder is `LootLedger/` inside the repo.
 
 Docs:
 - `README.md`: player guide (keep it free of texture paths, API names and pixel sizes).
@@ -13,13 +13,13 @@ Docs:
 
 - Tests: `lua tests/run.lua` from the repo root (plain Lua, no client; exit 1 on failure). Run after every change; all must pass. Local `lua` is 5.4; GitLab CI also runs 5.1 (the client's version), so write 5.1 code (no `goto`, `//`, `table.unpack`, integer-only APIs).
 - No build step: the client loads `LootLedger/*.lua` in the order of `LootLedger/LootLedger.toc`. The addon must work without `Libs/` (packager-fetched, git-ignored).
-- Remote: GitLab `origin`, branch `main`. Commits are `feat:` / `fix:` / `refactor:` / `docs:` style, one line summary plus a short body.
+- Remote: GitLab `origin` (https://gitlab.com/mhhenjes/lootledger), branch `main` (protected: changes go in through merge requests; `glab` works on the project). Commits are `feat:` / `fix:` / `refactor:` / `docs:` style, one line summary plus a short body.
 
 ## Architecture
 
 - **Pure vs client code.** Files outside `UI/` are plain Lua; every client call is injected or looked up at call time, so tests load them with `h.load({...})`. Files in `UI/` touch WoW globals only **inside functions**, never at file load.
 - **Namespace.** Every file starts `local ADDON, ns = ...` and publishes one table (`ns.Options`, `ns.UI.Window`, ...). State: `ns.db` (`LootLedgerDB`, account), `ns.chardb` (`LootLedgerCharDB`), `ns.session`, `ns.prices`.
-- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Sources/*, Session, History, Inventory, Options, View, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/Ledger, Core last. Core wires events at login (unknown events are skipped).
+- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Sources/*, Session, Mobs, History, Inventory, Options, Profiles, View, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/Ledger, Core last. Core wires events at login (unknown events are skipped).
 - **Data flow.** `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh` builds a view via the shown tab's `build` (`View.lua`, pure) -> each registered part draws it. Nothing redraws while the window is hidden.
 - **Registries** (add things in one place; UI code never names them): options `Options.define`, price sources `ns.Sources.register`, tabs `ns.UI.Tabs.define`, slash commands `ns.Slash.define`, window parts `ns.UI.Ledger.register`. Details in `docs/DEVELOPMENT.md`.
 - **Items** are keyed by `LootParse.itemKey(link)` (`"<id>:<bonus IDs>"` for variants); `item.id` stays numeric. A row's value is the best of vendor, AH and disenchant (`Prices.best`).
@@ -52,6 +52,8 @@ Docs:
 | fonts | `UI/Fonts.lua`, `Theme.fonts` |
 | translations | `Locale.lua`, `Locales/` |
 | History, Zones, CSV export | `History.lua`, `View.buildHistory`, `UI/Export.lua` |
+| Mobs tab, drop chances | `Mobs.lua`, `Core.snapshotLoot`, `View.buildMobs`, `UI/ItemTooltip.lua` |
+| profiles | `Profiles.lua` |
 | options window / minimap | `Options.lua`, `UI/OptionsPanel.lua`, `UI/Minimap.lua` |
 | data broker / LibDBIcon | `UI/Broker.lua`, `embeds.xml`, `.pkgmeta` |
-| CI / packaging | `.gitlab-ci.yml`, `.pkgmeta` |
+| CI / packaging / release | `.gitlab-ci.yml`, `.pkgmeta`, `docs/CHECKLIST.md` (release steps) |
