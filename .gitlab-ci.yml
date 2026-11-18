@@ -5,9 +5,12 @@
 #            that only one of them accepts).
 # - package: on a tag, builds the zip (and uploads it to CurseForge when the
 #            CI variable CF_API_KEY is set and the .toc has X-Curse-Project-ID).
-# - package-dry-run: manual on main; builds the zip without uploading, to check
-#            the .pkgmeta layout (one LootLedger/ folder with the .toc inside).
-#            Download the zip from the job's artifacts.
+# - package-dry-run: manual on any branch; builds the zip without uploading
+#            and lists its files, to check the .pkgmeta layout (one LootLedger/
+#            folder with the .toc inside). The zip is in the job's artifacts.
+#
+# The packager runs from the repo root (it refuses a top directory that is not
+# a git checkout); .pkgmeta there turns LootLedger/ into the addon folder.
 
 stages:
   - test
@@ -43,13 +46,14 @@ package:
   rules:
     - if: $CI_COMMIT_TAG
   script:
-    - bash /tmp/release.sh -t LootLedger
+    - bash /tmp/release.sh
 
 package-dry-run:
   extends: .packager
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH
       when: manual
       allow_failure: true
   script:
-    - bash /tmp/release.sh -d -t LootLedger
+    - bash /tmp/release.sh -d
+    - unzip -l .release/*.zip

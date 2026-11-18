@@ -494,8 +494,12 @@ German entry the code no longer uses.
 
 ## Packaging
 
-The BigWigs packager with `LootLedger/.pkgmeta` (`-t LootLedger`) fetches the
-libraries into `LootLedger/Libs/` (git-ignored) and fills in the `.toc` version
-from the git tag. CI builds the zip on every tag (job `package`) and offers a
-manual `package-dry-run` on `main`. CurseForge upload needs the CI variable
+The BigWigs packager runs from the repo root (it needs a git checkout as its
+top directory) with the root `.pkgmeta`. It copies the repo to
+`.release/LootLedger/`, and `move-folders` makes the inner `LootLedger/` folder
+the one addon folder of the zip (the docs, tests and CI files are ignored). It
+fetches the libraries into `LootLedger/Libs/` (git-ignored) and fills in the
+`.toc` version from the git tag. CI builds the zip on every tag (job `package`)
+and offers a manual `package-dry-run` on any branch, which lists the zip's
+files in the job log. CurseForge upload needs the CI variable
 `CF_API_KEY` and `## X-Curse-Project-ID: <id>` in the `.toc`.
