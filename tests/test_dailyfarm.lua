@@ -85,6 +85,14 @@ h.test("Compact.rateText: money per hour, a dash per hour without a rate", funct
   h.eq(ns.UI.Compact.rateText(5000.4, ns.Money.format), ns.Money.format(5000) .. "/h")
 end)
 
+h.test("Compact.titleText: why there are no drops; no title with the list turned off", function()
+  local C = ns.UI.Compact
+  h.eq(C.titleText({ drops = { {} }, running = true, dropLimit = 4 }), "Last drops")
+  h.eq(C.titleText({ drops = {}, running = true, dropLimit = 4 }), "No drops yet.")
+  h.eq(C.titleText({ drops = {}, running = true, dropLimit = 0 }), nil)
+  h.eq(C.titleText({ drops = {}, running = false, dropLimit = 0 }), "Paused: click the clock to start.")
+end)
+
 h.test("Compact.totalText and hint: the total against the goal, the breakdown", function()
   local C = ns.UI.Compact
   local f = ns.Money.format

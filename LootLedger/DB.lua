@@ -29,7 +29,9 @@ DB.defaults = {
     goldDisplay = "full",
     -- The game's coin icons in place of the g / s / c letters.
     coinIcons = true,
-    includeGold = true,
+    -- Raw gold (Util.rawGold): "row" (in Total and its own row), "total" (in
+    -- Total only), "apart" (its own row, not in Total) or "off".
+    rawGold = "row",
     refreshSeconds = 30,
     staleHours = 12,
     -- Value rules (Prices.best / Prices lookup rules): AH values after the
@@ -49,9 +51,8 @@ DB.defaults = {
     dailyFarmMinutes = 20,
     -- The Daily farm only picks places whose map fits your level.
     dailyFarmLevel = false,
-    -- Top finds block and the Raw gold row of the footer table.
+    -- Top finds block under the footer table.
     showTopFinds = true,
-    showFooterGold = true,
     -- Compact mode: how many last drops it lists (0..4).
     compactDrops = 4,
     -- Item icon at the left of each list row.
@@ -163,9 +164,6 @@ local function copy(v)
   return out
 end
 
--- Fills missing keys of `saved` from `defaults` (recursively), replaces values
--- whose type differs from the default's, keeps unknown keys. Returns the table
--- to use; never mutates `defaults` and shares no tables with it.
 -- Once: the account-wide options and the minimap angle move out of the old
 -- settings table (which profiles replace) to LootLedgerDB.account and
 -- LootLedgerDB.minimapAngle, keeping the player's values.
@@ -181,6 +179,28 @@ function DB.migrateAccount(db)
   db.accountMigrated = true
 end
 
+-- The old checkboxes "Count raw gold" (includeGold) and "Show raw gold row"
+-- (showFooterGold) of a profile's settings become the dropdown rawGold, with
+-- the same footer; the old keys are dropped.
+function DB.migrateSettings(settings)
+  if type(settings) ~= "table" then return settings end
+  local oldCounted, oldRow = settings.includeGold, settings.showFooterGold
+  if settings.rawGold == nil and (type(oldCounted) == "boolean" or type(oldRow) == "boolean") then
+    -- A missing checkbox was on (both defaulted to true).
+    local counted, row = oldCounted ~= false, oldRow ~= false
+    if counted then
+      settings.rawGold = row and "row" or "total"
+    else
+      settings.rawGold = row and "apart" or "off"
+    end
+  end
+  settings.includeGold, settings.showFooterGold = nil, nil
+  return settings
+end
+
+-- Fills missing keys of `saved` from `defaults` (recursively), replaces values
+-- whose type differs from the default's, keeps unknown keys. Returns the table
+-- to use; never mutates `defaults` and shares no tables with it.
 function DB.applyDefaults(saved, defaults)
   if type(saved) ~= "table" then return copy(defaults) end
   for k, d in pairs(defaults) do

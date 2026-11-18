@@ -160,17 +160,28 @@ Each of these is one call in one place; the UI never names them.
   `Summary.tooltipLines`). The swatch opens the game picker through
   `Widgets.pickColor`.
 - **Footer**: History and Zones show the same table as the Session tab: the
-  listed sessions (or places) added up, rates over their recorded time.
+  listed sessions (or places) added up, rates over their recorded time
+  (Zones: only subzones with time count in the rate, `timedRates` in
+  `View.lua`). `view.scope` (set in `UI/Tabs.lua`) is the footer tooltip's
+  last line: which sessions the numbers count. The raw gold row and whether
+  gold counts in the totals both come from the option `rawGold`
+  (`Util.rawGold()` -> counted, row; `Util.goldCounted()`). `DB.migrateSettings`
+  turns the old `includeGold` / `showFooterGold` booleans into it (in
+  `Profiles.point` and on profile import).
 
 - **Item keys**: `LootParse.itemKey(link)` is the item ID for plain items and
   `"<id>:<sorted bonus IDs>"` for variants; every item map, the price cache and
   row keys use it. Price lookups take `(itemID, link)`.
-- **Value** of a row is the best of vendor, AH and disenchant (`View.best`); it
+- **Value** of a row is the best of vendor, AH and disenchant (`Prices.best`); it
   drives the sort `Value`, Top finds, the minimum filter and the drop alert.
   Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) are never
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
-  (disenchant, mill or prospect), shown as `Destroy`.
+  (disenchant, mill or prospect), shown as `Destroy`; it counts whenever TSM
+  is loaded, whatever the AH price source. A row with no vendor, AH or destroy
+  value gets `worthless = true` and `Rows.rowText` shows a dash for it.
+  `View.itemValue(item, lookup, ahMinGain)` is one item's value the same way
+  (`Core.sessionValue`).
 - **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
   `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
   loot left in a corpse counts for nobody. No kills: registering
@@ -191,7 +202,10 @@ Each of these is one call in one place; the UI never names them.
   Zones entries (the running session included); a mob's `places` count
   corpses like `looted`, and the most counted is its main place. It values each mob's items
   like Zones (the entry's saved price, else live) and sorts by value, per
-  kill or name; `Ledger.mobOpen` is the opened mob.
+  loot (`perLoot` = value / `looted`) or name; `Ledger.mobOpen` is the opened
+  mob. A mob row's `hint` builds its tooltip on hover (looted, value, gold,
+  per loot, its top 3 places, its best drops). The view has no rates, so the
+  footer shows no per hour column.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
@@ -271,7 +285,7 @@ Each of these is one call in one place; the UI never names them.
   (`ah`, `recent`, `perHour`; others work as `ah`). Search (start, length,
   place) and minimum value pick sessions; the opened one always shows, its
   items filtered by quality only. A row's value is the items' best plus raw
-  gold (`includeGold`). Row names use `opts.shortDate` (`History.shortDate`),
+  gold (`Util.goldCounted()`). Row names use `opts.shortDate` (`History.shortDate`),
   tooltips `opts.formatDate`.
 - **Zones time**: a zone's time and the footer's rates count every subzone's
   time, also subzones whose loot the filter hides or that have none.
@@ -311,10 +325,11 @@ Each of these is one call in one place; the UI never names them.
 - **Heartbeat**: one `C_Timer.NewTicker` of `HEARTBEAT_SECONDS` (5 s) runs
   `Core.heartbeat`: the time goal, the zone delay and the rate samples.
 - **Session per zone** (`zoneSession`, `zoneSessionMinutes`): the pure
-  `Core.zoneSwitch(state, place, now, onTaxi, grace)` keeps the session's
+  `Core.zoneSwitch(state, place, now, away, grace)` keeps the session's
   zone and a pending new one (`Core.placeOf` labels, so an instance is a zone
-  too); it says yes once the player stayed `grace` seconds in the new zone, a
-  flight (`UnitOnTaxi`) or a return clears the pending zone.
+  too); it says yes once the player stayed `grace` seconds in the new zone,
+  being away (a flight, `UnitOnTaxi`, or resting, `IsResting`) or a return
+  clears the pending zone.
   `Core.checkZone` runs it on the zone events, loading screens and the
   heartbeat; it splits only with the option on and the clock running (an
   empty session is reset without a chat line). `checkInstance` sets the zone
@@ -364,7 +379,9 @@ Each of these is one call in one place; the UI never names them.
 - **Price per unit** (`unitPrice`): `Rows.rowText` shows the counted source's
   unit value on rows with a quantity above 1.
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
-  gold when `includeGold` is on; the last drops come from `session.recent`.
+  gold when it counts (`Util.goldCounted()`); the last drops come from
+  `session.recent` (`dropLimit` is the option; `Compact.titleText` hides the
+  title at 0).
   It also returns `items`, `gold`, `elapsed`, `top`, `goal` and `graph` for the hover
   breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
@@ -470,8 +487,9 @@ Each of these is one call in one place; the UI never names them.
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
 `SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the Mobs events
-(`LOOT_SLOT_CLEARED`, `COMBAT_LOG_EVENT_UNFILTERED`, `NAME_PLATE_UNIT_ADDED`,
-`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`), the
+(`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
+`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`; never
+`COMBAT_LOG_EVENT_UNFILTERED`, which is forbidden on this client), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 

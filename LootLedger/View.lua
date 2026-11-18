@@ -52,6 +52,7 @@ local L_NO_MATCH = L["Nothing matches the filters. The x next to Sort clears the
 local L_STOPPED = L["The clock is stopped: loot is not counted. Press Start."]
 local L_NO_LOOT = L["No loot yet."]
 local L_NO_HISTORY = L["No saved sessions yet. A session is saved when you reset it."]
+local L_NO_MOBS = L["No mob loot recorded yet. What you loot from mobs and nodes while the clock runs shows here."]
 
 -- A tooltip (ns.Tooltip) with its click hint added at the bottom.
 local function withHint(tip, text)
@@ -93,13 +94,6 @@ function View.isFiltered(filter)
   if type(filter.search) == "string" and filter.search ~= "" then return true end
   if type(filter.qualities) == "table" and not allQualities(filter.qualities) then return true end
   return false
-end
-
--- The best of the three totals and which one it is ("vendor", "ah", "de").
--- Ties prefer vendor, then AH (the surest money).
--- `minGain`: the option Auction from (Prices.best).
-function View.best(vendorTotal, ahTotal, deTotal, minGain)
-  return ns.Prices.best(vendorTotal, ahTotal, deTotal, minGain)
 end
 
 -- How well an item sells, from TSM region data. `t` = { rateGood, rateOk,
@@ -173,7 +167,9 @@ local function makeRow(item, opts)
   local vendorTotal = vendorEach and vendorEach * qty or nil
   local ahTotal = ahEach and ahEach * qty or nil
   local deTotal = deEach and deEach * qty or nil
-  local bestTotal, bestKind = View.best(vendorTotal, ahTotal, deTotal, opts.ahMinGain)
+  -- The best of the three and which one it is (Prices.best: ties prefer
+  -- vendor, then AH; opts.ahMinGain is the option Auction from).
+  local bestTotal, bestKind = ns.Prices.best(vendorTotal, ahTotal, deTotal, opts.ahMinGain)
   local rateLevel, volumeLevel = View.marketLevels(lookup.saleRate, lookup.soldPerDay, opts.market)
 
   return {
@@ -190,8 +186,20 @@ local function makeRow(item, opts)
     ahCut = ahCut and true or false,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
     value = bestTotal or 0,
+    -- Nothing to sell it for (quest items, keys): a vendor price of 0 and no
+    -- AH or destroy value. The row shows a dash instead of "0 Vendor".
+    worthless = vendorEach == 0 and ahEach == nil and deEach == nil,
     lastSeen = item.lastSeen,
   }
+end
+
+-- The best value of a session item ({ id, link, qty, price }) exactly as its
+-- list row counts it: `lookup(itemID, link)` first, the loot-time prices for
+-- what it does not know. `ahMinGain`: the option "Auction from".
+local valueOpts = {}
+function View.itemValue(item, lookup, ahMinGain)
+  valueOpts.lookup, valueOpts.ahMinGain = lookup, ahMinGain
+  return makeRow(item, valueOpts).value
 end
 
 -- `needle` is the lowercased search text, or nil.
@@ -229,6 +237,34 @@ local function descending(field)
   end
 end
 
+-- Descending by row[field]; rows without one last, ties by name then key.
+local function descendingKnown(field)
+  return function(a, b)
+    local ka, kb = a[field], b[field]
+    if ka ~= kb then
+      if ka == nil then return false end
+      if kb == nil then return true end
+      return ka > kb
+    end
+    return byName(a, b)
+  end
+end
+
+-- `inner` with the rows marked sortsLast after the others (Unknown place, a
+-- mob that dropped nothing). Built once per inner order.
+local lastSorts = {}
+local function sortsLastAfter(inner)
+  local s = lastSorts[inner]
+  if not s then
+    s = function(a, b)
+      if a.sortsLast ~= b.sortsLast then return b.sortsLast end
+      return inner(a, b)
+    end
+    lastSorts[inner] = s
+  end
+  return s
+end
+
 -- A new sort order is one entry here plus its label in UI/FilterBar.lua.
 -- "ah" keeps its saved key but sorts by the best value.
 -- "perHour" (History Zones only): places by gold per hour, places without
@@ -238,15 +274,7 @@ local SORTS = {
   vendor = descending("vendorTotal"),
   recent = descending("lastSeen"),
   name = byName,
-  perHour = function(a, b)
-    local ka, kb = a.perHour, b.perHour
-    if ka ~= kb then
-      if ka == nil then return false end
-      if kb == nil then return true end
-      return ka > kb
-    end
-    return byName(a, b)
-  end,
+  perHour = descendingKnown("perHour"),
 }
 
 local byValue = descending("value")
@@ -414,6 +442,21 @@ local function addGold(view, goldTotal, includeGold)
     view.combined = { vendor = totals.vendor + goldTotal, ah = totals.ah + goldTotal,
       best = totals.best + goldTotal }
   end
+  return view
+end
+
+-- Sets the rates of `view` from part of its totals only: `timed` = { vendor,
+-- ah, best, gold } of the places with recorded time, over their `seconds`.
+-- Loot without time (old sessions) counts in the amounts, not in the rates.
+local function timedRates(view, timed, seconds, includeGold)
+  local part = addGold({ totals = { vendor = timed.vendor, ah = timed.ah, best = timed.best } },
+    timed.gold, includeGold)
+  View.applyRates(part, seconds)
+  local t, pt = view.totals, part.totals
+  t.vendorPerHour, t.ahPerHour, t.bestPerHour = pt.vendorPerHour, pt.ahPerHour, pt.bestPerHour
+  view.gold.perHour = part.gold.perHour
+  local c, pc = view.combined, part.combined
+  c.vendorPerHour, c.ahPerHour, c.bestPerHour = pc.vendorPerHour, pc.ahPerHour, pc.bestPerHour
   return view
 end
 
@@ -587,8 +630,6 @@ local function placeLabel(key)
   return key
 end
 
-local function placePerHour(value, seconds) return ns.History.perHour(value, seconds) end
-
 local function newSlot() return { time = 0, gold = 0, items = {}, pos = {} } end
 
 -- Adds the valid position sums of `src` ({ [mapID] = { x, y, n } }) to `dst`.
@@ -756,14 +797,16 @@ end
 -- Line 1: the name; line 2 (`detail`): time, gold per hour and item count.
 -- The tooltip is built on hover. `last`: the row sorts after the others
 -- (Unknown place, No time recorded).
+-- No "+ / -" before the name: the indent shows the level, the tooltip the
+-- click, and long place names keep the room (the window is narrow).
 local function placeRow(p, label, open, indent, clickText, last)
   local parts = {}
   if p.time > 0 then parts[#parts + 1] = ns.History.duration(p.time) end
   if p.perHour then parts[#parts + 1] = ns.Money.format(ns.Money.roundRate(p.perHour)) .. L_PER_HOUR end
   parts[#parts + 1] = ns.History.itemCount(p.count)
   return {
-    id = 0, key = p.key, zoneKey = p.zoneKey, subKey = p.subKey,
-    name = indent .. (open and "- " or "+ ") .. View.shortPlace(label), detail = indent .. detailText(parts),
+    id = 0, key = p.key, zoneKey = p.zoneKey, subKey = p.subKey, open = open,
+    name = indent .. View.shortPlace(label), detail = indent .. detailText(parts),
     sortName = lower(label), quality = 1, sortsLast = last or false,
     vendorTotal = p.vendor, ahTotal = p.ah, bestLineTotal = p.value,
     value = p.value, perHour = p.perHour, placeTime = p.time, lastSeen = p.lastSeen,
@@ -771,21 +814,9 @@ local function placeRow(p, label, open, indent, clickText, last)
   }
 end
 
--- The place sorts: rows marked sortsLast after the others, then the chosen
--- order. Built once per sort key.
-local placeSorts = {}
+-- The place sorts: rows marked sortsLast after the others, then the chosen order.
 local function placeSort(key)
-  key = SORTS[key] and key or "ah"
-  local s = placeSorts[key]
-  if not s then
-    local inner = SORTS[key]
-    s = function(a, b)
-      if a.sortsLast ~= b.sortsLast then return b.sortsLast end
-      return inner(a, b)
-    end
-    placeSorts[key] = s
-  end
-  return s
+  return sortsLastAfter(SORTS[key] or SORTS.ah)
 end
 
 local function maxSeen(rows)
@@ -813,6 +844,9 @@ function View.buildZones(entries, opts, open)
   local zones, quest = aggregateZones(entries, opts.isQuest)
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(opts.filter) }
   local goldSum, timeSum = 0, 0
+  -- The listed places with recorded time: the footer's rates divide only
+  -- their value by timeSum, like the zone rows (timedValue).
+  local timed = { vendor = 0, ah = 0, best = 0, gold = 0 }
 
   local zoneRows, opened = {}, nil
   for zone, subs in pairs(zones) do
@@ -830,7 +864,7 @@ function View.buildZones(entries, opts, open)
         local sp = { key = "s:" .. zone .. "\1" .. sub, zoneKey = zone, subKey = sub, time = s.time,
           gold = s.gold, value = t.best + gold, vendor = t.vendor, ah = t.ah, count = #items,
           lastSeen = maxSeen(items) }
-        if sp.time > 0 then sp.perHour = placePerHour(sp.value, sp.time) end
+        if sp.time > 0 then sp.perHour = ns.History.perHour(sp.value, sp.time) end
         subRows[#subRows + 1] = placeRow(sp, placeLabel(sub), isOpen, "    ", L_CLICK_OPEN,
           sub == View.NO_TIME_SUB)
         if pick.zone == zone and pick.sub == sub then subRows[#subRows].daily = true end
@@ -846,10 +880,14 @@ function View.buildZones(entries, opts, open)
           unpricedNames[#unpricedNames + 1] = name
         end
         goldSum = goldSum + s.gold
+        if s.time > 0 then
+          timed.vendor, timed.ah, timed.best = timed.vendor + t.vendor, timed.ah + t.ah, timed.best + t.best
+          timed.gold = timed.gold + s.gold
+        end
       end
     end
     if #subRows > 0 then
-      if zp.time > 0 then zp.perHour = placePerHour(zp.timedValue, zp.time) end
+      if zp.time > 0 then zp.perHour = ns.History.perHour(zp.timedValue, zp.time) end
       local isOpen = open.zone == zone
       local row = placeRow(zp, placeLabel(zone), isOpen, "", L_CLICK_SUBZONES, zone == View.UNKNOWN_ZONE)
       if pick.zone == zone then row.daily = true end
@@ -887,44 +925,29 @@ function View.buildZones(entries, opts, open)
     headerInfo = #zoneRows > 0 and ns.History.placeCount(#zoneRows) or nil }
   if totals.unpriced > 0 then totals.unpricedNames = unpricedNames end
   addGold(view, goldSum, opts.includeGold)
-  return View.applyRates(view, timeSum)
+  return timedRates(view, timed, timeSum, opts.includeGold)
 end
 
 -- ---------------------------------------------------------------------------
 -- History Mobs: every mob (by NPC ID) and node (by object ID) of the saved
 -- sessions plus the running one: what it dropped (valued like Zones: saved
--- prices first), its gold, kills and looted count, and the value per kill
--- (per time looted for nodes and mobs without kills). The search and the
--- minimum value pick mobs; the qualities filter their items. The mob at
--- `openKey` lists its items under it.
+-- prices first), its gold, how often it was looted and the value per loot
+-- (corpse or node; kills are not known on this client, Mobs.lua). The search
+-- and the minimum value pick mobs; the qualities filter their items. The mob
+-- at `openKey` lists its items under it.
 
-local L_N_KILLS, L_ONE_KILL = L[" kills"], L["1 kill"]
 local L_N_LOOTED = L[" looted"]
-local L_EACH = L[" each"]
+local L_PER_LOOT = L[" per loot"]
 local L_NPC, L_OBJECT = L["NPC %s"], L["Object %s"] -- a mob or node never named
 local mobOpts, mobFilter = {}, {}
 
-local function perKill(a, b)
-  local ka, kb = a.perKill, b.perKill
-  if ka ~= kb then
-    if ka == nil then return false end
-    if kb == nil then return true end
-    return ka > kb
-  end
-  return byName(a, b)
-end
-
-local MOB_SORTS = { ah = SORTS.ah, name = SORTS.name, perKill = perKill }
+local MOB_SORTS = { ah = SORTS.ah, name = SORTS.name, perLoot = descendingKnown("perLoot") }
 
 -- Under the value sorts a mob that dropped nothing goes last; by name the
 -- order is plain.
 local function mobSort(key)
-  local inner = MOB_SORTS[key] or MOB_SORTS.ah
-  if key == "name" then return inner end
-  return function(a, b)
-    if a.sortsLast ~= b.sortsLast then return b.sortsLast end
-    return inner(a, b)
-  end
+  if key == "name" then return MOB_SORTS.name end
+  return sortsLastAfter(MOB_SORTS[key] or MOB_SORTS.ah)
 end
 
 -- The source item of `key` for a mob's loot: the entry's own item (its saved
@@ -945,6 +968,46 @@ local function mainPlace(places)
   return best
 end
 
+-- The places of a mob, most loot first (ties by name), at most `n`.
+local function topPlaces(places, n)
+  local list = {}
+  for p, count in pairs(places) do list[#list + 1] = { name = p, n = count } end
+  table.sort(list, function(a, b)
+    if a.n ~= b.n then return a.n > b.n end
+    return a.name < b.name
+  end)
+  for i = #list, n + 1, -1 do list[i] = nil end
+  return list
+end
+
+local L_LOOTED = L["Looted: "]
+local L_PER_LOOT_LABEL = L["Per loot: "]
+local L_WHERE = L["Where"]
+local L_BEST_DROPS = L["Best drops"]
+local MOB_TIP_LINES = 3
+
+-- A mob row's tooltip (ns.Tooltip): how often it was looted, its value, raw
+-- gold and value per loot, where it was looted most and its best drops.
+-- `fig` = { looted, value, gold, perLoot, places, items (its item rows) }.
+local function mobHint(fig, label, open)
+  local Tip = ns.Tooltip
+  local tip = Tip.new(label)
+  Tip.pair(tip, L_LOOTED, tostring(fig.looted))
+  Tip.money(tip, L_VALUE, fig.value)
+  if fig.gold > 0 then Tip.money(tip, L_RAW_GOLD, fig.gold) end
+  if fig.perLoot then Tip.money(tip, L_PER_LOOT_LABEL, math.floor(fig.perLoot + 0.5)) end
+  local places = topPlaces(fig.places, MOB_TIP_LINES)
+  if #places > 0 then
+    Tip.section(tip, L_WHERE)
+    for _, p in ipairs(places) do Tip.pair(tip, p.name, p.n .. L_N_LOOTED) end
+  end
+  local best = topRows(fig.items, MOB_TIP_LINES)
+  if #best > 0 then Tip.section(tip, L_BEST_DROPS) end
+  for _, r in ipairs(best) do Tip.money(tip, r.name .. " x" .. r.quantity, r.value) end
+  Tip.hint(tip, open and L_CLICK_CLOSE or L_CLICK_OPEN)
+  return tip
+end
+
 function View.buildMobs(entries, opts, openKey)
   opts = opts or {}
   if type(entries) ~= "table" then entries = {} end
@@ -961,16 +1024,16 @@ function View.buildMobs(entries, opts, openKey)
   for _, e in ipairs(entries) do
     if type(e) == "table" and type(e.mobs) == "table" then
       for key, m in pairs(e.mobs) do
-        if type(key) == "string" and type(m) == "table" and num(m.kills) and num(m.looted) and num(m.gold) then
+        if type(key) == "string" and type(m) == "table" and num(m.looted) and num(m.gold) then
           local a = all[key]
           if not a then
-            a = { kind = m.kind == "node" and "node" or "npc", kills = 0, looted = 0, gold = 0, items = {}, places = {} }
+            a = { kind = m.kind == "node" and "node" or "npc", looted = 0, gold = 0, items = {}, places = {} }
             all[key] = a
           end
           -- The newest name: the first History entry's, the running session's
           -- (last) over all.
           if type(m.name) == "string" and m.name ~= "" and (a.name == nil or e.live) then a.name = m.name end
-          a.kills, a.looted, a.gold = a.kills + m.kills, a.looted + m.looted, a.gold + m.gold
+          a.looted, a.gold = a.looted + m.looted, a.gold + m.gold
           for itemKey, qty in pairs(type(m.items) == "table" and m.items or NO_LOOKUP) do
             local src = num(qty) and qty > 0 and mobItemSource(e, itemKey)
             if src then addZoneItem(a.items, src, itemKey, qty) end
@@ -990,26 +1053,22 @@ function View.buildMobs(entries, opts, openKey)
     local items, t = collect(a.items, mobOpts)
     local gold = withGold and a.gold or 0
     local value = t.best + gold
-    local per = a.kills > 0 and a.kills or a.looted
     local label = a.name or ((a.kind == "node" and L_OBJECT or L_NPC):format(key:match(":(%d+)$") or "?"))
     local isOpen = key == openKey
-    local parts = {}
-    if a.kills > 0 then
-      parts[#parts + 1] = a.kills == 1 and L_ONE_KILL or (a.kills .. L_N_KILLS)
-    else
-      parts[#parts + 1] = a.looted .. L_N_LOOTED
-    end
-    local perValue = per > 0 and value / per or nil
-    if perValue then parts[#parts + 1] = ns.Money.format(math.floor(perValue + 0.5)) .. L_EACH end
+    local perLoot = a.looted > 0 and value / a.looted or nil
+    local parts = { a.looted .. L_N_LOOTED }
+    if perLoot then parts[#parts + 1] = ns.Money.format(math.floor(perLoot + 0.5)) .. L_PER_LOOT end
     local place = mainPlace(a.places)
     if place then parts[#parts + 1] = View.shortPlace(place) end
+    local fig = { looted = a.looted, value = value, gold = a.gold, perLoot = perLoot, places = a.places,
+      items = items }
     local row = {
-      id = 0, key = "m:" .. key, mobKey = key, kills = a.kills, looted = a.looted, perKill = perValue,
+      id = 0, key = "m:" .. key, mobKey = key, looted = a.looted, perLoot = perLoot,
       name = (isOpen and "- " or "+ ") .. label, detail = detailText(parts), sortName = lower(label),
       quality = 1, sortsLast = value <= 0,
       vendorTotal = t.vendor, ahTotal = t.ah, bestLineTotal = value, value = value,
       icon = a.kind == "node" and ns.Theme.textures.node or ns.Theme.textures.mob,
-      hint = isOpen and L_CLICK_CLOSE or L_CLICK_OPEN,
+      hint = function() return mobHint(fig, label, isOpen) end,
     }
     local shown = isOpen or (value >= minValue
       and (not needle or string.find(row.sortName, needle, 1, true) ~= nil
@@ -1033,7 +1092,7 @@ function View.buildMobs(entries, opts, openKey)
     if r ~= opened then rows[#rows + 1] = r end
   end
   local view = { rows = rows, top = {}, totals = totals, kind = "mobs", history = true,
-    empty = View.emptyText(rows, filter, L_NO_HISTORY),
+    empty = View.emptyText(rows, filter, L_NO_MOBS),
     headerInfo = #mobRows > 0 and ns.History.mobCount(#mobRows) or nil }
   addGold(view, goldSum, opts.includeGold)
   return View.applyRates(view, 0)
@@ -1099,7 +1158,7 @@ function View.dailyFarm(entries, opts, minSeconds)
         if sub ~= View.NO_TIME_SUB and s.time > 0 and s.time >= minSeconds then
           local rows, t = collect(s.items, farmOpts)
           local value = t.best + (withGold and s.gold or 0)
-          local perHour = placePerHour(value, s.time)
+          local perHour = ns.History.perHour(value, s.time)
           -- A place that earned nothing is never worth going to (and its row
           -- would not exist in Zones to open).
           local pos = spotOf(s.pos)
@@ -1131,7 +1190,7 @@ end
 -- running state and the last drops, each row worth that drop's own quantity.
 -- The rest is for the hover breakdown: the items' value, the raw gold, the
 -- clock, the best find and the session goal (opts.goal).
---   { total, perHour, running, drops = { row, ... }, items, gold, elapsed,
+--   { total, perHour, running, drops = { row, ... }, dropLimit, items, gold, elapsed,
 --     top = row or nil, goal = { value, goal } or nil }
 
 View.COMPACT_DROPS = 4
@@ -1208,7 +1267,7 @@ function View.buildCompact(session, opts)
     end
   end
   return { total = total, perHour = ns.History.perHour(total, elapsed), running = session.running and true or false,
-    drops = drops, items = t.best, gold = gold, elapsed = elapsed, top = topRows(rows, 1)[1],
+    drops = drops, dropLimit = limit, items = t.best, gold = gold, elapsed = elapsed, top = topRows(rows, 1)[1],
     goal = View.goalProgress(total, opts.goal), graph = View.rateGraph(session.samples) }
 end
 
@@ -1265,7 +1324,7 @@ function View.zoneTable(entries, opts)
       if #rows > 0 or gold > 0 or s.time > 0 then
         local value = t.best + gold
         out[#out + 1] = { zone = placeLabel(zone), sub = placeLabel(sub), time = s.time, value = value,
-          gold = s.gold, perHour = placePerHour(value, s.time), count = #rows }
+          gold = s.gold, perHour = ns.History.perHour(value, s.time), count = #rows }
       end
     end
   end

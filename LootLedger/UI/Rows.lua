@@ -13,6 +13,7 @@ local TEXT = {
   QTY = ns.L["x"],
   BOUND = ns.L["bound"],
   UNPRICED = "?",
+  WORTHLESS = "\226\128\147", -- en dash: an item nothing pays for
   EACH = ns.L[" each"],
   KEPT = ns.L["(kept)"],
   AH_CUT = ns.L[" (after 5% AH cut)"],
@@ -85,7 +86,9 @@ function Rows.rowText(row, formatMoney, unitPrice)
       unpriced = false, tag = nil, tagStale = false }
   end
   local amount, source, copper
-  if row.bestLineTotal ~= nil then
+  if row.worthless then
+    amount = TEXT.WORTHLESS
+  elseif row.bestLineTotal ~= nil then
     copper = row.bestLineTotal
   elseif row.bestKind ~= nil then
     source = row.bestKind

@@ -73,6 +73,14 @@ h.test("Rows.tooltipLink: the row link, else an item string, else nil", function
   h.eq(ns.UI.Rows.tooltipLink(nil), nil)
 end)
 
+h.test("rowText: a worthless item shows a dash without a source tag", function()
+  local t = R.rowText({ name = "Powder Keg", quantity = 1, vendorEach = 0, vendorTotal = 0, bestTotal = 0,
+    bestKind = "vendor", value = 0, worthless = true, bound = true }, ns.Money.format, false)
+  h.eq(t.amount, "\226\128\147")
+  h.eq(t.source, nil)
+  h.eq(t.copper, nil)
+end)
+
 h.test("rowText: a row's detail fills line 2, no quantity shows none", function()
   local t = R.rowText({ name = "+ Today 9:00", detail = "1h 0m", bestLineTotal = 100, rateLevel = "good" },
     ns.Money.format)

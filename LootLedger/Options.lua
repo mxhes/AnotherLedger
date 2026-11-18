@@ -13,6 +13,8 @@ local L = ns.L
 --     label   = "Opacity",            -- short; the details go in tooltip
 --     tooltip = "Fades the window...", -- shown on hover with the default (Options.tooltip)
 --     zeroText = "Off",               -- number: text of 0 (optional)
+--     withPrevious = true,            -- never starts a panel column (optional:
+--                                     -- the second of a pair stays with the first)
 --     tooltipExtra = function() -> text or nil, -- a live line for the tooltip (optional)
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = L["A"] }, ... }, -- dropdown (or a function returning that list)
@@ -69,18 +71,6 @@ Options.CATEGORIES = {
   { id = "look", label = L["Look"] },
   { id = "profiles", label = L["Profiles"] },
 }
-
--- What the panel shows, top to bottom: for every section a header entry
--- ({ key = "header:<id>", type = "header", label }) followed by its options in
--- the order they were defined. Empty sections are left out.
-function Options.entries()
-  local out = {}
-  for _, section in ipairs(Options.sections()) do
-    out[#out + 1] = { key = "header:" .. section.id, type = "header", label = section.label }
-    for _, spec in ipairs(section.specs) do out[#out + 1] = spec end
-  end
-  return out
-end
 
 -- The sections in panel order, each { id, label, specs = { spec, ... } }: one
 -- tab of the options panel each. Empty sections are left out; options without
@@ -285,10 +275,12 @@ function Options.layout(specs, columns)
   for i, spec in ipairs(specs) do
     local h = Options.HEIGHTS[spec.type]
     -- A header counts together with the entry under it, and that entry never
-    -- starts a column by itself.
+    -- starts a column by itself; nor does an option marked `withPrevious`
+    -- (the second of a pair, e.g. the medium volume under the high one).
     local need = h
     if spec.type == "header" and specs[i + 1] then need = h + Options.GAP + Options.HEIGHTS[specs[i + 1].type] end
-    if col < columns and y > 0 and not (previous and previous.type == "header") and y + need / 2 > per then
+    local bound = spec.withPrevious or (previous and previous.type == "header")
+    if col < columns and y > 0 and not bound and y + need / 2 > per then
       height = math.max(height, y - Options.GAP)
       col, y = col + 1, 0
     end
@@ -382,7 +374,7 @@ Options.define({
   key = "priceSource", category = "prices",
   type = "dropdown",
   label = L["AH price source"],
-  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator."],
+  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator. TSM's sale info and destroy values count whenever TSM is loaded."],
   -- "Auto" plus every registered price source (Sources/Sources.lua).
   choices = function() return ns.Sources.choices() end,
   apply = refreshUI,
@@ -465,6 +457,7 @@ Options.define({ key = "soldHigh", category = "prices", type = "number", label =
   apply = ordered("soldHigh", "soldMedium", "soldHigh") })
 Options.define({ key = "soldMedium", category = "prices", type = "number", label = L["Medium volume from"],
   tooltip = L["Average number sold per day from which an item is Medium volume. Below it, Low volume."],
+  withPrevious = true, -- stays under High volume from, in the same column
   apply = ordered("soldHigh", "soldMedium", "soldMedium") })
 
 Options.define({
@@ -563,9 +556,16 @@ Options.define({
   end,
 })
 
+-- Util.rawGold: counted in the totals, and the footer's own Raw gold row.
 Options.define({
-  key = "includeGold", category = "display", type = "checkbox", label = L["Count raw gold"],
-  tooltip = L["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the History sessions, the place values of Zones and the Daily farm. Off leaves the Total row out."],
+  key = "rawGold", category = "display", type = "dropdown", label = L["Raw gold"],
+  tooltip = L["The gold you loot. In Total: it counts in the totals (the footer's Total row, the compact window, the minimap button text, History sessions, Zones and the Daily farm). Own row: the footer lists it apart. Not counted leaves it out everywhere."],
+  choices = {
+    { value = "row", label = L["In Total, own row"] },
+    { value = "total", label = L["In Total only"] },
+    { value = "apart", label = L["Own row, not in Total"] },
+    { value = "off", label = L["Not counted"] },
+  },
   apply = refreshUI,
 })
 
@@ -669,13 +669,6 @@ Options.define({
 Options.define({
   key = "showTopFinds", category = "display", type = "checkbox", label = L["Top finds"],
   tooltip = L["Shows the session's three most valuable finds under the footer."],
-  apply = refreshUI,
-})
-
--- Off: the footer table has no Raw gold row (Total still follows includeGold).
-Options.define({
-  key = "showFooterGold", category = "display", type = "checkbox", label = L["Show raw gold row"],
-  tooltip = L["Shows the Raw gold row in the footer table."],
   apply = refreshUI,
 })
 

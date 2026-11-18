@@ -144,6 +144,23 @@ h.test("decode skips unknown and invalid", function()
   h.eq(back, nil)
 end)
 
+h.test("decode reads the old raw gold checkboxes of an older export as the dropdown", function()
+  local back, taken = P.decode("LP1:alpha=0.5;includeGold=f")
+  h.eq(back, { alpha = 0.5, rawGold = "apart" })
+  h.eq(taken, 2)
+  back = P.decode("LP1:showFooterGold=f")
+  h.eq(back, { rawGold = "total" })
+end)
+
+h.test("a saved profile with the old raw gold checkboxes is migrated at login", function()
+  local db = { settings = {}, profilesMigrated = true,
+    profiles = { [P.DEFAULT] = { includeGold = false, showFooterGold = false } } }
+  P.init(db, {})
+  h.eq(db.settings.rawGold, "off")
+  h.eq(db.settings.includeGold, nil)
+  h.eq(O.get(db, "rawGold"), "off")
+end)
+
 h.test("decode rejects garbage", function()
   for _, bad in ipairs({ "", "hello", "LP2:alpha=1", "LP1:nope=1", "LP1:", 5 }) do
     local back, err = P.decode(bad)

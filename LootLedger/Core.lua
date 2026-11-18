@@ -123,9 +123,11 @@ function Core.buildPrices(env, db, now, getKey)
     -- Sale rate / sold per day: from the first source that offers them, not
     -- gated by the price source option (TSM data also helps next to Auctionator).
     if not market and spec.createMarket then market = spec.createMarket(env, setting) end
-    -- Disenchant value: from the first source that offers one.
+    -- Disenchant value: from the first source that offers one. Not gated
+    -- either: only TSM has destroy values, and AH source = Auctionator must
+    -- not quietly turn them off (the option Destroy values decides).
     if not disenchant and spec.createDisenchant then
-      disenchant = Sources.gate(spec.createDisenchant(env, setting), spec.key, selected).get
+      disenchant = spec.createDisenchant(env, setting).get
     end
   end
 
@@ -243,17 +245,18 @@ function Core.unitValue(info)
   return (ns.Prices.best(info.vendor, info.ah, info.de, ns.Util.setting("ahMinGain", 0)))
 end
 
--- What a session is worth now: every item at its best unit value plus the raw
--- gold (copper; `withoutGold`: the items only). Ignored items do not count.
--- Reset asks first above Session.LARGE_SESSION_VALUE.
+-- What a session is worth now: every item valued like its list row (live
+-- prices, else the ones seen at loot time) plus the raw gold (copper;
+-- `withoutGold`: the items only). Ignored items do not count. Reset asks
+-- first above Session.LARGE_SESSION_VALUE.
 function Core.sessionValue(session, withoutGold)
   if type(session) ~= "table" then return 0 end
   local total = withoutGold and 0 or ns.Session.goldTotal(session)
   local ignored = Core.ignoredItems()
+  local gain = ns.Util.setting("ahMinGain", 0)
   for _, it in pairs(session.items or {}) do
-    if type(it) == "table" and ns.Util.isNumber(it.qty) and not ignored[it.id] then
-      local unit = Core.unitValue(Core.lookupPrice(it.id, it.link))
-      if unit then total = total + unit * it.qty end
+    if type(it) == "table" and ns.Util.isNumber(it.id) and ns.Util.isNumber(it.qty) and not ignored[it.id] then
+      total = total + ns.View.itemValue(it, Core.lookupPrice, gain)
     end
   end
   return total
@@ -467,7 +470,6 @@ end
 -- Pure. The goals newly reached: { gold = bool, time = bool }. `value` is
 -- copper (nil: not checked), `elapsed` seconds; goals of 0 or less are off.
 function Core.goalsReached(value, elapsed, goalGold, goalMinutes, noted)
-  local num = ns.Util.isNumber
   noted = type(noted) == "table" and noted or {}
   local out = { gold = false, time = false }
   if num(goalGold) and goalGold > 0 and num(value) and value >= goalGold * 10000 and noted.gold ~= goalGold then
@@ -498,7 +500,7 @@ function Core.checkGoals(withValue)
   local elapsed = ns.Session.elapsed(session, time())
   local value
   if withValue and ns.Util.isNumber(goalGold) and goalGold > 0 and noted.gold ~= goalGold then
-    value = Core.sessionValue(session, not setting("includeGold", true))
+    value = Core.sessionValue(session, not ns.Util.goldCounted())
   end
   local reached = Core.goalsReached(value, elapsed, goalGold, goalMinutes, noted)
   if not (reached.gold or reached.time) then return end
@@ -509,7 +511,7 @@ function Core.checkGoals(withValue)
   if reached.time then
     noted.time = goalMinutes
     say(string.format(L["%d minutes farmed: the session is worth %s."], goalMinutes,
-      ns.Money.format(Core.sessionValue(session, not setting("includeGold", true)))))
+      ns.Money.format(Core.sessionValue(session, not ns.Util.goldCounted()))))
   end
   session.goalsNoted = noted
   alertSound()
@@ -522,7 +524,7 @@ function Core.sampleRate()
   if type(session) ~= "table" or session.demo or not session.running then return end
   local elapsed = ns.Session.elapsed(session, time())
   if not ns.Session.sampleDue(session, elapsed) then return end
-  ns.Session.addSample(session, elapsed, Core.sessionValue(session, not ns.Util.setting("includeGold", true)))
+  ns.Session.addSample(session, elapsed, Core.sessionValue(session, not ns.Util.goldCounted()))
 end
 
 -- Every HEARTBEAT_SECONDS (a ticker set up at login).
@@ -621,7 +623,6 @@ end
 -- Pure. Copper gained during a loot window beyond what the messages counted;
 -- 0 when nothing is missing or the amounts are unusable.
 function Core.missingGold(startMoney, endMoney, chatCopper)
-  local num = ns.Util.isNumber
   if not (num(startMoney) and num(endMoney)) then return 0 end
   local missing = (endMoney - startMoney) - (num(chatCopper) and chatCopper or 0)
   return missing > 0 and math.floor(missing) or 0
@@ -724,7 +725,7 @@ function Core.archiveSession(session)
   if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
   History.add(ns.chardb.history, entry, limit)
   if ns.Util.setting("sessionChat", false) then
-    say(Core.sessionSummary(entry, ns.Util.setting("includeGold", true)))
+    say(Core.sessionSummary(entry, ns.Util.goldCounted()))
   end
 end
 
@@ -958,14 +959,12 @@ end
 
 local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
-  local previous = lastInstance
+  local changed = Core.instanceChanged(lastInstance, key)
   lastInstance = key
+  if not changed then return end
   -- Option "showInInstance": open inside, close again on leaving.
-  if Core.instanceChanged(previous, key) then
-    if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
-  end
+  if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
-  if not Core.instanceChanged(previous, key) then return end
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
   if hasLoot(ns.session) and shortNow(ns.session) then return end -- continues
   Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
@@ -974,10 +973,11 @@ end
 -- Option "zoneSession". Pure decision over `state` = { zone, pending, since }
 -- (the session's zone, a new zone the player is in and since when): returns
 -- true once the player stayed `grace` seconds in another zone; then that zone
--- is the session's. A flight (`onTaxi`) never counts, nor does a zone left
--- again before the grace time is over.
-function Core.zoneSwitch(state, place, now, onTaxi, grace)
-  if onTaxi then
+-- is the session's. A flight or a rest in a city or inn (`away`) never
+-- counts, nor does a zone left again before the grace time is over: selling
+-- in Orgrimmar does not end the Badlands session.
+function Core.zoneSwitch(state, place, now, away, grace)
+  if away then
     state.pending, state.since = nil, nil
     return false
   end
@@ -1004,8 +1004,9 @@ function Core.checkZone()
   if not (session and ns.db) then return end
   local place = Core.placeOf(_G, difficulties)
   local onTaxi = type(UnitOnTaxi) == "function" and UnitOnTaxi("player") and true or false
+  local resting = type(IsResting) == "function" and IsResting() and true or false
   local grace = ns.Options.get(ns.db, "zoneSessionMinutes") * 60
-  if not Core.zoneSwitch(zoneState, place, time(), onTaxi, grace) then return end
+  if not Core.zoneSwitch(zoneState, place, time(), onTaxi or resting, grace) then return end
   if not (ns.Options.get(ns.db, "zoneSession") and session.running) then return end
   if hasLoot(session) then
     if shortNow(session) then return end -- continues in the new zone

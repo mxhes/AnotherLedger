@@ -21,7 +21,7 @@ ns.UI = ns.UI or {}
 --     sorts = { "ah", ... },         -- optional: the sorts the view offers; the
 --                                    -- view then keeps its own sort (Tabs.sortSlot)
 --     defaultSort = "recent",        -- optional: its first sort (else sorts[1])
---     subtabs = { { key, label, build, hasItem?, sorts?, defaultSort? }, ... }, -- optional:
+--     subtabs = { { key, label, title?, build, hasItem?, sorts?, defaultSort? }, ... }, -- optional:
 --       a second tab row while this tab is shown; the first is the default and
 --       the selected one builds the view (saved in db.subtab[key]).
 --   })
@@ -58,8 +58,10 @@ function Tabs.label(key)
   return Tabs.get(key).label
 end
 
-function Tabs.title(key)
-  return Tabs.get(key).title
+-- The window title of tab `key`: its sub-tab's own title (`subKey`), else the tab's.
+function Tabs.title(key, subKey)
+  local sub = Tabs.subtab(key, subKey)
+  return sub and sub.title or Tabs.get(key).title
 end
 
 -- Sub-tabs of a tab, or nil.
@@ -195,10 +197,23 @@ local function savedHistory(ctx)
   return type(history) == "table" and history or {}
 end
 
+-- What a History view adds up, for the footer tooltip (view.scope): Sessions
+-- this character's saved sessions; Zones and Mobs also the running one, and
+-- every character's with the option "accountZones" (Zones: all characters).
+local L_SCOPE_OWN = L["Counts this character's saved sessions."]
+local L_SCOPE_ZONES = L["Counts this character's saved sessions and the running one."]
+local L_SCOPE_ALL = L["Counts every character's saved sessions and the running one (option Zones: all characters)."]
+
+local function zoneScope()
+  return ns.Util.setting("accountZones", true) and L_SCOPE_ALL or L_SCOPE_ZONES
+end
+
 local function buildSessions(ctx)
   local history, ledger = savedHistory(ctx), ctx.ledger
   if ledger.historyIndex and not history[ledger.historyIndex] then ledger.historyIndex = nil end
-  return ns.View.buildHistory(history, ctx.opts, ledger.historyIndex)
+  local view = ns.View.buildHistory(history, ctx.opts, ledger.historyIndex)
+  view.scope = L_SCOPE_OWN
+  return view
 end
 
 local function sessionsHasItem(itemID, ctx)
@@ -244,14 +259,16 @@ Tabs.define({
     { key = "sessions", label = L["Sessions"], build = buildSessions, hasItem = sessionsHasItem,
       sorts = { "ah", "recent", "perHour" }, defaultSort = "recent" },
     {
-      key = "zones", label = L["Zones"],
+      key = "zones", label = L["Zones"], title = L["Zone History"],
       sorts = { "ah", "perHour", "vendor", "name", "recent" },
       build = function(ctx)
         local ledger = ctx.ledger
         if type(ledger.zoneOpen) ~= "table" then ledger.zoneOpen = {} end
         local entries = zoneEntries(ctx)
         zoneItemIDs = itemIDsOf(entries)
-        return ns.View.buildZones(entries, ctx.opts, ledger.zoneOpen)
+        local view = ns.View.buildZones(entries, ctx.opts, ledger.zoneOpen)
+        view.scope = zoneScope()
+        return view
       end,
       -- Item info arrives in bursts (hundreds at login): look the item up in
       -- the IDs of the last build instead of gathering every History again.
@@ -261,12 +278,14 @@ Tabs.define({
     },
     -- Mobs: what each mob and node dropped, over the same sessions as Zones.
     {
-      key = "mobs", label = L["Mobs"],
-      sorts = { "ah", "perKill", "name" },
+      key = "mobs", label = L["Mobs"], title = L["Mob History"],
+      sorts = { "ah", "perLoot", "name" },
       build = function(ctx)
         local entries = zoneEntries(ctx)
         zoneItemIDs = itemIDsOf(entries)
-        return ns.View.buildMobs(entries, ctx.opts, ctx.ledger.mobOpen)
+        local view = ns.View.buildMobs(entries, ctx.opts, ctx.ledger.mobOpen)
+        view.scope = zoneScope()
+        return view
       end,
       hasItem = function(itemID)
         return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true

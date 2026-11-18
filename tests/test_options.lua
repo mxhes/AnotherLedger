@@ -12,10 +12,10 @@ h.test("Options: the built-in options are registered in panel order", function()
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "showOnLoot", "showInInstance", "hideInCities", "startHidden", "combatHide",
     "keepSession", "countCrafted", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "ahCut", "ahMinGain", "destroyMode", "defaultSort",
-    "goldDisplay", "coinIcons", "includeGold",
+    "goldDisplay", "coinIcons", "rawGold",
     "sessionChat", "afkPause", "cityPause", "instanceSession", "zoneSession", "zoneSessionMinutes", "minSessionMinutes",
     "alertGold", "alertSound", "goalGold", "goalMinutes",
-    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "showFooterGold", "compactDrops",
+    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "compactDrops",
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit",
@@ -228,23 +228,6 @@ h.test("Options: historyLimit apply prunes the saved history", function()
   ns.History, ns.chardb = nil, nil
 end)
 
-h.test("Options.entries: a header per section, every option exactly once, in section order", function()
-  local entries = O.entries()
-  local headers, seen, section = {}, {}, nil
-  for _, e in ipairs(entries) do
-    if e.type == "header" then
-      headers[#headers + 1] = e.label
-      section = e.key:match("^header:(.+)$")
-    else
-      h.eq(seen[e.key], nil, e.key)
-      seen[e.key] = true
-      h.eq(e.category, section, e.key) -- listed under its own section
-    end
-  end
-  h.eq(headers, { "Window", "Prices", "List", "Session", "History", "Look" })
-  for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
-end)
-
 h.test("Options.sections: one per category in order, every option once, in its own section", function()
   local ids, seen = {}, {}
   for _, s in ipairs(O.sections()) do
@@ -260,30 +243,35 @@ h.test("Options.sections: one per category in order, every option once, in its o
   for _, s in ipairs(O.list()) do h.eq(seen[s.key], true, s.key) end
 end)
 
-h.test("Options.entries: an option without a known category goes to Other", function()
+h.test("Options.sections: an option without a known category goes to Other", function()
   local spec = O.define({ key = "zzTest", type = "checkbox", label = "T" })
-  local entries = O.entries()
-  h.eq(entries[#entries - 1].label, "Other")
-  h.eq(entries[#entries].key, "zzTest")
+  local sections = O.sections()
+  h.eq(sections[#sections].label, "Other")
+  h.eq(sections[#sections].specs, { spec })
   for i, s in ipairs(O.specs) do if s == spec then table.remove(O.specs, i) end end
   O.byKey.zzTest = nil
 end)
 
-h.test("Options.layout: a header always sits right above its first option, also across columns", function()
-  local entries = O.entries()
-  local L = O.layout(entries, 2)
-  for i, e in ipairs(entries) do
-    if e.type == "header" then
-      local nextEntry = entries[i + 1]
-      h.eq(L.cols[nextEntry.key], L.cols[e.key], e.key)
-      h.eq(L.tops[nextEntry.key], L.tops[e.key] + O.HEIGHTS.header + O.GAP, e.key)
-    end
-  end
+h.test("Options.layout: a header or a withPrevious option never starts a column", function()
+  local specs = {
+    { key = "a", type = "slider" }, { key = "b", type = "slider" },
+    { key = "h", type = "header" }, { key = "c", type = "slider" },
+    { key = "d", type = "slider" }, { key = "e", type = "slider", withPrevious = true },
+  }
+  local L = O.layout(specs, 2)
+  h.eq(L.cols.c, L.cols.h)
+  h.eq(L.tops.c, L.tops.h + O.HEIGHTS.header + O.GAP)
+  h.eq(L.cols.e, L.cols.d)
+  -- the Prices tab: Medium volume from stays under High volume from
+  local prices
+  for _, s in ipairs(O.sections()) do if s.id == "prices" then prices = s.specs end end
+  local P = O.layout(prices, 2)
+  h.eq(P.cols.soldMedium, P.cols.soldHigh)
 end)
 
 h.test("Options: Top finds and the Raw gold footer row show by default", function()
   h.eq(O.get(db(), "showTopFinds"), true)
-  h.eq(O.get(db(), "showFooterGold"), true)
+  h.eq(O.get(db(), "rawGold"), "row")
 end)
 
 h.test("Options: compact mode shows 4 last drops by default (0..4)", function()
@@ -485,9 +473,13 @@ h.test("Reset colors goes back to the chosen preset's colors", function()
   ns.db = nil
 end)
 
-h.test("raw gold options have names that tell them apart", function()
-  h.eq(O.spec("includeGold").label, "Count raw gold")
-  h.eq(O.spec("showFooterGold").label, "Show raw gold row")
+h.test("raw gold is one dropdown: counted in Total and its own row, each on or off", function()
+  h.eq(O.spec("rawGold").type, "dropdown")
+  h.eq(O.spec("includeGold"), nil)
+  h.eq(O.spec("showFooterGold"), nil)
+  local values = {}
+  for _, c in ipairs(O.choices(O.spec("rawGold"))) do values[#values + 1] = c.value end
+  h.eq(values, { "row", "total", "apart", "off" })
 end)
 
 h.test("Session tab: drop alert and both goals stand together in one column", function()

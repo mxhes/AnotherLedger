@@ -63,6 +63,15 @@ function Compact.totalText(c, formatMoney, hint)
   return text
 end
 
+-- Pure. The title over the drops: "Last drops", else why the list is empty;
+-- nil (no title) while the clock runs and the option "Compact: last drops" is 0.
+function Compact.titleText(c)
+  if type(c.drops) == "table" and #c.drops > 0 then return L_LAST_DROPS end
+  if not c.running then return L_PAUSED end
+  if c.dropLimit == 0 then return nil end
+  return L_NO_DROPS
+end
+
 -- Pure. The hover breakdown of the rate and total (ns.Tooltip): the clock,
 -- the items, the raw gold, the total and its rate, the best find and the goal.
 function Compact.hint(c)
@@ -105,13 +114,10 @@ function part:Update(view)
   local W = ns.UI.Widgets
   if Compact.hover and W.tooltipOwnedBy(Compact.hover) then W.showTextTooltip(Compact.hover, Compact.hint(c)) end
 
-  -- Without drops the title line says why the list is empty.
   local drops = c.drops or {}
-  if #drops > 0 then
-    Compact.dropsTitle:SetText(L_LAST_DROPS)
-  else
-    Compact.dropsTitle:SetText(c.running and L_NO_DROPS or L_PAUSED)
-  end
+  local title = Compact.titleText(c)
+  Compact.dropsTitle:SetText(title or "")
+  Compact.dropsTitle:SetShown(title ~= nil)
   local cells = {}
   for i = 1, MAX_DROPS do
     local w = Compact.drops[i]

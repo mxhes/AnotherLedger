@@ -915,11 +915,11 @@ h.test("wiring: footer table height follows the tab and the raw gold option", fu
   h.eq(summary.cells.total.value:IsShown(), true)
   h.eq(summary.cells.items.rate:IsShown(), true)
   h.eq(summary.titles.value:IsShown(), true)
-  ctx.ns.Options.set(ctx.ns.db, "includeGold", false)
+  ctx.ns.Options.set(ctx.ns.db, "rawGold", "apart")
   L.refresh()
   h.eq(footer:GetHeight(), 54)
   h.eq(summary.cells.total.label:IsShown(), false)
-  ctx.ns.Options.set(ctx.ns.db, "includeGold", true)
+  ctx.ns.Options.set(ctx.ns.db, "rawGold", "row")
   L.refresh()
   h.eq(footer:GetHeight(), 72)
   h.eq(ctx.errors, {})
@@ -1141,6 +1141,12 @@ h.test("wiring: the options panel builds a widget for every registered option", 
   for _, spec in ipairs(ctx.ns.Options.list()) do
     h.eq(P.frame.widgets[spec.key] ~= nil, true, spec.key)
   end
+  -- A color shows its hex code; a number option of 0 shows its zeroText.
+  h.eq(P.colorLabel("Text", "ffffff"):find("#ffffff", 1, true) ~= nil, true)
+  h.eq(P.colorLabel("Text", nil), "Text")
+  local goal = P.frame.widgets.goalGold
+  goal.refresh()
+  h.eq(goal.controls[1]:GetText(), ctx.ns.L["Off"])
   P.toggle() -- closes
   h.eq(ctx.errors, {})
   h.eq(ctx.ns.UI.Ledger.frame.header ~= nil, true)
@@ -1809,15 +1815,21 @@ h.test("wiring: with LibDataBroker and LibDBIcon the button is LibDBIcon's", fun
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ns.UI.Broker.update()
   h.eq(type(objects.LootLedger.text), "string")
-  -- The broker total follows "Raw gold in Total".
+  -- The broker total follows the option Raw gold.
   ns.Core.recordGold(50000)
   local function total(includeGold)
     return ns.UI.Broker.summary(ns.session, ns.Core.lookupPrice, ctx.now, includeGold).total
   end
   h.eq(total(true) - total(false), 50000)
-  ns.Options.set(ns.db, "includeGold", false)
+  ns.Options.set(ns.db, "rawGold", "apart")
   ns.UI.Broker.update()
   h.eq(objects.LootLedger.text, ns.UI.Broker.text({ total = total(false) }, ns.Money.formatColored))
+  -- "Auction from" counts in the broker like in the window: AH 120 must beat
+  -- vendor 100 by 50 %.
+  local s = { running = false, elapsedBase = 3600, gold = 0, items = { [7] = { id = 7, key = 7, qty = 1 } } }
+  local function lookup() return { vendor = 100, ah = 120 } end
+  h.eq(ns.UI.Broker.summary(s, lookup, ctx.now, false, 0).total, 120)
+  h.eq(ns.UI.Broker.summary(s, lookup, ctx.now, false, 50).total, 100)
   h.eq(ctx.errors, {})
 end)
 
@@ -2181,7 +2193,7 @@ h.test("wiring: hiding Top finds and the Raw gold row takes effect at once", fun
   h.eq(W.frame.topBox:IsShown(), false)
   ctx.ns.Options.set(ctx.ns.db, "showTopFinds", true)
   h.eq(W.frame.topBox:IsShown(), true)
-  ctx.ns.Options.set(ctx.ns.db, "showFooterGold", false)
+  ctx.ns.Options.set(ctx.ns.db, "rawGold", "total")
   h.eq(ctx.ns.UI.Summary.tableLayout(ctx.ns.UI.Ledger.view).rows, { "items", "total" })
   h.eq(ctx.errors, {})
 end)
@@ -3273,7 +3285,7 @@ h.test("wiring: History > Mobs lists the mobs of History and the running session
   Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
   h.eq(Ledger.mobOpen, "npc:2546")
   h.eq(Ledger.view.rows[2].id, 2589)
-  h.eq(ctx.ns.UI.FilterBar.sortLabel("perKill", ns.UI.Tabs.sorts("history", "mobs")), ns.L["Per kill"])
+  h.eq(ctx.ns.UI.FilterBar.sortLabel("perLoot", ns.UI.Tabs.sorts("history", "mobs")), ns.L["Per loot"])
   h.eq(ctx.errors, {})
 end)
 

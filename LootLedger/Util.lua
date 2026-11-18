@@ -50,6 +50,19 @@ function Util.setting(key, fallback)
   return v
 end
 
+-- Option "rawGold": whether looted raw gold counts in the totals, and whether
+-- the footer table shows its own Raw gold row. Returns counted, row.
+local RAW_GOLD = { row = { true, true }, total = { true, false }, apart = { false, true }, off = { false, false } }
+function Util.rawGold()
+  local mode = RAW_GOLD[Util.setting("rawGold", "row")] or RAW_GOLD.row
+  return mode[1], mode[2]
+end
+
+-- Whether raw gold counts in the totals (option "rawGold").
+function Util.goldCounted()
+  return (Util.rawGold())
+end
+
 local PREFIX = "|cff33ff99LootLedger|r: "
 
 -- Chat line with the addon prefix.

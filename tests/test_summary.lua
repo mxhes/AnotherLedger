@@ -121,8 +121,15 @@ h.test("table worst case fits the minimum window width", function()
   h.eq(S.tableWorstWidth() <= T.minWidth - 2 * (T.padding + 4), true)
 end)
 
-h.test("notesText: History lists have no ? marks to point at", function()
-  h.eq(S.notesText({ history = true, totals = { unpriced = 2 } }), "2 unpriced")
+h.test("notesText: Zones and Mobs say where the unpriced items are, like Bags", function()
+  h.eq(S.notesText({ history = true, kind = "zones", totals = { unpriced = 2 } }), "2 unpriced (marked ?)")
+end)
+
+h.test("tooltipLines end with what a History view counts, as a wrapping line", function()
+  local lines = S.tooltipLines({ kind = "zones", history = true, totals = { best = 1 }, scope = "Counts X." }, M.format)
+  h.eq(lines[#lines][1], "Counts X.")
+  h.eq(lines[#lines].wrap, true)
+  h.eq(S.tooltipLines({ totals = {} }, M.format)[1].wrap, nil)
 end)
 
 h.test("tooltipLines keep the per hour suffix on rates", function()
@@ -132,8 +139,8 @@ h.test("tooltipLines keep the per hour suffix on rates", function()
   h.eq(found, true)
 end)
 
-h.test("tableLayout: showFooterGold off drops the Raw gold row", function()
-  ns.Options, ns.db = { get = function(_, key) if key == "showFooterGold" then return false end end }, {}
+h.test("tableLayout: raw gold In Total only drops the Raw gold row", function()
+  ns.Options, ns.db = { get = function(_, key) if key == "rawGold" then return "total" end end }, {}
   local ok, err = pcall(function()
     h.eq(S.tableLayout({ totals = {} }).rows, { "items", "total" })
     h.eq(S.tableLayout({ noCombined = true, totals = {} }).rows, { "items" })
