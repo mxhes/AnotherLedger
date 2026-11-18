@@ -164,7 +164,9 @@ row and price. Currencies are listed after the items.
   you looted it most and its best drops. Loot is credited
   when you take it from the loot window (also with auto loot or a fast loot
   addon), split by corpse when one window
-  holds several; loot you leave in a corpse counts for nobody. Kills are not
+  holds several; loot you leave in a corpse counts for nobody. Mobs counts
+  even while the clock is stopped (the session's own lists and totals don't;
+  a session with only mob loot is still saved to History). Kills are not
   counted: the game does not let addons read the combat log. A mob's coin counts what you got of it, so in a group
   your share. A mob or node whose name was never seen shows its number. Only loot taken while the clock runs counts, and sessions
   saved before this version have no mob data.

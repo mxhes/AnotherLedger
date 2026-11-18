@@ -415,7 +415,7 @@ local function notCounted()
   if not ns.session or ns.session.running then return false end
   if not pausedNoted then
     pausedNoted = true
-    say(L["the clock is stopped: loot is not counted. /ll start or the Start button starts it."])
+    say(L["the clock is stopped: loot is not counted (History > Mobs still counts it). /ll start or the Start button starts it."])
   end
   return true
 end
@@ -898,11 +898,11 @@ function Core.autoWindow(action, reason, option)
   else W.autoUndo(reason) end
 end
 
--- Mobs are recorded only while loot counts: a running clock (resting
--- included), not in demo mode.
+-- Mobs are recorded whether the clock runs or not (History > Mobs is about
+-- what a mob drops, not about the session's worth); never in demo mode.
 function Core.mobsCounting()
   local session = ns.session
-  return session ~= nil and session.running and not session.demo and type(session.mobs) == "table" or false
+  return session ~= nil and not session.demo and type(session.mobs) == "table" or false
 end
 
 -- Reads every slot of the loot window that just opened (Mobs.readSlot).
@@ -1221,8 +1221,6 @@ end
 -- the like) take every slot on LOOT_READY, so by LOOT_OPENED the slots are
 -- empty and their LOOT_SLOT_CLEARED may already have fired: the window is
 -- read here, and LOOT_OPENED reads it only when LOOT_READY did not.
--- UNVERIFIED (check in client): LOOT_READY fires on this client and the slots
--- still read in the frame a fast loot addon calls LootSlot.
 local readByReady = false
 
 function events.LOOT_READY()

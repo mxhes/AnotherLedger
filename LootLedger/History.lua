@@ -105,7 +105,10 @@ function History.snapshot(session, lookup, now, minGain)
     end
   end
   local gold = nonNeg(session.gold)
-  if count == 0 and nCurrencies == 0 and gold <= 0 then return nil end
+  -- Mob loot counts with the clock stopped too (Core.mobsCounting), so a
+  -- session with only that is saved as well (History > Mobs needs it).
+  local hasMobs = type(session.mobs) == "table" and next(session.mobs) ~= nil
+  if count == 0 and nCurrencies == 0 and gold <= 0 and not hasMobs then return nil end
   local elapsed = nonNeg(session.elapsedBase)
   if session.running and num(session.runningSince) and num(now) and ns.Session and ns.Session.elapsed then
     local ok, v = pcall(ns.Session.elapsed, session, now)

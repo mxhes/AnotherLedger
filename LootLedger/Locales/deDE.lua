@@ -338,7 +338,7 @@ ns.Locale.register("deDE", {
   ["Your bags are empty."] = "Deine Taschen sind leer.",
   ["Your bank is empty."] = "Deine Bank ist leer.",
   ["Not scanned yet. Open your bank once to scan it."] = "Noch nicht erfasst. Öffne einmal deine Bank, um sie zu erfassen.",
-  ["the clock is stopped: loot is not counted. /ll start or the Start button starts it."] = "die Uhr steht: Beute wird nicht gezählt. /ll start oder der Start-Knopf startet sie.",
+  ["the clock is stopped: loot is not counted (History > Mobs still counts it). /ll start or the Start button starts it."] = "die Uhr steht: Beute wird nicht gezählt (Verlauf > Gegner zählt sie trotzdem). /ll start oder der Start-Knopf startet sie.",
   ["No drops yet."] = "Noch keine Beute.",
   ["Paused: click the clock to start."] = "Pausiert: Klick auf die Uhr startet.",
 

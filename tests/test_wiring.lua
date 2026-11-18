@@ -3379,6 +3379,33 @@ h.test("wiring: a fast loot addon empties the window on LOOT_READY; the mob stil
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: mob loot counts with the clock stopped and is saved with the session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  slash(ctx, "stop")
+  h.eq(ns.session.running, false)
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = MOB }, { money = 100, guid = MOB } })
+  fire(ctx, "LOOT_READY", true)
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_SLOT_CLEARED", 2)
+  fire(ctx, "LOOT_OPENED", true)
+  fire(ctx, "LOOT_CLOSED")
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(m.items[2589], 2); h.eq(m.gold, 100); h.eq(m.looted, 1)
+  -- the session itself counted nothing
+  h.eq(next(ns.session.items), nil)
+  -- Reset keeps the mob loot in History, so History > Mobs still lists it
+  slash(ctx, "reset")
+  local history = ctx.env.LootLedgerCharDB.history
+  h.eq(#history, 1)
+  h.eq(history[1].mobs["npc:2546"].items[2589], 2)
+  ns.UI.Ledger.setTab("history")
+  ns.UI.Ledger.setSubtab("mobs")
+  h.eq(ns.UI.Ledger.view.rows[1].mobKey, "npc:2546")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: loot is credited without kills; unknown names get a fallback", function()
   local ctx = boot()
   startWorld(ctx, false)

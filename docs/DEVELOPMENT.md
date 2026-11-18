@@ -199,8 +199,9 @@ Each of these is one call in one place; the UI never names them.
   History entry's, the running session's over all). Coin slots wait for
   `settleLoot`, which scales them (`Mobs.scaleMoney`) to the copper the
   window actually brought (chat plus the money change), so a group's split
-  counts your share. Only while
-  loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
+  counts your share. Recorded with the clock stopped too, never in demo
+  mode (`Core.mobsCounting`); `History.snapshot` saves a session that has
+  only mob loot. Stored in `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
   Zones entries (the running session included); a mob's `places` count
   corpses like `looted`, and the most counted is its main place. It values each mob's items
