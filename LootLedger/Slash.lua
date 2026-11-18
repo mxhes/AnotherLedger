@@ -175,18 +175,18 @@ Slash.define({
 })
 
 -- What /ll export copies: the History list (default), the running session's
--- items or the History Zones places.
-local EXPORTS = { history = "history", session = "session", zones = "zones" }
+-- items, the History Zones places or the History Mobs.
+local EXPORTS = { history = "history", session = "session", zones = "zones", mobs = "mobs" }
 
 Slash.define({
   name = "export",
-  help = L["/ll export [session | zones] - copy the History (or the session, or Zones) as CSV"],
+  help = L["/ll export [session | zones | mobs] - copy the History (or the session, Zones or Mobs) as CSV"],
   run = function(arg)
     local Export = ns.UI and ns.UI.Export
     if not Export then return end
     local what = EXPORTS[arg and arg:lower() or "history"]
     if not what then
-      say(L["usage: /ll export [session | zones]"])
+      say(L["usage: /ll export [session | zones | mobs]"])
       return
     end
     Export[what]()

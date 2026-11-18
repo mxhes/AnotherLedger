@@ -162,6 +162,24 @@ function Core.buildPrices(env, db, now, getKey)
   })
 end
 
+-- One chat line, once per account, when no auction price addon is loaded
+-- (Sources `present`): without one every item counts at its vendor price.
+-- `db.priceHintShown` is cleared again once an addon is found, so removing it
+-- later brings the hint back once. Returns whether it printed.
+local L_NO_PRICE_ADDON = L["No auction price addon found: items count at their vendor price. Install TSM or Auctionator for auction and destroy values."]
+
+function Core.priceAddonHint(env, db, say)
+  if type(db) ~= "table" then return false end
+  if ns.Sources.anyPresent(env) then
+    db.priceHintShown = nil
+    return false
+  end
+  if db.priceHintShown then return false end
+  db.priceHintShown = true
+  say(L_NO_PRICE_ADDON)
+  return true
+end
+
 -- Destroy professions (Enchanting, Inscription, Jewelcrafting) of the
 -- logged-in character: { enchanting = true, ... }. GetProfessions returns the
 -- profession indices; GetProfessionInfo's 7th return is the skill line.
@@ -714,7 +732,7 @@ end
 -- Saves a finished session to the History tab (per character). Empty sessions
 -- and sessions with demo loot (fake, `session.demo`) are skipped; the History
 -- option decides how many are kept. With the option "sessionChat" a chat
--- line sums the session up.
+-- line sums the session up. Returns the saved entry, or nil.
 function Core.archiveSession(session)
   local History = ns.History
   if not ns.chardb or not History or type(session) ~= "table" or session.demo then return end
@@ -727,6 +745,7 @@ function Core.archiveSession(session)
   if ns.Util.setting("sessionChat", false) then
     say(Core.sessionSummary(entry, ns.Util.goldCounted()))
   end
+  return entry
 end
 
 -- ---------------------------------------------------------------------------
@@ -848,14 +867,16 @@ function Core.undoDelete()
   return n
 end
 
--- `message` (optional) replaces the chat line.
+-- `message` (optional) replaces the chat line. Returns the History entry the
+-- session became, or nil (empty, demo or History off).
 function Core.resetSession(message)
   if ns.Demo then ns.Demo.restoreCache(ns.db) end
-  if not ns.session then return end
-  Core.archiveSession(ns.session)
+  if not ns.session then return nil end
+  local entry = Core.archiveSession(ns.session)
   ns.Session.reset(ns.session, time())
   say(message or L["session reset."])
   refreshUI()
+  return entry
 end
 
 -- Option "instanceSession": a loading screen that enters or leaves an
@@ -1125,6 +1146,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
     ns.Session.start(ns.session, now)
   end
   ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)
+  Core.priceAddonHint(_G, ns.db, ns.Util.say)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
   Core.updatePlace()

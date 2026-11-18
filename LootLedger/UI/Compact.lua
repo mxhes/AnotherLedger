@@ -26,6 +26,8 @@ local L_GOLD_PER_HOUR = L["Gold per hour: "]
 local L_NO_RATE = L["Gold per hour shows after the first minute."]
 local L_BEST_FIND = L["Best find: "]
 local L_GOAL = L["Goal: "]
+local L_RECENT = L["15 min: "]
+local L_RECENT_TIP = L["Last 15 minutes: "]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_DROPS = 4
 
@@ -72,8 +74,23 @@ function Compact.titleText(c)
   return L_NO_DROPS
 end
 
+-- Pure. The text right of the drops title: the gold per hour of the last 15
+-- minutes ("15 min: 120g/h"), nil before the session is that old.
+function Compact.recentText(c, formatMoney)
+  if not c.recent then return nil end
+  return L_RECENT .. (formatMoney or ns.Money.format)(ns.Money.roundRate(c.recent)) .. L_PER_HOUR
+end
+
+-- Pure. How much of the session goal is reached (0 to 1), nil without a goal.
+function Compact.goalFraction(c)
+  local g = c.goal
+  if type(g) ~= "table" or not (type(g.goal) == "number" and g.goal > 0) then return nil end
+  return math.max(0, math.min(1, (g.value or 0) / g.goal))
+end
+
 -- Pure. The hover breakdown of the rate and total (ns.Tooltip): the clock,
--- the items, the raw gold, the total and its rate, the best find and the goal.
+-- the items, the raw gold, the total, its rate and the last 15 minutes' rate,
+-- the best find and the goal.
 function Compact.hint(c)
   local Tip = ns.Tooltip
   local tip = Tip.new(L_SESSION)
@@ -83,6 +100,7 @@ function Compact.hint(c)
   Tip.money(tip, L_TOTAL, c.total or 0)
   if c.perHour then
     Tip.rate(tip, L_GOLD_PER_HOUR, c.perHour)
+    if c.recent then Tip.rate(tip, L_RECENT_TIP, c.recent) end
   else
     Tip.note(tip, L_NO_RATE)
   end
@@ -118,6 +136,17 @@ function part:Update(view)
   local title = Compact.titleText(c)
   Compact.dropsTitle:SetText(title or "")
   Compact.dropsTitle:SetShown(title ~= nil)
+  Compact.recent:SetText(Compact.recentText(c) or "")
+  -- The goal bar: its share of the area's width (a resize catches up on the
+  -- next redraw, at the latest the next clock tick).
+  local frac = Compact.goalFraction(c)
+  local width = Compact.area:GetWidth() or 0
+  if frac and frac > 0 and width > 0 then
+    Compact.goalBar:SetWidth(math.max(1, math.floor(width * frac + 0.5)))
+    Compact.goalBar:Show()
+  else
+    Compact.goalBar:Hide()
+  end
   local cells = {}
   for i = 1, MAX_DROPS do
     local w = Compact.drops[i]
@@ -216,10 +245,26 @@ function Compact.attach(area)
   line:SetPoint("TOPLEFT", area, "TOPLEFT", 0, -28)
   line:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -28)
 
+  -- Session goal progress over the divider, from the left.
+  local goalBar = W.line(area, T.colors.gold, "OVERLAY")
+  goalBar:SetHeight(S.compactGoalBarHeight)
+  goalBar:SetPoint("BOTTOMLEFT", line, "BOTTOMLEFT", 0, 0)
+  goalBar:Hide()
+  Compact.goalBar = goalBar
+
   local title = W.text(area, T.fonts.small, T.colors.hint, "LEFT")
   title:SetPoint("TOPLEFT", area, "TOPLEFT", 0, -32)
   title:SetText(L_LAST_DROPS)
   Compact.dropsTitle = title
+
+  -- The last 15 minutes' rate, right of the title.
+  local recent = W.text(area, T.fonts.small, T.colors.hint, "RIGHT")
+  recent:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -32)
+  if recent.SetWordWrap then recent:SetWordWrap(false) end
+  Compact.recent = recent
+  -- A long title (Paused: ...) ends before the rate instead of under it.
+  title:SetPoint("RIGHT", recent, "LEFT", -S.rowNameGap, 0)
+  if title.SetWordWrap then title:SetWordWrap(false) end
 
   Compact.drops = {}
   for i = 1, MAX_DROPS do

@@ -74,4 +74,5 @@ ns.Sources.register({
   createMarket = function(env)
     return function(itemID, link) return TSM.market(env, itemID, link) end
   end,
+  present = function(env) return type(env) == "table" and type(env.TSM_API) == "table" end,
 })

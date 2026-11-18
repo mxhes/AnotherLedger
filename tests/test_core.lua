@@ -66,6 +66,22 @@ h.test("Core.evalKey needs both parts and survives errors", function()
   }), nil)
 end)
 
+h.test("Core.priceAddonHint: once without TSM or Auctionator, again after one went", function()
+  local said = {}
+  local say = function(msg) said[#said + 1] = msg end
+  local db = {}
+  h.eq(Core.priceAddonHint({}, db, say), true)
+  h.eq(#said, 1)
+  h.eq(said[1]:find("TSM or Auctionator", 1, true) ~= nil, true)
+  h.eq(Core.priceAddonHint({}, db, say), false) -- only once
+  -- either addon loaded: no line, and the mark is cleared
+  h.eq(Core.priceAddonHint({ TSM_API = {} }, db, say), false)
+  h.eq(db.priceHintShown, nil)
+  h.eq(Core.priceAddonHint({ Auctionator = { API = {} } }, db, say), false)
+  h.eq(#said, 1)
+  h.eq(Core.priceAddonHint({}, db, say), true)
+end)
+
 h.test("Core.buildPrices wires sources, vendor, live TSM source and cache", function()
   local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
   db.settings.ahCut = false -- raw AH prices here (the cut has its own test)

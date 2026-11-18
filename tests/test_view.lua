@@ -338,7 +338,8 @@ h.test("View.buildHistory: one row per archived session with totals", function()
   local v = ns.View.buildHistory(list, { formatDate = function(t) return "d" .. t end })
   h.eq(#v.rows, 2)
   h.eq(v.rows[1].name, "+ d200"); h.eq(v.rows[1].historyIndex, 1)
-  h.eq(v.rows[1].detail, "1h 0m \194\183 3 items"); h.eq(v.rows[1].quantity, nil)
+  -- line 2: length, gold per hour, item count
+  h.eq(v.rows[1].detail, "1h 0m \194\183 1s 40c/h \194\183 3 items"); h.eq(v.rows[1].quantity, nil)
   -- the row's amount is the best value plus the raw gold
   h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, nil); h.eq(v.rows[1].bestLineTotal, 140)
   h.eq(v.rows[2].historyIndex, 2)
@@ -375,7 +376,12 @@ h.test("View.buildHistory: the place joins the name, the details the hint", func
   }
   local v = ns.View.buildHistory(list, { formatDate = function() return "D" end })
   h.eq(v.rows[1].name, "+ D")
-  h.eq(v.rows[1].detail, "1h 0m \194\183 1 item \194\183 The Stonevault (Heroic)")
+  h.eq(v.rows[1].detail, "1h 0m \194\183 1g/h \194\183 1 item \194\183 The Stonevault (Heroic)")
+  -- too short for a rate: no rate part
+  list[1].elapsed = 30
+  h.eq(ns.View.buildHistory(list, { formatDate = function() return "D" end }).rows[1].detail,
+    "30s \194\183 1 item \194\183 The Stonevault (Heroic)")
+  list[1].elapsed = 3600
   h.eq(v.rows[1].value, 10150)
   h.eq(ns.View.buildHistory(list, { includeGold = false }).rows[1].value, 150)
   h.eq(v.totals.best, 150)
@@ -968,6 +974,15 @@ h.test("View: an item nothing pays for is worthless; View.itemValue counts like 
   h.eq(byId[4].worthless, true)
   h.eq(byId[4].value, 0)
   h.eq(byId[1].worthless, false)
+  -- option "Hide worthless": the row goes, the totals stay
+  local hidden = V.build(s, opts({ hideWorthless = true }))
+  h.eq(#hidden.rows, 1); h.eq(hidden.rows[1].id, 1)
+  h.eq(hidden.totals.best, V.build(s, opts()).totals.best)
+  -- the compact drops leave it out too
+  s.recent = { { key = 4, qty = 1, at = 9 }, { key = 1, qty = 1, at = 8 } }
+  h.eq(#V.buildCompact(s, opts()).drops, 2)
+  local drops = V.buildCompact(s, opts({ hideWorthless = true })).drops
+  h.eq(#drops, 1); h.eq(drops[1].id, 1)
   -- a vendor price of 0 next to an AH price is not worthless
   PRICES[4] = { vendor = 0, ah = 50 }
   h.eq(V.build(s, opts()).rows[2].worthless, false)
@@ -1282,6 +1297,21 @@ h.test("View.buildMobs adds up a mob over entries, value per loot, empty mobs la
   for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
   h.eq(byKey["npc:1"].value, 60)
   h.eq(#V.buildMobs(nil, {}).rows, 0)
+end)
+
+h.test("View.mobsCsv: one line per mob by value, no filter", function()
+  local entries = {
+    mobEntry({ ["npc:1"] = mob(0, 3, 60, { [1] = 4 }, { Riverglades = 1, Hills = 3 }, "Kobold"),
+      ["obj:9"] = mob(0, 4, 0, { [2] = 4 }, { Mine = 4 }, "Copper Vein", "node") }, { [1] = 4, [2] = 4 }),
+  }
+  local csv = V.mobsCsv(entries, { filter = { search = "nothing" } })
+  local lines = {}
+  for l in csv:gmatch("[^\n]+") do lines[#lines + 1] = l end
+  h.eq(lines[1], V.MOBS_CSV_HEADER)
+  h.eq(#lines, 3)
+  -- value 40 + 60 copper, per loot 100 / 3
+  h.eq(lines[2], "Kobold,npc,3,0.0100,0.0060,0.0033,Hills,1")
+  h.eq(lines[3], "Copper Vein,node,4,0.0040,0.0000,0.0010,Mine,1")
 end)
 
 h.test("View.buildMobs: an empty list explains mob loot, not saved sessions", function()

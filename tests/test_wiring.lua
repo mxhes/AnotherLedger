@@ -22,6 +22,7 @@ function methods.IsVisible(self) return self._shown end
 function methods.GetCenter() return 0, 0 end
 function methods.SetScript(self, ev, fn) self._scripts[ev] = fn end
 function methods.HookScript() end
+function methods.EnableMouse(self, on) self._mouse = on end
 function methods.RegisterEvent(self, ev) self._events[ev] = true end
 function methods.SetSize(self, w, hh) self._w, self._h = w, hh end
 function methods.SetWidth(self, w) self._w = w end
@@ -468,6 +469,34 @@ h.test("wiring: merging History sessions, two and more, and /ll undo splits them
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: Reset asks for the saved session's note with the option on", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local popup
+  ctx.env.StaticPopup_Show = function(name) popup = ctx.env.StaticPopupDialogs[name] end
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  h.eq(popup, nil) -- off by default
+  ns.Options.set(ns.db, "resetNote", true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  h.eq(popup ~= nil and popup.hasEditBox, true)
+  local box = { text = "", SetText = function(self, t) self.text = t end, GetText = function(self) return self.text end,
+    HighlightText = function() end }
+  popup.OnShow({ editBox = box })
+  box.text = "Wingrest herbs"
+  popup.OnAccept({ editBox = box })
+  local history = ctx.env.LootLedgerCharDB.history
+  h.eq(#history, 2)
+  h.eq(history[1].note, "Wingrest herbs"); h.eq(history[2].note, nil)
+  -- an empty session saves nothing, so nothing to ask
+  popup = nil
+  slash(ctx, "reset")
+  h.eq(popup, nil)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: a note on a History session shows on its row and is searched", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -624,6 +653,8 @@ h.test("wiring: /ll export copies the session or Zones as CSV", function()
   h.eq(line:sub(1, 4), "Item")
   slash(ctx, "export zones")
   h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.View.ZONES_CSV_HEADER)
+  slash(ctx, "export mobs")
+  h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.View.MOBS_CSV_HEADER)
   slash(ctx, "export")
   h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.History.CSV_HEADER)
   slash(ctx, "export nonsense")
@@ -2304,6 +2335,73 @@ h.test("wiring: double-clicking the title toggles the mode", function()
   h.eq(ctx.ns.UI.Ledger.mode, "compact")
   tb._scripts.OnDoubleClick(tb, "LeftButton")
   h.eq(ctx.ns.UI.Ledger.mode, "full")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a click on the footer's unpriced note lists those items first, a second click undoes it", function()
+  local ctx = boot()
+  ctx.env.TSM_API = { GetCustomPriceValue = function(_, itemString)
+    if tostring(itemString):find("2589", 1, true) then return 100000 end
+    return nil
+  end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 1))
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2592, 1))
+  local L = ns.UI.Ledger
+  L.refresh()
+  h.eq(L.view.rows[1].id, 2589)
+  local notes = ns.UI.Summary.instance.notesFrame
+  h.eq(notes._mouse, true)
+  notes._scripts.OnMouseUp(notes)
+  h.eq(L.unpricedFirst, true)
+  h.eq(L.view.rows[1].id, 2592)
+  h.eq(ns.UI.Summary.instance.notes:GetText():find("listed first", 1, true) ~= nil, true)
+  notes._scripts.OnMouseUp(notes)
+  h.eq(L.view.rows[1].id, 2589)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a login without TSM or Auctionator says so once in chat", function()
+  local function hints(ctx)
+    local n = 0
+    for _, line in ipairs(ctx.printed) do
+      if line:find("No auction price addon found", 1, true) then n = n + 1 end
+    end
+    return n
+  end
+  local ctx = boot()
+  startWorld(ctx, false)
+  h.eq(hints(ctx), 1)
+  h.eq(ctx.env.LootLedgerDB.priceHintShown, true)
+  local tsm = boot()
+  tsm.env.TSM_API = { GetCustomPriceValue = function() return nil end }
+  startWorld(tsm, false)
+  h.eq(hints(tsm), 0)
+  h.eq(ctx.errors, {}); h.eq(tsm.errors, {})
+end)
+
+h.test("wiring: compact shows the goal bar with a session goal and the last 15 minutes' rate", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local C = ns.UI.Compact
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "compact")
+  h.eq(C.goalBar:IsShown(), false)
+  h.eq(C.recent:GetText(), "")
+  ns.Options.set(ns.db, "goalGold", 1)
+  C.area._w = 200
+  ns.UI.Ledger.refresh()
+  h.eq(C.goalBar:IsShown(), true)
+  h.eq(C.goalBar._w >= 1 and C.goalBar._w <= 200, true)
+  -- a quarter hour of samples later the rate of that stretch shows
+  for _ = 1, 16 do
+    ctx.now = ctx.now + 60
+    ns.Core.heartbeat()
+  end
+  ns.UI.Ledger.refresh()
+  h.eq(C.recent:GetText():find(ns.L["15 min: "], 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 

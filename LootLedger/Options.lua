@@ -572,6 +572,9 @@ Options.define({
 Options.define({ key = "sessionChat", category = "session", type = "checkbox", label = L["Session summary in chat"],
   tooltip = L["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] })
 
+Options.define({ key = "resetNote", category = "session", type = "checkbox", label = L["Reset: ask for a note"],
+  tooltip = L["After Reset (the button or /ll reset) a box asks for the saved session's note (where, what). Escape skips it. New sessions per zone or instance never ask."] })
+
 Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause when AFK"],
   tooltip = L["Stops the clock while you are AFK and starts it again when you are back."] })
 
@@ -634,6 +637,12 @@ Options.define({
 Options.define({
   key = "showCurrencies", category = "display", type = "checkbox", label = L["Currencies"],
   tooltip = L["Lists looted currencies after the items."],
+  apply = refreshUI,
+})
+
+Options.define({
+  key = "hideWorthless", category = "display", type = "checkbox", label = L["Hide worthless"],
+  tooltip = L["Hides items nothing pays for (no vendor, auction or destroy value, shown with a dash) from the lists and the compact drops. They stay recorded."],
   apply = refreshUI,
 })
 

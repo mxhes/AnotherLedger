@@ -14,8 +14,9 @@ Vendor prices work on their own. Auction prices need
 [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
 optional; TSM is asked first). Destroy values (what disenchanting, milling or
 prospecting gives) and the "sells well / poorly" info need TSM (they count
-whenever TSM is loaded, also with Auctionator as the AH price source). Waypoints use TomTom when it is installed, else the game's own
-map pin.
+whenever TSM is loaded, also with Auctionator as the AH price source). Without
+either, LootLedger says so once in chat. Waypoints use TomTom when it is
+installed, else the game's own map pin.
 
 **Libraries** (only when you install from the source code): the release zip
 already contains them. A copy of the `LootLedger/` folder from the repository
@@ -48,11 +49,13 @@ gear, a double-click on the title, or `/ll compact`. Each layout keeps its own
 size; the corner nearest to the screen edge stays where it is when you switch.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
-the session total (with a session goal: `Session 312g / 500g`), the last four
-drops with their value and source tag (framed, as in the list), and the Daily
-farm line. Until the session earns something the rate shows `—/h`. Hover the gold per
+the session total (with a session goal: `Session 312g / 500g`, and a gold bar
+under them that fills up toward the goal), the last four drops with their
+value and source tag (framed, as in the list), and the Daily farm line. After
+a quarter hour, `15 min: 120g/h` right of the drops title is the gold per
+hour of the last 15 minutes, so you see when a spot slows down. Until the session earns something the rate shows `—/h`. Hover the gold per
 hour for the breakdown: time, items, raw gold, total, the best find, how far
-the goal is and, after a few minutes, a small graph of your gold per hour over
+the goal is, the last 15 minutes' rate and, after a few minutes, a small graph of your gold per hour over
 the session (one bar per stretch of clock time) to see when a spot dries up.
 The same graph shows when you hover the totals of the Session tab. Click the clock to start or stop the session; a red `Paused`
 shows while it is stopped. Before the first drop the list says so (or that the
@@ -95,7 +98,9 @@ clock is stopped).
   over their recorded time (old loot without recorded time counts in the
   value, not in the rate); its hover says which sessions it counts. Mobs has
   no clock, so no per hour column. The option **Raw gold** decides whether
-  the gold counts in the Total and whether it has its own row.
+  the gold counts in the Total and whether it has its own row. Click
+  `N unpriced (marked ?)` under the table to list the items without an
+  auction price first; click again for the normal sort.
 - **Top finds**: the three most valuable finds of the session.
 
 Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options),
@@ -103,7 +108,7 @@ gold, silver and copper each in its own column, so the coins line up down the
 list, the footer, Top finds and the compact drops.
 Items that can't be sold on the auction house (soulbound, quest items) count
 at their vendor value; an item nothing pays for (no vendor, auction or
-destroy value) shows a dash. Gear with a different item level or sockets gets its own
+destroy value) shows a dash; **Hide worthless** leaves those out of the lists. Gear with a different item level or sockets gets its own
 row and price. Currencies are listed after the items.
 
 ## Tabs
@@ -122,7 +127,7 @@ row and price. Currencies are listed after the items.
   that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
   started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your note,
-  its length, item count and main place, and its value (with the raw gold,
+  its length, gold per hour, item count and main place, and its value (with the raw gold,
   unless the option **Raw gold** leaves it out). A session is saved when you reset it, when a new
   login starts a fresh one, or (option) when you enter or leave a dungeon. A
   session keeps the prices of the day it was saved, so its value doesn't change
@@ -195,8 +200,8 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
-| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
@@ -217,7 +222,8 @@ for the preset's color. **Reset colors** goes back to the chosen preset's colors
 Tooltips keep the game's dark tooltip on every preset.
 
 **Session summary in chat** writes one line whenever a session is saved to
-History: its length, main place, worth and gold per hour. **History kept**
+History: its length, main place, worth and gold per hour. **Reset: ask for a
+note** opens the note box for the saved session after Reset (Escape skips it). **History kept**
 counts per character and applies to all of them.
 
 **Profiles**: every option is part of a profile, except **History kept**,
@@ -292,7 +298,7 @@ clock.
 | `/ll keep on` / `off` | keep the session across logins |
 | `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
 | `/ll export` | the History as CSV in a copy box |
-| `/ll export session`, `/ll export zones` | the session's items, or every Zones place, as CSV |
+| `/ll export session`, `/ll export zones`, `/ll export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
 | `/ll undo` | take back the last merge or delete in History (or the cleared History) |
 | `/ll demo` | sample loot and temporary sample prices, to look at the window |
 | `/ll help` | list the commands |

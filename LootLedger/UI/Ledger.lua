@@ -42,6 +42,9 @@ Ledger.mobOpen = nil
 Ledger.periodFold = {}
 -- Layout mode: "full" (the ledger) or "compact" (the glance); db.mode.
 Ledger.mode = "full"
+-- Unpriced items ("?") sort first: a click on the footer's unpriced note
+-- (Ledger.toggleUnpricedFirst), kept for the Lua session.
+Ledger.unpricedFirst = false
 
 -- A part is a table with a method Update(view, session, now) and, optionally,
 -- Tick(view, session, now) and Relayout() (Theme.sizes changed; Ledger.relayout).
@@ -210,6 +213,8 @@ local function currentContext(now)
   local setting = ns.Util.setting
   viewOpts.includeGold = ns.Util.goldCounted()
   viewOpts.showCurrencies = setting("showCurrencies", true)
+  viewOpts.hideWorthless = setting("hideWorthless", false) == true
+  viewOpts.unpricedFirst = Ledger.unpricedFirst
   viewOpts.market = Ledger.marketCutoffs(db)
   viewOpts.ahMinGain = setting("ahMinGain", 0)
   viewOpts.compactDrops = setting("compactDrops", nil)
@@ -581,6 +586,14 @@ function Ledger.toggleHistory(index)
   else
     Ledger.historyIndex = index
   end
+  if list then list.offset = 0 end
+  Ledger.refresh()
+end
+
+-- The footer's "N unpriced (marked ?)" was clicked: those items first (back
+-- to the plain sort on the next click), from the top of the list.
+function Ledger.toggleUnpricedFirst()
+  Ledger.unpricedFirst = not Ledger.unpricedFirst
   if list then list.offset = 0 end
   Ledger.refresh()
 end

@@ -31,4 +31,8 @@ ns.Sources.register({
   key = "auctionator",
   label = "Auctionator",
   create = function(env) return Auctionator.new(env) end,
+  present = function(env)
+    local a = type(env) == "table" and env.Auctionator
+    return type(a) == "table" and type(a.API) == "table"
+  end,
 })

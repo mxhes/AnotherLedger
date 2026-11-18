@@ -86,8 +86,9 @@ Each of these is one call in one place; the UI never names them.
 - **Price source**: a file in `Sources/` (in the `.toc` after
   `Sources\Sources.lua`) ending with `ns.Sources.register({ key, label,
   create = function(env, setting) return { name, get = function(itemID, link) ... end } end })`.
-  It joins the lookup order and the AH price source dropdown. See
-  `Sources/Auctionator.lua`.
+  It joins the lookup order and the AH price source dropdown. Optional:
+  `createDisenchant`, `createMarket` and `present(env)` (its addon is loaded;
+  `Sources.anyPresent` drives the login hint). See `Sources/Auctionator.lua`.
 - **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx) return view end, ... })`
   in `UI/Tabs.lua`; optional `sessionControls` (clock and buttons), `ticks`
   (rates follow the clock), `watches` (data kind that redraws it), `hasItem`
@@ -278,7 +279,8 @@ Each of these is one call in one place; the UI never names them.
 - **Stopped clock**: `Core.recordLoot`, `recordGold` and `recordCurrency`
   ignore events while the clock is stopped and say so once in chat per stop.
 - **Row lines**: line 2 of a row is `row.detail` when set (History sessions:
-  length, place, item count; Zones places: time, gold per hour, item count),
+  length, gold per hour, item count, place; Zones places: time, gold per
+  hour, item count),
   else the TSM sale info. Rows without `quantity` show none. `view.empty`
   (`View.emptyText`) is the text `Rows` shows centered in an empty list.
 - **History sessions**: `View.buildHistory` sorts only with `opts.sort` set
@@ -307,6 +309,8 @@ Each of these is one call in one place; the UI never names them.
 - **CSV export** (`History.csv`): one line per session, amounts in gold with
   four decimals, then the currencies (`Name x3; Other x1`) and the note.
   `/ll export session` writes `View.itemsCsv` of an unfiltered `View.build`,
+  `/ll export mobs` `View.mobsCsv` (every mob of an unfiltered
+  `View.buildMobs`, by value),
   `/ll export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
   quest items left out). Fields go through `History.csvField`.
 - **Ignore list** (`LootLedgerDB.ignored = { [itemID] = name }`, Core
@@ -381,7 +385,28 @@ Each of these is one call in one place; the UI never names them.
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
   gold when it counts (`Util.goldCounted()`); the last drops come from
   `session.recent` (`dropLimit` is the option; `Compact.titleText` hides the
-  title at 0).
+  title at 0). `recent` is `View.recentRate(samples, elapsed, total)`: the
+  gold per hour from the newest rate sample at least `View.RECENT_SECONDS`
+  (15 min) old to now, shown right of the drops title (`Compact.recentText`)
+  and in the hover. With a goal, `Compact.goalFraction` sizes a gold bar
+  (`sizes.compactGoalBarHeight`) over the divider; it follows a resize on the
+  next redraw.
+- **Hide worthless** (`hideWorthless` -> `opts.hideWorthless`): `collect` and
+  the compact drops skip `row.worthless` rows; totals are unchanged (they are
+  worth 0).
+- **Unpriced first**: `row.unpriced` (no AH price, not bound) is what the
+  footer counts. A click on the notes line (`Summary.attach`, mouse only
+  while something is unpriced) runs `Ledger.toggleUnpricedFirst`;
+  `opts.unpricedFirst` wraps the item sort (`unpricedFirst(inner)` in
+  `View.lua`) and `Summary.notesText(view, true)` says "listed first".
+- **No price addon** (`Core.priceAddonHint`, at login): a source spec's
+  `present(env)` (TSM, Auctionator) says its addon is loaded
+  (`Sources.anyPresent`); without one a chat line once per account
+  (`LootLedgerDB.priceHintShown`, cleared when one is found again).
+- **Reset note** (`resetNote`): `Core.resetSession` returns the saved entry
+  (`Core.archiveSession` does); the Reset button and `/ll reset`
+  (`Header.requestReset` -> `doReset`) then open `Ledger.editNote(entry)`.
+  The automatic splits call `Core.resetSession` directly and never ask.
   It also returns `items`, `gold`, `elapsed`, `top`, `goal` and `graph` for the hover
   breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts

@@ -46,6 +46,7 @@ DB.defaults = {
     -- count as loot only with this on.
     countCrafted = false,
     showCurrencies = true,
+    hideWorthless = false,
     -- Daily farm strip and the minimum recorded time of a place it may pick.
     dailyFarm = true,
     dailyFarmMinutes = 20,
@@ -77,6 +78,7 @@ DB.defaults = {
     cityPause = true,
     -- A chat line with the length, place and worth of each saved session.
     sessionChat = false,
+    resetNote = false,
     instanceSession = false,
     -- A new session per zone, after this many minutes in the new zone.
     zoneSession = false,

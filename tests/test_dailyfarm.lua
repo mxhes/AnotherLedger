@@ -93,6 +93,30 @@ h.test("Compact.titleText: why there are no drops; no title with the list turned
   h.eq(C.titleText({ drops = {}, running = false, dropLimit = 0 }), "Paused: click the clock to start.")
 end)
 
+h.test("View.recentRate: the last 15 minutes from the newest sample that old", function()
+  local V = ns.View
+  local samples = { { t = 60, v = 100 }, { t = 600, v = 1000 }, { t = 1200, v = 4000 }, { t = 1800, v = 5000 } }
+  -- at 2100 s: the sample at 1200 (900 s back), 4000 -> 7000 in 900 s
+  h.eq(V.recentRate(samples, 2100, 7000), 12000)
+  -- younger than 15 minutes: none
+  h.eq(V.recentRate(samples, 800, 2000), nil)
+  h.eq(V.recentRate(nil, 2100, 7000), nil)
+  -- a lower total (an item ignored since) never gives a negative rate
+  h.eq(V.recentRate(samples, 2100, 0), 0)
+end)
+
+h.test("Compact.recentText and goalFraction", function()
+  local C = ns.UI.Compact
+  local f = ns.Money.format
+  h.eq(C.recentText({}, f), nil)
+  h.eq(C.recentText({ recent = 12000.4 }, f), "15 min: " .. f(ns.Money.roundRate(12000.4)) .. "/h")
+  h.eq(C.goalFraction({}), nil)
+  h.eq(C.goalFraction({ goal = { value = 2500, goal = 10000 } }), 0.25)
+  h.eq(C.goalFraction({ goal = { value = 20000, goal = 10000 } }), 1)
+  local text = ns.Tooltip.text(C.hint({ total = 7000, perHour = 9000, recent = 12000, elapsed = 2100 }))
+  h.eq(text:find("Last 15 minutes: ", 1, true) ~= nil, true)
+end)
+
 h.test("Compact.totalText and hint: the total against the goal, the breakdown", function()
   local C = ns.UI.Compact
   local f = ns.Money.format

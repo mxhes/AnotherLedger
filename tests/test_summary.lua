@@ -121,6 +121,11 @@ h.test("table worst case fits the minimum window width", function()
   h.eq(S.tableWorstWidth() <= T.minWidth - 2 * (T.padding + 4), true)
 end)
 
+h.test("notesText: says when the unpriced items are listed first", function()
+  h.eq(S.notesText({ totals = { unpriced = 2 } }, true), "2 unpriced (marked ?, listed first)")
+  h.eq(S.notesText({ totals = { unpriced = 2 } }, false), "2 unpriced (marked ?)")
+end)
+
 h.test("notesText: Zones and Mobs say where the unpriced items are, like Bags", function()
   h.eq(S.notesText({ history = true, kind = "zones", totals = { unpriced = 2 } }), "2 unpriced (marked ?)")
 end)

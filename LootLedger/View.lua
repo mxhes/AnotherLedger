@@ -27,6 +27,10 @@ local lower = string.lower
 --   goal = copper or nil (the session goal: Session tab and compact progress),
 --   kept = { [itemID] = name or true } (the keep list: Bags and Bank mark
 --     these rows and split their total into kept and sellable),
+--   unpricedFirst = bool (the footer's unpriced note was clicked: item rows
+--     without an AH price, row.unpriced, sort first),
+--   hideWorthless = bool (option "Hide worthless": rows nothing pays for,
+--     row.worthless, are left out of the lists and the compact drops),
 -- }
 --
 -- A row's value is the best of its vendor, AH and disenchant totals; the sort
@@ -182,6 +186,7 @@ local function makeRow(item, opts)
     bestTotal = bestTotal, bestKind = bestKind,
     -- Bound items can never be sold on the AH: no "unpriced" count for them.
     bound = info and info.bound and true or false,
+    unpriced = ahEach == nil and not (info and info.bound),
     ahFromCache = ahFromCache, ahAge = ahAge,
     ahCut = ahCut and true or false,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
@@ -265,6 +270,22 @@ local function sortsLastAfter(inner)
   return s
 end
 
+-- `inner` with the unpriced rows ("?", no AH price) first: a click on the
+-- footer's unpriced note (opts.unpricedFirst, Ledger.toggleUnpricedFirst).
+local unpricedSorts = {}
+local function unpricedFirst(inner)
+  local s = unpricedSorts[inner]
+  if not s then
+    s = function(a, b)
+      local ua, ub = a.unpriced == true, b.unpriced == true
+      if ua ~= ub then return ua end
+      return inner(a, b)
+    end
+    unpricedSorts[inner] = s
+  end
+  return s
+end
+
 -- A new sort order is one entry here plus its label in UI/FilterBar.lua.
 -- "ah" keeps its saved key but sorts by the best value.
 -- "perHour" (History Zones only): places by gold per hour, places without
@@ -307,6 +328,7 @@ local function collect(items, opts)
   local filter = opts.filter
   local needle = searchNeedle(filter)
   local ignored = ignoredSet(opts)
+  local hideWorthless = opts.hideWorthless == true
 
   local rows, n = {}, 0
   local vendor, ah, best, unpriced = 0, 0, 0, 0
@@ -315,13 +337,13 @@ local function collect(items, opts)
   for _, item in pairs(items) do
     if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 and not ignored[item.id] then
       local row = makeRow(item, opts)
-      if visible(row, filter, needle) then
+      if visible(row, filter, needle) and not (hideWorthless and row.worthless) then
         n = n + 1
         rows[n] = row
         vendor = vendor + (row.vendorTotal or 0)
         ah = ah + (row.ahTotal or 0)
         best = best + (row.bestTotal or 0)
-        if row.ahEach == nil and not row.bound then
+        if row.unpriced then
           unpriced = unpriced + 1
           if #unpricedNames < View.UNPRICED_NAMES then
             unpricedNames[#unpricedNames + 1] = row.name .. " x" .. row.quantity
@@ -330,7 +352,8 @@ local function collect(items, opts)
       end
     end
   end
-  table.sort(rows, opts.sort ~= "perHour" and SORTS[opts.sort] or SORTS.ah)
+  local order = opts.sort ~= "perHour" and SORTS[opts.sort] or SORTS.ah
+  table.sort(rows, opts.unpricedFirst and unpricedFirst(order) or order)
 
   return rows, { vendor = vendor, ah = ah, best = best, unpriced = unpriced,
     unpricedNames = unpriced > 0 and unpricedNames or nil, filtered = View.isFiltered(filter) }
@@ -468,7 +491,8 @@ local savedFilter = {} -- its filter: the qualities only (reused)
 local SESSION_SORT = { ah = SORTS.ah, recent = SORTS.recent, perHour = SORTS.perHour }
 
 -- One History session row. Line 1: the start and the note ("+ Today 20:21 ·
--- Wingrest herbs"); line 2 (`detail`): length, item count and main place. Its
+-- Wingrest herbs"); line 2 (`detail`): length, gold per hour, item count and
+-- main place. Its
 -- amount is the best value of the items (without ignored ones) plus, with
 -- includeGold, the raw gold. The tooltip is built on hover (a function,
 -- ns.Tooltip.resolve). `totals` = { vendor, ah, best } of History.totals.
@@ -477,9 +501,12 @@ local function sessionRow(e, i, open, opts, totals)
   local dateFn = opts.shortDate or opts.formatDate
   local when = dateFn and dateFn(e.startedAt) or tostring(e.startedAt)
   local value = totals.best + (opts.includeGold ~= false and e.gold or 0)
+  local perHour = History.perHour(value, e.elapsed)
   -- The place last: a narrow window cuts the line at its end, and a long
   -- place name may lose its tail, the item count never.
-  local parts = { History.duration(e.elapsed), History.itemCount(totals.count) }
+  local parts = { History.duration(e.elapsed) }
+  if perHour then parts[#parts + 1] = ns.Money.format(ns.Money.roundRate(perHour)) .. L_PER_HOUR end
+  parts[#parts + 1] = History.itemCount(totals.count)
   local place = History.place(e)
   if place then parts[#parts + 1] = place end
   local note = History.note(e)
@@ -491,7 +518,7 @@ local function sessionRow(e, i, open, opts, totals)
     name = (open and "- " or "+ ") .. label, detail = detail, sortName = lower(label .. " " .. detail),
     quality = 1,
     vendorTotal = totals.vendor, ahTotal = totals.ah, bestLineTotal = value,
-    perHour = History.perHour(value, e.elapsed),
+    perHour = perHour,
     icon = "Interface\\Icons\\INV_Misc_Note_01",
     hint = function()
       local tip = History.details(e, formatDate, ignored)
@@ -1064,6 +1091,8 @@ function View.buildMobs(entries, opts, openKey)
       items = items }
     local row = {
       id = 0, key = "m:" .. key, mobKey = key, looted = a.looted, perLoot = perLoot,
+      -- For the CSV export (View.mobsCsv).
+      label = label, kind = a.kind, gold = a.gold, place = place, itemCount = #items,
       name = (isOpen and "- " or "+ ") .. label, detail = detailText(parts), sortName = lower(label),
       quality = 1, sortsLast = value <= 0,
       vendorTotal = t.vendor, ahTotal = t.ah, bestLineTotal = value, value = value,
@@ -1241,6 +1270,25 @@ function View.addRateGraph(tip, graph)
   Tip.note(tip, string.format(L["One bar: %s of clock time."], ns.History.duration(graph.step)))
 end
 
+-- Gold per hour of the last `window` seconds of clock: from the newest sample
+-- at least that old to `total` now (the samples hold the same worth as the
+-- compact total). nil while the session is younger than `window`. With long
+-- sessions the samples are sparser (Session.addSample), so the stretch may
+-- run up to one sample step longer.
+View.RECENT_SECONDS = 15 * 60
+
+function View.recentRate(samples, elapsed, total, window)
+  if type(samples) ~= "table" or not (num(elapsed) and num(total)) then return nil end
+  window = window or View.RECENT_SECONDS
+  for i = #samples, 1, -1 do
+    local s = samples[i]
+    if type(s) == "table" and num(s.t) and num(s.v) and elapsed - s.t >= window then
+      return math.max(0, total - s.v) * 3600 / (elapsed - s.t)
+    end
+  end
+  return nil
+end
+
 function View.buildCompact(session, opts)
   opts = opts or {}
   copyOpts(compactOpts, opts)
@@ -1261,12 +1309,14 @@ function View.buildCompact(session, opts)
       if #drops >= limit then break end
       local it = type(ev) == "table" and items[ev.key]
       if type(it) == "table" and num(it.id) and num(ev.qty) and ev.qty > 0 and not ignored[it.id] then
-        drops[#drops + 1] = makeRow({ id = it.id, key = it.key or ev.key, link = it.link, price = it.price,
+        local row = makeRow({ id = it.id, key = it.key or ev.key, link = it.link, price = it.price,
           qty = ev.qty, lastSeen = ev.at }, compactOpts)
+        if not (opts.hideWorthless == true and row.worthless) then drops[#drops + 1] = row end
       end
     end
   end
   return { total = total, perHour = ns.History.perHour(total, elapsed), running = session.running and true or false,
+    recent = View.recentRate(session.samples, elapsed, total),
     drops = drops, dropLimit = limit, items = t.best, gold = gold, elapsed = elapsed, top = topRows(rows, 1)[1],
     goal = View.goalProgress(total, opts.goal), graph = View.rateGraph(session.samples) }
 end
@@ -1344,6 +1394,29 @@ function View.zonesCsv(entries, opts)
       field(p.zone), field(p.sub), string.format("%.1f", p.time / 60), gold(p.value), gold(p.gold),
       p.perHour and gold(p.perHour) or "", tostring(p.count),
     }, ",")
+  end
+  return table.concat(out, "\n")
+end
+
+-- Every mob of the History Mobs data (no filter, by value): name, kind (npc
+-- or node), corpses looted, value (items plus raw gold when it counts), raw
+-- gold, value per loot, main place and how many different items.
+View.MOBS_CSV_HEADER = "mob,kind,looted,value_g,raw_gold_g,per_loot_g,main_place,items"
+local mobsCsvOpts = {}
+
+function View.mobsCsv(entries, opts)
+  copyOpts(mobsCsvOpts, opts or {})
+  mobsCsvOpts.filter, mobsCsvOpts.sort = nil, "ah"
+  local History = ns.History
+  local field, gold = History.csvField, History.goldNumber
+  local out = { View.MOBS_CSV_HEADER }
+  for _, r in ipairs(View.buildMobs(entries, mobsCsvOpts).rows) do
+    if r.mobKey then
+      out[#out + 1] = table.concat({
+        field(r.label), r.kind, tostring(r.looted), gold(r.value), gold(r.gold),
+        r.perLoot and gold(r.perLoot) or "", r.place and field(r.place) or "", tostring(r.itemCount),
+      }, ",")
+    end
   end
   return table.concat(out, "\n")
 end
