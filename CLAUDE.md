@@ -53,5 +53,5 @@ Docs:
 | translations | `Locale.lua`, `Locales/` |
 | History, Zones, CSV export | `History.lua`, `View.buildHistory`, `UI/Export.lua` |
 | options window / minimap | `Options.lua`, `UI/OptionsPanel.lua`, `UI/Minimap.lua` |
-| data broker / LibDBIcon | `UI/Broker.lua`, `embeds.xml`, `LootLedger/.pkgmeta` |
-| CI / packaging | `.gitlab-ci.yml`, `LootLedger/.pkgmeta` |
+| data broker / LibDBIcon | `UI/Broker.lua`, `embeds.xml`, `.pkgmeta` |
+| CI / packaging | `.gitlab-ci.yml`, `.pkgmeta` |
