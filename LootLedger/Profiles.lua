@@ -166,6 +166,16 @@ function Profiles.delete(db, chardb, name)
   return true
 end
 
+-- Sets every option of the active profile back to its default. The table
+-- stays, so the profile keeps its name and the characters that use it.
+function Profiles.reset(db)
+  local t = type(db) == "table" and db.settings or nil
+  if type(t) ~= "table" then return false end
+  for k in pairs(t) do t[k] = nil end
+  if ns.Options and ns.Options.applyAll then ns.Options.applyAll(db) end
+  return true
+end
+
 -- Switches this character to `name` (unknown: Default) and applies every option.
 function Profiles.activate(db, chardb, name)
   local key = find(db, name)
@@ -254,7 +264,7 @@ local function parse(spec, raw)
     return nil
   elseif spec.type == "slider" or spec.type == "number" then
     return tonumber(raw)
-  elseif spec.type == "dropdown" then
+  elseif spec.type == "dropdown" and not spec.free then
     for _, c in ipairs(ns.Options.choices(spec)) do
       if tostring(c.value) == raw then return c.value end
     end
@@ -303,6 +313,8 @@ local L_DELETE = L["Delete"]
 local L_IMPORT = L["Import"]
 local L_OVERWRITE = L["Overwrite"]
 local L_DELETE_Q = L["Delete the profile %s?"]
+local L_RESET = L["Reset"]
+local L_RESET_Q = L["Set every option of the profile %s back to its default?"]
 local L_OVERWRITE_Q = L["Overwrite the profile %s?"]
 local L_IMPORTED = L["Imported %d settings, skipped %d."]
 local L_EXPORT_TITLE = L["Profile export"]
@@ -408,6 +420,17 @@ define({
     local W = widgets()
     if W and W.confirm then
       W.confirm(string.format(L_DELETE_Q, name), L_DELETE, function() done(Profiles.delete(ns.db, ns.chardb, name)) end)
+    end
+  end,
+})
+
+define({
+  key = "profileReset", type = "button", label = L["Reset profile"],
+  tooltip = L["Sets every option of this profile back to its default."],
+  action = function()
+    local W = widgets()
+    if W and W.confirm then
+      W.confirm(string.format(L_RESET_Q, current()), L_RESET, function() done(Profiles.reset(ns.db)) end)
     end
   end,
 })

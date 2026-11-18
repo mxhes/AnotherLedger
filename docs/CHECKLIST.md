@@ -9,6 +9,31 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Mobs capture: `GetNumLootItems`, `GetLootSlotType`, `GetLootSlotLink`,
+  `GetLootSlotInfo` and `GetLootSourceInfo` (GUID / quantity pairs, copper
+  for money) work on Forever, and `LOOT_SLOT_CLEARED` fires per taken slot
+  (also with auto loot): loot a shared AoE pile and check each mob gets its
+  own share.
+  `C_TooltipInfo.GetHyperlink("unit:" .. guid)` names a mob never seen on a
+  name plate. `UNIT_SPELLCAST_SENT("player", target)` gives the node's name
+  as `target` for herbing, mining and skinning-like casts, so History > Mobs
+  shows "Copper Vein", not "Object 1731" (`UNVERIFIED` in `Core.lua` and
+  `Mobs.lua`).
+- Daily farm: my level: `C_Map.GetMapLevels(mapID)` returns the map's
+  level range on Forever; with the option on, a place far below your level
+  drops out of the Daily strip (`UNVERIFIED` in `Core.lua`, `Core.levelFits`).
+- Pause in cities: `IsResting` and `PLAYER_UPDATE_RESTING` exist on Forever;
+  entering a city freezes the clock (compact says Resting), loot still
+  counts, leaving starts it again; a clock stopped by hand stays stopped
+  (`UNVERIFIED` in `Core.lua`, `Core.checkRest`).
+- Value rules: with AH cut on, an Auction value is 5% lower and the item
+  tooltip says "after 5% AH cut". Destroy values "If this character can":
+  `GetProfessions` / `GetProfessionInfo` (7th return the skill line: 333
+  Enchanting, 773 Inscription, 755 Jewelcrafting) and `GetItemInfoInstant`
+  (6th / 7th returns class / subclass) work on Forever; an enchanter keeps
+  the Destroy value of gear, a non-enchanter loses it. If they are not
+  known yet at login, a saved set is kept until `SKILL_LINES_CHANGED`
+  (`UNVERIFIED` in `Core.lua`).
 - Rename to LootLedger: the addon shows as LootLedger in the AddOns list and
   options; `/ll` and `/lootledger` work; key bindings are under
   LootLedger. Renaming `SavedVariables/LootPrice.lua` to `LootLedger.lua`

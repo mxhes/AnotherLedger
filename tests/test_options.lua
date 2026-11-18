@@ -9,12 +9,13 @@ end
 h.test("Options: the built-in options are registered in panel order", function()
   local keys = {}
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
-  h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "startHidden", "combatHide",
+  h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "showOnLoot", "showInInstance", "hideInCities", "startHidden", "combatHide",
     "keepSession", "countCrafted", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
-    "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "defaultSort",
-    "goldDisplay", "coinIcons", "includeGold", "alertGold", "alertSound", "goalGold", "goalMinutes",
-    "sessionChat", "afkPause", "instanceSession", "zoneSession", "zoneSessionMinutes",
-    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "accountZones", "showTopFinds", "showFooterGold", "compactDrops",
+    "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "ahCut", "ahMinGain", "destroyMode", "defaultSort",
+    "goldDisplay", "coinIcons", "includeGold",
+    "sessionChat", "afkPause", "cityPause", "instanceSession", "zoneSession", "zoneSessionMinutes", "minSessionMinutes",
+    "alertGold", "alertSound", "goalGold", "goalMinutes",
+    "showCurrencies", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "showFooterGold", "compactDrops",
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit",
@@ -124,6 +125,40 @@ h.test("Options.normalize: text is trimmed and falls back when empty, tsmSource 
   h.eq(O.normalize(O.spec("defaultSort"), "zzz"), "ah")
   h.eq(O.normalize(O.spec("goldDisplay"), "gold"), "gold")
   h.eq(O.normalize(O.spec("alertGold"), -1), -1)
+end)
+
+h.test("Options: TSM price is a dropdown that keeps any typed price", function()
+  local t = O.spec("tsmSource")
+  h.eq(t.type, "dropdown")
+  h.eq(O.normalize(t, "  DBRecent "), "DBRecent")
+  h.eq(O.normalize(t, "first(DBMinBuyout, DBMarket)"), "first(DBMinBuyout, DBMarket)")
+  h.eq(O.normalize(t, ""), "DBMarket")
+  h.eq(O.normalize(t, 5), "DBMarket")
+  local saved = ns.db
+  ns.db = db({ tsmSource = "DBMarket" })
+  local values = {}
+  for _, c in ipairs(O.choices(t)) do values[#values + 1] = c.value end
+  h.eq(values, { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent", "DBHistorical", O.CUSTOM })
+  ns.db = db({ tsmSource = "max(DBMarket, 100g)" })
+  values = {}
+  for _, c in ipairs(O.choices(t)) do values[#values + 1] = c.value end
+  h.eq(values, { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent", "DBHistorical", "max(DBMarket, 100g)", O.CUSTOM })
+  h.eq(O.valueText(t, "max(DBMarket, 100g)"), "max(DBMarket, 100g)")
+  ns.db = saved
+end)
+
+h.test("Options.pick: Custom... asks for a TSM price and leaves the value until then", function()
+  local saved, savedUI = ns.db, ns.UI
+  local d = db({ tsmSource = "DBRecent" })
+  ns.db = d
+  local asked
+  ns.UI = { Widgets = { prompt = function(text, accept, initial, fn) asked = { initial = initial, fn = fn } end } }
+  h.eq(O.pick(d, "tsmSource", O.CUSTOM), "DBRecent")
+  h.eq(d.settings.tsmSource, "DBRecent")
+  h.eq(asked.initial, "DBRecent")
+  asked.fn("  min(DBMarket, DBRecent) ")
+  h.eq(d.settings.tsmSource, "min(DBMarket, DBRecent)")
+  ns.db, ns.UI = saved, savedUI
 end)
 
 h.test("Options: daily farm is on by default with a 20 minute minimum (5..120)", function()
@@ -435,15 +470,36 @@ h.test("color default is the active preset's color", function()
   ns.db = nil
 end)
 
-h.test("Reset colors picks LootLedger", function()
+h.test("Reset colors goes back to the chosen preset's colors", function()
   local d = db()
   ns.db = d
-  O.pick(d, "colorPreset", "blizzard")
+  O.pick(d, "colorPreset", "midnight")
+  O.pick(d, "colorText", "123456")
+  h.eq(O.presetEdited(d.settings), true)
   O.spec("resetColors").action()
-  h.eq(d.settings.colorPreset, "lootledger")
-  for _, o in ipairs(O.COLOR_OPTIONS) do h.eq(d.settings[o[1]], ns.DB.defaults.settings[o[1]], o[1]) end
-  h.eq(hex("panelTint"), "261a0f")
+  h.eq(d.settings.colorPreset, "midnight")
+  h.eq(d.settings.colorText, presetHex("midnight", "ink"))
+  h.eq(O.presetEdited(d.settings), false)
+  h.eq(hex("panelTint"), presetHex("midnight", "panelTint"))
+  O.pick(d, "colorPreset", "lootledger")
   ns.db = nil
+end)
+
+h.test("raw gold options have names that tell them apart", function()
+  h.eq(O.spec("includeGold").label, "Count raw gold")
+  h.eq(O.spec("showFooterGold").label, "Show raw gold row")
+end)
+
+h.test("Session tab: drop alert and both goals stand together in one column", function()
+  local specs = {}
+  for _, s in ipairs(O.list()) do if s.category == "session" then specs[#specs + 1] = s end end
+  local L = O.layout(specs, 2)
+  local order, col = {}, L.cols.alertGold
+  for _, s in ipairs(specs) do if L.cols[s.key] == col then order[#order + 1] = s.key end end
+  local at
+  for i, k in ipairs(order) do if k == "alertGold" then at = i end end
+  h.eq({ order[at], order[at + 1], order[at + 2], order[at + 3] },
+    { "alertGold", "alertSound", "goalGold", "goalMinutes" })
 end)
 
 h.test("tooltip titles and notes are not tied to the panel colors", function()

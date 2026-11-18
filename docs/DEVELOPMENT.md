@@ -32,6 +32,7 @@ only inside functions.
 | `Tooltip.lua` | rich tooltips built as data (Daily, History, Zones, options) and rendered with the theme colors |
 | `DB.lua` | saved-variable defaults and repair |
 | `LootParse.lua` | loot, money and currency chat messages into links, copper and currencies; item keys with bonus IDs |
+| `Mobs.lua` | loot, gold and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window |
 | `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
@@ -76,7 +77,10 @@ Each of these is one call in one place; the UI never names them.
   `accountZones`, `minimapButton`); `get` / `store` functions keep the value
   elsewhere (the profile choice) and `Options.applyAll` skips such an option;
   `picked(db, value)` runs only on a choice in the panel (`Options.pick`), not
-  at login (the color preset writes the single colors there). A new kind of control is one factory in
+  at login (the color preset writes the single colors there).
+  `intercept(db, value)` runs in `Options.pick` first; `true` sets nothing
+  (TSM price's "Custom..." entry, `Options.CUSTOM`, opens a text box). A
+  dropdown with `free = true` also keeps any typed string. A new kind of control is one factory in
   `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its height in `Options.HEIGHTS`.
   The panel's column width, gaps and control sizes are `Theme.options`.
 - **Price source**: a file in `Sources/` (in the `.toc` after
@@ -167,6 +171,77 @@ Each of these is one call in one place; the UI never names them.
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
   (disenchant, mill or prospect), shown as `Destroy`.
+- **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
+  `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
+  loot left in a corpse counts for nobody. No kills: registering
+  `COMBAT_LOG_EVENT_UNFILTERED` is forbidden for addons on this client
+  (ADDON_ACTION_FORBIDDEN even inside the `pcall` of `Core.init`, so never
+  add it to `events`; a wiring test guards this), and `kills` stays 0. Mob
+  names come from name plates, target and mouseover, else the unit tooltip; a
+  node takes the target of the player's last `UNIT_SPELLCAST_SENT` (the
+  gathering cast) when the loot window opens within 30 s (no tooltip for
+  objects). No name is saved without one: `View.buildMobs` shows
+  "NPC 12345" / "Object 1731" and takes the newest saved name (the first
+  History entry's, the running session's over all). Coin slots wait for
+  `settleLoot`, which scales them (`Mobs.scaleMoney`) to the copper the
+  window actually brought (chat plus the money change), so a group's split
+  counts your share. Only while
+  loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
+  entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
+  Zones entries (the running session included); a mob's `places` count
+  corpses like `looted`, and the most counted is its main place. It values each mob's items
+  like Zones (the entry's saved price, else live) and sorts by value, per
+  kill or name; `Ledger.mobOpen` is the opened mob.
+- **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
+  `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
+  the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
+  own action. The two marks are independent (a loot-opened window hidden and
+  shown again by a city keeps `shownBy`), a hand show / hide clears both, and
+  while either is set the saved hidden flag is not touched. During combat
+  with Hide in combat (`Window.inCombat`) a show only marks the window for
+  `combatShow`, and a hide cancels that.
+- **Daily farm level** (`dailyFarmLevel`): the Ledger passes
+  `opts.levelFits(mapID)` (`Core.levelFits` with `UnitLevel`) to
+  `View.dailyFarm`, which skips a place with a position whose map answers
+  `false`; the level is part of the farm cache key.
+- **History headings**: sorted by Recent, `View.buildHistory` puts a heading
+  row (`isHeading`, `periodKey` from `History.period`: a day this week, else
+  an ISO week via `History.isoWeek`) over the visible sessions of each
+  period. `Ledger.periodFold` holds the folded keys for the Lua session.
+- **Bags footer**: `buildInventory` sets `totals.sellSplit` (best value of
+  the rows not kept, by `bestKind`; the footer tooltip's Sell split). The
+  Bags tab adds `View.addWorth(view, GetMoney())` (`totals.money`,
+  `totals.worth`: the Summary rows Gold on hand / Net worth) and the free
+  slots (`Inventory.freeSlots`) to the header; `PLAYER_MONEY` redraws it.
+- **Resting** (`cityPause`, `Core.checkRest` on `PLAYER_UPDATE_RESTING`):
+  `Session.rest` keeps `running` true but folds the time into `elapsedBase`
+  and stops the place time (`resting = true`); `Session.wake` restarts it.
+  Loot and gold still count. Stop, reset and login (`resume`) handle it.
+- **Short sessions** (`minSessionMinutes`, `Core.isShort`): a session with
+  loot shorter than that is not archived by Session per zone / instance; at
+  login a short saved session with loot (its `elapsedBase`; demo sessions
+  never) is kept, then started like a new one: `afkPaused` cleared, running,
+  `startedAt` = the login. Empty sessions start over as before. `/ll reset`
+  and the Reset button always archive.
+- **Value rules** apply at lookup, never to saved History prices:
+  `Prices.new{ rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross
+  price stays in `ahGross`, and a row with it gets `ahCut = true` for the
+  tooltip) and drops `de` when `Prices.destroyAllowed(destroyMode, kind,
+  own, all)` says no; `deBlocked = true` then tells makeRow and
+  `History.snapshot` to skip the `de` saved at loot time too. The kind comes from the item class
+  (`Prices.destroyKind`, via `GetItemInfoInstant`), the professions from
+  `db.professions[character]` (`Core.noteProfessions` at login, where an
+  empty read keeps a saved set, and on `SKILL_LINES_CHANGED`; the union of
+  all characters is cached until they change, and the rules table until
+  `ahCut` or `destroyMode` does). The cache stores raw prices. `Prices.best(vendor,
+  ah, de, minGainPct)` is the one best-value pick (View, History, Core):
+  the AH counts only when it beats vendor by the `ahMinGain` percent.
+  A History entry keeps the Auction from it was saved with (`ahMinGain`):
+  `History.totals` takes ignored items off at it (`History.gainOf`, 0 for
+  older entries) and an opened session values its items the same way. A
+  saved price (`item.price`, History items) has `cut = true` when its `ah`
+  is after the AH cut (`Session.setPrice`, `History.snapshot`; a merge keeps
+  it only when every part was), and only those rows get the cut note.
 - **Money** is always copper. `Money.format` / `formatColored` follow the
   `goldDisplay` style and the coin-icon setting (`Money.setIcons`).
 - **Raw gold** comes from `CHAT_MSG_MONEY` (`YOU_LOOT_MONEY`,
@@ -375,7 +450,9 @@ Each of these is one call in one place; the UI never names them.
   lists) and `sorts` (History Sessions / Zones), `optionsWindow` (where the
   options panel was dragged to, `{ x, y }` from the screen center), `profileUsers`,
   `minimapIcon` (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep list) and
-  `histories` (every character's History, see "Account-wide History").
+  `histories` (every character's History, see "Account-wide History"),
+  `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`, for the
+  option Destroy values).
 - `LootLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
   and the bank scan, and `profile` (the name of the profile it uses).
@@ -392,6 +469,9 @@ Each of these is one call in one place; the UI never names them.
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
+`SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the Mobs events
+(`LOOT_SLOT_CLEARED`, `COMBAT_LOG_EVENT_UNFILTERED`, `NAME_PLATE_UNIT_ADDED`,
+`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 

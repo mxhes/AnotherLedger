@@ -9,6 +9,7 @@ local Core = {}
 ns.Core = Core
 
 local say = ns.Util.say
+local num = ns.Util.isNumber
 
 local REFRESH_THROTTLE = 0.2 -- seconds: bursts of item info / bag events share one redraw
 local KEY_RETRY_SECONDS = 10
@@ -24,6 +25,16 @@ local bankOpen = false
 -- (their "You receive item" messages are not loot). [event base] = open.
 local tradeWindows = {}
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
+local restingSeen = false -- the resting state Core.checkRest saw last (option "hideInCities")
+-- Mobs (Mobs.lua): the open loot window's slots, mob names seen this login
+-- ({ [mob key] = name }) and the corpses looted. Never saved.
+local lootSlots
+local mobNames = {}
+local mobState = {}
+-- The player's last cast target ({ name, at }; UNIT_SPELLCAST_SENT): a
+-- gathering cast names the node of the loot window that follows.
+local castTarget
+local NODE_CAST_SECONDS = 30
 local zoneState = {} -- the session's zone and a pending new one (Core.zoneSwitch)
 -- The open loot window: { money = GetMoney() at opening, chat = copper the
 -- money messages counted since }, or nil (see "Raw gold backstop").
@@ -118,8 +129,23 @@ function Core.buildPrices(env, db, now, getKey)
     end
   end
 
+  -- Value rules, read at every lookup (options ahCut and destroyMode); the
+  -- same table until one of the options changes.
+  local cached
+  local function rules()
+    local cut, mode = setting("ahCut") ~= false, setting("destroyMode")
+    if not (cached and cached.ahCut == cut and cached.mode == mode) then
+      cached = {
+        ahCut = cut, mode = mode,
+        destroyAllowed = function(itemID, link) return Core.destroyAllowed(env, db, mode, itemID, link) end,
+      }
+    end
+    return cached
+  end
+
   return ns.Prices.new({
     sources = sources,
+    rules = rules,
     vendor = function(itemID, link) return Sources.Vendor.get(env, itemID, link) end,
     disenchant = disenchant,
     market = market,
@@ -134,6 +160,75 @@ function Core.buildPrices(env, db, now, getKey)
   })
 end
 
+-- Destroy professions (Enchanting, Inscription, Jewelcrafting) of the
+-- logged-in character: { enchanting = true, ... }. GetProfessions returns the
+-- profession indices; GetProfessionInfo's 7th return is the skill line.
+-- UNVERIFIED (check in client) on Forever: GetProfessions / GetProfessionInfo.
+function Core.professions(env)
+  local lines = {}
+  if type(env.GetProfessions) ~= "function" or type(env.GetProfessionInfo) ~= "function" then
+    return ns.Prices.professionSet(lines)
+  end
+  local ok, a, b, c, d, e = pcall(env.GetProfessions)
+  if not ok then return ns.Prices.professionSet(lines) end
+  for _, index in ipairs({ a or false, b or false, c or false, d or false, e or false }) do
+    if index then
+      local got, _, _, _, _, _, _, skillLine = pcall(env.GetProfessionInfo, index)
+      if got and type(skillLine) == "number" then lines[#lines + 1] = skillLine end
+    end
+  end
+  return ns.Prices.professionSet(lines)
+end
+
+-- The profession sets Core.destroyAllowed adds up, kept until they change:
+-- { db, set = db.professions, key, all, own }.
+local professionCache
+
+-- Saves this character's destroy professions (login, SKILL_LINES_CHANGED).
+-- At login (`atLogin`) the client may not know them yet: an empty read then
+-- keeps the saved set; SKILL_LINES_CHANGED is the game's own word.
+function Core.noteProfessions(atLogin)
+  local key = Core.character or Core.characterKey(_G)
+  if not (key and ns.db) then return end
+  if type(ns.db.professions) ~= "table" then ns.db.professions = {} end
+  local set, old = Core.professions(_G), ns.db.professions[key]
+  if atLogin and next(set) == nil and type(old) == "table" and next(old) ~= nil then return end
+  ns.db.professions[key] = set
+  professionCache = nil
+end
+
+-- All characters' destroy professions and this character's (cached).
+local function professionSets(db, key)
+  local saved = type(db.professions) == "table" and db.professions or nil
+  local c = professionCache
+  if c and c.db == db and c.set == saved and c.key == key then return c.all, c.own end
+  local all, own = {}, nil
+  for character, set in pairs(saved or {}) do
+    if type(set) == "table" then
+      for k, v in pairs(set) do if v then all[k] = true end end
+      if character == key then own = set end
+    end
+  end
+  professionCache = { db = db, set = saved, key = key, all = all, own = own or {} }
+  return all, professionCache.own
+end
+
+-- Option "destroyMode": whether an item's destroy value counts. The kind of
+-- destroy follows the item's class (C_Item.GetItemInfoInstant: 6th and 7th
+-- returns; UNVERIFIED (check in client) on Forever).
+function Core.destroyAllowed(env, db, mode, itemID, link)
+  if mode ~= "any" and mode ~= "self" then return mode ~= "never" end
+  local kind
+  local C = env.C_Item
+  local info = type(C) == "table" and C.GetItemInfoInstant or env.GetItemInfoInstant
+  if type(info) == "function" then
+    local ok, _, _, _, _, _, classID, subclassID = pcall(info, link or itemID)
+    if ok then kind = ns.Prices.destroyKind(classID, subclassID) end
+  end
+  local all, own = professionSets(db, Core.character or Core.characterKey(env))
+  return ns.Prices.destroyAllowed(mode, kind, own, all)
+end
+
 -- Price lookup that never errors: nil before login is done or when a source
 -- fails. `link` (optional) prices the exact item variant.
 function Core.lookupPrice(itemID, link)
@@ -146,7 +241,7 @@ end
 -- Unit value of a price lookup: the best of vendor, AH and disenchant.
 function Core.unitValue(info)
   if type(info) ~= "table" then return nil end
-  return (ns.View.best(info.vendor, info.ah, info.de))
+  return (ns.Prices.best(info.vendor, info.ah, info.de, ns.Util.setting("ahMinGain", 0)))
 end
 
 -- What a session is worth now: every item at its best unit value plus the raw
@@ -313,6 +408,8 @@ function Core.recordLoot(link, qty, kind)
   if not key or notCounted() then return end
   local added, item = ns.Session.add(ns.session, itemID, link, qty, time(), key)
   if not added then return end
+  -- Option "showOnLoot": the session's first item opens the window.
+  if ns.Session.itemCount(ns.session) == 1 and item.qty == qty then Core.autoWindow("show", "loot", "showOnLoot") end
   notePlace()
   ns.Session.notePlaceLoot(ns.session, key, qty)
   ns.Session.noteRecent(ns.session, key, qty, time())
@@ -542,6 +639,17 @@ local function settleLoot(window)
   if lootWindow == window then lootWindow = nil end
   local missing = Core.missingGold(window.money, currentMoney(), window.chat)
   if missing > 0 then Core.recordGold(missing) end
+  -- Mobs: the coin slots taken, scaled to the copper actually received (a
+  -- group splits it); nothing received known: the whole coin.
+  local pending = window.mobMoney
+  if type(pending) ~= "table" then return end
+  local listed = 0
+  for _, p in ipairs(pending) do listed = listed + p.slot.qty end
+  local received = window.chat + missing
+  local factor = (received > 0 and listed > 0) and math.min(1, received / listed) or 1
+  for _, p in ipairs(pending) do
+    ns.Mobs.credit(p.mobs, ns.Mobs.scaleMoney(p.slot, factor), p.place, p.names, mobState)
+  end
 end
 
 -- ---------------------------------------------------------------------------
@@ -553,8 +661,32 @@ function Core.startSession()
   pausedNoted = false
   Core.updatePlace()
   ns.Session.start(ns.session, time())
+  Core.checkRest()
   say(L["session started."])
   refreshUI()
+end
+
+-- Option "cityPause": rests the clock while the player is resting (city, inn)
+-- and wakes it when they leave or the option is turned off. A stopped clock
+-- (by hand or AFK) is never started here.
+-- UNVERIFIED (check in client) on Forever: IsResting / PLAYER_UPDATE_RESTING.
+function Core.checkRest()
+  local session = ns.session
+  if not (session and ns.db) then return end
+  local resting = type(IsResting) == "function" and IsResting() and true or false
+  -- Option "hideInCities": hide on entering a resting area, show on leaving.
+  if resting ~= restingSeen then
+    restingSeen = resting
+    if resting then Core.autoWindow("hide", "city", "hideInCities") else Core.autoWindow("undo", "city") end
+  end
+  local want = resting and ns.Options.get(ns.db, "cityPause") and session.running and not session.afkPaused
+  if want and not session.resting then
+    ns.Session.rest(session, time())
+    refreshUI()
+  elseif not want and session.resting then
+    ns.Session.wake(session, time())
+    refreshUI()
+  end
 end
 
 function Core.stopSession()
@@ -734,14 +866,114 @@ function Core.instanceChanged(previous, current)
   return previous ~= current
 end
 
+-- The window's automatic show / hide (UI.Window.autoShow / autoHide /
+-- autoUndo). `option` (for show and hide) must be on; undo always runs, so
+-- turning the option off never leaves the window hidden.
+function Core.autoWindow(action, reason, option)
+  local W = ns.UI and ns.UI.Window
+  if not W or not ns.db then return end
+  if option and not ns.Options.get(ns.db, option) then return end
+  if action == "show" then W.autoShow(reason)
+  elseif action == "hide" then W.autoHide(reason)
+  else W.autoUndo(reason) end
+end
+
+-- Mobs are recorded only while loot counts: a running clock (resting
+-- included), not in demo mode.
+function Core.mobsCounting()
+  local session = ns.session
+  return session ~= nil and session.running and not session.demo and type(session.mobs) == "table" or false
+end
+
+-- Reads every slot of the loot window that just opened (Mobs.readSlot).
+-- UNVERIFIED (check in client) on Forever: GetNumLootItems.
+function Core.snapshotLoot()
+  lootSlots = nil
+  if not Core.mobsCounting() or type(GetNumLootItems) ~= "function" then return end
+  local ok, n = pcall(GetNumLootItems)
+  if not (ok and num(n)) then return end
+  local slots = {}
+  local cast = castTarget and time() - castTarget.at <= NODE_CAST_SECONDS and castTarget.name or nil
+  for slot = 1, n do
+    local okSlot, s = pcall(ns.Mobs.readSlot, _G, slot)
+    if okSlot and s and #s.sources > 0 then
+      slots[slot] = s
+      for _, src in ipairs(s.sources) do
+        local key, kind = ns.Mobs.idOf(src.guid)
+        if cast and kind == "node" and not mobNames[key] then
+          mobNames[key] = cast
+          castTarget = nil
+        end
+      end
+    end
+  end
+  lootSlots = slots
+end
+
+
+-- The name of the mob behind `guid`: the unit tooltip's first line (cached
+-- for the login), else nil (History > Mobs then shows "NPC 12345").
+-- UNVERIFIED (check in client) on Forever: C_TooltipInfo.GetHyperlink("unit:..").
+function Core.mobName(env, guid, key)
+  local C = env.C_TooltipInfo
+  -- Unit tooltips only: a node is named by its gathering cast (snapshotLoot).
+  if key:sub(1, 4) ~= "obj:" and type(C) == "table" and type(C.GetHyperlink) == "function" then
+    local ok, data = pcall(C.GetHyperlink, "unit:" .. guid)
+    local line = ok and type(data) == "table" and type(data.lines) == "table" and data.lines[1]
+    local text = type(line) == "table" and line.leftText
+    if type(text) == "string" and text ~= "" then
+      mobNames[key] = text
+      return text
+    end
+  end
+  return nil
+end
+
+-- Option "dailyFarmLevel": whether the player's `level` is inside the level
+-- range of map `mapID`; nil when unknown (no API, no range).
+-- UNVERIFIED (check in client) on Forever: C_Map.GetMapLevels.
+function Core.levelFits(env, mapID, level)
+  local C = env.C_Map
+  if not (type(C) == "table" and type(C.GetMapLevels) == "function" and num(mapID) and num(level)) then return nil end
+  local ok, low, high = pcall(C.GetMapLevels, mapID)
+  if not (ok and num(low) and num(high) and high > 0) then return nil end
+  return level >= low and level <= high
+end
+
+-- Option "minSessionMinutes": a session shorter than this continues instead
+-- of being saved on a split or at login (a manual Reset still saves it).
+-- Without `now` (a saved session at login) only its elapsedBase counts, so
+-- offline time never does.
+function Core.isShort(session, now, minMinutes)
+  if not (num(minMinutes) and minMinutes > 0 and type(session) == "table") then return false end
+  local elapsed
+  if num(now) then elapsed = ns.Session.elapsed(session, now) else elapsed = session.elapsedBase end
+  return num(elapsed) and elapsed < minMinutes * 60 or false
+end
+
+local function shortNow(session)
+  return Core.isShort(session, time(), ns.Options.get(ns.db, "minSessionMinutes"))
+end
+
+-- Whether a session has anything recorded (items, currencies or raw gold).
+local function hasLoot(session)
+  return next(session.items or {}) ~= nil or next(session.currencies or {}) ~= nil
+    or ns.Session.goldTotal(session) > 0
+end
+
 local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
   local previous = lastInstance
   lastInstance = key
+  -- Option "showInInstance": open inside, close again on leaving.
+  if Core.instanceChanged(previous, key) then
+    if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
+  end
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
   if not Core.instanceChanged(previous, key) then return end
-  Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
+  if hasLoot(ns.session) and shortNow(ns.session) then return end -- continues
+  Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
 end
 
 -- Option "zoneSession". Pure decision over `state` = { zone, pending, since }
@@ -769,12 +1001,6 @@ function Core.zoneSwitch(state, place, now, onTaxi, grace)
   return true
 end
 
--- Whether a session has anything recorded (items, currencies or raw gold).
-local function hasLoot(session)
-  return next(session.items or {}) ~= nil or next(session.currencies or {}) ~= nil
-    or ns.Session.goldTotal(session) > 0
-end
-
 -- Called on zone changes and by the ticker. While the clock is stopped
 -- nothing splits. An empty session just starts over (the time getting here
 -- does not count), without a chat line.
@@ -787,6 +1013,7 @@ function Core.checkZone()
   if not Core.zoneSwitch(zoneState, place, time(), onTaxi, grace) then return end
   if not (ns.Options.get(ns.db, "zoneSession") and session.running) then return end
   if hasLoot(session) then
+    if shortNow(session) then return end -- continues in the new zone
     Core.resetSession(L["new session"] .. ": " .. place .. ".")
   else
     ns.Session.reset(session, time())
@@ -809,6 +1036,7 @@ local function checkAfk()
     session.afkPaused = nil
     pausedNoted = false
     ns.Session.start(session, time())
+    Core.checkRest()
     say(L["clock running again."])
     refreshUI()
   end
@@ -882,10 +1110,24 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   ns.Prices.prune(ns.db.cache, now, ns.Prices.CACHE_MAX_AGE)
 
   Core.linkHistory()
-  local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
+  Core.noteProfessions(true)
   local previous = ns.chardb.session
-  ns.session = ns.Session.login(previous, keep, now)
+  local keep = ns.Options.get(ns.db, "keepSession") or isReloadingUi
+  -- A short session with loot continues (Min. session length) as if it were
+  -- new: running, dated from this login. Empty and demo sessions never do.
+  local short = not keep and type(previous) == "table" and not previous.demo
+    and Core.isShort(previous, nil, ns.Options.get(ns.db, "minSessionMinutes"))
+  if short then
+    local ok, has = pcall(hasLoot, previous)
+    short = ok and has
+  end
+  ns.session = ns.Session.login(previous, keep or short, now)
   ns.chardb.session = ns.session
+  if short and ns.session == previous then
+    ns.session.afkPaused = nil
+    ns.session.startedAt = now
+    ns.Session.start(ns.session, now)
+  end
   ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
@@ -894,6 +1136,7 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
   -- Before the options: LibDBIcon (if loaded) takes over the minimap button.
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
   ns.Options.applyAll(ns.db)
+  Core.checkRest()
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
   -- Every few seconds, window shown or not: the time goal, the zone delay of
   -- "Session per zone" and the gold per hour graph.
@@ -953,9 +1196,62 @@ function events.LOOT_OPENED()
   if lootWindow then settleLoot(lootWindow) end
   local money = currentMoney()
   if money and ns.session then lootWindow = { money = money, chat = 0 } end
+  Core.snapshotLoot()
 end
 
+-- A slot taken from the loot window: its loot goes to the mob or node it
+-- came from (Mobs.credit).
+function events.LOOT_SLOT_CLEARED(slot)
+  local slots = lootSlots
+  local entry = slots and slots[slot]
+  if not entry then return end
+  slots[slot] = nil
+  if not Core.mobsCounting() then return end
+  local mobs = ns.session.mobs
+  local names = {}
+  for _, s in ipairs(entry.sources) do
+    local key = ns.Mobs.idOf(s.guid)
+    if key then names[key] = mobNames[key] or Core.mobName(_G, s.guid, key) end
+  end
+  local place = (Core.placeOf(_G, difficulties))
+  -- Coin waits for the window's end: in a group you get a share of it
+  -- (settleLoot scales it to what you received).
+  if entry.kind == "money" and lootWindow then
+    if type(lootWindow.mobMoney) ~= "table" then lootWindow.mobMoney = {} end
+    table.insert(lootWindow.mobMoney, { mobs = mobs, slot = entry, place = place, names = names })
+    return
+  end
+  ns.Mobs.credit(mobs, entry, place, names, mobState)
+end
+
+-- No combat log: registering COMBAT_LOG_EVENT_UNFILTERED is forbidden for
+-- addons on this client (ADDON_ACTION_FORBIDDEN, even inside pcall), so
+-- kills are not counted.
+
+-- The player's cast target: the node's name for a gathering cast.
+-- UNVERIFIED (check in client) on Forever: UNIT_SPELLCAST_SENT(unit, target).
+function events.UNIT_SPELLCAST_SENT(unit, target)
+  if unit == "player" and type(target) == "string" and target ~= "" then
+    castTarget = { name = target, at = time() }
+  end
+end
+
+-- Names of mobs the player sees (name plates, target, mouseover).
+local function noteUnitName(unit)
+  if type(UnitGUID) ~= "function" or type(UnitName) ~= "function" then return end
+  local ok, guid = pcall(UnitGUID, unit)
+  local key = ok and ns.Mobs.idOf(guid)
+  if not key then return end
+  local okName, name = pcall(UnitName, unit)
+  if okName and type(name) == "string" and name ~= "" then mobNames[key] = name end
+end
+
+function events.NAME_PLATE_UNIT_ADDED(unit) noteUnitName(unit) end
+function events.PLAYER_TARGET_CHANGED() noteUnitName("target") end
+function events.UPDATE_MOUSEOVER_UNIT() noteUnitName("mouseover") end
+
 function events.LOOT_CLOSED()
+  lootSlots = nil
   local window = lootWindow
   if not window then return end
   if C_Timer and C_Timer.After then
@@ -965,6 +1261,19 @@ function events.LOOT_CLOSED()
   else
     settleLoot(window)
   end
+end
+
+-- Bags: gold on hand and net worth follow the character's money.
+function events.PLAYER_MONEY()
+  dataChanged("bags")
+end
+
+function events.PLAYER_UPDATE_RESTING()
+  Core.checkRest()
+end
+
+function events.SKILL_LINES_CHANGED()
+  Core.noteProfessions()
 end
 
 -- moneyReward is copper; 0, nil and non-numbers are ignored by Session.addGold.

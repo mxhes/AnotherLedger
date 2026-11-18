@@ -28,6 +28,12 @@ local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
 local L_GOAL = L["Goal "]
 local L_GOAL_REACHED = L["Goal reached"]
+local L_UNPRICED_TITLE = L["Unpriced"]
+local L_AND_MORE = L["and %d more"]
+local L_MONEY = L["Gold on hand"]
+local L_WORTH = L["Net worth"]
+local L_SELL_SPLIT = L["Sell split"]
+local L_DESTROY = L["Destroy: "]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_TOP = 3
 
@@ -52,9 +58,9 @@ end
 -- ---------------------------------------------------------------------------
 -- Value table (rows Items / Raw gold / Total, columns Value and per hour)
 
-Summary.ROWS = { "items", "gold", "total", "kept", "sellable" }
+Summary.ROWS = { "items", "gold", "total", "kept", "sellable", "money", "worth" }
 local ROW_LABELS = { items = L_LABEL_ITEMS, gold = L_LABEL_GOLD, total = L_TOTAL, kept = L_KEPT,
-  sellable = L_SELLABLE }
+  sellable = L_SELLABLE, money = L_MONEY, worth = L_WORTH }
 local SEP = " \194\183 " -- middle dot
 
 -- One line of notes under the table: the filtered / unpriced markers and the
@@ -98,7 +104,13 @@ function Summary.tableLayout(view)
   local goldRow = ns.Util.setting("showFooterGold", true)
   if inventory then
     -- With kept items in the list: what is kept and what is left to sell.
-    layout.rows = (view.totals or NONE).kept and { "items", "kept", "sellable" } or { "items" }
+    local totals = view.totals or NONE
+    layout.rows = totals.kept and { "items", "kept", "sellable" } or { "items" }
+    -- Bags: the character's gold and the net worth (items + gold).
+    if totals.money ~= nil then
+      layout.rows[#layout.rows + 1] = "money"
+      layout.rows[#layout.rows + 1] = "worth"
+    end
   elseif view.noCombined then
     layout.rows = goldRow and { "items", "gold" } or { "items" }
   else
@@ -120,12 +132,17 @@ function Summary.rowTexts(view, formatMoney)
     return { value = amountText(amount, formatMoney), rate = Summary.rateText(perHour, formatMoney),
       valueCopper = tonumber(amount) or 0, rateCopper = perHour }
   end
+  -- An unscanned bank has no total yet: a dash, not "0c".
+  local items = row(totals.best, totals.bestPerHour)
+  if view.unscanned then items.value = DASH end
   return {
-    items = row(totals.best, totals.bestPerHour),
+    items = items,
     gold = row(gold.total, gold.perHour),
     total = row(combined.best, combined.bestPerHour),
     kept = row(totals.kept, nil),
     sellable = row(totals.sellable, nil),
+    money = row(totals.money, nil),
+    worth = row(totals.worth, nil),
   }
 end
 
@@ -152,6 +169,23 @@ function Summary.tooltipLines(view, formatMoney)
   end
   section(L_LABEL_ITEMS, view.totals)
   if layout.rates and not view.noCombined then section(L_TOTAL, view.combined) end
+  -- Inventory: what the items not kept would bring, by how each is valued.
+  local split = (view.totals or NONE).sellSplit
+  if view.kind == "inventory" and type(split) == "table" then
+    lines[#lines + 1] = { L_SELL_SPLIT, "" }
+    lines[#lines + 1] = { L_VENDOR, amountText(split.vendor, formatMoney), "vendor" }
+    lines[#lines + 1] = { L_AH, amountText(split.ah, formatMoney), "ah" }
+    lines[#lines + 1] = { L_DESTROY, amountText(split.de, formatMoney), "de" }
+  end
+  -- The unpriced items by name (the notes line only counts them).
+  local totals = view.totals or NONE
+  local names = type(totals.unpricedNames) == "table" and totals.unpricedNames or NONE
+  if #names > 0 then
+    lines[#lines + 1] = { L_UNPRICED_TITLE, "" }
+    for _, name in ipairs(names) do lines[#lines + 1] = { name, "" } end
+    local more = (tonumber(totals.unpriced) or 0) - #names
+    if more > 0 then lines[#lines + 1] = { string.format(L_AND_MORE, more), "" } end
+  end
   return lines
 end
 

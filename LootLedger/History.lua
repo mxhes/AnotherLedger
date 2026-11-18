@@ -37,13 +37,36 @@ local function copyPrice(p)
   for _, k in ipairs({ "vendor", "ah", "de" }) do
     if num(p[k]) then out[k] = p[k] end
   end
+  -- cut: the ah price is after the 5% AH cut (the row's tooltip says so).
+  if out.ah and p.cut == true then out.cut = true end
   return next(out) and out or nil
+end
+
+-- The option "Auction from" (percent the AH value must beat vendor by) when a
+-- caller passes none.
+local function optionGain(minGain)
+  if num(minGain) then return minGain end
+  return ns.Util.setting and ns.Util.setting("ahMinGain", 0) or 0
+end
+
+-- The Auction from percent entry `e` was saved with; 0 for entries saved
+-- before the option (their best was the plain highest value).
+function History.gainOf(e)
+  return type(e) == "table" and num(e.ahMinGain) and e.ahMinGain or 0
+end
+
+-- One item's best unit value (Prices.best with the Auction from rule).
+local function bestUnit(v, a, d, minGain)
+  return ns.Prices.best(v, a, d, minGain) or 0
 end
 
 -- Snapshot of `session`, or nil when it holds nothing worth keeping (no items,
 -- currencies or gold). `lookup(itemID, link)` returns { vendor, ah, de } or
--- nil; `now` ends a still running clock.
-function History.snapshot(session, lookup, now)
+-- nil; `now` ends a still running clock; `minGain` the Auction from percent
+-- (default: the option), saved with the entry (History.totals, opened
+-- sessions). Each item's price says whether its ah is after the AH cut.
+function History.snapshot(session, lookup, now, minGain)
+  minGain = optionGain(minGain)
   if type(session) ~= "table" or type(session.items) ~= "table" then return nil end
   local items, count, vendor, ah, best = {}, 0, 0, 0, 0
   for key, it in pairs(session.items) do
@@ -54,7 +77,8 @@ function History.snapshot(session, lookup, now)
       if type(p) ~= "table" then p = {} end
       local v = num(p.vendor) and p.vendor or saved.vendor
       local a = num(p.ah) and p.ah or saved.ah
-      local d = num(p.de) and p.de or saved.de
+      local cut = num(p.ah) and num(p.ahGross) or (not num(p.ah) and saved.cut == true)
+      local d = num(p.de) and p.de or (not p.deBlocked and saved.de or nil)
       -- The unit prices the totals are made of: an opened session lists its
       -- items at these, so they add up to the session row.
       items[itemKey] = {
@@ -63,12 +87,12 @@ function History.snapshot(session, lookup, now)
         link = type(it.link) == "string" and it.link or nil,
         qty = it.qty,
         lastSeen = nonNeg(it.lastSeen),
-        price = copyPrice({ vendor = v, ah = a, de = d }),
+        price = copyPrice({ vendor = v, ah = a, de = d, cut = cut }),
       }
       count = count + 1
       if v then vendor = vendor + v * it.qty end
       if a then ah = ah + a * it.qty end
-      best = best + math.max(v or 0, a or 0, d or 0) * it.qty
+      best = best + bestUnit(v, a, d, minGain) * it.qty
     end
   end
   local currencies, nCurrencies = {}, 0
@@ -100,6 +124,8 @@ function History.snapshot(session, lookup, now)
     startedAt = nonNeg(session.startedAt), elapsed = elapsed, gold = gold,
     nItems = count, vendor = vendor, ah = ah, best = best,
     places = places, items = items, currencies = currencies, zones = zones,
+    mobs = ns.Mobs and ns.Mobs.copy(session.mobs) or nil,
+    ahMinGain = minGain,
   }
 end
 
@@ -147,7 +173,8 @@ end
 -- The totals of an entry without the items on the ignore list (`ignored` =
 -- { [itemID] = name or true }, see Core.ignoredItems), at the unit prices it
 -- was saved with: vendor, ah, best, item count. Taking an item off the list
--- brings its value back.
+-- brings its value back. An item's best value follows the entry's own
+-- Auction from (History.gainOf), like its saved best.
 function History.totals(e, ignored)
   local vendor, ah, best, count = e.vendor, e.ah, History.bestOf(e), e.nItems
   if type(ignored) ~= "table" or next(ignored) == nil or type(e.items) ~= "table" then
@@ -161,7 +188,7 @@ function History.totals(e, ignored)
       local d = num(p.de) and p.de or nil
       if v then vendor = vendor - v * it.qty end
       if a then ah = ah - a * it.qty end
-      best = best - math.max(v or 0, a or 0, d or 0) * it.qty
+      best = best - bestUnit(v, a, d, History.gainOf(e)) * it.qty
       count = count - 1
     end
   end
@@ -234,6 +261,9 @@ local function mergePrice(pa, qa, pb, qb)
       out[k] = a or b
     end
   end
+  -- After the AH cut only when every ah price in it was.
+  local cutA, cutB = num(pa.ah) and pa.cut == true, num(pb.ah) and pb.cut == true
+  if out.ah and (cutA or not num(pa.ah)) and (cutB or not num(pb.ah)) then out.cut = true end
   return next(out) and out or nil
 end
 
@@ -338,6 +368,9 @@ function History.merge(a, b)
     nItems = count, vendor = a.vendor + b.vendor, ah = a.ah + b.ah, best = History.bestOf(a) + History.bestOf(b),
     places = mergePlaces(first.places, second.places), items = items,
     currencies = mergeCurrencies(a.currencies, b.currencies), zones = mergeZones(a.zones, b.zones),
+    mobs = ns.Mobs and ns.Mobs.merge(a.mobs, b.mobs) or nil,
+    -- One Auction from only when both were saved with the same one.
+    ahMinGain = a.ahMinGain == b.ahMinGain and a.ahMinGain or nil,
   }
   local older, newer = a, b
   if b.startedAt < a.startedAt then older, newer = b, a end
@@ -418,6 +451,20 @@ function History.currencyText(e, sep)
 end
 
 -- "1 item", "12 items".
+local L_FREE = L[" free"]
+local L_ONE_MOB, L_N_MOBS = L["1 mob"], L[" mobs"]
+
+-- "1 mob", "14 mobs" (History Mobs).
+function History.mobCount(n)
+  if n == 1 then return L_ONE_MOB end
+  return tostring(n) .. L_N_MOBS
+end
+
+-- "9 free" (bag slots).
+function History.freeCount(n)
+  return tostring(n) .. L_FREE
+end
+
 function History.itemCount(n)
   if n == 1 then return L_ONE_ITEM end
   return tostring(n) .. L_ITEMS
@@ -429,6 +476,14 @@ local L_ONE_SESSION, L_SESSIONS = L["1 session"], L[" sessions"]
 function History.sessionCount(n)
   if n == 1 then return L_ONE_SESSION end
   return tostring(n) .. L_SESSIONS
+end
+
+local L_ONE_PLACE, L_N_PLACES = L["1 place"], L[" places"]
+
+-- History Zones header: how many zones are listed.
+function History.placeCount(n)
+  if n == 1 then return L_ONE_PLACE end
+  return tostring(n) .. L_N_PLACES
 end
 
 local L_TODAY, L_YESTERDAY = L["Today"], L["Yesterday"]
@@ -450,6 +505,69 @@ function History.shortDate(ts, now, dateFn)
     return weekday .. " " .. clock
   end
   return dateFn(L_DATE_FORMAT, ts)
+end
+
+-- Days since 1970-01-01 of a calendar date (proleptic Gregorian; pure, no
+-- time zone).
+local function daysFromCivil(y, m, d)
+  if m <= 2 then y = y - 1 end
+  local era = math.floor(y / 400)
+  local yoe = y - era * 400
+  local mp = (m + 9) % 12
+  local doy = math.floor((153 * mp + 2) / 5) + d - 1
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
+end
+
+-- ISO 8601 week of a date (weeks start on Monday; week 1 holds the year's
+-- first Thursday). Returns week, ISO year.
+function History.isoWeek(year, month, day)
+  local days = daysFromCivil(year, month, day)
+  local weekday = (days + 3) % 7 + 1 -- Monday 1 .. Sunday 7
+  local thursday = days - weekday + 4
+  local isoYear = year
+  if thursday < daysFromCivil(year, 1, 1) then
+    isoYear = year - 1
+  elseif thursday >= daysFromCivil(year + 1, 1, 1) then
+    isoYear = year + 1
+  end
+  return math.floor((thursday - daysFromCivil(isoYear, 1, 1)) / 7) + 1, isoYear
+end
+
+local WEEKDAY_NAMES = { L["Sunday"], L["Monday"], L["Tuesday"], L["Wednesday"], L["Thursday"], L["Friday"],
+  L["Saturday"] }
+local L_WEEK, L_WEEK_YEAR = L["Week %d"], L["Week %d, %d"]
+
+-- What History.period compares against, read once per build: today, and
+-- yesterday and this ISO week the first time a session needs them.
+function History.periodContext(now, dateFn)
+  return { today = dateFn("%Y-%m-%d", now) }
+end
+
+-- The History heading a session started at `t` goes under, seen at `now`:
+-- key, label. Today, Yesterday and the other days of this (Monday) week by
+-- day ("d:2026-11-17"), older (and later) sessions by ISO week ("w:2026-46").
+-- `dateFn` is os.date-like (date in the client); `c` (optional) is
+-- History.periodContext(now, dateFn).
+function History.period(t, now, dateFn, c)
+  c = c or History.periodContext(now, dateFn)
+  local today, d = c.today, dateFn("%Y-%m-%d", t)
+  if d == today then return "d:" .. d, L_TODAY end
+  if c.yesterday == nil then c.yesterday = dateFn("%Y-%m-%d", now - 86400) end
+  if d == c.yesterday then return "d:" .. d, L_YESTERDAY end
+  local a = dateFn("*t", t)
+  local week, year = History.isoWeek(a.year, a.month, a.day)
+  if c.week == nil then
+    local b = dateFn("*t", now)
+    c.week, c.year = History.isoWeek(b.year, b.month, b.day)
+  end
+  local nowWeek, nowYear = c.week, c.year
+  if week == nowWeek and year == nowYear and d < today then
+    return "d:" .. d, WEEKDAY_NAMES[num(a.wday) and a.wday or 1]
+  end
+  -- A week of another year says which.
+  local label = year == nowYear and string.format(L_WEEK, week) or string.format(L_WEEK_YEAR, week, year)
+  return string.format("w:%d-%02d", year, week), label
 end
 
 -- "1h 12m", "12m", "45s".

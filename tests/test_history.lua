@@ -1,6 +1,7 @@
 local h = ...
 -- (History.csv / details / snapshot places are tested at the end of this file)
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Session.lua", "History.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "LootParse.lua", "Prices.lua", "Session.lua",
+  "Mobs.lua", "History.lua" })
 local H = ns.History
 
 local function session(items, gold)
@@ -241,4 +242,120 @@ h.test("History.merge: one session of two, the time between them never counts", 
   -- The inputs stay as they were (undo puts them back).
   h.eq(newer.items[7].qty, 2); h.eq(older.zones["Deadmines (Normal)"].subs.Mast.time, 900)
   h.eq(ns.History.merge(newer, "junk"), nil)
+end)
+
+h.test("snapshot / totals: Auction from decides each item's best value", function()
+  -- item 1: vendor 10, ah 100 (+900%); item 2: vendor 5 only
+  local s = session({ { 1, 3 }, { 2, 4 } }, 0)
+  h.eq(H.snapshot(s, lookup, 1000).best, 300 + 20)
+  local e = H.snapshot(s, lookup, 1000, 1000) -- AH must beat vendor by 1000%: it doesn't
+  h.eq(e.best, 30 + 20)
+  -- totals: an ignored item leaves with the value the rule gave it
+  local _, _, best = H.totals(e, { [1] = true }, 1000)
+  h.eq(best, 20)
+end)
+
+h.test("History.isoWeek: ISO 8601 weeks, Monday first", function()
+  h.eq(H.isoWeek(2026, 11, 17), 47)
+  h.eq(H.isoWeek(2027, 1, 1), 53)
+  h.eq(H.isoWeek(2026, 1, 1), 1)
+  h.eq(H.isoWeek(2024, 12, 30), 1) -- belongs to 2025's first week
+  h.eq(select(2, H.isoWeek(2024, 12, 30)), 2025)
+end)
+
+h.test("History.period: today, yesterday, this week's days, then ISO weeks", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600 -- Tuesday 2026-11-17 12:00 UTC
+  local key, label = H.period(now - 3600, now, utc)
+  h.eq({ key, label }, { "d:2026-11-17", "Today" })
+  key, label = H.period(now - 86400, now, utc) -- Monday 16th
+  h.eq({ key, label }, { "d:2026-11-16", "Yesterday" })
+  key, label = H.period(now - 2 * 86400, now, utc) -- Sunday 15th: last week
+  h.eq({ key, label }, { "w:2026-46", "Week 46" })
+  key, label = H.period(now + 7 * 86400 + 6 * 86400, now, utc) -- Monday 30th (a clock set back)
+  h.eq(key, "w:2026-49")
+  -- this week, not today or yesterday: the weekday
+  local fri = 20777 * 86400 + 12 * 3600 -- Friday 2026-11-20
+  key, label = H.period(now, fri, utc)
+  h.eq({ key, label }, { "d:2026-11-17", "Tuesday" })
+end)
+
+h.test("History.snapshot keeps the mobs, merge adds them up", function()
+  local s = session({ { 1, 2 } })
+  s.mobs = { ["npc:1"] = { name = "Kobold", kind = "npc", kills = 2, looted = 1, gold = 5,
+    items = { [1] = 2 }, places = { Elwynn = 1 } } }
+  local e = H.snapshot(s, nil, 200)
+  h.eq(e.mobs["npc:1"].kills, 2)
+  s.mobs["npc:1"].kills = 9
+  h.eq(e.mobs["npc:1"].kills, 2) -- a copy
+  local other = H.snapshot(session({ { 1, 1 } }), nil, 200)
+  other.startedAt = 50
+  other.mobs = { ["npc:1"] = { kind = "npc", kills = 1, looted = 1, gold = 0, items = { [1] = 1 }, places = {} } }
+  local m = H.merge(e, other)
+  h.eq(m.mobs["npc:1"].kills, 3)
+  h.eq(m.mobs["npc:1"].items[1], 3)
+  -- entries saved before mobs were kept merge fine
+  e.mobs = nil
+  h.eq(H.merge(e, other).mobs["npc:1"].kills, 1)
+end)
+
+h.test("History.period: a week of another year names its year", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600 -- Tuesday 2026-11-17
+  local key, label = H.period(now - 365 * 86400, now, utc) -- Monday 2025-11-17
+  h.eq({ key, label }, { "w:2025-47", "Week 47, 2025" })
+end)
+
+h.test("History.snapshot: keeps the Auction from it was saved with", function()
+  local session = { startedAt = 10, elapsedBase = 60, running = false, gold = 0,
+    items = { [1] = { id = 1, qty = 1, lastSeen = 1, price = { vendor = 100, ah = 300 } } } }
+  local e = ns.History.snapshot(session, nil, 100, 300)
+  h.eq(e.ahMinGain, 300)
+  h.eq(e.best, 100) -- 300 does not beat 100 by 300%
+  e = ns.History.snapshot(session, nil, 100, 0)
+  h.eq(e.ahMinGain, 0)
+end)
+
+h.test("History.totals: ignored items leave at the session's own Auction from", function()
+  local function entry(gain, best)
+    return { startedAt = 1, elapsed = 60, gold = 0, nItems = 2, vendor = 110, ah = 1300, best = best,
+      ahMinGain = gain, items = {
+        a = { id = 1, qty = 1, price = { vendor = 100, ah = 300 } },
+        b = { id = 2, qty = 1, price = { vendor = 10, ah = 1000 } },
+      } }
+  end
+  -- saved with +300%: item 1 was worth its vendor 100
+  h.eq(select(3, ns.History.totals(entry(300, 1100), { [1] = true })), 1000)
+  -- saved before the option (no ahMinGain): plain best, 300
+  h.eq(select(3, ns.History.totals(entry(nil, 1300), { [1] = true }, 300)), 1000)
+end)
+
+h.test("History.merge: Auction from kept only when both agree", function()
+  local function entry(t, gain)
+    return { startedAt = t, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, best = 0, items = {},
+      ahMinGain = gain }
+  end
+  local m = ns.History.merge(entry(1, 50), entry(2, 50))
+  h.eq(m.ahMinGain, 50)
+  m = ns.History.merge(entry(1, 50), entry(2, 0))
+  h.eq(m.ahMinGain, nil)
+end)
+
+h.test("History: an AH price after the 5% cut is marked per item, also through merges", function()
+  local session = { startedAt = 10, elapsedBase = 60, running = false, gold = 0, items = {
+    [1] = { id = 1, qty = 1, lastSeen = 1, price = { ah = 95, cut = true } },
+    [2] = { id = 2, qty = 1, lastSeen = 1, price = { ah = 100 } },
+    [3] = { id = 3, qty = 1, lastSeen = 1 },
+  } }
+  local e = ns.History.snapshot(session, function(id) if id == 3 then return { ah = 950, ahGross = 1000 } end end, 100)
+  h.eq(e.items[1].price.cut, true)
+  h.eq(e.items[2].price.cut, nil)
+  h.eq(e.items[3].price.cut, true)
+  local other = ns.History.snapshot({ startedAt = 20, elapsedBase = 60, running = false, gold = 0, items = {
+    [1] = { id = 1, qty = 1, lastSeen = 1, price = { ah = 100 } },
+    [3] = { id = 3, qty = 1, lastSeen = 1, price = { ah = 950, cut = true } },
+  } }, nil, 100)
+  local m = ns.History.merge(e, other)
+  h.eq(m.items[1].price.cut, nil) -- one of them was not cut
+  h.eq(m.items[3].price.cut, true)
 end)

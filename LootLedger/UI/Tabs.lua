@@ -138,6 +138,17 @@ Tabs.define({
     if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
     local view = ns.View.buildInventory(bagItems, ctx.opts)
     view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
+    -- Gold on hand and net worth rows; free slots next to the item count.
+    local getMoney = ctx.env.GetMoney
+    if type(getMoney) == "function" then
+      local ok, money = pcall(getMoney)
+      if ok then ns.View.addWorth(view, money) end
+    end
+    local free, total = ns.Inventory.freeSlots(ctx.env)
+    if total > 0 then
+      local count = ns.History.itemCount(#view.rows)
+      view.headerInfo = count .. " \194\183 " .. ns.History.freeCount(free)
+    end
     return view
   end,
   hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
@@ -161,10 +172,15 @@ Tabs.define({
   build = function(ctx)
     local bank = savedBank(ctx)
     local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
-    local hours = ns.Util.setting("staleHours", nil)
-    view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank and bank.scannedAt, hours and hours * 3600)
+    -- Before the first scan: one message in the list and a dash in the
+    -- footer (no "0c" total, Summary.rowTexts).
+    view.unscanned = not wasScanned(bank)
+    if not view.unscanned then
+      local hours = ns.Util.setting("staleHours", nil)
+      view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank.scannedAt, hours and hours * 3600)
+    end
     view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
-      wasScanned(bank) and L["Your bank is empty."] or L["Not scanned yet."])
+      view.unscanned and L["Not scanned yet. Open your bank once to scan it."] or L["Your bank is empty."])
     return view
   end,
   hasItem = function(itemID, ctx)
@@ -199,7 +215,7 @@ local function zoneEntries(ctx)
   local s = ctx.session
   if type(s) == "table" then
     entries[#entries + 1] = { live = true, items = s.items, places = s.places, gold = s.gold,
-      zones = ns.Session.zoneSnapshot(s, ctx.now) }
+      zones = ns.Session.zoneSnapshot(s, ctx.now), mobs = s.mobs }
   end
   return entries
 end
@@ -239,6 +255,19 @@ Tabs.define({
       end,
       -- Item info arrives in bursts (hundreds at login): look the item up in
       -- the IDs of the last build instead of gathering every History again.
+      hasItem = function(itemID)
+        return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
+      end,
+    },
+    -- Mobs: what each mob and node dropped, over the same sessions as Zones.
+    {
+      key = "mobs", label = L["Mobs"],
+      sorts = { "ah", "perKill", "name" },
+      build = function(ctx)
+        local entries = zoneEntries(ctx)
+        zoneItemIDs = itemIDsOf(entries)
+        return ns.View.buildMobs(entries, ctx.opts, ctx.ledger.mobOpen)
+      end,
       hasItem = function(itemID)
         return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
       end,

@@ -805,6 +805,26 @@ h.test("View.dailyFarm skips places under the minimum time, quest items and no-t
   h.eq(V.dailyFarm({ zentry({ [1] = 9 }, nil, { "Z" }) }, { lookup = zlookup }, 0), nil)
 end)
 
+h.test("View.dailyFarm with levelFits skips places of another level, keeps unknown ones", function()
+  local function entries(withPosA)
+    local b = zsub(1800, {}, 300)
+    b.pos = { [10] = { x = 0.5, y = 0.5, n = 1 } }
+    local a = zsub(3600, { [1] = 4 })
+    if withPosA then a.pos = { [20] = { x = 0.1, y = 0.1, n = 1 } } end
+    return { zentry({ [1] = 4 }, { Z = { subs = { A = a } }, Y = { subs = { B = b } } }) }
+  end
+  local fits = function(mapID) return mapID ~= 10 end
+  local f = V.dailyFarm(entries(true), { lookup = zlookup, levelFits = fits }, 1200)
+  h.eq(f.best.sub, "A")
+  h.eq(#f.runnersUp, 0)
+  -- a place without a position is kept
+  f = V.dailyFarm(entries(false), { lookup = zlookup, levelFits = function() return false end }, 1200)
+  h.eq(f.best.sub, "A")
+  -- unknown level range (nil): kept
+  f = V.dailyFarm(entries(true), { lookup = zlookup, levelFits = function() return nil end }, 1200)
+  h.eq(f.best.sub, "B")
+end)
+
 h.test("View.dailyFarm returns nil without qualifying places", function()
   h.eq(V.dailyFarm({}, { lookup = zlookup }, 1200), nil)
   h.eq(V.dailyFarm(farmEntries(), { lookup = zlookup }, 7200), nil)
@@ -1024,4 +1044,257 @@ h.test("View.buildInventory: kept items are marked and counted apart", function(
   for _, r in ipairs(v.rows) do h.eq(r.kept == true, r.id == 1) end
   local plain = V.buildInventory(items, {})
   h.eq(plain.totals.kept, nil)
+end)
+
+-- ---------------------------------------------------------------------------
+-- Zones polish (review batch)
+
+h.test("buildZones: header counts the zone rows", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.headerInfo, "2 places")
+  v = V.buildZones({}, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.headerInfo, nil)
+  h.eq(ns.History.placeCount(1), "1 place")
+end)
+
+h.test("View.shortPlace shortens the difficulty first", function()
+  h.eq(V.shortPlace("Razorfen Downs (Normal)"), "Razorfen Downs (N)")
+  h.eq(V.shortPlace("Uldaman (Heroic)"), "Uldaman (H)")
+  h.eq(V.shortPlace("Deadmines (Mythic Keystone)"), "Deadmines (M+)")
+  h.eq(V.shortPlace("Deadmines (Mythic)"), "Deadmines (M)")
+  h.eq(V.shortPlace("Stratholme (Timewalking)"), "Stratholme (T)")
+  h.eq(V.shortPlace("Uldaman (Heroisch)"), "Uldaman (H)")
+  h.eq(V.shortPlace("Uldaman (Mythisch+)"), "Uldaman (M+)")
+  h.eq(V.shortPlace("Riverglades"), "Riverglades")
+end)
+
+h.test("buildZones: row name uses the short label, the tooltip the full one", function()
+  local list = { zentry({ [1] = 1 }, { ["Razorfen Downs (Normal)"] = { subs = {
+    ["Razorfen Downs (Normal)"] = zsub(600, { [1] = 1 }) } } }) }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.rows[1].name, "+ Razorfen Downs (N)")
+  h.eq(ns.Tooltip.text(ns.Tooltip.resolve(v.rows[1].hint)):find("Razorfen Downs (Normal)", 1, true) ~= nil, true)
+end)
+
+h.test("collect: unpriced names with quantity, at most 10 then the count", function()
+  local items = {}
+  for id = 101, 112 do items[id] = { id = id, link = link("U" .. id), qty = 2, lastSeen = 1 } end
+  local v = V.buildInventory(items, { lookup = function() return nil end, sort = "name" })
+  h.eq(v.totals.unpriced, 12)
+  h.eq(#v.totals.unpricedNames, V.UNPRICED_NAMES)
+  h.eq(V.UNPRICED_NAMES, 10)
+  h.eq(v.totals.unpricedNames[1]:match(" x2$") ~= nil, true)
+end)
+
+h.test("buildZones: opts.dailyPick marks the subzone and its zone row", function()
+  local v = V.buildZones(twoZones(), { lookup = zlookup, sort = "ah", dailyPick = { zone = "Z", sub = "A" } },
+    { zone = "Z" })
+  h.eq(v.rows[1].zoneKey, "Z"); h.eq(v.rows[1].daily, true)
+  h.eq(v.rows[2].subKey, "A"); h.eq(v.rows[2].daily, true)
+  h.eq(v.rows[3].zoneKey, "Y"); h.eq(v.rows[3].daily, nil)
+end)
+
+h.test("makeRow: opts.ahMinGain decides the best source", function()
+  reset()
+  local v = V.build(three(), opts({ sort = "ah", ahMinGain = 300 }))
+  local byId = {}
+  for _, r in ipairs(v.rows) do byId[r.id] = r end
+  h.eq(byId[1].bestKind, "ah")      -- 500 vs vendor 10
+  h.eq(byId[2].bestKind, "vendor")  -- 300 < 100 * 4
+  h.eq(byId[2].bestTotal, 200)
+  h.eq(V.build(three(), opts({ sort = "ah" })).totals.best, 2000 + 600 + 500)
+end)
+
+h.test("makeRow: an opened History session keeps its saved (already cut) AH price", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 1, vendor = 10, ah = 9500, best = 9500,
+    items = { [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1,
+      price = { vendor = 10, ah = 9500 } } } }
+  local v = V.buildHistory({ e }, opts({ lookup = function() return { ah = 10000, ahGross = 10500 } end }), 1)
+  h.eq(v.rows[2].ahEach, 9500)
+end)
+
+h.test("makeRow: a lookup after the AH cut marks the row", function()
+  local s = session({ { 7, "Cut", 1 } })
+  local v = V.build(s, opts({ lookup = function() return { ah = 95, ahGross = 100 } end }))
+  h.eq(v.rows[1].ahCut, true)
+  v = V.build(s, opts({ lookup = function() return { ah = 100 } end }))
+  h.eq(v.rows[1].ahCut, false)
+end)
+
+h.test("View.buildInventory: the sell split adds up what is not kept by best kind; addWorth", function()
+  local function stub(t) return function(id) return t[id] end end
+  local items = {
+    [1] = { id = 1, link = link("A"), qty = 1 },
+    [2] = { id = 2, link = link("B"), qty = 1 },
+    [3] = { id = 3, link = link("C"), qty = 1 },
+    [4] = { id = 4, link = link("D"), qty = 1 },
+  }
+  local prices = stub({ [1] = { vendor = 100 }, [2] = { vendor = 10, ah = 300 }, [3] = { vendor = 5, de = 50 },
+    [4] = { vendor = 1, ah = 200 } })
+  local v = V.buildInventory(items, { lookup = prices, kept = { [4] = "D" } })
+  h.eq(v.totals.sellSplit, { vendor = 100, ah = 300, de = 50 })
+  V.addWorth(v, 56200)
+  h.eq(v.totals.money, 56200)
+  h.eq(v.totals.worth, v.totals.best + 56200)
+end)
+
+h.test("View.buildHistory: day headings over the sessions while sorted by Recent", function()
+  local function utc(f, t) return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600 -- Tuesday 2026-11-17 12:00 UTC
+  local function e(start, elapsed, ah, place)
+    return { startedAt = start, elapsed = elapsed, gold = 0, nItems = 1, vendor = 0, ah = ah, best = ah,
+      places = { place }, items = {} }
+  end
+  local list = {
+    e(now - 1000, 3600, 100, "Dornogal"), e(now - 6000, 1800, 200, "Dornogal"), e(now - 9000, 600, 300, "Dornogal"),
+    e(now - 86400, 3600, 50, "Azj-Kahet"),
+  }
+  local opts = { now = now, dateFn = utc, sort = "recent", formatDate = function(t) return "d" .. t end }
+  local v = V.buildHistory(list, opts)
+  local kinds = {}
+  for _, r in ipairs(v.rows) do kinds[#kinds + 1] = r.isHeading and r.name or r.historyIndex end
+  h.eq(kinds, { "Today", 1, 2, 3, "Yesterday", 4 })
+  local today = v.rows[1]
+  h.eq(today.periodKey, "d:2026-11-17")
+  h.eq(today.value, 600)
+  h.eq(today.bestLineTotal, 600)
+  h.eq(today.detail, "3 sessions \194\183 1h 40m")
+  h.eq(v.headerInfo, "4 sessions")
+  -- a search that hides yesterday's session drops its heading
+  opts.filter = { search = "dornogal" }
+  v = V.buildHistory(list, opts)
+  kinds = {}
+  for _, r in ipairs(v.rows) do kinds[#kinds + 1] = r.isHeading and r.name or r.historyIndex end
+  h.eq(kinds, { "Today", 1, 2, 3 })
+  -- a folded period keeps its heading; the footer still counts its sessions
+  opts.filter = nil
+  opts.folded = { ["d:2026-11-16"] = true }
+  v = V.buildHistory(list, opts)
+  kinds = {}
+  for _, r in ipairs(v.rows) do kinds[#kinds + 1] = r.isHeading and r.name or r.historyIndex end
+  h.eq(kinds, { "Today", 1, 2, 3, "Yesterday" })
+  h.eq(v.rows[5].value, 50)
+  h.eq(v.totals.ah, 650)
+  -- an opened session stays at the top, above every heading
+  opts.folded = nil
+  v = V.buildHistory(list, opts, 4)
+  h.eq(v.rows[1].historyIndex, 4)
+  -- other sorts: no headings
+  opts.sort = "ah"
+  v = V.buildHistory(list, opts)
+  for _, r in ipairs(v.rows) do h.eq(r.isHeading, nil) end
+end)
+
+-- ---------------------------------------------------------------------------
+-- History Mobs
+
+local function mobEntry(mobs, items, gold)
+  local e = zentry(items or {}, nil, { "Riverglades" }, gold)
+  for _, it in pairs(e.items) do it.price = { vendor = 10 } end
+  e.mobs = mobs
+  return e
+end
+local function mob(kills, looted, gold, items, places, name, kind)
+  return { name = name, kind = kind or "npc", kills = kills, looted = looted, gold = gold or 0,
+    items = items or {}, places = places or { Riverglades = 1 } }
+end
+
+h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs last", function()
+  local entries = {
+    mobEntry({ ["npc:1"] = mob(2, 2, 40, { [1] = 3 }, nil, "Kobold"), ["npc:2"] = mob(5, 0, 0, {}, nil, "Wolf") },
+      { [1] = 3 }),
+    mobEntry({ ["npc:1"] = mob(1, 1, 20, { [1] = 1 }, { Riverglades = 1, Hills = 3 }) }, { [1] = 1 }),
+    mobEntry({ ["obj:9"] = mob(0, 4, 0, { [2] = 4 }, { Mine = 4 }, "Copper Vein", "node") }, { [2] = 4 }),
+  }
+  local v = V.buildMobs(entries, { sort = "ah" })
+  h.eq(v.kind, "mobs")
+  h.eq(v.headerInfo, "3 mobs")
+  local byKey = {}
+  for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
+  local k = byKey["npc:1"]
+  h.eq(k.kills, 3)
+  h.eq(k.value, 4 * 10 + 60) -- items at the saved vendor price plus gold
+  h.eq(k.perKill, 100 / 3)
+  h.eq(k.name, "+ Kobold")
+  h.eq(k.detail:find("3 kills", 1, true) ~= nil, true)
+  h.eq(k.detail:find("Hills", 1, true) ~= nil, true) -- the place with the most loot
+  h.eq(byKey["obj:9"].perKill, 10) -- nodes: per time looted
+  h.eq(byKey["obj:9"].detail:find("4 looted", 1, true) ~= nil, true)
+  h.eq(byKey["npc:2"].value, 0)
+  h.eq(v.rows[#v.rows].mobKey, "npc:2") -- nothing dropped: last
+  h.eq(v.totals.best, 80)
+  h.eq(v.gold.total, 60)
+  -- the opened mob lists its items under it
+  v = V.buildMobs(entries, { sort = "ah" }, "npc:1")
+  h.eq(v.rows[1].mobKey, "npc:1")
+  h.eq(v.rows[1].name, "- Kobold")
+  h.eq(v.rows[2].id, 1)
+  h.eq(v.rows[2].quantity, 4)
+  -- the ignore list leaves an item's value out
+  v = V.buildMobs(entries, { sort = "ah", ignored = { [1] = "x" } })
+  for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
+  h.eq(byKey["npc:1"].value, 60)
+  h.eq(#V.buildMobs(nil, {}).rows, 0)
+end)
+
+h.test("makeRow: the AH cut note follows each saved price", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 3, vendor = 10, ah = 20000, best = 20000,
+    items = {
+      [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1, price = { ah = 10000 } },
+      [2] = { id = 2, key = 2, link = link("Peacebloom"), qty = 1, lastSeen = 1, price = { vendor = 5 } },
+      [3] = { id = 3, key = 3, link = link("Silverleaf"), qty = 1, lastSeen = 1, price = { ah = 10000, cut = true } },
+    } }
+  local o = opts({ sort = "name", lookup = function() return { ah = 950, ahGross = 1000 } end })
+  local t = {}
+  local v = V.buildHistory({ e }, o, 1)
+  for i = 2, #v.rows do t[v.rows[i].id] = v.rows[i] end
+  h.eq(t[1].ahCut, false) -- saved before the cut existed
+  h.eq(t[2].ahCut, true)  -- no saved AH price: the live, cut one
+  h.eq(t[3].ahCut, true)
+  -- the running session: a loot-time price after the cut when no live one is known
+  local s = session({ { 7, "Cut", 1 } })
+  s.items[7].price = { ah = 95, cut = true }
+  v = V.build(s, opts({ lookup = function() return {} end }))
+  h.eq(v.rows[1].ahCut, true)
+end)
+
+h.test("buildHistory: an opened session values its items at its own Auction from", function()
+  local e = { startedAt = 1, elapsed = 60, gold = 0, nItems = 1, vendor = 100, ah = 300, best = 100, ahMinGain = 300,
+    items = { [1] = { id = 1, key = 1, link = link("Kingsblood"), qty = 1, lastSeen = 1,
+      price = { vendor = 100, ah = 300 } } } }
+  local v = V.buildHistory({ e }, opts({ ahMinGain = 0 }), 1)
+  h.eq(v.rows[2].bestKind, "vendor")
+  h.eq(v.rows[2].bestTotal, v.rows[1].value)
+end)
+
+h.test("View.buildMobs: the newest real name wins; a mob without one shows its ID", function()
+  local entries = {
+    mobEntry({ ["npc:7"] = mob(1, 1, 0, {}, nil, "Newer"), ["npc:8"] = mob(1, 1, 0) }),
+    mobEntry({ ["npc:7"] = mob(1, 1, 0, {}, nil, "Older"), ["obj:9"] = mob(0, 1, 0, {}, nil, nil, "node") }),
+  }
+  local function names(list)
+    local t = {}
+    for _, r in ipairs(V.buildMobs(list, { sort = "name" }).rows) do t[r.mobKey] = r.name end
+    return t
+  end
+  local n = names(entries)
+  h.eq(n["npc:7"], "+ Newer")
+  h.eq(n["npc:8"], "+ NPC 8")
+  h.eq(n["obj:9"], "+ Object 9")
+  -- the running session (last) has the newest name of all
+  entries[3] = { live = true, items = {}, mobs = { ["npc:7"] = mob(1, 1, 0, {}, nil, "Live") } }
+  h.eq(names(entries)["npc:7"], "+ Live")
+end)
+
+h.test("View.buildHistory: headings read the date at most three times per session", function()
+  local calls = 0
+  local function utc(f, t) calls = calls + 1 return os.date("!" .. f, t) end
+  local now = 20774 * 86400 + 12 * 3600
+  local list = {}
+  for i = 1, 20 do
+    list[i] = { startedAt = now - i * 3 * 86400, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, best = 0,
+      places = {}, items = {} }
+  end
+  V.buildHistory(list, { now = now, dateFn = utc, sort = "recent", formatDate = function(t) return "d" .. t end })
+  h.eq(calls <= 3 * 20 + 6, true, "date calls: " .. calls)
 end)

@@ -24,6 +24,7 @@ Sources\Vendor.lua
 Sources\TSM.lua
 Sources\Auctionator.lua
 Session.lua
+Mobs.lua
 History.lua
 Inventory.lua
 Options.lua

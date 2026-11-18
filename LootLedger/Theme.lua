@@ -14,6 +14,9 @@ Theme.textures = {
   graphBar = "Interface\\Buttons\\WHITE8X8",
   -- Daily farm strip: a star, tinted with colors.dailyFarm.
   dailyFarm = "Interface\\Common\\FavoritesIcon",
+  -- History Mobs rows: a mob or a gathering node.
+  mob = "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01",
+  node = "Interface\\Icons\\Trade_Mining",
   resizeGrip = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",
   -- Options button: a gear-like trade icon, present in every client.
   optionsIcon = "Interface\\Icons\\Trade_Engineering",

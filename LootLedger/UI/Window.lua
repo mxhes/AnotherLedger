@@ -53,6 +53,9 @@ end
 -- switches it through Window.applyMode.
 Window.MODES = { full = true, compact = true }
 Window.mode = "full"
+-- Hide in combat: true from combat start to its end (Window.combatHide /
+-- combatShow), so an automatic show waits.
+Window.inCombat = false
 
 local function compact() return Window.mode == "compact" end
 
@@ -132,8 +135,9 @@ local function save()
   local slot = sizeSlot(w)
   slot.width = frame:GetWidth()
   slot.height = frame:GetHeight()
-  -- Hidden only for combat (combat hide): keep the player's own state.
-  if not Window.hiddenByCombat then w.hidden = not frame:IsShown() end
+  -- Hidden for combat or shown / hidden by an automatic option: keep the
+  -- player's own state.
+  if not (Window.hiddenByCombat or Window.shownBy or Window.hiddenBy) then w.hidden = not frame:IsShown() end
 end
 
 -- Pure. (x, y) = CENTER offset of a w x h window from the screen center on a
@@ -609,6 +613,7 @@ end
 -- Combat auto hide: remembers that the window was hidden by combat, so only
 -- that case is shown again afterwards. The saved hidden flag is not touched.
 function Window.combatHide()
+  Window.inCombat = true -- automatic shows wait for combatShow
   local frame = Window.frame
   if not frame or not frame:IsShown() then return end
   Window.hiddenByCombat = true
@@ -616,6 +621,7 @@ function Window.combatHide()
 end
 
 function Window.combatShow()
+  Window.inCombat = false
   local frame = Window.frame
   if not Window.hiddenByCombat then return end
   Window.hiddenByCombat = false
@@ -626,6 +632,7 @@ function Window.show()
   local frame = ensure()
   if not frame then return end
   Window.hiddenByCombat = false
+  Window.shownBy, Window.hiddenBy = nil, nil
   frame:Show()
   save()
 end
@@ -634,8 +641,53 @@ function Window.hide()
   local frame = ensure()
   if not frame then return end
   Window.hiddenByCombat = false
+  Window.shownBy, Window.hiddenBy = nil, nil
   frame:Hide()
   save()
+end
+
+-- Automatic show / hide (options Open on first loot, Open in instances, Hide
+-- in cities): `reason` is remembered so Window.autoUndo only reverses its own
+-- action; showing or hiding by hand clears both marks. While either mark is
+-- set the saved hidden flag keeps the player's own choice. In combat (Hide in
+-- combat) a show waits for the combat's end, and a hide also cancels the
+-- show after combat.
+local function autoShown(frame, shown)
+  if not shown then
+    Window.hiddenByCombat = false
+    if frame:IsShown() then frame:Hide() end
+  elseif Window.inCombat then
+    Window.hiddenByCombat = true -- combatShow shows it
+  else
+    Window.hiddenByCombat = false
+    if not frame:IsShown() then frame:Show() end
+  end
+end
+
+function Window.autoShow(reason)
+  local frame = ensure()
+  if not frame or frame:IsShown() or Window.hiddenByCombat then return end
+  Window.shownBy = reason
+  autoShown(frame, true)
+end
+
+function Window.autoHide(reason)
+  local frame = Window.frame
+  if not frame or not (frame:IsShown() or Window.hiddenByCombat) then return end
+  Window.hiddenBy = reason
+  autoShown(frame, false)
+end
+
+function Window.autoUndo(reason)
+  local frame = Window.frame
+  if not frame then return end
+  if Window.shownBy == reason then
+    Window.shownBy = nil
+    autoShown(frame, false)
+  elseif Window.hiddenBy == reason then
+    Window.hiddenBy = nil
+    autoShown(frame, true)
+  end
 end
 
 function Window.toggle()

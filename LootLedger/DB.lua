@@ -32,6 +32,12 @@ DB.defaults = {
     includeGold = true,
     refreshSeconds = 30,
     staleHours = 12,
+    -- Value rules (Prices.best / Prices lookup rules): AH values after the
+    -- 5% fee, the percent an AH value must beat vendor by (0 = any), and when
+    -- destroy values count: always / any (a character of mine can) / self / never.
+    ahCut = true,
+    ahMinGain = 0,
+    destroyMode = "always",
     alertGold = 0,
     alertSound = false,
     -- Crafted items and items received at a merchant / mailbox / trade / AH
@@ -41,6 +47,8 @@ DB.defaults = {
     -- Daily farm strip and the minimum recorded time of a place it may pick.
     dailyFarm = true,
     dailyFarmMinutes = 20,
+    -- The Daily farm only picks places whose map fits your level.
+    dailyFarmLevel = false,
     -- Top finds block and the Raw gold row of the footer table.
     showTopFinds = true,
     showFooterGold = true,
@@ -59,12 +67,22 @@ DB.defaults = {
     soldMedium = 10,
     -- Pause the clock while AFK; a new session per dungeon / raid visit.
     afkPause = false,
+    -- The window shows itself on a session's first loot / in instances and
+    -- hides while resting in a city.
+    showOnLoot = false,
+    showInInstance = false,
+    hideInCities = false,
+    -- Stop the clock (not the loot) while resting in a city or inn.
+    cityPause = true,
     -- A chat line with the length, place and worth of each saved session.
     sessionChat = false,
     instanceSession = false,
     -- A new session per zone, after this many minutes in the new zone.
     zoneSession = false,
     zoneSessionMinutes = 2,
+    -- A session shorter than this (minutes) continues instead of going to
+    -- History on a zone / instance split or a login; 0 = off.
+    minSessionMinutes = 2,
     -- Session goals: gold (best value + raw gold) and minutes; 0 = off.
     goalGold = 0,
     goalMinutes = 0,
@@ -124,6 +142,9 @@ DB.defaults = {
   kept = {},
   -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
   histories = {},
+  -- Destroy professions per character: { ["Name-Realm"] = { enchanting = true, ... } }
+  -- (Core.noteProfessions; option Destroy values).
+  professions = {},
 }
 
 -- Per-character defaults (LootLedgerCharDB): the last bank scan for the Bank tab.

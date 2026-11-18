@@ -32,6 +32,8 @@ function Session.new(now)
     gold = 0,
     -- The last loot events (compact mode's "Last drops"), newest first.
     recent = {},
+    -- Loot, kills and gold per mob and node (Mobs.lua).
+    mobs = {},
   }
 end
 
@@ -72,13 +74,15 @@ function Session.add(session, itemID, link, qty, now, key)
   return true, item
 end
 
--- Remembers the unit prices seen at loot time ({ vendor, ah, de }, each optional).
+-- Remembers the unit prices seen at loot time ({ vendor, ah, de }, each
+-- optional; cut = true when ah is after the 5% AH cut).
 function Session.setPrice(item, info)
   if type(item) ~= "table" or type(info) ~= "table" then return end
   local p = {}
   for _, k in ipairs({ "vendor", "ah", "de" }) do
     if num(info[k]) and info[k] >= 0 then p[k] = info[k] end
   end
+  if p.ah and num(info.ahGross) then p.cut = true end
   if next(p) then item.price = p end
 end
 
@@ -188,7 +192,7 @@ function Session.enterPlace(session, zone, sub, now)
     session.at = nil
     return
   end
-  session.at = { zone = zone, sub = sub, since = session.running and now or nil }
+  session.at = { zone = zone, sub = sub, since = (session.running and not session.resting) and now or nil }
 end
 
 function Session.notePlaceLoot(session, key, qty)
@@ -293,6 +297,27 @@ function Session.stop(session, now)
   if type(session.at) == "table" then session.at.since = nil end
   session.running = false
   session.runningSince = nil
+  session.resting = nil
+end
+
+-- Option "cityPause": in a city (resting) the clock and the place time stand
+-- still while the session keeps running, so loot and gold still count.
+function Session.rest(session, now)
+  if not session.running or session.resting then return end
+  session.elapsedBase = Session.elapsed(session, now)
+  closeStretch(session, now)
+  if type(session.at) == "table" then session.at.since = nil end
+  session.runningSince = nil
+  session.resting = true
+end
+
+function Session.wake(session, now)
+  if not session.resting then return end
+  session.resting = nil
+  if session.running then
+    session.runningSince = now
+    if type(session.at) == "table" then session.at.since = now end
+  end
 end
 
 function Session.reset(session, now)
@@ -302,13 +327,15 @@ function Session.reset(session, now)
   session.places = {}
   session.zones = {}
   session.recent = {}
+  session.mobs = {}
   session.demo = nil
   session.goalsNoted = nil -- the new session's goals are announced again
-  if type(session.at) == "table" then session.at.since = session.running and now or nil end
+  local ticking = session.running and not session.resting
+  if type(session.at) == "table" then session.at.since = ticking and now or nil end
   session.gold = 0
   session.startedAt = now
   session.elapsedBase = 0
-  session.runningSince = session.running and now or nil
+  session.runningSince = ticking and now or nil
 end
 
 -- Gold per hour graph: the session's worth (copper) at clock times,
@@ -358,6 +385,7 @@ end
 
 -- Login: restart the clock at the login time; offline time never counts.
 function Session.resume(session, now)
+  session.resting = nil -- Core.checkRest rests it again in a city
   if session.running then
     session.runningSince = now
     if type(session.at) == "table" then session.at.since = now end
@@ -405,6 +433,7 @@ function Session.login(saved, keep, now)
     if type(saved.places) ~= "table" then saved.places = {} end
     if type(saved.zones) ~= "table" then saved.zones = {} end
     if type(saved.recent) ~= "table" then saved.recent = {} end
+    if type(saved.mobs) ~= "table" then saved.mobs = {} end
     local at = saved.at
     if type(at) ~= "table" or type(at.zone) ~= "string" or type(at.sub) ~= "string" then saved.at = nil end
     Session.resume(saved, now)

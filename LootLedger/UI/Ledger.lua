@@ -35,6 +35,11 @@ Ledger.tab = ns.UI.Tabs.DEFAULT
 -- History Zones ({ zone, sub }).
 Ledger.subtab = nil
 Ledger.zoneOpen = {}
+-- History Mobs: the opened mob's key, or nil.
+Ledger.mobOpen = nil
+-- History Sessions: folded day / week headings ({ [periodKey] = true }), kept
+-- for the Lua session (a /reload or logout opens them again).
+Ledger.periodFold = {}
 -- Layout mode: "full" (the ledger) or "compact" (the glance); db.mode.
 Ledger.mode = "full"
 
@@ -200,10 +205,13 @@ local function currentContext(now)
   viewOpts.now = now
   viewOpts.filter = db and db.filter
   viewOpts.sort = Ledger.currentSort()
+  viewOpts.dateFn = date
+  viewOpts.folded = Ledger.periodFold
   local setting = ns.Util.setting
   viewOpts.includeGold = setting("includeGold", true)
   viewOpts.showCurrencies = setting("showCurrencies", true)
   viewOpts.market = Ledger.marketCutoffs(db)
+  viewOpts.ahMinGain = setting("ahMinGain", 0)
   viewOpts.compactDrops = setting("compactDrops", nil)
   viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
   viewOpts.kept = db and type(db.kept) == "table" and db.kept or nil
@@ -240,7 +248,9 @@ local function farmKey(listKey, minutes)
   return table.concat({
     listKey, tostring(minutes), tostring(viewOpts.includeGold), ignored .. ":" .. idSum,
     tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)),
+    tostring(setting("ahCut", nil)), tostring(setting("ahMinGain", nil)), tostring(setting("destroyMode", nil)),
     m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
+    tostring(setting("dailyFarmLevel", nil)), tostring(viewOpts.level),
   }, "|")
 end
 
@@ -250,6 +260,13 @@ local function dailyFarm(now)
   local history, listKey = ns.Core.zoneHistory()
   if type(history) ~= "table" then return nil end
   local minutes = setting("dailyFarmMinutes", 20)
+  -- Option "Daily farm: my level": places for the player's level only.
+  viewOpts.levelFits, viewOpts.level = nil, nil
+  if setting("dailyFarmLevel", false) and type(UnitLevel) == "function" then
+    local level = UnitLevel("player")
+    viewOpts.level = level
+    viewOpts.levelFits = function(mapID) return ns.Core.levelFits(_G, mapID, level) end
+  end
   local key = farmKey(listKey, minutes)
   if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
   local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)
@@ -264,9 +281,14 @@ end
 function Ledger.buildView(now)
   if not ns.session then return nil end
   for k in pairs(priceMemo) do priceMemo[k] = nil end
-  local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, currentContext(now))
+  local ctx = currentContext(now)
+  -- The Daily farm first: History Zones marks its place (opts.dailyPick).
+  local farm = dailyFarm(now)
+  local best = type(farm) == "table" and farm.best or nil
+  viewOpts.dailyPick = best and { zone = best.zone, sub = best.sub } or nil
+  local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, ctx)
   if type(view) == "table" then
-    view.dailyFarm = dailyFarm(now)
+    view.dailyFarm = farm
     -- Compact mode draws its own unfiltered numbers and last drops.
     if Ledger.mode == "compact" then view.compact = ns.View.buildCompact(ns.session, viewOpts) end
   end
@@ -443,6 +465,7 @@ local function switchTab(key)
   Ledger.subtab = savedSubtab(key)
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
+  Ledger.mobOpen = nil
   if ns.db then ns.db.tab = key end
   applyTab(key)
   restoreScroll()
@@ -455,6 +478,7 @@ local function switchSubtab(subKey)
   Ledger.subtab = sub.key
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
+  Ledger.mobOpen = nil
   if ns.db then
     if type(ns.db.subtab) ~= "table" then ns.db.subtab = {} end
     ns.db.subtab[Ledger.tab] = sub.key
@@ -496,6 +520,18 @@ end
 
 function Ledger.toggleMode()
   Ledger.setMode(Ledger.mode == "compact" and "full" or "compact")
+end
+
+-- Opens a History mob's items, or closes them on a second click.
+function Ledger.toggleMob(key)
+  Ledger.mobOpen = Ledger.mobOpen ~= key and key or nil
+  Ledger.refresh()
+end
+
+-- Folds or unfolds a History day / week heading.
+function Ledger.togglePeriod(key)
+  Ledger.periodFold[key] = not Ledger.periodFold[key] or nil
+  Ledger.refresh()
 end
 
 -- History Zones: a zone row opens its subzones (and closes another zone), a
@@ -683,10 +719,14 @@ function Ledger.init()
     if button == "RightButton" then
       local entries = Ledger.rowMenu(row)
       if entries then UI.Widgets.openMenu(frame, entries, "button") end
+    elseif row.periodKey then
+      Ledger.togglePeriod(row.periodKey)
     elseif row.historyIndex then
       Ledger.toggleHistory(row.historyIndex)
     elseif row.zoneKey then
       Ledger.toggleZone(row.zoneKey, row.subKey)
+    elseif row.mobKey then
+      Ledger.toggleMob(row.mobKey)
     end
   end
   applyMinWidth(list.measured)

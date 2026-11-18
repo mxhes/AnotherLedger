@@ -145,6 +145,15 @@ local function slash(ctx, msg) ctx.env.SlashCmdList["LOOTLEDGER"](msg) end
 local LINK = "|cffffffff|Hitem:2589::::::::60:::::::::|h[Linen Cloth]|h|r"
 local LOOT = "You receive loot: " .. LINK .. "x3."
 
+-- The rows of a view without the History day / week headings.
+local function sessions(view)
+  local out = {}
+  for _, r in ipairs(view.rows) do
+    if not r.isHeading then out[#out + 1] = r end
+  end
+  return out
+end
+
 local function startWorld(ctx, isReload)
   fire(ctx, "ADDON_LOADED", "LootLedger")
   fire(ctx, "PLAYER_ENTERING_WORLD", not isReload, isReload and true or false)
@@ -361,7 +370,7 @@ h.test("wiring: a History session's menu deletes it, /ll undo brings it back", f
   local L = ctx.ns.L
   Ledger.setTab("history")
   Ledger.toggleHistory(3) -- the oldest one is open
-  local row = Ledger.view.rows[2]
+  local row = sessions(Ledger.view)[2]
   h.eq(row.historyIndex, 1)
   Ledger.list.onRowClick(row, "RightButton", "rowFrame")
   local menu = menus[#menus]
@@ -437,7 +446,7 @@ h.test("wiring: a note on a History session shows on its row and is searched", f
   history[2] = { startedAt = 4, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
   local Ledger, L = ctx.ns.UI.Ledger, ctx.ns.L
   Ledger.setTab("history")
-  Ledger.list.onRowClick(Ledger.view.rows[2], "RightButton", "f")
+  Ledger.list.onRowClick(sessions(Ledger.view)[2], "RightButton", "f")
   menuItem(menus[#menus], L["Add note"]).click()
   h.eq(popup.hasEditBox, true)
   local box = { text = "", SetText = function(self, t) self.text = t end, GetText = function(self) return self.text end,
@@ -447,16 +456,16 @@ h.test("wiring: a note on a History session shows on its row and is searched", f
   box.text = "  Wingrest herbs "
   popup.OnAccept({ editBox = box })
   h.eq(history[2].note, "Wingrest herbs")
-  h.eq(Ledger.view.rows[2].name:find("Wingrest herbs", 1, true) ~= nil, true)
+  h.eq(sessions(Ledger.view)[2].name:find("Wingrest herbs", 1, true) ~= nil, true)
   -- Editing shows the note; the search finds it.
-  Ledger.list.onRowClick(Ledger.view.rows[2], "RightButton", "f")
+  Ledger.list.onRowClick(sessions(Ledger.view)[2], "RightButton", "f")
   menuItem(menus[#menus], L["Edit note"]).click()
   popup.OnShow({ GetEditBox = function() return box end })
   h.eq(box.text, "Wingrest herbs")
   ctx.ns.db.filter.search = "wingrest"
   Ledger.refresh()
-  h.eq(#Ledger.view.rows, 1)
-  h.eq(Ledger.view.rows[1].entry, history[2])
+  h.eq(#sessions(Ledger.view), 1)
+  h.eq(sessions(Ledger.view)[1].entry, history[2])
   h.eq(ctx.errors, {})
 end)
 
@@ -651,6 +660,7 @@ h.test("wiring: a /reload keeps the session with keep off, a relog starts fresh"
   h.eq(reload.ns.session.items[2589].qty, 3)
   h.eq(reload.ns.session.runningSince, 2000)
 
+  db.profiles.Default.minSessionMinutes = 0 -- a short session would continue
   local relog = boot({ db = db, chardb = chardb, now = 3000 })
   startWorld(relog, false)
   h.eq(next(relog.ns.session.items), nil)
@@ -809,9 +819,11 @@ h.test("wiring: bank is scanned while open and shown from the saved scan", funct
   local L = ctx.ns.UI.Ledger
   L.setTab("bank")
   h.eq(#L.view.rows, 0)
-  h.eq(L.view.note, "Open your bank once to scan it.")
+  -- One message before the first scan, and no "0c" total (view.unscanned).
+  h.eq(L.view.note, nil)
+  h.eq(L.view.unscanned, true)
   -- the default bank record (scannedAt 0) is no scan: never "empty"
-  h.eq(L.view.empty, "Not scanned yet.")
+  h.eq(L.view.empty, "Not scanned yet. Open your bank once to scan it.")
   fire(ctx, "BANKFRAME_OPENED")
   h.eq(ctx.errors, {})
   h.eq(#L.view.rows, 2)
@@ -824,6 +836,7 @@ h.test("wiring: bank is scanned while open and shown from the saved scan", funct
   ctx.now = ctx.now + 7200
   L.refresh()
   h.eq(L.view.note, "Scanned 2h ago")
+  h.eq(L.view.unscanned, false)
   h.eq(#L.view.rows, 2)
 end)
 
@@ -983,7 +996,10 @@ h.test("wiring: hovering the footer table shows the vendor / AH tooltip", functi
   tbl._scripts.OnEnter(tbl)
   h.eq(lines[1][1], "Items")
   h.eq(lines[2][1], "Vendor: ")
-  h.eq(#lines, 8)
+  -- 8 value lines, then the unpriced Linen Cloth by name.
+  h.eq(#lines, 10)
+  h.eq(lines[9][1], "Unpriced")
+  h.eq(lines[10][1]:find("Linen Cloth", 1, true) ~= nil and lines[10][1]:match(" x3$") ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -1047,7 +1063,8 @@ h.test("wiring: opacity, price source and combat hide options take effect", func
   h.eq(ctx.errors, {})
   local ns, W = ctx.ns, ctx.ns.UI.Window
   local frame = W.frame
-  -- price source: Auctionator only, TSM silent
+  -- price source: Auctionator only, TSM silent (raw prices: no AH cut)
+  ns.Options.set(ns.db, "ahCut", false)
   ctx.env.TSM_API = { GetCustomPriceValue = function() return 111 end }
   ctx.env.Auctionator = { API = { v1 = { GetAuctionPriceByItemID = function() return 222 end } } }
   ns.Options.set(ns.db, "priceSource", "tsm")
@@ -1230,6 +1247,7 @@ h.test("wiring: a fresh login archives the discarded session, keep-session does 
   h.eq(#chardb.history, 0)
 
   fire(reload, "PLAYER_LOGOUT")
+  db.profiles.Default.minSessionMinutes = 0 -- a short session would continue
   local relog = boot({ db = db, chardb = chardb, now = 3000 })
   startWorld(relog, false)
   h.eq(#chardb.history, 1)
@@ -1274,7 +1292,7 @@ h.test("wiring: hovering a History session shows the colored tooltip", function(
   local L = ctx.ns.UI.Ledger
   L.setTab("history")
   local C = ctx.ns.Theme.colors
-  local shown = ctx.ns.UI.Widgets.showTextTooltip({}, L.view.rows[1].hint)
+  local shown = ctx.ns.UI.Widgets.showTextTooltip({}, sessions(L.view)[1].hint)
   h.eq(shown, true)
   h.eq(ops[1][1], "line"); h.eq(ops[1][3], C.tipTitle[1]) -- the date, gold
   local doubles, last = 0, ops[#ops]
@@ -1294,17 +1312,17 @@ h.test("wiring: a History session opens at the top and collapses on a second cli
   slash(ctx, "reset")
   local L = ctx.ns.UI.Ledger
   L.setTab("history")
-  h.eq(#L.view.rows, 2)
-  L.list.onRowClick(L.view.rows[2]) -- open the older session
+  h.eq(#sessions(L.view), 2)
+  L.list.onRowClick(sessions(L.view)[2]) -- open the older session
   h.eq(L.historyIndex, 2)
-  h.eq(#L.view.rows, 3)
-  h.eq(L.view.rows[1].historyIndex, 2) -- on top
-  h.eq(L.view.rows[2].quantity, 3) -- its item
-  h.eq(L.view.rows[3].historyIndex, 1)
-  L.list.onRowClick(L.view.rows[1]) -- click it again
+  h.eq(#sessions(L.view), 3)
+  h.eq(sessions(L.view)[1].historyIndex, 2) -- on top
+  h.eq(sessions(L.view)[2].quantity, 3) -- its item
+  h.eq(sessions(L.view)[3].historyIndex, 1)
+  L.list.onRowClick(sessions(L.view)[1]) -- click it again
   h.eq(L.historyIndex, nil)
-  h.eq(#L.view.rows, 2)
-  L.list.onRowClick(L.view.rows[1])
+  h.eq(#sessions(L.view), 2)
+  L.list.onRowClick(sessions(L.view)[1])
   L.setTab("session")
   L.setTab("history")
   h.eq(L.historyIndex, nil) -- leaving the tab collapses
@@ -1653,6 +1671,7 @@ h.test("wiring: loot notes the place; a new session per instance with the option
   h.eq(ns.Session.placeList(ns.session.places), { "The Stonevault (Heroic)", "Dornogal" })
   -- option on: leaving archives the dungeon session and starts a new one
   ns.Options.set(ns.db, "instanceSession", true)
+  ns.Options.set(ns.db, "minSessionMinutes", 0)
   where.instance = nil
   fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
   local hist = ctx.env.LootLedgerCharDB.history
@@ -2832,5 +2851,636 @@ h.test("wiring: Session summary in chat sums up a saved session", function()
   h.eq(found ~= nil, true)
   h.eq(found:find(ns.Money.format(250000), 1, true) ~= nil, true)
   h.eq(found:find(ns.Money.format(500000) .. "/h", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: AH cut and Destroy values change the prices at once", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("Destroy", 1, true) then return 50000 end
+    return 10000
+  end }
+  h.eq(ns.Options.get(ns.db, "ahCut"), true)
+  local r = ns.prices:lookup(2589)
+  h.eq(r.ah, 9500); h.eq(r.ahGross, 10000)
+  ns.Options.set(ns.db, "ahCut", false)
+  h.eq(ns.prices:lookup(2589).ah, 10000)
+  -- Destroy: Linen Cloth's class comes from GetItemInfoInstant (armor here).
+  ctx.env.C_Item.GetItemInfoInstant = function(id) return id, "Armor", "Cloth", "", 1, 4, 1 end
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ns.Options.set(ns.db, "destroyMode", "self")
+  h.eq(ns.prices:lookup(2589).de, nil) -- no enchanter
+  h.eq(ns.Core.character, "Me-Realm")
+  ns.db.professions = { ["Me-Realm"] = { enchanting = true } }
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ns.Options.set(ns.db, "destroyMode", "never")
+  h.eq(ns.prices:lookup(2589).de, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: SKILL_LINES_CHANGED saves this character's destroy professions", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.GetProfessions = function() return 1, nil end
+  ctx.env.GetProfessionInfo = function() return "Enchanting", 0, 1, 100, 0, 0, 333 end
+  fire(ctx, "SKILL_LINES_CHANGED")
+  h.eq(ns.db.professions["Me-Realm"], { enchanting = true })
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Auction from turns a thin AH margin into a Vendor row", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src) return not src:find("Destroy", 1, true) and 30 or nil end }
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- vendor 25 each, AH 30 (28 after the cut)
+  local L = ns.UI.Ledger
+  L.refresh()
+  h.eq(L.view.rows[1].bestKind, "ah")
+  ns.Options.set(ns.db, "ahMinGain", 20)
+  L.refresh()
+  h.eq(L.view.rows[1].bestKind, "vendor")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a short session continues over a zone split, a long one is archived", function()
+  local function run(seconds)
+    local ctx = boot()
+    local where = { zone = "Dornogal" }
+    ctx.env.GetRealZoneText = function() return where.zone end
+    startWorld(ctx, false)
+    local ns, hist = ctx.ns, ctx.env.LootLedgerCharDB.history
+    ns.Options.set(ns.db, "zoneSession", true)
+    ns.Options.set(ns.db, "zoneSessionMinutes", 1)
+    h.eq(ns.Options.get(ns.db, "minSessionMinutes"), 2)
+    fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 4))
+    ctx.now = ctx.now + seconds
+    where.zone = "Isle of Dorn"
+    fire(ctx, "ZONE_CHANGED_NEW_AREA")
+    ctx.now = ctx.now + 61
+    ns.Core.heartbeat()
+    h.eq(ctx.errors, {})
+    return ctx, ns, hist
+  end
+  local _, ns, hist = run(-31) -- 30 s in all
+  h.eq(#hist, 0)
+  h.eq(ns.session.items[2589].qty, 4)
+  _, ns, hist = run(600)
+  h.eq(#hist, 1)
+  h.eq(next(ns.session.items), nil)
+end)
+
+h.test("wiring: a short session at login continues, a long one is archived", function()
+  local function relog(seconds)
+    local ctx = boot()
+    startWorld(ctx, false)
+    fire(ctx, "CHAT_MSG_LOOT", LOOT)
+    ctx.now = ctx.now + seconds
+    fire(ctx, "PLAYER_LOGOUT")
+    local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+    local saved = chardb.session
+    local again = boot({ db = db, chardb = chardb, now = ctx.now + 5000 })
+    startWorld(again, false)
+    h.eq(again.errors, {})
+    return again, saved, chardb
+  end
+  local ctx, saved, chardb = relog(60)
+  h.eq(ctx.ns.session, saved)
+  h.eq(#chardb.history, 0)
+  h.eq(ctx.ns.session.items[2589].qty, 3)
+  ctx, saved, chardb = relog(1800)
+  h.eq(ctx.ns.session ~= saved, true)
+  h.eq(#chardb.history, 1)
+end)
+
+h.test("wiring: /ll reset still archives a short session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = ctx.now + 20
+  slash(ctx, "reset")
+  h.eq(#ctx.env.LootLedgerCharDB.history, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Pause in cities freezes the clock while resting, loot and quest gold still count", function()
+  local ctx = boot()
+  local resting = true
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  h.eq(ns.Options.get(ns.db, "cityPause"), true)
+  h.eq(ns.session.resting, true) -- logged in inside a city
+  ctx.now = ctx.now + 100
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "QUEST_TURNED_IN", 1, 0, 2500)
+  h.eq(ns.session.items[2589].qty, 3)
+  h.eq(ns.session.gold, 2500)
+  local H = ns.UI.Header.instance
+  slash(ctx, "compact")
+  h.eq(H.pausedText:IsShown(), true)
+  h.eq(H.pausedText:GetText(), ns.L["Resting"])
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  ctx.now = ctx.now + 60
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), 60)
+  h.eq(H.pausedText:IsShown(), false)
+  -- Stop in a city, then leave: still stopped
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  slash(ctx, "stop")
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(ns.session.running, false)
+  h.eq(H.pausedText:GetText(), ns.L["Paused"])
+  -- Start inside a city: rests at once
+  resting = true
+  slash(ctx, "start")
+  h.eq(ns.session.resting, true)
+  -- Option off: the clock runs in the city
+  ns.Options.set(ns.db, "cityPause", false)
+  h.eq(ns.session.resting, nil)
+  local before = ns.Session.elapsed(ns.session, ctx.now)
+  ctx.now = ctx.now + 30
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), before + 30)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Bags shows free slots, gold on hand and net worth; Bank has no money rows", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 12, { 2589, 5 }, { 2592, 2 }, { 7910, 1 } } })
+  ctx.env.C_Container.GetContainerNumFreeSlots = function(bag) return bag == 0 and 9 or 0, 0 end
+  local money = 56200
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bags")
+  h.eq(L.view.headerInfo, "3 items \194\183 9 free")
+  h.eq(L.view.totals.money, 56200)
+  h.eq(L.view.totals.worth, L.view.totals.best + 56200)
+  money = 100
+  fire(ctx, "PLAYER_MONEY")
+  L.refresh()
+  h.eq(L.view.totals.money, 100)
+  L.setTab("bank")
+  h.eq(L.view.totals.money, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: History Sessions shows day headings; a click folds one", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local Ledger = ctx.ns.UI.Ledger
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  Ledger.setTab("history")
+  Ledger.setSubtab("sessions")
+  local rows = Ledger.view.rows
+  h.eq(rows[1].isHeading, true)
+  h.eq(rows[1].name, ctx.ns.L["Today"])
+  h.eq(#rows, 3)
+  Ledger.list.onRowClick(rows[1], "LeftButton", "f")
+  h.eq(#Ledger.view.rows, 1)
+  h.eq(Ledger.view.headerInfo, "2 sessions")
+  h.eq(Ledger.rowMenu(Ledger.view.rows[1]), nil)
+  Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
+  h.eq(#Ledger.view.rows, 3)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Daily farm: my level leaves out a place of another level at once", function()
+  local ctx = bootWithFarm({ 2022, 0.4, 0.6 })
+  local L, ns = ctx.ns.UI.Ledger, ctx.ns
+  local level = 70
+  ctx.env.UnitLevel = function() return level end
+  ctx.env.C_Map = ctx.env.C_Map or {}
+  ctx.env.C_Map.GetMapLevels = function(mapID) if mapID == 2022 then return 60, 70 end end
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest")
+  ns.Options.set(ns.db, "dailyFarmLevel", true)
+  L.refresh()
+  h.eq(L.view.dailyFarm.best.sub, "Wingrest") -- 70 fits 60-70
+  level = 80
+  L.refresh()
+  h.eq(L.view.dailyFarm, nil) -- the only place is below your level now
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Open on first loot shows a hidden window once per session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showOnLoot", true)
+  W.hide()
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(W.isShown(), true)
+  W.hide()
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- not the first item any more
+  h.eq(W.isShown(), false)
+  slash(ctx, "reset")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- a new session's first item
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Open in instances shows inside and hides again only its own opening", function()
+  local ctx = boot()
+  local where = { zone = "Dornogal" }
+  ctx.env.GetRealZoneText = function() return where.zone end
+  ctx.env.GetInstanceInfo = function()
+    if where.instance then return where.instance, "party", 1, "Normal" end
+    return where.zone, "none", 0, ""
+  end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showInInstance", true)
+  local function go(instance)
+    where.instance = instance
+    fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  end
+  W.hide()
+  go("The Stonevault")
+  h.eq(W.isShown(), true)
+  go(nil)
+  h.eq(W.isShown(), false)
+  -- closed by hand inside: leaving does nothing
+  go("The Stonevault")
+  W.hide()
+  go(nil)
+  h.eq(W.isShown(), false)
+  -- shown by hand before: leaving keeps it shown
+  W.show()
+  go("The Stonevault")
+  go(nil)
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Hide in cities hides while resting and only undoes its own hiding", function()
+  local ctx = boot()
+  local resting = false
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "hideInCities", true)
+  h.eq(W.isShown(), true)
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), false)
+  h.eq(ctx.env.LootLedgerDB.window.hidden, false) -- the player's own state is kept
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), true)
+  -- opened by hand in the city: stays open when leaving and entering again
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  W.show()
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), true)
+  -- a combat-hidden window is left alone
+  ns.Options.set(ns.db, "combatHide", true)
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  h.eq(W.isShown(), false)
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), false)
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+-- A loot window: slots = { { link, qty, guid } or { money = copper, guid } }.
+local MOB = "Creature-0-3110-0-12-2546-000012ABCD"
+local function lootWindowEnv(ctx, slots)
+  local env = ctx.env
+  env.GetNumLootItems = function() return #slots end
+  env.GetLootSlotType = function(i) return slots[i].money and 2 or 1 end
+  env.GetLootSlotLink = function(i) return slots[i].link end
+  env.GetLootSlotInfo = function(i) return 134400, "x", slots[i].qty or 0 end
+  env.GetLootSourceInfo = function(i) return slots[i].guid, slots[i].money or slots[i].qty end
+end
+
+h.test("wiring: cleared loot slots are credited to their mob, once per corpse", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local OTHER = "|cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r"
+  lootWindowEnv(ctx, { { link = LINK, qty = 3, guid = MOB }, { link = OTHER, qty = 1, guid = MOB },
+    { money = 250, guid = MOB } })
+  ctx.env.C_TooltipInfo = { GetHyperlink = function(l)
+    if l == "unit:" .. MOB then return { lines = { { leftText = "Kobold Vermin" } } } end
+  end }
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_SLOT_CLEARED", 3)
+  fire(ctx, "LOOT_CLOSED") -- slot 2 was left in the corpse
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(m.items[2589], 3)
+  h.eq(m.items[2592], nil)
+  h.eq(m.gold, 250)
+  h.eq(m.looted, 1)
+  h.eq(m.name, "Kobold Vermin")
+  -- clearing after the window closed credits nothing
+  fire(ctx, "LOOT_SLOT_CLEARED", 2)
+  h.eq(m.items[2592], nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: loot is credited without kills; unknown names get a fallback", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = MOB } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["npc:2546"].items[2589], 2)
+  h.eq(ns.session.mobs["npc:2546"].name, nil) -- History > Mobs shows "NPC 2546"
+  -- a name plate seen later names it
+  ctx.env.UnitGUID = function() return MOB end
+  ctx.env.UnitName = function() return "Kobold Vermin" end
+  fire(ctx, "NAME_PLATE_UNIT_ADDED", "nameplate1")
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["npc:2546"].name, "Kobold Vermin")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: History > Mobs lists the mobs of History and the running session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, Ledger = ctx.ns, ctx.ns.UI.Ledger
+  local subs = ns.UI.Tabs.subtabs("history")
+  h.eq(subs[3].key, "mobs")
+  lootWindowEnv(ctx, { { link = LINK, qty = 3, guid = MOB } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  Ledger.setTab("history")
+  Ledger.setSubtab("mobs")
+  h.eq(Ledger.currentSort(), "ah")
+  h.eq(#Ledger.view.rows, 1)
+  h.eq(Ledger.view.rows[1].mobKey, "npc:2546")
+  h.eq(Ledger.view.headerInfo, "1 mob")
+  Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
+  h.eq(Ledger.mobOpen, "npc:2546")
+  h.eq(Ledger.view.rows[2].id, 2589)
+  h.eq(ctx.ns.UI.FilterBar.sortLabel("perKill", ns.UI.Tabs.sorts("history", "mobs")), ns.L["Per kill"])
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: automatic show and hide keep the player's hidden choice", function()
+  local ctx = boot()
+  local resting = false
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showOnLoot", true)
+  ns.Options.set(ns.db, "hideInCities", true)
+  W.hide()
+  h.eq(ctx.env.LootLedgerDB.window.hidden, true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- first item: shown
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING") -- city: hidden
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING") -- out again: shown
+  h.eq(W.isShown(), true)
+  W.endDrag() -- any later save
+  h.eq(ctx.env.LootLedgerDB.window.hidden, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Hide in cities during combat keeps the window hidden after combat", function()
+  local ctx = boot()
+  local resting = false
+  ctx.env.IsResting = function() return resting end
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "hideInCities", true)
+  ns.Options.set(ns.db, "combatHide", true)
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  resting = true
+  fire(ctx, "PLAYER_UPDATE_RESTING") -- reached the city in combat
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(W.isShown(), false)
+  resting = false
+  fire(ctx, "PLAYER_UPDATE_RESTING")
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Open on first loot in combat waits for the combat to end", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, W = ctx.ns, ctx.ns.UI.Window
+  ns.Options.set(ns.db, "showOnLoot", true)
+  ns.Options.set(ns.db, "combatHide", true)
+  W.hide()
+  fire(ctx, "PLAYER_REGEN_DISABLED")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(W.isShown(), false)
+  fire(ctx, "PLAYER_REGEN_ENABLED")
+  h.eq(W.isShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Destroy values Never also drops the destroy value saved at loot time", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("Destroy", 1, true) then return 50000 end
+    return 100
+  end }
+  ctx.env.C_Item.GetItemInfoInstant = function(id) return id, "Armor", "Cloth", "", 1, 4, 1 end
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589].price.de, 50000) -- Always at loot time
+  ns.Options.set(ns.db, "destroyMode", "never")
+  local L = ns.UI.Ledger
+  L.setTab("session")
+  L.refresh()
+  local row
+  for _, r in ipairs(L.view.rows) do if r.id == 2589 then row = r end end
+  h.eq(row.deTotal, nil)
+  h.eq(row.bestTotal, ns.Core.sessionValue(ns.session, true))
+  local value = ns.Core.sessionValue(ns.session, true)
+  slash(ctx, "reset")
+  h.eq(ctx.env.LootLedgerCharDB.history[1].best, value)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a short session kept at login runs again and dates from the login", function()
+  local ctx = boot()
+  local afk = false
+  ctx.env.UnitIsAFK = function() return afk end
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ctx.now = ctx.now + 30
+  slash(ctx, "stop")
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local again = boot({ db = db, chardb = chardb, now = ctx.now + 7 * 86400 })
+  startWorld(again, false)
+  local s = again.ns.session
+  h.eq(s.running, true)
+  h.eq(s.startedAt, again.now)
+  h.eq(again.ns.Session.elapsed(s, again.now), 30) -- its time so far still counts
+  fire(again, "CHAT_MSG_LOOT", LOOT)
+  h.eq(s.items[2589].qty, 6)
+  -- an AFK-paused short session runs again too
+  again.ns.Options.set(again.ns.db, "afkPause", true)
+  again.env.UnitIsAFK = function() return true end
+  fire(again, "PLAYER_FLAGS_CHANGED", "player")
+  h.eq(s.running, false)
+  fire(again, "PLAYER_LOGOUT")
+  local third = boot({ db = db, chardb = chardb, now = again.now + 86400 })
+  startWorld(third, false)
+  h.eq(third.ns.session.running, true)
+  h.eq(third.ns.session.afkPaused, nil)
+  h.eq(third.ns.session.items[2589].qty, 6)
+  h.eq(again.errors, {})
+  h.eq(third.errors, {})
+end)
+
+h.test("wiring: an empty short session starts over at login and on an instance split", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  ctx.now = ctx.now + 30
+  fire(ctx, "PLAYER_LOGOUT")
+  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local again = boot({ db = db, chardb = chardb, now = ctx.now + 86400 })
+  local where = { zone = "Dornogal" }
+  again.env.GetRealZoneText = function() return where.zone end
+  again.env.GetInstanceInfo = function()
+    if where.instance then return where.instance, "party", 2, "Heroic" end
+    return where.zone, "none", 0, ""
+  end
+  startWorld(again, false)
+  local ns = again.ns
+  h.eq(ns.Session.elapsed(ns.session, again.now), 0)
+  ns.Options.set(ns.db, "instanceSession", true)
+  again.now = again.now + 40
+  where.instance = "The Stonevault"
+  fire(again, "PLAYER_ENTERING_WORLD", false, false)
+  h.eq(ns.Session.elapsed(ns.session, again.now), 0)
+  h.eq(again.errors, {})
+end)
+
+h.test("wiring: a gathering node is named by the gathering cast, without a tooltip lookup", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local NODE = "GameObject-0-3110-0-12-1731-000012ABCF"
+  local lookups = 0
+  ctx.env.C_TooltipInfo = { GetHyperlink = function() lookups = lookups + 1 end }
+  fire(ctx, "UNIT_SPELLCAST_SENT", "player", "Copper Vein", "Cast-3-1", 2575)
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = NODE } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.mobs["obj:1731"].name, "Copper Vein")
+  h.eq(lookups, 0)
+  -- a cast long before the loot window names nothing
+  local NODE2 = "GameObject-0-3110-0-12-1732-000012ABCA"
+  fire(ctx, "UNIT_SPELLCAST_SENT", "player", "Tin Vein", "Cast-3-2", 2575)
+  ctx.now = ctx.now + 120
+  lootWindowEnv(ctx, { { link = LINK, qty = 1, guid = NODE2 } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["obj:1732"].name, nil) -- shown as "Object 1732"
+  h.eq(lookups, 0)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a mob's coin counts your share of it in a group", function()
+  local ctx = boot()
+  local money = 10000
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  lootWindowEnv(ctx, { { money = 300, guid = MOB } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  money = money + 100 -- split three ways
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.gold, 100)
+  h.eq(ns.session.mobs["npc:2546"].gold, 100)
+  h.eq(ns.session.mobs["npc:2546"].looted, 1)
+  -- solo: the whole coin
+  local MOB2 = "Creature-0-3110-0-12-2546-000012ABCE"
+  lootWindowEnv(ctx, { { money = 300, guid = MOB2 } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  money = money + 300
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(ns.session.mobs["npc:2546"].gold, 400)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: price rules are reused until an option changes; professions until they change", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local r = ns.prices:_rules()
+  h.eq(ns.prices:_rules() == r, true)
+  ns.Options.set(ns.db, "ahCut", false)
+  h.eq(ns.prices:_rules() == r, false)
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src)
+    if src:find("Destroy", 1, true) then return 50000 end
+    return 100
+  end }
+  ctx.env.C_Item.GetItemInfoInstant = function(id) return id, "Armor", "Cloth", "", 1, 4, 1 end
+  ns.Options.set(ns.db, "destroyMode", "any")
+  ns.db.professions = { ["Alt-Realm"] = { enchanting = true } }
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ns.db.professions["Alt-Realm"].enchanting = nil -- not through the game: still the known set
+  h.eq(ns.prices:lookup(2589).de, 50000)
+  ctx.env.GetProfessions = function() return nil end
+  fire(ctx, "SKILL_LINES_CHANGED")
+  h.eq(ns.prices:lookup(2589).de, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an empty profession read at login keeps the saved professions", function()
+  local ctx = boot()
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  ctx.ns.db.professions["Me-Realm"] = { enchanting = true }
+  fire(ctx, "PLAYER_LOGOUT")
+  local again = boot({ db = ctx.env.LootLedgerDB, chardb = ctx.env.LootLedgerCharDB, now = ctx.now + 60 })
+  again.env.UnitName = function() return "Me" end
+  again.env.GetRealmName = function() return "Realm" end
+  again.env.GetProfessions = function() return nil end -- not loaded yet
+  startWorld(again, false)
+  h.eq(again.ns.db.professions["Me-Realm"], { enchanting = true })
+  fire(again, "SKILL_LINES_CHANGED") -- the game's own news: dropped
+  h.eq(again.ns.db.professions["Me-Realm"], {})
+  h.eq(again.errors, {})
+end)
+
+h.test("wiring: no combat log event is registered (forbidden for addons on this client)", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  for _, event in ipairs({ "COMBAT_LOG_EVENT_UNFILTERED", "COMBAT_LOG_EVENT" }) do
+    h.eq(ctx.ns.Core.events[event], nil, event)
+  end
   h.eq(ctx.errors, {})
 end)

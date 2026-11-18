@@ -23,13 +23,13 @@ local QUALITY_NAMES = {
 }
 -- "ah" is the saved key of the best-value sort (best of vendor, AH, DE).
 local SORT_LABELS = { ah = L["Value"], vendor = L["Vendor"], name = L["Name"], recent = L["Recent"],
-  perHour = L["Gold/h"] }
+  perHour = L["Gold/h"], perKill = L["Per kill"] }
 
 FilterBar.SORTS = { "ah", "vendor", "name", "recent" }
 -- Every sort a view may offer (a tab or sub-tab lists its own, see
 -- Tabs.sorts); "perHour" only in History (Sessions and Zones). A saved sort the shown view
 -- does not offer works (and is labeled) as "ah".
-FilterBar.ALL_SORTS = { "ah", "vendor", "name", "recent", "perHour" }
+FilterBar.ALL_SORTS = { "ah", "vendor", "name", "recent", "perHour", "perKill" }
 
 local MIN_QUALITY, MAX_QUALITY = 0, 7
 local COPPER_PER_GOLD = 10000

@@ -108,19 +108,25 @@ row and price. Currencies are listed after the items.
   an item and pick **Keep (not for sale)** for tools, consumables you use or
   gear sets: the row says `(kept)` and the footer splits the total into
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
-  for all characters; **Kept items** in the options lists it.
+  for all characters; **Kept items** in the options lists it. The footer also
+  shows **Gold on hand** and **Net worth** (items plus gold), its tooltip the
+  **Sell split** (what the items not kept bring at the vendor, on the AH and
+  destroyed), and the header your free bag slots.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
-  visit the banker once (until then the list says `Not scanned yet.`); after
+  visit the banker once (until then the list says `Not scanned yet.` and the total shows `—`); after
   that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
   started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your note,
   its length, item count and main place, and its value (with the raw gold,
-  unless **Raw gold in Total** is off). A session is saved when you reset it, when a new
+  unless **Count raw gold** is off). A session is saved when you reset it, when a new
   login starts a fresh one, or (option) when you enter or leave a dungeon. A
   session keeps the prices of the day it was saved, so its value doesn't change
   later. Sort the sessions by Value, Recent or Gold/h; the search (date, note,
   length, place) and the minimum value pick sessions, and the footer adds up
-  the listed ones. Click a session to list its items; right-click it to add a
+  the listed ones. Sorted by Recent, the sessions sit under headings (Today,
+  Yesterday, the other days of this week, then week numbers, with the year
+  for another year's weeks) with their count,
+  length and value; click a heading to fold it. Click a session to list its items; right-click it to add a
   note (`Wingrest herbs, 2 alts`), merge it or delete it; hover it for places,
   currencies, values and gold per hour. **Merge with the older session** joins
   a session with the one started before it (say a dungeon run you left and
@@ -136,7 +142,20 @@ row and price. Currencies are listed after the items.
   per hour is not too high. `Unknown place` and `No time recorded` come last.
   Quest items have their own group and don't count toward any place. Zones
   and the Daily farm use today's prices. A dungeon counts as one place even
-  when the game briefly reports no difficulty.
+  when the game briefly reports no difficulty. The header says how many
+  places are listed, the Daily farm's place has the same star as the strip,
+  and a dungeon's difficulty is shortened in the list (`Razorfen Downs (N)`;
+  the tooltip has the full name). Hover the footer to see which items have no
+  auction price yet (`2 unpriced`).
+- **History > Mobs**: what each kind of mob and gathering node gave you, over
+  the same sessions as Zones: how often you looted it, the value of its loot
+  plus its gold, and the value per corpse or node looted. Sort by **Value**,
+  **Per kill** or **Name**; click a mob to list its items. Loot is credited
+  when you take it from the loot window, split by corpse when one window
+  holds several; loot you leave in a corpse counts for nobody. Kills are not
+  counted: the game does not let addons read the combat log. A mob's coin counts what you got of it, so in a group
+  your share. A mob or node whose name was never seen shows its number. Only loot taken while the clock runs counts, and sessions
+  saved before this version have no mob data.
 
 ## Daily farm
 
@@ -145,6 +164,8 @@ your characters, like Zones) with the best gold per hour at today's prices, e.g.
 (Waking Shores)`. Only saved sessions count (so farming doesn't move today's
 pick), and a place needs 20 minutes of recorded time by default. A place whose
 value comes mostly from items that sell poorly is marked `slow selling`.
+With **Daily farm: my level** on, only places whose map is meant for your
+current level count (places without a known level range still do).
 
 - **Click**: sets a waypoint to where you looted there (TomTom, or the map pin).
 - **Shift-click**: opens History > Zones at that place (from the compact
@@ -166,13 +187,13 @@ anything that deletes History asks first.
 
 | Tab | Options |
 | --- | --- |
-| Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Start hidden, Hide in combat, Minimap button, Reset minimap button |
-| Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after |
-| List | Sort at login, Large amounts, Coin icons, Raw gold in Total, Currencies, Top finds, Raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
-| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Session per instance, Session per zone, Zone change delay |
-| History | Daily farm, Daily farm: min. time, Zones: all characters, Export History, Clear History, History kept |
+| Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
+| Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
+| List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
+| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
-| Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Export profile, Import profile |
+| Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
 **Color preset** changes the whole look at once: the window, the lines, the
 tabs, the buttons and the scrollbar. **LootLedger** is the dark leather look,
@@ -186,7 +207,7 @@ still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
 window changes while you pick, Cancel puts the old color back); right-click it
-for the preset's color. **Reset colors** goes back to the LootLedger preset.
+for the preset's color. **Reset colors** goes back to the chosen preset's colors.
 Tooltips keep the game's dark tooltip on every preset.
 
 **Session summary in chat** writes one line whenever a session is saved to
@@ -197,7 +218,8 @@ counts per character and applies to all of them.
 **Zones: all characters** and **Minimap button**, which count for the whole
 account. Each character picks its own profile; new characters use
 **Default**. Hover **Profile** to see which characters use the chosen one. **New profile** starts from the defaults, **Copy profile** from
-the current one; Default can't be renamed or deleted. **Export profile** shows
+the current one; Default can't be renamed or deleted. **Reset profile** sets
+every option of the current profile back to its default (it asks first). **Export profile** shows
 the profile as one line of text to copy into a chat or a file; **Import
 profile** opens a box to paste such a line, asks for a name (and before
 overwriting a profile of that name) and switches to it. Settings an import
@@ -228,6 +250,22 @@ session, and flight paths never count. Loot from those minutes still belongs
 to the old session. An empty session just starts its clock over. While the
 clock is stopped nothing splits.
 
+**Open on first loot**, **Open in instances** and **Hide in cities** show or
+hide the window for you. Each only undoes what it did itself: close the
+window in a dungeon or open it in a city and it stays that way.
+
+**Pause in cities** (on by default) stops the clock while you are in a city or
+inn, so selling and mailing don't lower your gold per hour; loot and gold
+still count. The compact window says Resting. A clock you stopped yourself
+stays stopped when you leave.
+
+**Min. session length** (2 minutes by default) keeps very short sessions out
+of History: a session with loot shorter than that just continues when a new
+zone or instance or a fresh login would start a new one. After a login it
+runs again and counts from that day, even if you had stopped it. An empty
+session starts over as before. Reset always saves it; Off saves every
+session.
+
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.
 
@@ -245,7 +283,7 @@ clock.
 | `/ll compact` | switch between the compact and the full layout |
 | `/ll reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
 | `/ll keep on` / `off` | keep the session across logins |
-| `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` |
+| `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
 | `/ll export` | the History as CSV in a copy box |
 | `/ll export session`, `/ll export zones` | the session's items, or every Zones place, as CSV |
 | `/ll undo` | take back the last merge or delete in History (or the cleared History) |
@@ -257,6 +295,14 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
 
 ## Good to know
 
+- **Value rules**: *AH cut (5%)* (on by default) counts Auction values after
+  the auction house's fee; the item tooltip says so. *Auction from* counts an
+  item as Vendor unless its Auction value beats the vendor price by the set
+  percent. *Destroy values* can count destroy values only when one of your
+  characters (or this one) has the profession: Enchanting for gear,
+  Inscription for herbs, Jewelcrafting for ore. Your characters' professions
+  are noted when you log in on them. Sessions already in History keep the
+  prices they were saved with.
 - **Price age**: TSM and Auctionator don't say when they last scanned, so the
   age tag is the time since the source last gave a price for that item.
 - **Languages**: English and German. Loot and money messages are read from the

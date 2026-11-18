@@ -15,6 +15,7 @@ local TEXT = {
   UNPRICED = "?",
   EACH = ns.L[" each"],
   KEPT = ns.L["(kept)"],
+  AH_CUT = ns.L[" (after 5% AH cut)"],
 }
 
 -- The source tag after a row's value and the tooltip line of each value.
@@ -108,6 +109,10 @@ function Rows.rowText(row, formatMoney, unitPrice)
   end
   -- Bags / Bank: an item on the keep list says so after its name, quietly.
   local name = row.name or ""
+  -- History Zones: the Daily farm's place gets the strip's star before its name.
+  if row.daily and ns.Theme then
+    name = "|T" .. ns.Theme.textures.dailyFarm .. ":0|t " .. name
+  end
   if row.kept then
     local hint = ns.Theme and ns.Theme.colors.hint
     name = name .. " " .. (hint and (ns.Money.colorCode(hint) .. TEXT.KEPT .. "|r") or TEXT.KEPT)
@@ -144,6 +149,7 @@ function Rows.tooltipLines(row, formatMoney)
       if c then label = ns.Money.colorCode(c) .. label .. "|r" end
       local line = label .. formatMoney(total)
       if multi and type(each) == "number" then line = line .. " (" .. formatMoney(each) .. TEXT.EACH .. ")" end
+      if src == "ah" and row.ahCut then line = line .. TEXT.AH_CUT end
       lines[#lines + 1] = line
     end
   end
@@ -641,7 +647,8 @@ local function fillRow(f, row)
   local t = textOf(row)
   local r, g, b = T.qualityColor(row.quality)
   f.name:SetText(t.name)
-  setRGB(f.name, r, g, b)
+  -- History day / week headings: the titles color.
+  if row.isHeading then setColor(f.name, T.colors.gold) else setRGB(f.name, r, g, b) end
   f.qty:SetText(t.qty)
   ns.UI.Coins.set(f.amount, t.copper, t.amount)
   f.market:SetText(t.market or "")

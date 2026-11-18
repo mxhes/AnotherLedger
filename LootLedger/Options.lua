@@ -106,6 +106,9 @@ function Options.spec(key)
   return Options.byKey[key]
 end
 
+-- The value of a "Custom..." dropdown entry; never stored.
+Options.CUSTOM = "\1custom"
+
 -- The choices of a dropdown option; a function is asked each time, so a list
 -- that grows later (price sources) is always current.
 function Options.choices(spec)
@@ -146,8 +149,9 @@ function Options.normalize(spec, value)
       v = tonumber(string.format("%.6g", v))
     end
     return v
-  elseif spec.type == "text" then
-    if type(value) ~= "string" then return default end
+  elseif spec.type == "text" or (spec.type == "dropdown" and spec.free) then
+    -- A `free` dropdown also keeps any typed text (TSM price strings).
+    if type(value) ~= "string" or value == Options.CUSTOM then return default end
     local trimmed = value:gsub("^%s+", ""):gsub("%s+$", "")
     if trimmed == "" then return default end
     return trimmed
@@ -217,10 +221,13 @@ end
 
 -- A player's choice in the options panel: Options.set, then the option's
 -- `picked(db, value)` (things only a fresh choice does, e.g. a color preset
--- writing the single colors; never run by Options.applyAll).
+-- writing the single colors; never run by Options.applyAll). An option's
+-- `intercept(db, value)` runs first; when it returns true nothing is set
+-- (the "Custom..." entry opening a text box).
 function Options.pick(db, key, value)
-  local v = Options.set(db, key, value)
   local spec = Options.byKey[key]
+  if spec and spec.intercept and spec.intercept(db, value) then return Options.get(db, key) end
+  local v = Options.set(db, key, value)
   if spec and spec.picked and type(db) == "table" then spec.picked(db, v) end
   return v
 end
@@ -340,6 +347,14 @@ Options.define({ key = "lockWindow", category = "window", type = "checkbox", lab
 Options.define({ key = "snapToGrid", category = "window", type = "checkbox", label = L["Snap to grid"],
   tooltip = L["When you let go of the window near a line of the Edit Mode grid, its edge or center snaps onto that line. Uses the grid spacing set in Edit Mode."] })
 
+-- Core: automatic show / hide (UI.Window.autoShow / autoHide).
+Options.define({ key = "showOnLoot", category = "window", type = "checkbox", label = L["Open on first loot"],
+  tooltip = L["Opens the window when a session gets its first item. Close it and it stays closed until the next session."] })
+Options.define({ key = "showInInstance", category = "window", type = "checkbox", label = L["Open in instances"],
+  tooltip = L["Opens the window when you enter a dungeon or raid and closes it again when you leave, unless you closed or opened it yourself in between."] })
+Options.define({ key = "hideInCities", category = "window", type = "checkbox", label = L["Hide in cities"],
+  tooltip = L["Hides the window in cities and inns (resting) and shows it again when you leave, unless you opened it yourself there."] })
+
 Options.define({ key = "startHidden", category = "window", type = "checkbox", label = L["Start hidden"],
   tooltip = L["The window stays closed at login. Open it with the minimap button or /ll."] })
 
@@ -373,10 +388,38 @@ Options.define({
   apply = refreshUI,
 })
 
--- The TSM price string, read live by Sources/TSM.lua (same as /ll tsm).
+-- The TSM price string, read live by Sources/TSM.lua (same as /ll tsm): the
+-- common TSM prices, a typed one as its own entry, and "Custom..." to type one.
+local TSM_PRICES = { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent", "DBHistorical" }
 Options.define({
-  key = "tsmSource", category = "prices", type = "text", label = L["TSM price"],
+  key = "tsmSource", category = "prices", type = "dropdown", free = true, label = L["TSM price"],
   tooltip = L["The TSM price used for AH values, e.g. DBMarket or DBMinBuyout. Same as /ll tsm."],
+  choices = function()
+    local list, known = {}, {}
+    for _, p in ipairs(TSM_PRICES) do
+      list[#list + 1] = { value = p, label = p }
+      known[p] = true
+    end
+    local t = ns.db and ns.db.settings
+    local current = type(t) == "table" and t.tsmSource or nil
+    if type(current) == "string" and current ~= "" and not known[current] and current ~= Options.CUSTOM then
+      list[#list + 1] = { value = current, label = current }
+    end
+    list[#list + 1] = { value = Options.CUSTOM, label = L["Custom..."] }
+    return list
+  end,
+  intercept = function(db, value)
+    if value ~= Options.CUSTOM then return false end
+    local W = ns.UI and ns.UI.Widgets
+    if W and W.prompt then
+      W.prompt(L["TSM price:"], L["OK"], Options.get(db, "tsmSource"), function(text)
+        Options.pick(db, "tsmSource", text)
+        local Panel = ns.UI.OptionsPanel
+        if Panel and Panel.refreshAll then Panel.refreshAll() end
+      end)
+    end
+    return true
+  end,
   apply = refreshUI,
 })
 
@@ -441,6 +484,34 @@ Options.define({
   end,
 })
 
+-- Value rules (Prices lookup rules and Prices.best): read at lookup time, so
+-- a change only needs a redraw.
+Options.define({
+  key = "ahCut", category = "prices", type = "checkbox", label = L["AH cut (5%)"],
+  tooltip = L["Counts Auction values after the auction house's 5% fee, so they show what you would actually get. Sessions already in History keep the prices they were saved with."],
+  apply = refreshUI,
+})
+
+Options.define({
+  key = "ahMinGain", category = "prices", type = "slider", label = L["Auction from"],
+  tooltip = L["An item counts at its Auction value only when that beats its vendor price by this much; else it counts as Vendor. Off counts the Auction value whenever it is higher. The tooltip always shows both."],
+  min = 0, max = 100, step = 5,
+  format = function(v) return v == 0 and L["Off"] or string.format(L["+%d%% over vendor"], v) end,
+  apply = refreshUI,
+})
+
+Options.define({
+  key = "destroyMode", category = "prices", type = "dropdown", label = L["Destroy values"],
+  tooltip = L["When an item counts its disenchant, mill or prospect value: always, only if one of your characters has the profession (Enchanting for gear, Inscription for herbs, Jewelcrafting for ore), only if this character has it, or never."],
+  choices = {
+    { value = "always", label = L["Always"] },
+    { value = "any", label = L["If one of my characters can"] },
+    { value = "self", label = L["If this character can"] },
+    { value = "never", label = L["Never"] },
+  },
+  apply = refreshUI,
+})
+
 -- Applied at login and whenever changed; the sort button of the filter bar
 -- still changes the order for the rest of the session.
 Options.define({
@@ -493,9 +564,47 @@ Options.define({
 })
 
 Options.define({
-  key = "includeGold", category = "display", type = "checkbox", label = L["Raw gold in Total"],
+  key = "includeGold", category = "display", type = "checkbox", label = L["Count raw gold"],
   tooltip = L["Counts the gold you looted in the totals: the footer's Total row, the compact window, the minimap button text, the History sessions, the place values of Zones and the Daily farm. Off leaves the Total row out."],
   apply = refreshUI,
+})
+
+Options.define({ key = "sessionChat", category = "session", type = "checkbox", label = L["Session summary in chat"],
+  tooltip = L["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] })
+
+Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause when AFK"],
+  tooltip = L["Stops the clock while you are AFK and starts it again when you are back."] })
+
+-- Core.checkRest: the clock stands still in cities and inns; loot still counts.
+Options.define({ key = "cityPause", category = "session", type = "checkbox", label = L["Pause in cities"],
+  tooltip = L["Stops the clock while you are in a city or inn (resting), so time spent selling and mailing does not lower your gold per hour. Loot and gold still count."],
+  apply = function() if ns.Core and ns.Core.checkRest then ns.Core.checkRest() end end })
+
+Options.define({
+  key = "instanceSession", category = "session", type = "checkbox",
+  label = L["Session per instance"],
+  tooltip = L["Saves the session to History and starts a new one whenever you enter or leave a dungeon or raid."],
+})
+
+-- Core.zoneSwitch: a new zone only counts once you stayed there this long
+-- (a flight path or a short detour does not split the session).
+Options.define({
+  key = "zoneSession", category = "session", type = "checkbox", label = L["Session per zone"],
+  tooltip = L["Saves the session to History and starts a new one when you change zones and stay in the new one (see Zone change delay). Flights don't count."],
+})
+
+Options.define({
+  key = "zoneSessionMinutes", category = "session", type = "slider", label = L["Zone change delay"],
+  tooltip = L["How long you must stay in a new zone before Session per zone starts a new session. Loot from that time still counts for the old session."],
+  min = 1, max = 15, step = 1, format = function(v) return v .. " min" end,
+})
+
+-- Core.isShort: a short session folds into the next one (manual Reset still
+-- saves it).
+Options.define({
+  key = "minSessionMinutes", category = "session", type = "slider", label = L["Min. session length"],
+  tooltip = L["A session shorter than this is not saved to History when a new zone or instance or a fresh login would start a new one; it just continues. Reset always saves it. Off saves every session."],
+  min = 0, max = 15, step = 1, format = function(v) return v == 0 and L["Off"] or (v .. " min") end,
 })
 
 -- Chat line when one drop is worth at least this much (gold). Empty / 0 = off.
@@ -522,32 +631,6 @@ Options.define({
   zeroText = L["Off"],
 })
 
-
-Options.define({ key = "sessionChat", category = "session", type = "checkbox", label = L["Session summary in chat"],
-  tooltip = L["When a session is saved to History (Reset, a new session per zone or instance, a fresh login), a chat line sums it up: length, place, worth and gold per hour."] })
-
-Options.define({ key = "afkPause", category = "session", type = "checkbox", label = L["Pause when AFK"],
-  tooltip = L["Stops the clock while you are AFK and starts it again when you are back."] })
-
-Options.define({
-  key = "instanceSession", category = "session", type = "checkbox",
-  label = L["Session per instance"],
-  tooltip = L["Saves the session to History and starts a new one whenever you enter or leave a dungeon or raid."],
-})
-
--- Core.zoneSwitch: a new zone only counts once you stayed there this long
--- (a flight path or a short detour does not split the session).
-Options.define({
-  key = "zoneSession", category = "session", type = "checkbox", label = L["Session per zone"],
-  tooltip = L["Saves the session to History and starts a new one when you change zones and stay in the new one (see Zone change delay). Flights don't count."],
-})
-
-Options.define({
-  key = "zoneSessionMinutes", category = "session", type = "slider", label = L["Zone change delay"],
-  tooltip = L["How long you must stay in a new zone before Session per zone starts a new session. Loot from that time still counts for the old session."],
-  min = 1, max = 15, step = 1, format = function(v) return v .. " min" end,
-})
-
 Options.define({
   key = "showCurrencies", category = "display", type = "checkbox", label = L["Currencies"],
   tooltip = L["Lists looted currencies after the items."],
@@ -568,6 +651,13 @@ Options.define({
   min = 5, max = 120, step = 5, format = function(v) return v .. " min" end, apply = refreshUI,
 })
 
+-- View.dailyFarm with opts.levelFits (Core.levelFits).
+Options.define({
+  key = "dailyFarmLevel", category = "history", type = "checkbox", label = L["Daily farm: my level"],
+  tooltip = L["The Daily strip only picks places whose map is meant for your current level. Places without a known level range still count."],
+  apply = refreshUI,
+})
+
 -- History Zones and the Daily farm across characters (Core.zoneHistory).
 Options.define({
   key = "accountZones", account = true, category = "history", type = "checkbox", label = L["Zones: all characters"],
@@ -584,7 +674,7 @@ Options.define({
 
 -- Off: the footer table has no Raw gold row (Total still follows includeGold).
 Options.define({
-  key = "showFooterGold", category = "display", type = "checkbox", label = L["Raw gold row"],
+  key = "showFooterGold", category = "display", type = "checkbox", label = L["Show raw gold row"],
   tooltip = L["Shows the Raw gold row in the footer table."],
   apply = refreshUI,
 })
@@ -913,10 +1003,11 @@ end
 
 Options.define({
   key = "resetColors", category = "look", type = "button", label = L["Reset colors"],
-  tooltip = L["Sets every color back to its default."],
+  tooltip = L["Sets every color back to the chosen color preset."],
   action = function()
     if not ns.db then return end
-    Options.pick(ns.db, "colorPreset", "lootledger")
+    -- Back to the chosen preset (its colors, no "(edited)").
+    Options.pick(ns.db, "colorPreset", Options.get(ns.db, "colorPreset"))
     refreshPanel()
   end,
 })

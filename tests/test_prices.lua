@@ -228,3 +228,71 @@ h.test("Prices: a cached price keeps its source and follows the price source opt
   cache["EU-1"][7] = { price = 9, seenAt = 1000 } -- saved before sources were kept
   h.eq(p:lookup(7).ah, 9)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Value rules (review batch): AH cut, Auction from, Destroy values
+
+h.test("Prices.best: Auction from needs the gain over vendor", function()
+  h.eq(select(2, P.best(100, 115, nil, 20)), "vendor")
+  h.eq(select(2, P.best(100, 120, nil, 20)), "ah")
+  h.eq(select(2, P.best(0, 5, nil, 50)), "ah")      -- no vendor price
+  h.eq(select(2, P.best(nil, 5, nil, 50)), "ah")
+  h.eq(select(2, P.best(100, 115, 300, 20)), "de")
+  h.eq(select(2, P.best(100, 115, nil, nil)), "ah") -- 0 = off
+  h.eq((P.best(100, 115, nil, 20)), 100)
+  h.eq(P.best(nil, nil, nil, 0), nil)
+end)
+
+local function ruled(sources, cache, clock, rules, extra)
+  local o = { sources = sources, vendor = function() return 10 end, cache = cache,
+    key = function() return "EU-1" end, now = function() return clock.t end, rules = rules }
+  for k, v in pairs(extra or {}) do o[k] = v end
+  return P.new(o)
+end
+
+h.test("lookup: AH cut on live and cached prices, the cache keeps the raw price", function()
+  local cache, clock = {}, { t = 1000 }
+  local rules = function() return { ahCut = true } end
+  local r = ruled({ src("TSM", 10000) }, cache, clock, rules):lookup(5)
+  h.eq(r.ah, 9500)
+  h.eq(r.ahGross, 10000)
+  h.eq(cache["EU-1"][5].price, 10000)
+  r = ruled({ src("TSM", nil) }, cache, clock, rules):lookup(5)
+  h.eq(r.ah, 9500) -- once, not 9025
+  h.eq(r.ahSource, "cache")
+  r = ruled({ src("TSM", 10000) }, cache, clock, function() return { ahCut = false } end):lookup(5)
+  h.eq(r.ah, 10000)
+  h.eq(r.ahGross, nil)
+  h.eq(P.AH_CUT, 0.05)
+end)
+
+h.test("lookup: the destroy rule drops the destroy value", function()
+  local clock = { t = 1 }
+  local de = function() return 700 end
+  local allow = true
+  local rules = function() return { destroyAllowed = function() return allow end } end
+  local p = ruled({}, {}, clock, rules, { disenchant = de })
+  h.eq(p:lookup(5).de, 700)
+  allow = false
+  h.eq(p:lookup(5).de, nil)
+end)
+
+h.test("Prices.destroyKind / destroyAllowed / professionSet", function()
+  h.eq(P.destroyKind(4, 2), "enchanting")    -- armor
+  h.eq(P.destroyKind(2, 7), "enchanting")    -- weapon
+  h.eq(P.destroyKind(7, 9), "inscription")   -- trade goods: herb
+  h.eq(P.destroyKind(7, 7), "jewelcrafting") -- trade goods: metal and stone
+  h.eq(P.destroyKind(15, 0), nil)
+  h.eq(P.destroyAllowed("always", "enchanting", {}, {}), true)
+  h.eq(P.destroyAllowed("never", "enchanting", { enchanting = true }, { enchanting = true }), false)
+  h.eq(P.destroyAllowed("self", "enchanting", {}, { enchanting = true }), false)
+  h.eq(P.destroyAllowed("self", "enchanting", { enchanting = true }, { enchanting = true }), true)
+  h.eq(P.destroyAllowed("any", "enchanting", {}, { enchanting = true }), true)
+  h.eq(P.destroyAllowed("any", "inscription", {}, { enchanting = true }), false)
+  h.eq(P.destroyAllowed("any", nil, {}, { enchanting = true }), true)
+  h.eq(P.destroyAllowed("any", nil, {}, {}), false)
+  local set = P.professionSet({ 333, 164 })
+  h.eq(set.enchanting, true)
+  h.eq(set.jewelcrafting, nil)
+  h.eq(P.professionSet({ 773, 755 }).jewelcrafting, true)
+end)
