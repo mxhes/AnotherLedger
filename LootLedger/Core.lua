@@ -7,6 +7,9 @@ local L = ns.L
 -- Slash commands live in Slash.lua, the /ll demo data in Demo.lua.
 local Core = {}
 ns.Core = Core
+-- Counts the loot windows read (mob data changed); UI/ItemTooltip.lua
+-- rebuilds its drop index when it moves.
+Core.mobsVersion = 0
 
 local say = ns.Util.say
 local num = ns.Util.isNumber
@@ -123,9 +126,11 @@ function Core.buildPrices(env, db, now, getKey)
     -- Sale rate / sold per day: from the first source that offers them, not
     -- gated by the price source option (TSM data also helps next to Auctionator).
     if not market and spec.createMarket then market = spec.createMarket(env, setting) end
-    -- Disenchant value: from the first source that offers one.
+    -- Disenchant value: from the first source that offers one. Not gated
+    -- either: only TSM has destroy values, and AH source = Auctionator must
+    -- not quietly turn them off (the option Destroy values decides).
     if not disenchant and spec.createDisenchant then
-      disenchant = Sources.gate(spec.createDisenchant(env, setting), spec.key, selected).get
+      disenchant = spec.createDisenchant(env, setting).get
     end
   end
 
@@ -158,6 +163,24 @@ function Core.buildPrices(env, db, now, getKey)
     key = getKey,
     now = now,
   })
+end
+
+-- One chat line, once per account, when no auction price addon is loaded
+-- (Sources `present`): without one every item counts at its vendor price.
+-- `db.priceHintShown` is cleared again once an addon is found, so removing it
+-- later brings the hint back once. Returns whether it printed.
+local L_NO_PRICE_ADDON = L["No auction price addon found: items count at their vendor price. Install TSM or Auctionator for auction and destroy values."]
+
+function Core.priceAddonHint(env, db, say)
+  if type(db) ~= "table" then return false end
+  if ns.Sources.anyPresent(env) then
+    db.priceHintShown = nil
+    return false
+  end
+  if db.priceHintShown then return false end
+  db.priceHintShown = true
+  say(L_NO_PRICE_ADDON)
+  return true
 end
 
 -- Destroy professions (Enchanting, Inscription, Jewelcrafting) of the
@@ -243,17 +266,18 @@ function Core.unitValue(info)
   return (ns.Prices.best(info.vendor, info.ah, info.de, ns.Util.setting("ahMinGain", 0)))
 end
 
--- What a session is worth now: every item at its best unit value plus the raw
--- gold (copper; `withoutGold`: the items only). Ignored items do not count.
--- Reset asks first above Session.LARGE_SESSION_VALUE.
+-- What a session is worth now: every item valued like its list row (live
+-- prices, else the ones seen at loot time) plus the raw gold (copper;
+-- `withoutGold`: the items only). Ignored items do not count. Reset asks
+-- first above Session.LARGE_SESSION_VALUE.
 function Core.sessionValue(session, withoutGold)
   if type(session) ~= "table" then return 0 end
   local total = withoutGold and 0 or ns.Session.goldTotal(session)
   local ignored = Core.ignoredItems()
+  local gain = ns.Util.setting("ahMinGain", 0)
   for _, it in pairs(session.items or {}) do
-    if type(it) == "table" and ns.Util.isNumber(it.qty) and not ignored[it.id] then
-      local unit = Core.unitValue(Core.lookupPrice(it.id, it.link))
-      if unit then total = total + unit * it.qty end
+    if type(it) == "table" and ns.Util.isNumber(it.id) and ns.Util.isNumber(it.qty) and not ignored[it.id] then
+      total = total + ns.View.itemValue(it, Core.lookupPrice, gain)
     end
   end
   return total
@@ -394,7 +418,7 @@ local function notCounted()
   if not ns.session or ns.session.running then return false end
   if not pausedNoted then
     pausedNoted = true
-    say(L["the clock is stopped: loot is not counted. /ll start or the Start button starts it."])
+    say(L["the clock is stopped: loot is not counted (History > Mobs still counts it). /ll start or the Start button starts it."])
   end
   return true
 end
@@ -467,7 +491,6 @@ end
 -- Pure. The goals newly reached: { gold = bool, time = bool }. `value` is
 -- copper (nil: not checked), `elapsed` seconds; goals of 0 or less are off.
 function Core.goalsReached(value, elapsed, goalGold, goalMinutes, noted)
-  local num = ns.Util.isNumber
   noted = type(noted) == "table" and noted or {}
   local out = { gold = false, time = false }
   if num(goalGold) and goalGold > 0 and num(value) and value >= goalGold * 10000 and noted.gold ~= goalGold then
@@ -498,7 +521,7 @@ function Core.checkGoals(withValue)
   local elapsed = ns.Session.elapsed(session, time())
   local value
   if withValue and ns.Util.isNumber(goalGold) and goalGold > 0 and noted.gold ~= goalGold then
-    value = Core.sessionValue(session, not setting("includeGold", true))
+    value = Core.sessionValue(session, not ns.Util.goldCounted())
   end
   local reached = Core.goalsReached(value, elapsed, goalGold, goalMinutes, noted)
   if not (reached.gold or reached.time) then return end
@@ -509,7 +532,7 @@ function Core.checkGoals(withValue)
   if reached.time then
     noted.time = goalMinutes
     say(string.format(L["%d minutes farmed: the session is worth %s."], goalMinutes,
-      ns.Money.format(Core.sessionValue(session, not setting("includeGold", true)))))
+      ns.Money.format(Core.sessionValue(session, not ns.Util.goldCounted()))))
   end
   session.goalsNoted = noted
   alertSound()
@@ -522,7 +545,7 @@ function Core.sampleRate()
   if type(session) ~= "table" or session.demo or not session.running then return end
   local elapsed = ns.Session.elapsed(session, time())
   if not ns.Session.sampleDue(session, elapsed) then return end
-  ns.Session.addSample(session, elapsed, Core.sessionValue(session, not ns.Util.setting("includeGold", true)))
+  ns.Session.addSample(session, elapsed, Core.sessionValue(session, not ns.Util.goldCounted()))
 end
 
 -- Every HEARTBEAT_SECONDS (a ticker set up at login).
@@ -621,7 +644,6 @@ end
 -- Pure. Copper gained during a loot window beyond what the messages counted;
 -- 0 when nothing is missing or the amounts are unusable.
 function Core.missingGold(startMoney, endMoney, chatCopper)
-  local num = ns.Util.isNumber
   if not (num(startMoney) and num(endMoney)) then return 0 end
   local missing = (endMoney - startMoney) - (num(chatCopper) and chatCopper or 0)
   return missing > 0 and math.floor(missing) or 0
@@ -713,7 +735,7 @@ end
 -- Saves a finished session to the History tab (per character). Empty sessions
 -- and sessions with demo loot (fake, `session.demo`) are skipped; the History
 -- option decides how many are kept. With the option "sessionChat" a chat
--- line sums the session up.
+-- line sums the session up. Returns the saved entry, or nil.
 function Core.archiveSession(session)
   local History = ns.History
   if not ns.chardb or not History or type(session) ~= "table" or session.demo then return end
@@ -724,8 +746,9 @@ function Core.archiveSession(session)
   if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
   History.add(ns.chardb.history, entry, limit)
   if ns.Util.setting("sessionChat", false) then
-    say(Core.sessionSummary(entry, ns.Util.setting("includeGold", true)))
+    say(Core.sessionSummary(entry, ns.Util.goldCounted()))
   end
+  return entry
 end
 
 -- ---------------------------------------------------------------------------
@@ -847,14 +870,16 @@ function Core.undoDelete()
   return n
 end
 
--- `message` (optional) replaces the chat line.
+-- `message` (optional) replaces the chat line. Returns the History entry the
+-- session became, or nil (empty, demo or History off).
 function Core.resetSession(message)
   if ns.Demo then ns.Demo.restoreCache(ns.db) end
-  if not ns.session then return end
-  Core.archiveSession(ns.session)
+  if not ns.session then return nil end
+  local entry = Core.archiveSession(ns.session)
   ns.Session.reset(ns.session, time())
   say(message or L["session reset."])
   refreshUI()
+  return entry
 end
 
 -- Option "instanceSession": a loading screen that enters or leaves an
@@ -876,11 +901,11 @@ function Core.autoWindow(action, reason, option)
   else W.autoUndo(reason) end
 end
 
--- Mobs are recorded only while loot counts: a running clock (resting
--- included), not in demo mode.
+-- Mobs are recorded whether the clock runs or not (History > Mobs is about
+-- what a mob drops, not about the session's worth); never in demo mode.
 function Core.mobsCounting()
   local session = ns.session
-  return session ~= nil and session.running and not session.demo and type(session.mobs) == "table" or false
+  return session ~= nil and not session.demo and type(session.mobs) == "table" or false
 end
 
 -- Reads every slot of the loot window that just opened (Mobs.readSlot).
@@ -905,6 +930,9 @@ function Core.snapshotLoot()
     end
   end
   lootSlots = slots
+  -- Drop chances: what each corpse held, taken or not.
+  ns.Mobs.noteWindow(ns.session.mobs, slots, mobState)
+  Core.mobsVersion = Core.mobsVersion + 1 -- the item tooltips' index is stale
 end
 
 
@@ -958,14 +986,12 @@ end
 
 local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
-  local previous = lastInstance
+  local changed = Core.instanceChanged(lastInstance, key)
   lastInstance = key
+  if not changed then return end
   -- Option "showInInstance": open inside, close again on leaving.
-  if Core.instanceChanged(previous, key) then
-    if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
-  end
+  if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
   if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
-  if not Core.instanceChanged(previous, key) then return end
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
   if hasLoot(ns.session) and shortNow(ns.session) then return end -- continues
   Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")
@@ -974,10 +1000,11 @@ end
 -- Option "zoneSession". Pure decision over `state` = { zone, pending, since }
 -- (the session's zone, a new zone the player is in and since when): returns
 -- true once the player stayed `grace` seconds in another zone; then that zone
--- is the session's. A flight (`onTaxi`) never counts, nor does a zone left
--- again before the grace time is over.
-function Core.zoneSwitch(state, place, now, onTaxi, grace)
-  if onTaxi then
+-- is the session's. A flight or a rest in a city or inn (`away`) never
+-- counts, nor does a zone left again before the grace time is over: selling
+-- in Orgrimmar does not end the Badlands session.
+function Core.zoneSwitch(state, place, now, away, grace)
+  if away then
     state.pending, state.since = nil, nil
     return false
   end
@@ -1004,8 +1031,9 @@ function Core.checkZone()
   if not (session and ns.db) then return end
   local place = Core.placeOf(_G, difficulties)
   local onTaxi = type(UnitOnTaxi) == "function" and UnitOnTaxi("player") and true or false
+  local resting = type(IsResting) == "function" and IsResting() and true or false
   local grace = ns.Options.get(ns.db, "zoneSessionMinutes") * 60
-  if not Core.zoneSwitch(zoneState, place, time(), onTaxi, grace) then return end
+  if not Core.zoneSwitch(zoneState, place, time(), onTaxi or resting, grace) then return end
   if not (ns.Options.get(ns.db, "zoneSession") and session.running) then return end
   if hasLoot(session) then
     if shortNow(session) then return end -- continues in the new zone
@@ -1124,12 +1152,14 @@ function events.PLAYER_ENTERING_WORLD(isInitialLogin, isReloadingUi)
     ns.Session.start(ns.session, now)
   end
   ns.prices = Core.buildPrices(_G, ns.db, time, Core.cacheKey)
+  Core.priceAddonHint(_G, ns.db, ns.Util.say)
   -- A session that was not kept goes to History (prices are available now).
   if previous ~= ns.session then Core.archiveSession(previous) end
   Core.updatePlace()
   if ns.UI and ns.UI.Ledger then ns.UI.Ledger.init() end
   -- Before the options: LibDBIcon (if loaded) takes over the minimap button.
   if ns.UI and ns.UI.Broker then ns.UI.Broker.init() end
+  if ns.UI and ns.UI.ItemTooltip then ns.UI.ItemTooltip.init() end
   ns.Options.applyAll(ns.db)
   Core.checkRest()
   if ns.UI and ns.UI.OptionsPanel then ns.UI.OptionsPanel.registerPage() end
@@ -1187,11 +1217,30 @@ end
 -- Loot window (raw gold backstop). A window that opens before the last one
 -- settled settles that one first.
 -- Looted money arrives before LOOT_CLOSED + 1 s.
-function events.LOOT_OPENED()
+local function openLootWindow()
   if lootWindow then settleLoot(lootWindow) end
   local money = currentMoney()
   if money and ns.session then lootWindow = { money = money, chat = 0 } end
   Core.snapshotLoot()
+end
+
+-- LOOT_READY comes before LOOT_OPENED. Fast loot addons (Leatrix Plus and
+-- the like) take every slot on LOOT_READY, so by LOOT_OPENED the slots are
+-- empty and their LOOT_SLOT_CLEARED may already have fired: the window is
+-- read here, and LOOT_OPENED reads it only when LOOT_READY did not.
+local readByReady = false
+
+function events.LOOT_READY()
+  readByReady = true
+  openLootWindow()
+end
+
+function events.LOOT_OPENED()
+  if readByReady then
+    readByReady = false
+    return
+  end
+  openLootWindow()
 end
 
 -- A slot taken from the loot window: its loot goes to the mob or node it
@@ -1246,6 +1295,7 @@ function events.UPDATE_MOUSEOVER_UNIT() noteUnitName("mouseover") end
 
 function events.LOOT_CLOSED()
   lootSlots = nil
+  readByReady = false
   local window = lootWindow
   if not window then return end
   if C_Timer and C_Timer.After then

@@ -8,10 +8,10 @@ h.test("DB.defaults shape", function()
   h.eq(d.cache, {})
   h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, minimapButton = true,
     lockWindow = false, snapToGrid = true, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full", coinIcons = true,
-    includeGold = true, refreshSeconds = 30, staleHours = 12, ahCut = true, ahMinGain = 0, destroyMode = "always",
+    rawGold = "row", refreshSeconds = 30, staleHours = 12, ahCut = true, ahMinGain = 0, destroyMode = "always",
     alertGold = 0, alertSound = false,
     fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
-    countCrafted = false, showCurrencies = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, showFooterGold = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, instanceSession = false,
+    countCrafted = false, showCurrencies = true, hideWorthless = false, itemTooltipDrops = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, resetNote = false, instanceSession = false,
     zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true,
     goalGold = 0, goalMinutes = 0, unitPrice = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, soldHigh = 100, soldMedium = 10,
@@ -101,4 +101,16 @@ h.test("migration of a fresh install sets nothing but the flag", function()
   h.eq(db.account, {})
   h.eq(db.minimapAngle, nil)
   h.eq(db.accountMigrated, true)
+end)
+
+h.test("migrateSettings turns the two raw gold checkboxes into the dropdown", function()
+  local M = ns.DB.migrateSettings
+  h.eq(M({ includeGold = true, showFooterGold = true }), { rawGold = "row" })
+  h.eq(M({ includeGold = true, showFooterGold = false }), { rawGold = "total" })
+  h.eq(M({ includeGold = false, showFooterGold = true }), { rawGold = "apart" })
+  h.eq(M({ includeGold = false, showFooterGold = false }), { rawGold = "off" })
+  h.eq(M({ includeGold = false }), { rawGold = "apart" }) -- the row was shown by default
+  h.eq(M({ alpha = 0.5 }), { alpha = 0.5 }) -- a fresh profile keeps the default
+  h.eq(M({ rawGold = "off", includeGold = true }), { rawGold = "off" }) -- already migrated
+  h.eq(M(nil), nil)
 end)

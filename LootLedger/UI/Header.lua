@@ -47,12 +47,19 @@ end
 -- ---------------------------------------------------------------------------
 -- Reset request (shared by the Reset button and /ll reset)
 
+-- With the option "Reset: ask for a note" the saved session's note box opens
+-- (not for the automatic splits, which reset through Core directly).
 local function doReset()
   local handlers = Header.handlers
+  local entry
   if handlers and handlers.reset then
-    handlers.reset()
+    entry = handlers.reset()
   elseif ns.Core and ns.Core.resetSession then
-    ns.Core.resetSession()
+    entry = ns.Core.resetSession()
+  end
+  if type(entry) == "table" and ns.Util.setting("resetNote", false) == true
+    and ns.UI.Ledger and ns.UI.Ledger.editNote then
+    ns.UI.Ledger.editNote(entry)
   end
 end
 

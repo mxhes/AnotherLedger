@@ -42,6 +42,9 @@ Ledger.mobOpen = nil
 Ledger.periodFold = {}
 -- Layout mode: "full" (the ledger) or "compact" (the glance); db.mode.
 Ledger.mode = "full"
+-- Unpriced items ("?") sort first: a click on the footer's unpriced note
+-- (Ledger.toggleUnpricedFirst), kept for the Lua session.
+Ledger.unpricedFirst = false
 
 -- A part is a table with a method Update(view, session, now) and, optionally,
 -- Tick(view, session, now) and Relayout() (Theme.sizes changed; Ledger.relayout).
@@ -208,8 +211,10 @@ local function currentContext(now)
   viewOpts.dateFn = date
   viewOpts.folded = Ledger.periodFold
   local setting = ns.Util.setting
-  viewOpts.includeGold = setting("includeGold", true)
+  viewOpts.includeGold = ns.Util.goldCounted()
   viewOpts.showCurrencies = setting("showCurrencies", true)
+  viewOpts.hideWorthless = setting("hideWorthless", false) == true
+  viewOpts.unpricedFirst = Ledger.unpricedFirst
   viewOpts.market = Ledger.marketCutoffs(db)
   viewOpts.ahMinGain = setting("ahMinGain", 0)
   viewOpts.compactDrops = setting("compactDrops", nil)
@@ -430,7 +435,7 @@ end
 local function applyTab(key)
   local Tabs = ns.UI.Tabs
   local spec = Tabs.get(key)
-  if ns.UI.Window.setTitle then ns.UI.Window.setTitle(spec.title) end
+  if ns.UI.Window.setTitle then ns.UI.Window.setTitle(Tabs.title(key, Ledger.subtab)) end
   if Ledger.tabs then Ledger.tabs:SetSelected(key) end
   local strips = Ledger.subtabStrips or {}
   for k, strip in pairs(strips) do strip.frame:SetShown(k == key) end
@@ -515,7 +520,11 @@ end
 function Ledger.applyModeTitle()
   local W, Tabs = ns.UI.Window, ns.UI.Tabs
   if not W.setTitle then return end
-  W.setTitle(Tabs.title(Ledger.mode == "compact" and "session" or Ledger.tab))
+  if Ledger.mode == "compact" then
+    W.setTitle(Tabs.title("session"))
+  else
+    W.setTitle(Tabs.title(Ledger.tab, Ledger.subtab))
+  end
 end
 
 function Ledger.toggleMode()
@@ -581,6 +590,14 @@ function Ledger.toggleHistory(index)
   Ledger.refresh()
 end
 
+-- The footer's "N unpriced (marked ?)" was clicked: those items first (back
+-- to the plain sort on the next click), from the top of the list.
+function Ledger.toggleUnpricedFirst()
+  Ledger.unpricedFirst = not Ledger.unpricedFirst
+  if list then list.offset = 0 end
+  Ledger.refresh()
+end
+
 local L_DELETE = ns.L["Delete"]
 local L_ADD_NOTE = ns.L["Add note"]
 local L_EDIT_NOTE = ns.L["Edit note"]
@@ -588,7 +605,7 @@ local L_MERGE = ns.L["Merge with the older session"]
 local L_NOTE_PROMPT = ns.L["Note for this session (empty removes it):"]
 local L_SAVE = ns.L["Save"]
 local L_IGNORE = ns.L["Ignore this item"]
-local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, Display, Ignored items takes it back."]
+local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, List, Ignored items takes it back."]
 local L_KEEP = ns.L["Keep (not for sale)"]
 local L_UNKEEP = ns.L["Sell again (not kept)"]
 

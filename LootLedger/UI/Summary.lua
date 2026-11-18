@@ -18,6 +18,9 @@ local L_PER_HOUR = L["/h"]
 local L_PER_HOUR_TITLE = L["per hour"]
 local L_UNPRICED = L[" unpriced"]
 local L_MARKED = L[" (marked ?)"]
+local L_MARKED_FIRST = L[" (marked ?, listed first)"]
+local L_CLICK_FIRST = L["Click: list the unpriced items first."]
+local L_CLICK_BACK = L["Click: back to the chosen sort."]
 local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
 local L_LABEL_GOLD = L["Raw gold"]
@@ -65,7 +68,8 @@ local SEP = " \194\183 " -- middle dot
 
 -- One line of notes under the table: the filtered / unpriced markers and the
 -- view's note (bank scan age). Returns text, orange; nil without any part.
-function Summary.notesText(view)
+-- `unpricedFirst`: the unpriced items are listed first (Ledger.unpricedFirst).
+function Summary.notesText(view, unpricedFirst)
   view = view or NONE
   local totals = view.totals or NONE
   local parts, orange = {}, false
@@ -75,8 +79,9 @@ function Summary.notesText(view)
   end
   local unpriced = tonumber(totals.unpriced) or 0
   if unpriced > 0 then
-    -- Item rows mark unpriced items "?"; History session lists have no marks.
-    parts[#parts + 1] = unpriced .. L_UNPRICED .. (view.history and "" or L_MARKED)
+    -- Item rows mark unpriced items "?" (Zones and Mobs in their opened places
+    -- and mobs). Clicking the line lists them first (Summary.attach).
+    parts[#parts + 1] = unpriced .. L_UNPRICED .. (unpricedFirst and L_MARKED_FIRST or L_MARKED)
     orange = true
   end
   if view.note then
@@ -99,9 +104,10 @@ function Summary.tableLayout(view)
   view = view or NONE
   local s = ns.Theme.sizes
   local inventory = view.kind == "inventory"
-  local layout = { rates = not inventory, titles = not inventory }
-  -- Option "showFooterGold" off: no Raw gold row (Total still includes it).
-  local goldRow = ns.Util.setting("showFooterGold", true)
+  -- Mobs has no clock to divide by: no per hour column.
+  local layout = { rates = not inventory and view.kind ~= "mobs", titles = not inventory }
+  -- Option "rawGold": its own Raw gold row or not (Total follows the counting).
+  local _, goldRow = ns.Util.rawGold()
   if inventory then
     -- With kept items in the list: what is kept and what is left to sell.
     local totals = view.totals or NONE
@@ -185,6 +191,11 @@ function Summary.tooltipLines(view, formatMoney)
     for _, name in ipairs(names) do lines[#lines + 1] = { name, "" } end
     local more = (tonumber(totals.unpriced) or 0) - #names
     if more > 0 then lines[#lines + 1] = { string.format(L_AND_MORE, more), "" } end
+  end
+  -- History: which sessions the table adds up (the tabs differ, see view.scope).
+  if type(view.scope) == "string" then
+    lines[#lines + 1] = { " ", "" }
+    lines[#lines + 1] = { view.scope, "", wrap = true }
   end
   return lines
 end
@@ -370,6 +381,23 @@ function Summary.attach(topBox, footer)
   notes:SetPoint("LEFT", notesFrame, "LEFT", 0, 0)
   notes:SetPoint("RIGHT", notesFrame, "RIGHT", 0, 0)
   summary.notes, summary.notesFrame = notes, notesFrame
+  -- With unpriced items, a click lists them first (and back again).
+  local function hasUnpriced()
+    local totals = summary.view and summary.view.totals
+    return type(totals) == "table" and (tonumber(totals.unpriced) or 0) > 0
+  end
+  -- Takes the mouse only then (SetNotes), else the table's hover covers it.
+  notesFrame:SetScript("OnMouseUp", function()
+    if hasUnpriced() and ns.UI.Ledger then ns.UI.Ledger.toggleUnpricedFirst() end
+  end)
+  notesFrame:SetScript("OnEnter", function(self)
+    if not (hasUnpriced() and GameTooltip and ns.UI.Ledger) then return end
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    local C = T.colors
+    GameTooltip:AddLine(ns.UI.Ledger.unpricedFirst and L_CLICK_BACK or L_CLICK_FIRST, C.hint[1], C.hint[2], C.hint[3])
+    GameTooltip:Show()
+  end)
+  notesFrame:SetScript("OnLeave", W.hideTooltip)
 
   -- Hover: vendor / AH / best of the last view.
   tbl:SetScript("OnEnter", function(self)
@@ -377,8 +405,12 @@ function Summary.attach(topBox, footer)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     local C = T.colors
     for _, l in ipairs(Summary.tooltipLines(summary.view)) do
-      local lc = (l[3] and T.sourceColor(l[3])) or C.tipValue
-      GameTooltip:AddDoubleLine(l[1], l[2], lc[1], lc[2], lc[3], C.tipValue[1], C.tipValue[2], C.tipValue[3])
+      if l.wrap then
+        GameTooltip:AddLine(l[1], C.tipLabel[1], C.tipLabel[2], C.tipLabel[3], true)
+      else
+        local lc = (l[3] and T.sourceColor(l[3])) or C.tipValue
+        GameTooltip:AddDoubleLine(l[1], l[2], lc[1], lc[2], lc[3], C.tipValue[1], C.tipValue[2], C.tipValue[3])
+      end
     end
     -- Session tab: the gold per hour graph under the values.
     local graph = summary.view and summary.view.graph
@@ -404,7 +436,8 @@ function Summary.attach(topBox, footer)
     tbl:SetShown(layout.height > 0)
     titles.frame:SetShown(layout.titles)
     titles.value:SetShown(layout.titles)
-    titles.rate:SetShown(layout.titles)
+    titles.rate:SetShown(layout.titles and layout.rates)
+    placeValue(titles.value, titles.frame, layout.rates)
     if layout.titles then stack[#stack + 1] = titles.frame end
     local shown = {}
     for _, key in ipairs(layout.rows) do
@@ -456,7 +489,9 @@ function Summary.attach(topBox, footer)
   end
 
   function summary:SetNotes(view)
-    local text, orange = Summary.notesText(view)
+    local text, orange = Summary.notesText(view, ns.UI.Ledger and ns.UI.Ledger.unpricedFirst)
+    local totals = type(view) == "table" and view.totals
+    notesFrame:EnableMouse(type(totals) == "table" and (tonumber(totals.unpriced) or 0) > 0)
     if not text then return end
     W.setTextColor(notes, orange and stale or ink)
     notes:SetText(text)

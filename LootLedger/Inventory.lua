@@ -78,16 +78,6 @@ local function addStack(items, id, link, qty, now)
   if item.link == nil and type(link) == "string" then item.link = link end
 end
 
--- entries = list of { id, link, qty }; invalid entries are skipped. Returns an
--- items map with the stacks of one item id merged.
-function Inventory.merge(entries, now)
-  local items = {}
-  for _, e in ipairs(entries) do
-    if type(e) == "table" then addStack(items, e.id, e.link, e.qty, now) end
-  end
-  return items
-end
-
 -- Reads every slot of the given containers through C_Container. A missing API
 -- or a failing call gives an empty / partial result, never an error.
 -- C_Container.GetContainerItemInfo returns { itemID, stackCount, hyperlink }.

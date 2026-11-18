@@ -4,15 +4,28 @@ local I = ns.Inventory
 
 local function link(id) return "|cffffffff|Hitem:" .. id .. "::|h[Item" .. id .. "]|h|r" end
 
-h.test("Inventory.merge: stacks of one item merge, invalid entries are skipped", function()
-  local items = I.merge({
+-- Inventory.scan over one bag (container 0) holding `slots` = { { id, link, qty } or false, ... }.
+local function scanOf(slots, now)
+  local env = { C_Container = {
+    GetContainerNumSlots = function() return #slots end,
+    GetContainerItemInfo = function(_, slot)
+      local s = slots[slot]
+      if not s then return nil end
+      return { itemID = s.id, hyperlink = s.link, stackCount = s.qty }
+    end,
+  } }
+  return I.scan(env, { 0 }, now)
+end
+
+h.test("Inventory.scan: stacks of one item merge, invalid slots are skipped", function()
+  local items = scanOf({
     { id = 10, link = link(10), qty = 5 },
     { id = 10, link = link(10), qty = 3 },
     { id = 11, link = link(11), qty = 1 },
     { id = 12, qty = 0 },
     { id = "x", qty = 2 },
     { id = 13, qty = -1 },
-    "junk",
+    false,
   }, 777)
   h.eq(items[10], { id = 10, key = 10, link = link(10), qty = 8, lastSeen = 777 })
   h.eq(items[11].qty, 1)
@@ -37,11 +50,11 @@ h.test("Inventory.bankIDs uses the character bank tabs where the client has them
   h.eq(I.bankIDs(env), { 6, 7, 8, 9, 10, 11 })
 end)
 
-h.test("Inventory.merge keeps item variants (bonus IDs) apart", function()
+h.test("Inventory.scan keeps item variants (bonus IDs) apart", function()
   local plain = "|Hitem:50::::::::60:::::::::|h[Sword]|h"
   local v1 = "|Hitem:50::::::::60::::2:1477:4802::::::|h[Sword]|h"
   local v2 = "|Hitem:50::::::::60::::1:9999::::::|h[Sword]|h"
-  local items = I.merge({
+  local items = scanOf({
     { id = 50, link = plain, qty = 1 },
     { id = 50, link = v1, qty = 1 },
     { id = 50, link = v1, qty = 1 },

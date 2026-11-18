@@ -22,6 +22,7 @@ function methods.IsVisible(self) return self._shown end
 function methods.GetCenter() return 0, 0 end
 function methods.SetScript(self, ev, fn) self._scripts[ev] = fn end
 function methods.HookScript() end
+function methods.EnableMouse(self, on) self._mouse = on end
 function methods.RegisterEvent(self, ev) self._events[ev] = true end
 function methods.SetSize(self, w, hh) self._w, self._h = w, hh end
 function methods.SetWidth(self, w) self._w = w end
@@ -468,6 +469,34 @@ h.test("wiring: merging History sessions, two and more, and /ll undo splits them
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: Reset asks for the saved session's note with the option on", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local popup
+  ctx.env.StaticPopup_Show = function(name) popup = ctx.env.StaticPopupDialogs[name] end
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  h.eq(popup, nil) -- off by default
+  ns.Options.set(ns.db, "resetNote", true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  h.eq(popup ~= nil and popup.hasEditBox, true)
+  local box = { text = "", SetText = function(self, t) self.text = t end, GetText = function(self) return self.text end,
+    HighlightText = function() end }
+  popup.OnShow({ editBox = box })
+  box.text = "Wingrest herbs"
+  popup.OnAccept({ editBox = box })
+  local history = ctx.env.LootLedgerCharDB.history
+  h.eq(#history, 2)
+  h.eq(history[1].note, "Wingrest herbs"); h.eq(history[2].note, nil)
+  -- an empty session saves nothing, so nothing to ask
+  popup = nil
+  slash(ctx, "reset")
+  h.eq(popup, nil)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: a note on a History session shows on its row and is searched", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -624,6 +653,8 @@ h.test("wiring: /ll export copies the session or Zones as CSV", function()
   h.eq(line:sub(1, 4), "Item")
   slash(ctx, "export zones")
   h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.View.ZONES_CSV_HEADER)
+  slash(ctx, "export mobs")
+  h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.View.MOBS_CSV_HEADER)
   slash(ctx, "export")
   h.eq(ctx.ns.UI.Export.frame.text:match("^[^\n]+"), ctx.ns.History.CSV_HEADER)
   slash(ctx, "export nonsense")
@@ -915,11 +946,11 @@ h.test("wiring: footer table height follows the tab and the raw gold option", fu
   h.eq(summary.cells.total.value:IsShown(), true)
   h.eq(summary.cells.items.rate:IsShown(), true)
   h.eq(summary.titles.value:IsShown(), true)
-  ctx.ns.Options.set(ctx.ns.db, "includeGold", false)
+  ctx.ns.Options.set(ctx.ns.db, "rawGold", "apart")
   L.refresh()
   h.eq(footer:GetHeight(), 54)
   h.eq(summary.cells.total.label:IsShown(), false)
-  ctx.ns.Options.set(ctx.ns.db, "includeGold", true)
+  ctx.ns.Options.set(ctx.ns.db, "rawGold", "row")
   L.refresh()
   h.eq(footer:GetHeight(), 72)
   h.eq(ctx.errors, {})
@@ -1141,6 +1172,12 @@ h.test("wiring: the options panel builds a widget for every registered option", 
   for _, spec in ipairs(ctx.ns.Options.list()) do
     h.eq(P.frame.widgets[spec.key] ~= nil, true, spec.key)
   end
+  -- A color shows its hex code; a number option of 0 shows its zeroText.
+  h.eq(P.colorLabel("Text", "ffffff"):find("#ffffff", 1, true) ~= nil, true)
+  h.eq(P.colorLabel("Text", nil), "Text")
+  local goal = P.frame.widgets.goalGold
+  goal.refresh()
+  h.eq(goal.controls[1]:GetText(), ctx.ns.L["Off"])
   P.toggle() -- closes
   h.eq(ctx.errors, {})
   h.eq(ctx.ns.UI.Ledger.frame.header ~= nil, true)
@@ -1809,15 +1846,21 @@ h.test("wiring: with LibDataBroker and LibDBIcon the button is LibDBIcon's", fun
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ns.UI.Broker.update()
   h.eq(type(objects.LootLedger.text), "string")
-  -- The broker total follows "Raw gold in Total".
+  -- The broker total follows the option Raw gold.
   ns.Core.recordGold(50000)
   local function total(includeGold)
     return ns.UI.Broker.summary(ns.session, ns.Core.lookupPrice, ctx.now, includeGold).total
   end
   h.eq(total(true) - total(false), 50000)
-  ns.Options.set(ns.db, "includeGold", false)
+  ns.Options.set(ns.db, "rawGold", "apart")
   ns.UI.Broker.update()
   h.eq(objects.LootLedger.text, ns.UI.Broker.text({ total = total(false) }, ns.Money.formatColored))
+  -- "Auction from" counts in the broker like in the window: AH 120 must beat
+  -- vendor 100 by 50 %.
+  local s = { running = false, elapsedBase = 3600, gold = 0, items = { [7] = { id = 7, key = 7, qty = 1 } } }
+  local function lookup() return { vendor = 100, ah = 120 } end
+  h.eq(ns.UI.Broker.summary(s, lookup, ctx.now, false, 0).total, 120)
+  h.eq(ns.UI.Broker.summary(s, lookup, ctx.now, false, 50).total, 100)
   h.eq(ctx.errors, {})
 end)
 
@@ -2181,7 +2224,7 @@ h.test("wiring: hiding Top finds and the Raw gold row takes effect at once", fun
   h.eq(W.frame.topBox:IsShown(), false)
   ctx.ns.Options.set(ctx.ns.db, "showTopFinds", true)
   h.eq(W.frame.topBox:IsShown(), true)
-  ctx.ns.Options.set(ctx.ns.db, "showFooterGold", false)
+  ctx.ns.Options.set(ctx.ns.db, "rawGold", "total")
   h.eq(ctx.ns.UI.Summary.tableLayout(ctx.ns.UI.Ledger.view).rows, { "items", "total" })
   h.eq(ctx.errors, {})
 end)
@@ -2292,6 +2335,73 @@ h.test("wiring: double-clicking the title toggles the mode", function()
   h.eq(ctx.ns.UI.Ledger.mode, "compact")
   tb._scripts.OnDoubleClick(tb, "LeftButton")
   h.eq(ctx.ns.UI.Ledger.mode, "full")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a click on the footer's unpriced note lists those items first, a second click undoes it", function()
+  local ctx = boot()
+  ctx.env.TSM_API = { GetCustomPriceValue = function(_, itemString)
+    if tostring(itemString):find("2589", 1, true) then return 100000 end
+    return nil
+  end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 1))
+  fire(ctx, "CHAT_MSG_LOOT", itemLoot(2592, 1))
+  local L = ns.UI.Ledger
+  L.refresh()
+  h.eq(L.view.rows[1].id, 2589)
+  local notes = ns.UI.Summary.instance.notesFrame
+  h.eq(notes._mouse, true)
+  notes._scripts.OnMouseUp(notes)
+  h.eq(L.unpricedFirst, true)
+  h.eq(L.view.rows[1].id, 2592)
+  h.eq(ns.UI.Summary.instance.notes:GetText():find("listed first", 1, true) ~= nil, true)
+  notes._scripts.OnMouseUp(notes)
+  h.eq(L.view.rows[1].id, 2589)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a login without TSM or Auctionator says so once in chat", function()
+  local function hints(ctx)
+    local n = 0
+    for _, line in ipairs(ctx.printed) do
+      if line:find("No auction price addon found", 1, true) then n = n + 1 end
+    end
+    return n
+  end
+  local ctx = boot()
+  startWorld(ctx, false)
+  h.eq(hints(ctx), 1)
+  h.eq(ctx.env.LootLedgerDB.priceHintShown, true)
+  local tsm = boot()
+  tsm.env.TSM_API = { GetCustomPriceValue = function() return nil end }
+  startWorld(tsm, false)
+  h.eq(hints(tsm), 0)
+  h.eq(ctx.errors, {}); h.eq(tsm.errors, {})
+end)
+
+h.test("wiring: compact shows the goal bar with a session goal and the last 15 minutes' rate", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local C = ns.UI.Compact
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "compact")
+  h.eq(C.goalBar:IsShown(), false)
+  h.eq(C.recent:GetText(), "")
+  ns.Options.set(ns.db, "goalGold", 1)
+  C.area._w = 200
+  ns.UI.Ledger.refresh()
+  h.eq(C.goalBar:IsShown(), true)
+  h.eq(C.goalBar._w >= 1 and C.goalBar._w <= 200, true)
+  -- a quarter hour of samples later the rate of that stretch shows
+  for _ = 1, 16 do
+    ctx.now = ctx.now + 60
+    ns.Core.heartbeat()
+  end
+  ns.UI.Ledger.refresh()
+  h.eq(C.recent:GetText():find(ns.L["15 min: "], 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3232,6 +3342,139 @@ h.test("wiring: cleared loot slots are credited to their mob, once per corpse", 
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: a fast loot addon empties the window on LOOT_READY; the mob still gets its loot", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local slots = { { link = LINK, qty = 3, guid = MOB }, { money = 250, guid = MOB } }
+  lootWindowEnv(ctx, slots)
+  -- the addon takes everything on LOOT_READY: the slots clear before LOOT_OPENED
+  fire(ctx, "LOOT_READY", true)
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_SLOT_CLEARED", 2)
+  for i = #slots, 1, -1 do slots[i] = nil end
+  fire(ctx, "LOOT_OPENED", true)
+  fire(ctx, "LOOT_CLOSED")
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(type(m), "table")
+  h.eq(m.items[2589], 3)
+  h.eq(m.gold, 250)
+  h.eq(m.looted, 1)
+  -- the next corpse, looted by hand (LOOT_READY, then LOOT_OPENED, then the clicks)
+  local SECOND = "Creature-0-3110-0-12-2546-000012ABCE"
+  slots[1] = { link = LINK, qty = 2, guid = SECOND }
+  fire(ctx, "LOOT_READY", false)
+  fire(ctx, "LOOT_OPENED", false)
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_CLOSED")
+  h.eq(m.items[2589], 5)
+  h.eq(m.looted, 2)
+  ns.UI.Ledger.setTab("history")
+  ns.UI.Ledger.setSubtab("mobs")
+  local found = false
+  for _, r in ipairs(ns.UI.Ledger.view.rows) do
+    if r.mobKey == "npc:2546" then found = true end
+  end
+  h.eq(found, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: drop chances count what each corpse held and show in the item row tooltip", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local OTHER = "|cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r"
+  local corpses = { "Creature-0-3110-0-12-2546-000012AB01", "Creature-0-3110-0-12-2546-000012AB02",
+    "Creature-0-3110-0-12-2546-000012AB03", "Creature-0-3110-0-12-2546-000012AB04" }
+  for i, guid in ipairs(corpses) do
+    local slots = { { link = LINK, qty = 1, guid = guid } }
+    if i == 1 then slots[2] = { link = OTHER, qty = 1, guid = guid } end -- wool left in the first corpse
+    lootWindowEnv(ctx, slots)
+    fire(ctx, "LOOT_READY", false)
+    fire(ctx, "LOOT_OPENED", false)
+    fire(ctx, "LOOT_SLOT_CLEARED", 1)
+    fire(ctx, "LOOT_CLOSED")
+  end
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(m.seen, 4); h.eq(m.drops[2589], 4); h.eq(m.drops[2592], 1)
+  h.eq(m.items[2592], nil) -- left behind: no value, but it counts for the chance
+  local L = ns.UI.Ledger
+  L.setTab("history")
+  L.setSubtab("mobs")
+  L.toggleMob("npc:2546")
+  local row = L.view.rows[2]
+  h.eq(row.id, 2589)
+  local lines = table.concat(ns.UI.Rows.tooltipLines(row, ns.Money.format), "\n")
+  h.eq(lines:find("Drop chance: 100% (4 of 4)", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: item tooltips list the mobs that drop the item with their chance", function()
+  local ctx = boot()
+  local onItem
+  ctx.env.Enum = { TooltipDataType = { Item = 0 } }
+  ctx.env.TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
+    if kind == 0 then onItem = fn end
+  end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  h.eq(type(onItem), "function")
+  local function tooltipFor(link)
+    local tip = { lines = {} }
+    function tip:GetItem() return "Linen Cloth", link end
+    function tip:AddLine(t) self.lines[#self.lines + 1] = t end
+    function tip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = l .. " = " .. r end
+    function tip:Show() end
+    onItem(tip)
+    return table.concat(tip.lines, "\n")
+  end
+  h.eq(tooltipFor(LINK), "") -- nothing known yet
+  local corpses = { "Creature-0-3110-0-12-2546-000012AB01", "Creature-0-3110-0-12-2546-000012AB02" }
+  for i, guid in ipairs(corpses) do
+    lootWindowEnv(ctx, i == 1 and { { link = LINK, qty = 1, guid = guid } } or { { money = 10, guid = guid } })
+    fire(ctx, "LOOT_READY", false)
+    fire(ctx, "LOOT_OPENED", false)
+    fire(ctx, "LOOT_SLOT_CLEARED", 1)
+    fire(ctx, "LOOT_CLOSED")
+  end
+  local text = tooltipFor(LINK)
+  h.eq(text:find(ns.L["LootLedger drop chance"], 1, true) ~= nil, true)
+  h.eq(text:find("NPC 2546 = 50% (1 of 2)", 1, true) ~= nil, true)
+  -- it stays after Reset (History) and goes with the option off
+  slash(ctx, "reset")
+  h.eq(tooltipFor(LINK):find("50% (1 of 2)", 1, true) ~= nil, true)
+  ns.Options.set(ns.db, "itemTooltipDrops", false)
+  h.eq(tooltipFor(LINK), "")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: mob loot counts with the clock stopped and is saved with the session", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  slash(ctx, "stop")
+  h.eq(ns.session.running, false)
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = MOB }, { money = 100, guid = MOB } })
+  fire(ctx, "LOOT_READY", true)
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  fire(ctx, "LOOT_SLOT_CLEARED", 2)
+  fire(ctx, "LOOT_OPENED", true)
+  fire(ctx, "LOOT_CLOSED")
+  local m = ns.session.mobs["npc:2546"]
+  h.eq(m.items[2589], 2); h.eq(m.gold, 100); h.eq(m.looted, 1)
+  -- the session itself counted nothing
+  h.eq(next(ns.session.items), nil)
+  -- Reset keeps the mob loot in History, so History > Mobs still lists it
+  slash(ctx, "reset")
+  local history = ctx.env.LootLedgerCharDB.history
+  h.eq(#history, 1)
+  h.eq(history[1].mobs["npc:2546"].items[2589], 2)
+  ns.UI.Ledger.setTab("history")
+  ns.UI.Ledger.setSubtab("mobs")
+  h.eq(ns.UI.Ledger.view.rows[1].mobKey, "npc:2546")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: loot is credited without kills; unknown names get a fallback", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -3273,7 +3516,7 @@ h.test("wiring: History > Mobs lists the mobs of History and the running session
   Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
   h.eq(Ledger.mobOpen, "npc:2546")
   h.eq(Ledger.view.rows[2].id, 2589)
-  h.eq(ctx.ns.UI.FilterBar.sortLabel("perKill", ns.UI.Tabs.sorts("history", "mobs")), ns.L["Per kill"])
+  h.eq(ctx.ns.UI.FilterBar.sortLabel("perLoot", ns.UI.Tabs.sorts("history", "mobs")), ns.L["Per loot"])
   h.eq(ctx.errors, {})
 end)
 

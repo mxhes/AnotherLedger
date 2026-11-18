@@ -27,13 +27,14 @@ local L_PER_HOUR = L["/h"]
 
 -- Pure. Session numbers for the broker text and tooltip: { best, gold, total,
 -- perHour (total per hour or nil), elapsed }. `lookup(itemID, link)` prices an
--- item. `includeGold` false (option "Raw gold in Total" off): the total is the
--- items only.
-function Broker.summary(session, lookup, now, includeGold)
+-- item. `includeGold` false (option "Raw gold" not in the totals): the total
+-- is the items only. `ahMinGain`: the option "Auction from", like the window.
+function Broker.summary(session, lookup, now, includeGold, ahMinGain)
   local out = { best = 0, gold = 0, total = 0, perHour = nil, elapsed = 0 }
   if type(session) ~= "table" then return out end
   local ignored = ns.Core and ns.Core.ignoredItems and ns.Core.ignoredItems() or nil
-  local view = ns.View.build(session, { now = now, lookup = lookup, showCurrencies = false, ignored = ignored })
+  local view = ns.View.build(session, { now = now, lookup = lookup, showCurrencies = false, ignored = ignored,
+    ahMinGain = ahMinGain })
   out.best = view.totals.best or 0
   out.gold = view.gold.total or 0
   out.total = out.best + (includeGold == false and 0 or out.gold)
@@ -58,8 +59,8 @@ local function libStub(name)
 end
 
 local function current()
-  local includeGold = ns.Util.setting("includeGold", true)
-  return Broker.summary(ns.session, ns.Core.lookupPrice, time(), includeGold)
+  local includeGold = ns.Util.goldCounted()
+  return Broker.summary(ns.session, ns.Core.lookupPrice, time(), includeGold, ns.Util.setting("ahMinGain", 0))
 end
 
 function Broker.update()

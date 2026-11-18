@@ -49,6 +49,7 @@ only inside functions.
 | `UI/DailyFarm.lua`, `UI/Compact.lua` | the Daily strip; the compact layout's body |
 | `UI/OptionsPanel.lua` | the options panel and the page in the game's options window |
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
+| `UI/ItemTooltip.lua` | drop chances in the game's item tooltips (hooked at login) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
@@ -86,8 +87,9 @@ Each of these is one call in one place; the UI never names them.
 - **Price source**: a file in `Sources/` (in the `.toc` after
   `Sources\Sources.lua`) ending with `ns.Sources.register({ key, label,
   create = function(env, setting) return { name, get = function(itemID, link) ... end } end })`.
-  It joins the lookup order and the AH price source dropdown. See
-  `Sources/Auctionator.lua`.
+  It joins the lookup order and the AH price source dropdown. Optional:
+  `createDisenchant`, `createMarket` and `present(env)` (its addon is loaded;
+  `Sources.anyPresent` drives the login hint). See `Sources/Auctionator.lua`.
 - **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx) return view end, ... })`
   in `UI/Tabs.lua`; optional `sessionControls` (clock and buttons), `ticks`
   (rates follow the clock), `watches` (data kind that redraws it), `hasItem`
@@ -160,18 +162,31 @@ Each of these is one call in one place; the UI never names them.
   `Summary.tooltipLines`). The swatch opens the game picker through
   `Widgets.pickColor`.
 - **Footer**: History and Zones show the same table as the Session tab: the
-  listed sessions (or places) added up, rates over their recorded time.
+  listed sessions (or places) added up, rates over their recorded time
+  (Zones: only subzones with time count in the rate, `timedRates` in
+  `View.lua`). `view.scope` (set in `UI/Tabs.lua`) is the footer tooltip's
+  last line: which sessions the numbers count. The raw gold row and whether
+  gold counts in the totals both come from the option `rawGold`
+  (`Util.rawGold()` -> counted, row; `Util.goldCounted()`). `DB.migrateSettings`
+  turns the old `includeGold` / `showFooterGold` booleans into it (in
+  `Profiles.point` and on profile import).
 
 - **Item keys**: `LootParse.itemKey(link)` is the item ID for plain items and
   `"<id>:<sorted bonus IDs>"` for variants; every item map, the price cache and
   row keys use it. Price lookups take `(itemID, link)`.
-- **Value** of a row is the best of vendor, AH and disenchant (`View.best`); it
+- **Value** of a row is the best of vendor, AH and disenchant (`Prices.best`); it
   drives the sort `Value`, Top finds, the minimum filter and the drop alert.
   Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) are never
   counted as unpriced; an AH price a source still reports for them counts like
   any other. The `de` value is TSM's `Destroy` price
-  (disenchant, mill or prospect), shown as `Destroy`.
-- **Mobs**: `LOOT_OPENED` reads every slot (`Mobs.readSlot`), each
+  (disenchant, mill or prospect), shown as `Destroy`; it counts whenever TSM
+  is loaded, whatever the AH price source. A row with no vendor, AH or destroy
+  value gets `worthless = true` and `Rows.rowText` shows a dash for it.
+  `View.itemValue(item, lookup, ahMinGain)` is one item's value the same way
+  (`Core.sessionValue`).
+- **Mobs**: `LOOT_READY` reads every slot (`Mobs.readSlot`; `LOOT_OPENED`
+  only when no `LOOT_READY` came: fast loot addons empty the window on
+  `LOOT_READY`, before `LOOT_OPENED`), each
   `LOOT_SLOT_CLEARED` credits its slot to the sources (`Mobs.credit`), so
   loot left in a corpse counts for nobody. No kills: registering
   `COMBAT_LOG_EVENT_UNFILTERED` is forbidden for addons on this client
@@ -185,13 +200,31 @@ Each of these is one call in one place; the UI never names them.
   History entry's, the running session's over all). Coin slots wait for
   `settleLoot`, which scales them (`Mobs.scaleMoney`) to the copper the
   window actually brought (chat plus the money change), so a group's split
-  counts your share. Only while
-  loot counts (`Core.mobsCounting`). Stored in `session.mobs` and History
+  counts your share. Recorded with the clock stopped too, never in demo
+  mode (`Core.mobsCounting`); `History.snapshot` saves a session that has
+  only mob loot. Drop chances: when the window is read
+  (`Core.snapshotLoot`), `Mobs.noteWindow` counts each source GUID once in
+  `seen` and each item once per GUID in `drops[itemKey]`, taken or not
+  (per-login GUID sets in `mobState`). `View.buildMobs` sums them over the
+  entries that have `seen` and sets `dropCount` / `dropSeen` on a mob's item
+  rows; `View.dropChanceText`, `View.likelyDrops` and `Rows.tooltipLines`
+  show them. The game's item tooltips (`UI/ItemTooltip.lua`, option
+  `itemTooltipDrops`): `View.dropIndex` over `Core.zoneHistory()` plus the
+  running session gives per item ID the mobs with `n` / `seen` (variants
+  added up), `View.dropTooltipLines` the lines. The index is cached until
+  the History key, the session's mob table or `Core.mobsVersion` (counted
+  up per loot window read) changes. Hooked through
+  `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, ...)`,
+  else `OnTooltipSetItem` of GameTooltip and ItemRefTooltip. Stored in
+  `session.mobs` and History
   entries' `mobs`. `View.buildMobs` (History > Mobs) adds them up over the
   Zones entries (the running session included); a mob's `places` count
   corpses like `looted`, and the most counted is its main place. It values each mob's items
   like Zones (the entry's saved price, else live) and sorts by value, per
-  kill or name; `Ledger.mobOpen` is the opened mob.
+  loot (`perLoot` = value / `looted`) or name; `Ledger.mobOpen` is the opened
+  mob. A mob row's `hint` builds its tooltip on hover (looted, value, gold,
+  per loot, its top 3 places, its best drops). The view has no rates, so the
+  footer shows no per hour column.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
@@ -264,14 +297,15 @@ Each of these is one call in one place; the UI never names them.
 - **Stopped clock**: `Core.recordLoot`, `recordGold` and `recordCurrency`
   ignore events while the clock is stopped and say so once in chat per stop.
 - **Row lines**: line 2 of a row is `row.detail` when set (History sessions:
-  length, place, item count; Zones places: time, gold per hour, item count),
+  length, gold per hour, item count, place; Zones places: time, gold per
+  hour, item count),
   else the TSM sale info. Rows without `quantity` show none. `view.empty`
   (`View.emptyText`) is the text `Rows` shows centered in an empty list.
 - **History sessions**: `View.buildHistory` sorts only with `opts.sort` set
   (`ah`, `recent`, `perHour`; others work as `ah`). Search (start, length,
   place) and minimum value pick sessions; the opened one always shows, its
   items filtered by quality only. A row's value is the items' best plus raw
-  gold (`includeGold`). Row names use `opts.shortDate` (`History.shortDate`),
+  gold (`Util.goldCounted()`). Row names use `opts.shortDate` (`History.shortDate`),
   tooltips `opts.formatDate`.
 - **Zones time**: a zone's time and the footer's rates count every subzone's
   time, also subzones whose loot the filter hides or that have none.
@@ -293,6 +327,8 @@ Each of these is one call in one place; the UI never names them.
 - **CSV export** (`History.csv`): one line per session, amounts in gold with
   four decimals, then the currencies (`Name x3; Other x1`) and the note.
   `/ll export session` writes `View.itemsCsv` of an unfiltered `View.build`,
+  `/ll export mobs` `View.mobsCsv` (every mob of an unfiltered
+  `View.buildMobs`, by value),
   `/ll export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
   quest items left out). Fields go through `History.csvField`.
 - **Ignore list** (`LootLedgerDB.ignored = { [itemID] = name }`, Core
@@ -311,10 +347,11 @@ Each of these is one call in one place; the UI never names them.
 - **Heartbeat**: one `C_Timer.NewTicker` of `HEARTBEAT_SECONDS` (5 s) runs
   `Core.heartbeat`: the time goal, the zone delay and the rate samples.
 - **Session per zone** (`zoneSession`, `zoneSessionMinutes`): the pure
-  `Core.zoneSwitch(state, place, now, onTaxi, grace)` keeps the session's
+  `Core.zoneSwitch(state, place, now, away, grace)` keeps the session's
   zone and a pending new one (`Core.placeOf` labels, so an instance is a zone
-  too); it says yes once the player stayed `grace` seconds in the new zone, a
-  flight (`UnitOnTaxi`) or a return clears the pending zone.
+  too); it says yes once the player stayed `grace` seconds in the new zone,
+  being away (a flight, `UnitOnTaxi`, or resting, `IsResting`) or a return
+  clears the pending zone.
   `Core.checkZone` runs it on the zone events, loading screens and the
   heartbeat; it splits only with the option on and the clock running (an
   empty session is reset without a chat line). `checkInstance` sets the zone
@@ -364,7 +401,30 @@ Each of these is one call in one place; the UI never names them.
 - **Price per unit** (`unitPrice`): `Rows.rowText` shows the counted source's
   unit value on rows with a quantity above 1.
 - **Compact** (`View.buildCompact`) ignores the filter bar: every item plus raw
-  gold when `includeGold` is on; the last drops come from `session.recent`.
+  gold when it counts (`Util.goldCounted()`); the last drops come from
+  `session.recent` (`dropLimit` is the option; `Compact.titleText` hides the
+  title at 0). `recent` is `View.recentRate(samples, elapsed, total)`: the
+  gold per hour from the newest rate sample at least `View.RECENT_SECONDS`
+  (15 min) old to now, shown right of the drops title (`Compact.recentText`)
+  and in the hover. With a goal, `Compact.goalFraction` sizes a gold bar
+  (`sizes.compactGoalBarHeight`) over the divider; it follows a resize on the
+  next redraw.
+- **Hide worthless** (`hideWorthless` -> `opts.hideWorthless`): `collect` and
+  the compact drops skip `row.worthless` rows; totals are unchanged (they are
+  worth 0).
+- **Unpriced first**: `row.unpriced` (no AH price, not bound) is what the
+  footer counts. A click on the notes line (`Summary.attach`, mouse only
+  while something is unpriced) runs `Ledger.toggleUnpricedFirst`;
+  `opts.unpricedFirst` wraps the item sort (`unpricedFirst(inner)` in
+  `View.lua`) and `Summary.notesText(view, true)` says "listed first".
+- **No price addon** (`Core.priceAddonHint`, at login): a source spec's
+  `present(env)` (TSM, Auctionator) says its addon is loaded
+  (`Sources.anyPresent`); without one a chat line once per account
+  (`LootLedgerDB.priceHintShown`, cleared when one is found again).
+- **Reset note** (`resetNote`): `Core.resetSession` returns the saved entry
+  (`Core.archiveSession` does); the Reset button and `/ll reset`
+  (`Header.requestReset` -> `doReset`) then open `Ledger.editNote(entry)`.
+  The automatic splits call `Core.resetSession` directly and never ask.
   It also returns `items`, `gold`, `elapsed`, `top`, `goal` and `graph` for the hover
   breakdown (`Compact.hint`) over the rate and total.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
@@ -464,14 +524,15 @@ Each of these is one call in one place; the UI never names them.
 ## Events
 
 `CHAT_MSG_LOOT`, `CHAT_MSG_MONEY`, `CHAT_MSG_CURRENCY`, `QUEST_TURNED_IN`,
-`GET_ITEM_INFO_RECEIVED`, `LOOT_OPENED` / `LOOT_CLOSED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
+`GET_ITEM_INFO_RECEIVED`, `LOOT_READY` / `LOOT_OPENED` / `LOOT_CLOSED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`,
 `BAG_UPDATE_DELAYED`, `BANKFRAME_OPENED` / `BANKFRAME_CLOSED`,
 `PLAYERBANKSLOTS_CHANGED` / `PLAYERREAGENTBANKSLOTS_CHANGED`,
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED`, `PLAYER_FLAGS_CHANGED`,
 `ZONE_CHANGED` / `ZONE_CHANGED_INDOORS` / `ZONE_CHANGED_NEW_AREA`, and the
 `SKILL_LINES_CHANGED`, `PLAYER_UPDATE_RESTING`, `PLAYER_MONEY`, the Mobs events
-(`LOOT_SLOT_CLEARED`, `COMBAT_LOG_EVENT_UNFILTERED`, `NAME_PLATE_UNIT_ADDED`,
-`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`), the
+(`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
+`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`; never
+`COMBAT_LOG_EVENT_UNFILTERED`, which is forbidden on this client), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot). An event the client does not know is skipped.
 

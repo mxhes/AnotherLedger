@@ -48,5 +48,6 @@ UI\OptionsPanel.lua
 UI\Minimap.lua
 UI\Export.lua
 UI\Broker.lua
+UI\ItemTooltip.lua
 UI\Ledger.lua
 Core.lua

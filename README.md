@@ -13,8 +13,10 @@ tells you where your best farm is today.
 Vendor prices work on their own. Auction prices need
 [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
 optional; TSM is asked first). Destroy values (what disenchanting, milling or
-prospecting gives) and the "sells well / poorly" info need TSM. Waypoints use TomTom when it is installed, else the game's own
-map pin.
+prospecting gives) and the "sells well / poorly" info need TSM (they count
+whenever TSM is loaded, also with Auctionator as the AH price source). Without
+either, LootLedger says so once in chat. Waypoints use TomTom when it is
+installed, else the game's own map pin.
 
 **Libraries** (only when you install from the source code): the release zip
 already contains them. A copy of the `LootLedger/` folder from the repository
@@ -47,11 +49,13 @@ gear, a double-click on the title, or `/ll compact`. Each layout keeps its own
 size; the corner nearest to the screen edge stays where it is when you switch.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
-the session total (with a session goal: `Session 312g / 500g`), the last four
-drops with their value and source tag (framed, as in the list), and the Daily
-farm line. Until the session earns something the rate shows `—/h`. Hover the gold per
+the session total (with a session goal: `Session 312g / 500g`, and a gold bar
+under them that fills up toward the goal), the last four drops with their
+value and source tag (framed, as in the list), and the Daily farm line. After
+a quarter hour, `15 min: 120g/h` right of the drops title is the gold per
+hour of the last 15 minutes, so you see when a spot slows down. Until the session earns something the rate shows `—/h`. Hover the gold per
 hour for the breakdown: time, items, raw gold, total, the best find, how far
-the goal is and, after a few minutes, a small graph of your gold per hour over
+the goal is, the last 15 minutes' rate and, after a few minutes, a small graph of your gold per hour over
 the session (one bar per stretch of clock time) to see when a spot dries up.
 The same graph shows when you hover the totals of the Session tab. Click the clock to start or stop the session; a red `Paused`
 shows while it is stopped. Before the first drop the list says so (or that the
@@ -91,14 +95,20 @@ clock is stopped).
   **Total**. Hover it for vendor / AH / best totals. With a session goal, the
   line under the table says how far you are (`Goal 62%`). On History and
   Zones the footer adds up the listed sessions or places, with gold per hour
-  over their recorded time.
+  over their recorded time (old loot without recorded time counts in the
+  value, not in the rate); its hover says which sessions it counts. Mobs has
+  no clock, so no per hour column. The option **Raw gold** decides whether
+  the gold counts in the Total and whether it has its own row. Click
+  `N unpriced (marked ?)` under the table to list the items without an
+  auction price first; click again for the normal sort.
 - **Top finds**: the three most valuable finds of the session.
 
 Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options),
 gold, silver and copper each in its own column, so the coins line up down the
 list, the footer, Top finds and the compact drops.
 Items that can't be sold on the auction house (soulbound, quest items) count
-at their vendor value. Gear with a different item level or sockets gets its own
+at their vendor value; an item nothing pays for (no vendor, auction or
+destroy value) shows a dash; **Hide worthless** leaves those out of the lists. Gear with a different item level or sockets gets its own
 row and price. Currencies are listed after the items.
 
 ## Tabs
@@ -117,8 +127,8 @@ row and price. Currencies are listed after the items.
   that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
   started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your note,
-  its length, item count and main place, and its value (with the raw gold,
-  unless **Count raw gold** is off). A session is saved when you reset it, when a new
+  its length, gold per hour, item count and main place, and its value (with the raw gold,
+  unless the option **Raw gold** leaves it out). A session is saved when you reset it, when a new
   login starts a fresh one, or (option) when you enter or leave a dungeon. A
   session keeps the prices of the day it was saved, so its value doesn't change
   later. Sort the sessions by Value, Recent or Gold/h; the search (date, note,
@@ -146,13 +156,23 @@ row and price. Currencies are listed after the items.
   places are listed, the Daily farm's place has the same star as the strip,
   and a dungeon's difficulty is shortened in the list (`Razorfen Downs (N)`;
   the tooltip has the full name). Hover the footer to see which items have no
-  auction price yet (`2 unpriced`).
+  auction price yet (`2 unpriced (marked ?)`).
 - **History > Mobs**: what each kind of mob and gathering node gave you, over
   the same sessions as Zones: how often you looted it, the value of its loot
   plus its gold, and the value per corpse or node looted. Sort by **Value**,
-  **Per kill** or **Name**; click a mob to list its items. Loot is credited
-  when you take it from the loot window, split by corpse when one window
-  holds several; loot you leave in a corpse counts for nobody. Kills are not
+  **Per loot** or **Name**; click a mob to list its items, hover it for where
+  you looted it most, its best drops and its likeliest drops with their drop
+  chance; an opened mob's items show theirs in the tooltip (`Drop chance: 35%
+  (7 of 20)`). The chance counts every corpse or node whose loot window you
+  saw, also items you left in it; loot recorded before this version has no
+  chance yet. Every item tooltip in the game (bags, chat links, the loot
+  window) lists the mobs and nodes that drop it with their chance (option
+  **Drop chance in tooltips**). Loot is credited
+  when you take it from the loot window (also with auto loot or a fast loot
+  addon), split by corpse when one window
+  holds several; loot you leave in a corpse counts for nobody. Mobs counts
+  even while the clock is stopped (the session's own lists and totals don't;
+  a session with only mob loot is still saved to History). Kills are not
   counted: the game does not let addons read the combat log. A mob's coin counts what you got of it, so in a group
   your share. A mob or node whose name was never seen shows its number. Only loot taken while the clock runs counts, and sessions
   saved before this version have no mob data.
@@ -189,8 +209,8 @@ anything that deletes History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Count raw gold, Currencies, Top finds, Show raw gold row, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
-| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
@@ -211,7 +231,8 @@ for the preset's color. **Reset colors** goes back to the chosen preset's colors
 Tooltips keep the game's dark tooltip on every preset.
 
 **Session summary in chat** writes one line whenever a session is saved to
-History: its length, main place, worth and gold per hour. **History kept**
+History: its length, main place, worth and gold per hour. **Reset: ask for a
+note** opens the note box for the saved session after Reset (Escape skips it). **History kept**
 counts per character and applies to all of them.
 
 **Profiles**: every option is part of a profile, except **History kept**,
@@ -246,7 +267,8 @@ announced once per session; **Alert sound** plays with them.
 you change zones, so History rows stay apart when you hop between farm spots.
 It waits until you stayed in the new zone for the **Zone change delay** (2
 minutes by default): a short detour or a cave entrance does not split the
-session, and flight paths never count. Loot from those minutes still belongs
+session, and flight paths and time resting in a city or inn never count
+(selling in Orgrimmar does not end your Badlands session). Loot from those minutes still belongs
 to the old session. An empty session just starts its clock over. While the
 clock is stopped nothing splits.
 
@@ -285,7 +307,7 @@ clock.
 | `/ll keep on` / `off` | keep the session across logins |
 | `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
 | `/ll export` | the History as CSV in a copy box |
-| `/ll export session`, `/ll export zones` | the session's items, or every Zones place, as CSV |
+| `/ll export session`, `/ll export zones`, `/ll export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
 | `/ll undo` | take back the last merge or delete in History (or the cleared History) |
 | `/ll demo` | sample loot and temporary sample prices, to look at the window |
 | `/ll help` | list the commands |

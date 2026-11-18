@@ -32,7 +32,7 @@ function Session.new(now)
     gold = 0,
     -- The last loot events (compact mode's "Last drops"), newest first.
     recent = {},
-    -- Loot, kills and gold per mob and node (Mobs.lua).
+    -- Loot and gold per mob and node (Mobs.lua).
     mobs = {},
   }
 end

@@ -102,3 +102,30 @@ h.test("Mobs.scaleMoney scales each source of a money slot to your share", funct
   local item = { kind = "item", link = LINEN, qty = 2, sources = { { guid = A, qty = 2 } } }
   h.eq(M.scaleMoney(item, 0.5), item)
 end)
+
+h.test("Mobs.noteWindow: each corpse seen once, each item once per corpse, taken or not", function()
+  local mobs, state = {}, {}
+  local WOOL = "|cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r"
+  local slots = {
+    [1] = { kind = "item", link = LINEN, qty = 3, sources = { { guid = A, qty = 2 }, { guid = B, qty = 1 } } },
+    [2] = { kind = "item", link = LINEN, qty = 1, sources = { { guid = A, qty = 1 } } }, -- a second stack
+    [3] = { kind = "item", link = WOOL, qty = 1, sources = { { guid = A, qty = 1 } } },
+    [4] = { kind = "money", qty = 50, sources = { { guid = B, qty = 50 } } },
+  }
+  M.noteWindow(mobs, slots, state)
+  local a, b = mobs["npc:2546"], mobs["npc:2547"]
+  h.eq(a.seen, 1); h.eq(a.drops[2589], 1); h.eq(a.drops[2592], 1)
+  h.eq(b.seen, 1); h.eq(b.drops[2589], 1); h.eq(b.drops[2592], nil)
+  -- the same corpse read again (reopened) adds nothing
+  M.noteWindow(mobs, slots, state)
+  h.eq(a.seen, 1); h.eq(a.drops[2589], 1)
+  -- a second corpse of the same mob without wool: wool 1 of 2
+  local A2 = "Creature-0-3110-0-12-2546-000012ABDD"
+  M.noteWindow(mobs, { { kind = "item", link = LINEN, qty = 1, sources = { { guid = A2, qty = 1 } } } }, state)
+  h.eq(a.seen, 2); h.eq(a.drops[2589], 2); h.eq(a.drops[2592], 1)
+  -- copy and merge keep them; old entries without them stay without
+  local c = M.merge(mobs, mobs)
+  h.eq(c["npc:2546"].seen, 4); h.eq(c["npc:2546"].drops[2592], 2)
+  local old = M.copy({ ["npc:9"] = { kind = "npc", kills = 0, looted = 1, gold = 0, items = {}, places = {} } })
+  h.eq(old["npc:9"].seen, nil); h.eq(old["npc:9"].drops, nil)
+end)

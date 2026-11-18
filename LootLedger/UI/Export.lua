@@ -4,7 +4,7 @@ local L = ns.L
 
 ns.UI = ns.UI or {}
 
--- Copy box for the CSV exports (/ll export [session | zones], or the button in
+-- Copy box for the CSV exports (/ll export [session | zones | mobs], or the button in
 -- the options): a movable frame with a scrolling, multi-line edit box whose
 -- text is selected, ready for Ctrl+C. The same frame is the paste box of the
 -- profile import (Export.edit: editable, with an Import button). Client-only;
@@ -15,6 +15,7 @@ ns.UI.Export = Export
 local L_TITLE = L["History export (CSV)"]
 local L_SESSION_TITLE = L["Session export (CSV)"]
 local L_ZONES_TITLE = L["Zones export (CSV)"]
+local L_MOBS_TITLE = L["Mobs export (CSV)"]
 local L_HINT = L["Ctrl+C copies the selected text. Esc closes."]
 local L_PASTE_HINT = L["Ctrl+V pastes a profile line. Esc closes."]
 local L_IMPORT = L["Import"]
@@ -149,17 +150,28 @@ function Export.session()
   Export.show(ns.View.itemsCsv(view.rows), L_SESSION_TITLE)
 end
 
--- The History Zones places (every subzone, of every character with the
--- option "accountZones", plus the running session) as CSV.
-function Export.zones()
-  local opts = exportOpts()
+-- What Zones and Mobs count: the saved sessions (of every character with the
+-- option "accountZones") plus the running one.
+local function zoneEntries(now)
   local entries = {}
   local list = ns.Core and ns.Core.zoneHistory() or (ns.chardb and ns.chardb.history) or {}
   for i, e in ipairs(list) do entries[i] = e end
   local s = ns.session
   if type(s) == "table" then
     entries[#entries + 1] = { live = true, items = s.items, places = s.places, gold = s.gold,
-      zones = ns.Session.zoneSnapshot(s, opts.now) }
+      zones = ns.Session.zoneSnapshot(s, now), mobs = s.mobs }
   end
-  Export.show(ns.View.zonesCsv(entries, opts), L_ZONES_TITLE)
+  return entries
+end
+
+-- The History Zones places (every subzone) as CSV.
+function Export.zones()
+  local opts = exportOpts()
+  Export.show(ns.View.zonesCsv(zoneEntries(opts.now), opts), L_ZONES_TITLE)
+end
+
+-- The History Mobs list (every mob and node) as CSV.
+function Export.mobs()
+  local opts = exportOpts()
+  Export.show(ns.View.mobsCsv(zoneEntries(opts.now), opts), L_MOBS_TITLE)
 end

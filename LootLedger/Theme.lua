@@ -281,6 +281,9 @@ Theme.sizes = {
   graphWidth = 180,
   compactDropsTop = 46, -- first drop row under the rate, total and divider
   compactGap = 4,
+  -- The session goal's progress: a bar of this height over the divider under
+  -- the rate (color `gold`), as long as the share of the goal reached.
+  compactGoalBarHeight = 3,
   titleButtonWidth = 140,
   -- Star in front of the Daily farm strip.
   dailyFarmIcon = 16,

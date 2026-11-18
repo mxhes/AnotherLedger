@@ -22,7 +22,7 @@ Docs:
 - **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Sources/*, Session, History, Inventory, Options, View, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/Ledger, Core last. Core wires events at login (unknown events are skipped).
 - **Data flow.** `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh` builds a view via the shown tab's `build` (`View.lua`, pure) -> each registered part draws it. Nothing redraws while the window is hidden.
 - **Registries** (add things in one place; UI code never names them): options `Options.define`, price sources `ns.Sources.register`, tabs `ns.UI.Tabs.define`, slash commands `ns.Slash.define`, window parts `ns.UI.Ledger.register`. Details in `docs/DEVELOPMENT.md`.
-- **Items** are keyed by `LootParse.itemKey(link)` (`"<id>:<bonus IDs>"` for variants); `item.id` stays numeric. A row's value is the best of vendor, AH and disenchant (`View.best`).
+- **Items** are keyed by `LootParse.itemKey(link)` (`"<id>:<bonus IDs>"` for variants); `item.id` stays numeric. A row's value is the best of vendor, AH and disenchant (`Prices.best`).
 - **Look** lives in `Theme.lua` (colors incl. `tip*`, fonts, sizes, textures); change the look there, not in UI files. Fonts are the addon's own copies (`UI/Fonts.lua`); face and px sizes change live.
 - **Tooltips** with structure (Daily, History, Zones, options) are built as data with `ns.Tooltip` and shown with `Widgets.showTextTooltip(owner, tip)`.
 

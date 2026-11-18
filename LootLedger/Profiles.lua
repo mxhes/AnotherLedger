@@ -50,7 +50,7 @@ local function find(db, name)
 end
 
 local function point(db, name)
-  db.settings = ns.DB.applyDefaults(db.profiles[name], defaults())
+  db.settings = ns.DB.applyDefaults(ns.DB.migrateSettings(db.profiles[name]), defaults())
   db.profiles[name] = db.settings
 end
 
@@ -273,6 +273,9 @@ local function parse(spec, raw)
   return raw
 end
 
+-- Checkboxes of older versions that strings exported then may still carry.
+local LEGACY = { includeGold = true, showFooterGold = true }
+
 -- Text -> settings, taken, skipped; or nil and the reason. A value is taken
 -- only when the option knows it as it is (nothing clamped or replaced).
 function Profiles.decode(text)
@@ -287,7 +290,10 @@ function Profiles.decode(text)
     local spec = key and O.spec(key)
     local value -- may be false
     if spec and portable(spec) then value = parse(spec, unescape(raw)) end
-    if value ~= nil and O.normalize(spec, value) == value then
+    if LEGACY[key] and (raw == "t" or raw == "f") then
+      out[key] = raw == "t" -- DB.migrateSettings turns it into today's option
+      taken = taken + 1
+    elseif value ~= nil and O.normalize(spec, value) == value then
       out[key] = value
       taken = taken + 1
     else
@@ -295,7 +301,7 @@ function Profiles.decode(text)
     end
   end
   if taken == 0 then return nil, L_NOTHING end
-  return out, taken, skipped
+  return ns.DB.migrateSettings(out), taken, skipped
 end
 
 ns.Profiles = Profiles

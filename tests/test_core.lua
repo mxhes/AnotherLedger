@@ -66,6 +66,22 @@ h.test("Core.evalKey needs both parts and survives errors", function()
   }), nil)
 end)
 
+h.test("Core.priceAddonHint: once without TSM or Auctionator, again after one went", function()
+  local said = {}
+  local say = function(msg) said[#said + 1] = msg end
+  local db = {}
+  h.eq(Core.priceAddonHint({}, db, say), true)
+  h.eq(#said, 1)
+  h.eq(said[1]:find("TSM or Auctionator", 1, true) ~= nil, true)
+  h.eq(Core.priceAddonHint({}, db, say), false) -- only once
+  -- either addon loaded: no line, and the mark is cleared
+  h.eq(Core.priceAddonHint({ TSM_API = {} }, db, say), false)
+  h.eq(db.priceHintShown, nil)
+  h.eq(Core.priceAddonHint({ Auctionator = { API = {} } }, db, say), false)
+  h.eq(#said, 1)
+  h.eq(Core.priceAddonHint({}, db, say), true)
+end)
+
 h.test("Core.buildPrices wires sources, vendor, live TSM source and cache", function()
   local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
   db.settings.ahCut = false -- raw AH prices here (the cut has its own test)
@@ -302,7 +318,10 @@ h.test("Core.buildPrices asks the sources in order and takes the disenchant valu
   h.eq(r.ahSource, "Auctionator")
   h.eq(r.de, 40)
   db.settings.priceSource = "auctionator"
-  h.eq(p:lookup(5).de, nil) -- the disenchant value is TSM's: silent with TSM off
+  -- The disenchant value is TSM's and stays with the AH source on Auctionator
+  -- (only the option Destroy values turns it off).
+  h.eq(p:lookup(5).de, 40)
+  h.eq(p:lookup(5).ah, 222)
 end)
 
 h.test("Core.lookupPrice never errors", function()
@@ -406,6 +425,13 @@ h.test("Core.zoneSwitch: a new zone counts after the grace time, flights and det
   h.eq(Core.zoneSwitch(st, "Isle of Dorn", 730, false, 120), true)
   h.eq(st.zone, "Isle of Dorn")
   h.eq(Core.zoneSwitch(st, "Isle of Dorn", 900, false, 120), false)
+  -- resting in a city (passed like a flight) never becomes the session's zone
+  st = {}
+  h.eq(Core.zoneSwitch(st, "Badlands", 0, false, 120), false)
+  h.eq(Core.zoneSwitch(st, "Orgrimmar", 10, true, 120), false)
+  h.eq(Core.zoneSwitch(st, "Orgrimmar", 900, true, 120), false)
+  h.eq(st.zone, "Badlands")
+  h.eq(Core.zoneSwitch(st, "Badlands", 950, false, 120), false) -- back: same session
 end)
 
 h.test("Core.professions reads the destroy professions of the character", function()

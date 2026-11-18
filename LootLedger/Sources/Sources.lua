@@ -9,6 +9,7 @@ local ADDON, ns = ...
 --     createDisenchant = function(env, setting) ... end, -- optional, same shape
 --     createMarket = function(env, setting) -- optional: returns
 --       function(itemID, link) -> { saleRate, soldPerDay } or nil (region data)
+--     present = function(env) -> bool, -- optional: the addon is loaded
 --   })
 --
 -- `env` is the global environment (_G in the client) and `setting(key)` reads
@@ -33,6 +34,15 @@ end
 
 function Sources.list()
   return specs
+end
+
+-- Whether any source with a `present` check finds its addon loaded (no AH
+-- prices at all otherwise: Core.priceAddonHint).
+function Sources.anyPresent(env)
+  for _, spec in ipairs(specs) do
+    if type(spec.present) == "function" and spec.present(env) then return true end
+  end
+  return false
 end
 
 -- Whether the source `key` may answer under the selected option value. Only a

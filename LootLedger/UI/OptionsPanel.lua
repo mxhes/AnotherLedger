@@ -111,10 +111,23 @@ function Panel.WIDGETS.number(block, spec)
   box:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -sizes().controlTop)
   box:SetMaxLetters(10)
 
-  -- Unlimited shows as an empty box.
+  -- Unlimited shows as an empty box, 0 as the option's zeroText ("Off").
   local function show(value)
-    box:SetText(value < 0 and "" or tostring(value))
+    if value < 0 then
+      box:SetText("")
+    elseif value == 0 and spec.zeroText then
+      box:SetText(spec.zeroText)
+    else
+      box:SetText(tostring(value))
+    end
   end
+  -- Typing into "Off" starts from the number it stands for.
+  box:SetScript("OnEditFocusGained", function(self)
+    if spec.zeroText and self:GetText() == spec.zeroText then
+      self:SetText("0")
+      self:HighlightText()
+    end
+  end)
   -- A value the option wants confirmed (History kept: deletes sessions) waits
   -- for the popup; the box shows the stored value until then.
   local function commit()
@@ -237,6 +250,12 @@ function Panel.WIDGETS.dropdown(block, spec)
   }
 end
 
+-- Pure. A color option's label with its hex code after it, in the hint color.
+function Panel.colorLabel(text, hex)
+  if type(hex) ~= "string" or hex == "" then return text end
+  return text .. "  " .. ns.Money.colorCode(ns.Theme.colors.hint) .. "#" .. hex .. "|r"
+end
+
 -- Color: a swatch and the label. Click opens the game's color picker (the
 -- color changes live while you drag, Cancel restores it); right-click sets
 -- the default.
@@ -259,9 +278,12 @@ function Panel.WIDGETS.color(block, spec)
   text:SetPoint("LEFT", swatch, "RIGHT", 6, 0)
   text:SetText(spec.label)
 
+  -- The hex code after the label, quiet: a dark color on the dark panel still
+  -- reads as a color, not as an empty checkbox.
   local function show(value)
     local r, g, b = T.hexToRGB(value)
     if r then fill:SetVertexColor(r, g, b, 1) end
+    text:SetText(Panel.colorLabel(spec.label, value))
   end
   if swatch.RegisterForClicks then swatch:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
   swatch:SetScript("OnClick", function(_, button)

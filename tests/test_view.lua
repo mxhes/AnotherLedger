@@ -338,7 +338,8 @@ h.test("View.buildHistory: one row per archived session with totals", function()
   local v = ns.View.buildHistory(list, { formatDate = function(t) return "d" .. t end })
   h.eq(#v.rows, 2)
   h.eq(v.rows[1].name, "+ d200"); h.eq(v.rows[1].historyIndex, 1)
-  h.eq(v.rows[1].detail, "1h 0m \194\183 3 items"); h.eq(v.rows[1].quantity, nil)
+  -- line 2: length, gold per hour, item count
+  h.eq(v.rows[1].detail, "1h 0m \194\183 1s 40c/h \194\183 3 items"); h.eq(v.rows[1].quantity, nil)
   -- the row's amount is the best value plus the raw gold
   h.eq(v.rows[1].ahTotal, 100); h.eq(v.rows[1].deTotal, nil); h.eq(v.rows[1].bestLineTotal, 140)
   h.eq(v.rows[2].historyIndex, 2)
@@ -375,7 +376,12 @@ h.test("View.buildHistory: the place joins the name, the details the hint", func
   }
   local v = ns.View.buildHistory(list, { formatDate = function() return "D" end })
   h.eq(v.rows[1].name, "+ D")
-  h.eq(v.rows[1].detail, "1h 0m \194\183 1 item \194\183 The Stonevault (Heroic)")
+  h.eq(v.rows[1].detail, "1h 0m \194\183 1g/h \194\183 1 item \194\183 The Stonevault (Heroic)")
+  -- too short for a rate: no rate part
+  list[1].elapsed = 30
+  h.eq(ns.View.buildHistory(list, { formatDate = function() return "D" end }).rows[1].detail,
+    "30s \194\183 1 item \194\183 The Stonevault (Heroic)")
+  list[1].elapsed = 3600
   h.eq(v.rows[1].value, 10150)
   h.eq(ns.View.buildHistory(list, { includeGold = false }).rows[1].value, 150)
   h.eq(v.totals.best, 150)
@@ -655,9 +661,9 @@ h.test("View.buildZones opens a zone into subzones and a subzone into items", fu
   h.eq(v.rows[3].quantity, 4)
   h.eq(v.rows[4].zoneKey, "Y")
   -- place rows: the name alone, time, rate and item count on line 2
-  h.eq(v.rows[1].name, "- Z"); h.eq(v.rows[1].quantity, nil)
+  h.eq(v.rows[1].name, "Z"); h.eq(v.rows[1].open, true); h.eq(v.rows[1].quantity, nil)
   h.eq(v.rows[1].detail, "1h 0m \194\183 " .. ns.Money.format(400) .. "/h \194\183 1 item")
-  h.eq(v.rows[2].name, "    - A")
+  h.eq(v.rows[2].name, "    A") -- the indent shows the level, no +/-
   h.eq(v.rows[4].detail, "1h 0m \194\183 " .. ns.Money.format(60) .. "/h \194\183 1 item")
 end)
 
@@ -692,6 +698,20 @@ h.test("View.buildZones puts old sessions under their only place or Unknown plac
   h.eq(subs[V.NO_TIME_SUB].value, 100)
   h.eq(v.rows[#v.rows].zoneKey, V.UNKNOWN_ZONE)
   h.eq(V.UNKNOWN_ZONE, ns.Session.UNKNOWN_PLACE)
+end)
+
+h.test("View.buildZones: the footer rate counts only loot with recorded time, like the rows", function()
+  local list = {
+    zentry({ [1] = 1 }, { Z = { subs = { A = zsub(3600, { [1] = 1 }, 100) } } }),
+    zentry({ [1] = 1 }, nil, { "Z" }, 500), -- old: no time, 100 + 500 gold
+  }
+  local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
+  h.eq(v.totals.best, 200) -- the amounts count everything
+  h.eq(v.gold.total, 600)
+  h.near(v.totals.bestPerHour, 100) -- the rates only the hour of A
+  h.near(v.gold.perHour, 100)
+  h.near(v.combined.bestPerHour, 200)
+  h.near(v.rows[1].perHour, 200)
 end)
 
 h.test("View.buildZones groups quest items last, outside the totals", function()
@@ -943,9 +963,43 @@ h.test("View.buildCompact: each drop worth its own quantity, newest first", func
   h.eq(c.drops[3].quantity, 4); h.eq(c.drops[3].value, 400)
 end)
 
+h.test("View: an item nothing pays for is worthless; View.itemValue counts like its row", function()
+  reset()
+  PRICES[4] = { vendor = 0 }
+  INFO[4] = { name = "Powder Keg", quality = 1 }
+  local s = session({ { 1, "Kingsblood", 2 }, { 4, "Powder Keg", 1 } })
+  local rows = V.build(s, opts()).rows
+  local byId = {}
+  for _, r in ipairs(rows) do byId[r.id] = r end
+  h.eq(byId[4].worthless, true)
+  h.eq(byId[4].value, 0)
+  h.eq(byId[1].worthless, false)
+  -- option "Hide worthless": the row goes, the totals stay
+  local hidden = V.build(s, opts({ hideWorthless = true }))
+  h.eq(#hidden.rows, 1); h.eq(hidden.rows[1].id, 1)
+  h.eq(hidden.totals.best, V.build(s, opts()).totals.best)
+  -- the compact drops leave it out too
+  s.recent = { { key = 4, qty = 1, at = 9 }, { key = 1, qty = 1, at = 8 } }
+  h.eq(#V.buildCompact(s, opts()).drops, 2)
+  local drops = V.buildCompact(s, opts({ hideWorthless = true })).drops
+  h.eq(#drops, 1); h.eq(drops[1].id, 1)
+  -- a vendor price of 0 next to an AH price is not worthless
+  PRICES[4] = { vendor = 0, ah = 50 }
+  h.eq(V.build(s, opts()).rows[2].worthless, false)
+  -- itemValue: the live price, else the one seen at loot time
+  local it = { id = 9, qty = 3, price = { vendor = 7 } }
+  h.eq(V.itemValue(it, function() return nil end), 21)
+  h.eq(V.itemValue(it, function() return { vendor = 10 } end), 30)
+  -- "Auction from": AH must beat vendor by the percent
+  h.eq(V.itemValue({ id = 1, qty = 1 }, function() return { vendor = 100, ah = 120 } end, 50), 100)
+  h.eq(V.itemValue({ id = 1, qty = 1 }, function() return { vendor = 100, ah = 120 } end, 0), 120)
+end)
+
 h.test("View.buildCompact: compactDrops limits the list, no rate under a minute", function()
   h.eq(#V.buildCompact(compactSession(), { lookup = zlookup, now = 3600, compactDrops = 1 }).drops, 1)
-  h.eq(#V.buildCompact(compactSession(), { lookup = zlookup, now = 3600, compactDrops = 0 }).drops, 0)
+  local none = V.buildCompact(compactSession(), { lookup = zlookup, now = 3600, compactDrops = 0 })
+  h.eq(#none.drops, 0)
+  h.eq(none.dropLimit, 0)
   h.eq(V.buildCompact(compactSession(), { lookup = zlookup, now = 30 }).perHour, nil)
   local stopped = compactSession(); stopped.running = false; stopped.runningSince = nil; stopped.elapsedBase = 7200
   local c = V.buildCompact(stopped, { lookup = zlookup, now = 99999 })
@@ -1072,7 +1126,7 @@ h.test("buildZones: row name uses the short label, the tooltip the full one", fu
   local list = { zentry({ [1] = 1 }, { ["Razorfen Downs (Normal)"] = { subs = {
     ["Razorfen Downs (Normal)"] = zsub(600, { [1] = 1 }) } } }) }
   local v = V.buildZones(list, { lookup = zlookup, sort = "ah" }, {})
-  h.eq(v.rows[1].name, "+ Razorfen Downs (N)")
+  h.eq(v.rows[1].name, "Razorfen Downs (N)")
   h.eq(ns.Tooltip.text(ns.Tooltip.resolve(v.rows[1].hint)):find("Razorfen Downs (Normal)", 1, true) ~= nil, true)
 end)
 
@@ -1199,7 +1253,7 @@ local function mob(kills, looted, gold, items, places, name, kind)
     items = items or {}, places = places or { Riverglades = 1 } }
 end
 
-h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs last", function()
+h.test("View.buildMobs adds up a mob over entries, value per loot, empty mobs last", function()
   local entries = {
     mobEntry({ ["npc:1"] = mob(2, 2, 40, { [1] = 3 }, nil, "Kobold"), ["npc:2"] = mob(5, 0, 0, {}, nil, "Wolf") },
       { [1] = 3 }),
@@ -1212,14 +1266,22 @@ h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs la
   local byKey = {}
   for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
   local k = byKey["npc:1"]
-  h.eq(k.kills, 3)
+  h.eq(k.looted, 3)
   h.eq(k.value, 4 * 10 + 60) -- items at the saved vendor price plus gold
-  h.eq(k.perKill, 100 / 3)
+  h.eq(k.perLoot, 100 / 3)
   h.eq(k.name, "+ Kobold")
-  h.eq(k.detail:find("3 kills", 1, true) ~= nil, true)
+  h.eq(k.detail:find("3 looted", 1, true) ~= nil, true)
+  h.eq(k.detail:find("kill", 1, true), nil) -- kills are not known on this client
   h.eq(k.detail:find("Hills", 1, true) ~= nil, true) -- the place with the most loot
-  h.eq(byKey["obj:9"].perKill, 10) -- nodes: per time looted
+  h.eq(byKey["obj:9"].perLoot, 10)
   h.eq(byKey["obj:9"].detail:find("4 looted", 1, true) ~= nil, true)
+  -- the hover tooltip: looted, value, gold, per loot, places, best drops
+  local tip = tipText(k)
+  for _, part in ipairs({ "Kobold", "Looted: 3", "Raw gold: ", "Per loot: ", "Where", "Hills",
+    "Riverglades", "Best drops", "x4" }) do
+    h.eq(tip:find(part, 1, true) ~= nil, true)
+  end
+  h.eq(V.buildMobs(entries, { sort = "perLoot" }).rows[1].mobKey, "npc:1")
   h.eq(byKey["npc:2"].value, 0)
   h.eq(v.rows[#v.rows].mobKey, "npc:2") -- nothing dropped: last
   h.eq(v.totals.best, 80)
@@ -1235,6 +1297,76 @@ h.test("View.buildMobs adds up a mob over entries, value per kill, empty mobs la
   for _, r in ipairs(v.rows) do byKey[r.mobKey] = r end
   h.eq(byKey["npc:1"].value, 60)
   h.eq(#V.buildMobs(nil, {}).rows, 0)
+end)
+
+h.test("View: drop chances from the corpses seen, in the mob tooltip and on its item rows", function()
+  h.eq(V.dropChanceText(7, 20), "35%")
+  h.eq(V.dropChanceText(1, 40), "2.5%")
+  h.eq(V.dropChanceText(1, 5000), "<0.1%")
+  h.eq(V.dropChanceText(nil, 20), nil)
+  h.eq(V.dropChanceText(3, 0), nil)
+  local a = mob(0, 3, 0, { [1] = 4 }, nil, "Kobold")
+  a.seen, a.drops = 4, { [1] = 3 }
+  local b = mob(0, 1, 0, { [1] = 1 }, nil, "Kobold")
+  b.seen, b.drops = 6, { [1] = 1 } -- seen also counts corpses whose loot was left
+  -- an entry saved before drop chances: its corpses do not count
+  local old = mob(0, 5, 0, { [1] = 5 }, nil, "Kobold")
+  local entries = { mobEntry({ ["npc:1"] = a }, { [1] = 4 }), mobEntry({ ["npc:1"] = b }, { [1] = 1 }),
+    mobEntry({ ["npc:1"] = old }, { [1] = 5 }) }
+  local v = V.buildMobs(entries, { sort = "ah" }, "npc:1")
+  local item = v.rows[2]
+  h.eq(item.id, 1)
+  h.eq(item.dropCount, 4); h.eq(item.dropSeen, 10)
+  local tip = tipText(v.rows[1])
+  h.eq(tip:find("Drop chance (10 looted)", 1, true) ~= nil, true)
+  h.eq(tip:find("40%", 1, true) ~= nil, true)
+  -- no data: no section
+  h.eq(tipText(V.buildMobs({ mobEntry({ ["npc:1"] = old }, { [1] = 5 }) }, {}).rows[1]):find("Drop chance", 1, true), nil)
+end)
+
+h.test("View.dropIndex: per item, the mobs that drop it, likeliest first", function()
+  local kobold = mob(0, 4, 0, {}, nil, "Kobold")
+  kobold.seen, kobold.drops = 20, { [1] = 7, ["1:1500"] = 1, [2] = 20 }
+  local wolf = mob(0, 2, 0, {}, nil, nil)
+  wolf.seen, wolf.drops = 10, { [1] = 5 }
+  local old = mob(0, 9, 0, { [1] = 9 }, nil, "Old") -- no seen: not counted
+  local index = V.dropIndex({ { mobs = { ["npc:1"] = kobold, ["npc:2"] = wolf } }, { mobs = { ["npc:3"] = old } } })
+  local linen = index[1]
+  h.eq(#linen, 2)
+  h.eq(linen[1].name, "NPC 2"); h.eq(linen[1].n, 5); h.eq(linen[1].seen, 10) -- 50%
+  h.eq(linen[2].name, "Kobold"); h.eq(linen[2].n, 8) -- 7 + the variant: 40%
+  local lines = V.dropTooltipLines(index, 1)
+  h.eq(lines[1].heading, true)
+  h.eq(lines[2].left, "NPC 2"); h.eq(lines[2].right, "50% (5 of 10)")
+  h.eq(lines[3].right, "40% (8 of 20)")
+  h.eq(#lines, 3)
+  -- more mobs than lines: "and N more"
+  lines = V.dropTooltipLines(index, 1, 1)
+  h.eq(#lines, 3); h.eq(lines[3].more, true); h.eq(lines[3].left, "and 1 more")
+  h.eq(V.dropTooltipLines(index, 99), nil)
+  h.eq(V.dropTooltipLines(V.dropIndex(nil), 1), nil)
+end)
+
+h.test("View.mobsCsv: one line per mob by value, no filter", function()
+  local entries = {
+    mobEntry({ ["npc:1"] = mob(0, 3, 60, { [1] = 4 }, { Riverglades = 1, Hills = 3 }, "Kobold"),
+      ["obj:9"] = mob(0, 4, 0, { [2] = 4 }, { Mine = 4 }, "Copper Vein", "node") }, { [1] = 4, [2] = 4 }),
+  }
+  local csv = V.mobsCsv(entries, { filter = { search = "nothing" } })
+  local lines = {}
+  for l in csv:gmatch("[^\n]+") do lines[#lines + 1] = l end
+  h.eq(lines[1], V.MOBS_CSV_HEADER)
+  h.eq(#lines, 3)
+  -- value 40 + 60 copper, per loot 100 / 3
+  h.eq(lines[2], "Kobold,npc,3,0.0100,0.0060,0.0033,Hills,1")
+  h.eq(lines[3], "Copper Vein,node,4,0.0040,0.0000,0.0010,Mine,1")
+end)
+
+h.test("View.buildMobs: an empty list explains mob loot, not saved sessions", function()
+  local empty = V.buildMobs({ mobEntry({}, {}) }, {}).empty
+  h.eq(type(empty), "string")
+  h.eq(empty:find("mob", 1, true) ~= nil, true)
+  h.eq(empty:find("No saved sessions", 1, true), nil)
 end)
 
 h.test("makeRow: the AH cut note follows each saved price", function()
