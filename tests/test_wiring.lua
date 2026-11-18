@@ -8,43 +8,61 @@ local NUMBERS = {
   GetBottom = 0, GetValue = 0, GetAlpha = 1, GetNumPoints = 0,
 }
 
+-- Methods every fake frame shares (one set per run: a test makes thousands of
+-- fakes, and building them per fake was a large part of the suite's time).
+local methods = {}
+function methods.SetText(self, t) self._text = t end
+function methods.GetText(self) return self._text end
+function methods.SetShown(self, v) self._shown = v and true or false end
+function methods.Show(self) self._shown = true end
+function methods.Hide(self) self._shown = false end
+function methods.IsShown(self) return self._shown end
+function methods.HasFocus() return false end
+function methods.IsVisible(self) return self._shown end
+function methods.GetCenter() return 0, 0 end
+function methods.SetScript(self, ev, fn) self._scripts[ev] = fn end
+function methods.HookScript() end
+function methods.RegisterEvent(self, ev) self._events[ev] = true end
+function methods.SetSize(self, w, hh) self._w, self._h = w, hh end
+function methods.SetWidth(self, w) self._w = w end
+function methods.SetHeight(self, hh) self._h = hh end
+function methods.GetWidth(self) return self._w or 300 end
+function methods.GetHeight(self) return self._h or 300 end
+function methods.GetName(self) return self._name end
+function methods.SetFrameLevel(self, l) self._level = l end
+function methods.GetFrameLevel(self) return self._level or 1 end
+function methods.SetClipsChildren(self, v) self._clips = v end
+function methods.SetTexture(self, t) self._texture = t end
+for k, n in pairs(NUMBERS) do
+  if not methods[k] then methods[k] = function() return n end end
+end
+local function noop() end
+
+-- What a missing field answers: a shared method, nil for "_" fields, another
+-- fake for Create* / Get*, else a no-op. Cached per key name.
+local kindOf = {}
+local function fieldKind(k)
+  local kind = kindOf[k]
+  if kind == nil then
+    if type(k) ~= "string" or k:sub(1, 1) == "_" then kind = "none"
+    elseif k:match("^Create") or k:match("^Get") then kind = "fake"
+    else kind = "noop" end
+    kindOf[k] = kind
+  end
+  return kind
+end
+
 local function newFake(env, name)
-  local f = { _scripts = {}, _events = {}, _shown = true, _text = "" }
-  local methods = {}
-  function methods.SetText(self, t) self._text = t end
-  function methods.GetText(self) return self._text end
-  function methods.SetShown(self, v) self._shown = v and true or false end
-  function methods.Show(self) self._shown = true end
-  function methods.Hide(self) self._shown = false end
-  function methods.IsShown(self) return self._shown end
-  function methods.HasFocus() return false end
-  function methods.IsVisible(self) return self._shown end
-  function methods.GetCenter() return 0, 0 end
-  function methods.SetScript(self, ev, fn) self._scripts[ev] = fn end
-  function methods.HookScript() end
-  function methods.RegisterEvent(self, ev) self._events[ev] = true end
-  function methods.SetSize(self, w, hh) self._w, self._h = w, hh end
-  function methods.SetWidth(self, w) self._w = w end
-  function methods.SetHeight(self, hh) self._h = hh end
-  function methods.GetWidth(self) return self._w or 300 end
-  function methods.GetHeight(self) return self._h or 300 end
-  function methods.GetName() return name end
-  function methods.SetFrameLevel(self, l) self._level = l end
-  function methods.GetFrameLevel(self) return self._level or 1 end
-  function methods.SetClipsChildren(self, v) self._clips = v end
-  function methods.SetTexture(self, t) self._texture = t end
+  local f = { _scripts = {}, _events = {}, _shown = true, _text = "", _name = name }
+  local makeFake
   setmetatable(f, { __index = function(_, k)
-    if methods[k] then return methods[k] end
-    if NUMBERS[k] then
-      local n = NUMBERS[k]
-      return function() return n end
-    end
-    if type(k) ~= "string" or k:sub(1, 1) == "_" then return nil end
-    -- Create* and Get* methods hand out another fake; everything else is a no-op.
-    if k:match("^Create") or k:match("^Get") then
-      return function() return newFake(env) end
-    end
-    return function() end
+    local m = methods[k]
+    if m then return m end
+    local kind = fieldKind(k)
+    if kind == "noop" then return noop end
+    if kind == "none" then return nil end
+    makeFake = makeFake or function() return newFake(env) end
+    return makeFake
   end })
   if name then env[name] = f end
   return f
@@ -61,6 +79,21 @@ local function readToc()
   end
   fh:close()
   return files
+end
+
+-- The .toc's files as precompiled bytecode, compiled once per run: a boot only
+-- loads them into its own env (parsing ~40 files per test was most of the
+-- suite's time). Error messages keep the file names and line numbers.
+local bytecodeCache
+local function addonChunks()
+  if not bytecodeCache then
+    bytecodeCache = {}
+    for _, file in ipairs(readToc()) do
+      local chunk = assert(loadfile("LootLedger/" .. file))
+      bytecodeCache[#bytecodeCache + 1] = string.dump(chunk)
+    end
+  end
+  return bytecodeCache
 end
 
 local SAFE = { "string", "table", "math", "pairs", "ipairs", "next", "type", "tostring",
@@ -118,13 +151,13 @@ local function boot(opts)
   for k in pairs(env) do ctx.baseline[k] = true end
 
   local ns = {}
-  for _, file in ipairs(readToc()) do
+  for _, code in ipairs(addonChunks()) do
     local chunk, err
     if setfenv then -- Lua 5.1 (the client's version)
-      chunk, err = loadfile("LootLedger/" .. file)
+      chunk, err = loadstring(code)
       if chunk then setfenv(chunk, env) end
     else
-      chunk, err = loadfile("LootLedger/" .. file, "t", env)
+      chunk, err = load(code, nil, "b", env)
     end
     assert(chunk, err)
     chunk("LootLedger", ns)

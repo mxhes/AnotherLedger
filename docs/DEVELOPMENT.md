@@ -480,7 +480,10 @@ Each of these is one call in one place; the UI never names them.
 `tests/test_*.lua` get the harness as `...` (`h.test`, `h.eq`, `h.near`,
 `h.load`). `tests/test_wiring.lua` boots the whole addon from the `.toc`
 against a stub client (fake frames) and drives real events; add a wiring test
-for anything that crosses files. The real UI can't be tested outside the client:
+for anything that crosses files. To keep its ~160 boots fast, the `.toc` files
+are compiled to bytecode once per run (each boot only loads them into a fresh
+env) and all fake frames share one method table; keep new fake methods in that
+shared table. The real UI can't be tested outside the client:
 anything relying on an unconfirmed client API gets an
 `UNVERIFIED (check in client)` comment and a line in
 [CHECKLIST.md](CHECKLIST.md).
