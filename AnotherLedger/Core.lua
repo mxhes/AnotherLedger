@@ -76,20 +76,23 @@ end
 -- Price cache key and price lookup (take the global environment as a
 -- parameter, testable)
 
--- Region/game-mode cache key, or nil while either part is unavailable.
--- Both engine calls may be missing on the Forever client, hence pcall.
+-- Region/game-mode cache key, or nil while either part is not known yet (the
+-- call fails or answers nothing; asked again later). A client without one of
+-- the calls (UNVERIFIED (check in client): both exist on Forever) uses
+-- Core.NO_KEY_PART for it, so the price cache, the scan and the Trade log
+-- still work there instead of waiting for good.
+Core.NO_KEY_PART = "any"
+
+local function keyPart(fn)
+  if type(fn) ~= "function" then return Core.NO_KEY_PART end
+  local ok, v = pcall(fn)
+  return ok and v or nil
+end
+
 function Core.evalKey(env)
-  local region, modeID
-  if type(env.GetCurrentRegionName) == "function" then
-    local ok, v = pcall(env.GetCurrentRegionName)
-    if ok then region = v end
-  end
   local rules = env.C_GameRules
-  if type(rules) == "table" and type(rules.GetCurrentGameModeRecordID) == "function" then
-    local ok, v = pcall(rules.GetCurrentGameModeRecordID)
-    if ok then modeID = v end
-  end
-  return ns.Prices.cacheKey(region, modeID)
+  local modeFn = type(rules) == "table" and rules.GetCurrentGameModeRecordID or nil
+  return ns.Prices.cacheKey(keyPart(env.GetCurrentRegionName), keyPart(modeFn))
 end
 
 -- Lazily re-evaluates a nil key (the game mode may be unknown right after
@@ -757,6 +760,13 @@ function Core.archiveSession(session)
   if not entry then return end
   if type(ns.chardb.history) ~= "table" then ns.chardb.history = {} end
   History.add(ns.chardb.history, entry, limit)
+  -- The new entry goes first: an opened History session moves down one (or
+  -- is gone when the limit dropped it).
+  local ledger = ns.UI and ns.UI.Ledger
+  if ledger and ns.Util.isNumber(ledger.historyIndex) then
+    local moved = ledger.historyIndex + 1
+    ledger.historyIndex = ns.chardb.history[moved] and moved or nil
+  end
   if ns.Util.setting("sessionChat", false) then
     say(Core.sessionSummary(entry, ns.Util.goldCounted()))
   end
@@ -990,10 +1000,11 @@ local function shortNow(session)
   return Core.isShort(session, time(), ns.Options.get(ns.db, "minSessionMinutes"))
 end
 
--- Whether a session has anything recorded (items, currencies or raw gold).
+-- Whether a session has anything recorded (items, currencies, raw gold or
+-- mobs: History.snapshot saves a session with only mobs too).
 local function hasLoot(session)
   return next(session.items or {}) ~= nil or next(session.currencies or {}) ~= nil
-    or ns.Session.goldTotal(session) > 0
+    or ns.Session.goldTotal(session) > 0 or next(session.mobs or {}) ~= nil
 end
 
 local function checkInstance()
@@ -1733,10 +1744,17 @@ end
 -- Loot window (raw gold backstop). A window that opens before the last one
 -- settled settles that one first.
 -- Looted money arrives before LOOT_CLOSED + 1 s.
+-- A window opened before the last one settled (looting the next mob within
+-- LOOT_SETTLE_SECONDS) continues its bookkeeping: settling it early would
+-- count gold whose money message has not come yet, and count it again when it
+-- does. `open` counts the windows opened on it, so only the last close settles.
 local function openLootWindow()
-  if lootWindow then settleLoot(lootWindow) end
-  local money = currentMoney()
-  if money and ns.session then lootWindow = { money = money, chat = 0 } end
+  if lootWindow then
+    lootWindow.open = lootWindow.open + 1
+  else
+    local money = currentMoney()
+    if money and ns.session then lootWindow = { money = money, chat = 0, open = 1 } end
+  end
   Core.snapshotLoot()
 end
 
@@ -1814,9 +1832,11 @@ function events.LOOT_CLOSED()
   readByReady = false
   local window = lootWindow
   if not window then return end
+  local opened = window.open
   if C_Timer and C_Timer.After then
     C_Timer.After(LOOT_SETTLE_SECONDS, function()
-      if lootWindow == window then settleLoot(window) end
+      -- no other window opened on it since this one closed
+      if lootWindow == window and window.open == opened then settleLoot(window) end
     end)
   else
     settleLoot(window)

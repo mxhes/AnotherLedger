@@ -275,3 +275,11 @@ h.test("reset sets the active profile's options back to the defaults", function(
   h.eq(P.active(chardb), "Farm")
   h.eq(db.settings == db.profiles.Farm, true)
 end)
+
+h.test("validName counts characters, not bytes; numbers export exactly", function()
+  local name = string.rep("\195\164", 32) -- 32 times "ä" (64 bytes)
+  h.eq(P.validName({ profiles = {} }, name), name)
+  h.eq(select(2, P.validName({ profiles = {} }, name .. "a")) ~= nil, true)
+  local line = P.encode({ goalGold = 3000000000 })
+  h.eq(line:find("3000000000", 1, true) ~= nil, true)
+end)

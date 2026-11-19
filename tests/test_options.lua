@@ -140,7 +140,11 @@ h.test("Options.normalize: text is trimmed and falls back when empty, tsmSource 
   h.eq(O.normalize(O.spec("staleHours"), 100), 72)
   h.eq(O.normalize(O.spec("defaultSort"), "zzz"), "ah")
   h.eq(O.normalize(O.spec("goldDisplay"), "gold"), "gold")
-  h.eq(O.normalize(O.spec("alertGold"), -1), -1)
+  -- options with an Off (zeroText) have no "unlimited": empty or negative is Off
+  h.eq(O.normalize(O.spec("alertGold"), -1), 0)
+  h.eq(O.normalize(O.spec("goalMinutes"), O.parseNumber("")), 0)
+  h.eq(O.valueText(O.spec("goalGold"), O.normalize(O.spec("goalGold"), -1)), "Off")
+  h.eq(O.normalize(O.spec("soldHigh"), -1), -1) -- a cutoff never reached stays possible
 end)
 
 h.test("Options: TSM price is a dropdown that keeps any typed price", function()

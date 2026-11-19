@@ -157,3 +157,18 @@ h.test("Inventory.scan merges stacks straight from the slots and keeps the first
     [9] = { id = 9, key = 9, qty = 1, lastSeen = 50 },
   })
 end)
+
+h.test("Inventory.scan marks an item bound only while every stack of it is soulbound", function()
+  local slots = {
+    { itemID = 7, stackCount = 1, isBound = true },
+    { itemID = 8, stackCount = 1, isBound = true },
+    { itemID = 8, stackCount = 1, isBound = false },
+  }
+  local env = { C_Container = {
+    GetContainerNumSlots = function() return #slots end,
+    GetContainerItemInfo = function(_, slot) return slots[slot] end,
+  } }
+  local items = I.scan(env, { 0 }, 50)
+  h.eq(items[7].bound, true)
+  h.eq(items[8].bound, nil)
+end)

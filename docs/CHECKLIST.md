@@ -8,6 +8,24 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Review fixes (2026-11-19, only run against the test fakes):
+  - Cache key (`Core.evalKey`, UNVERIFIED): `/dump GetCurrentRegionName()`
+    and `/dump C_GameRules.GetCurrentGameModeRecordID()` both answer on
+    Forever. If one is missing, the key uses `any` for it, and `/al scan`
+    and the Trade log still work.
+  - Soulbound BoE (`Inventory.scan`, UNVERIFIED): `C_Container.GetContainerItemInfo`
+    gives `isBound`; an equipped-then-unequipped green in your bags shows no
+    `?` and is not counted as unpriced.
+  - Quick looting: loot two mobs that drop coins within a second; the
+    session's raw gold goes up by exactly what the chat lines say.
+  - Mail expiry precision: `daysLeft` of `GetInboxHeaderInfo` read twice a
+    minute apart gives expiries within a few seconds of each other. If it
+    does, `Trade.MAIL_DRIFT` (300 s) can shrink, so that a second identical
+    sale mail within 5 minutes of a collected one is not taken for a copy.
+  - A post that fails (not enough money for the deposit) is still logged as
+    a post, because the hook runs after the call either way; check whether
+    the game gives an event for a failed post.
+
 - Rename to AnotherLedger: with the old `LootLedger` folder removed and the
   new `AnotherLedger` folder installed (restart the client), the addon list
   shows AnotherLedger with the AL logo, `/al` and `/anotherledger` toggle the

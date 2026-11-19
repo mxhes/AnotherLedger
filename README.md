@@ -90,7 +90,7 @@ clock is stopped).
   them all. Session, Bags and Bank share one sort; History's Sessions and
   Zones each keep their own (Sessions start newest first).
 - **Daily strip**: today's best farm (see below).
-- **Tabs**: Session, Bags, Bank and History (below).
+- **Tabs**: Session, Bags, Bank, History and Trade (below).
 - **List**: one row per item: icon, name and quantity, and on the right its
   value with a tag saying where it comes from: `Vendor`, `Auction` or
   `Destroy` (disenchant, mill or prospect). With TSM, a second line says how
@@ -115,7 +115,9 @@ clock is stopped).
   no clock, so no per hour column. The option **Raw gold** decides whether
   the gold counts in the Total and whether it has its own row. Click
   `N unpriced (marked ?)` under the table to list the items without an
-  auction price first; click again for the normal sort.
+  auction price first; click again for the normal sort. Items that can't be
+  sold on the auction house (soulbound, also gear bound by equipping it) and
+  items nothing pays for are never marked or counted there.
 - **Top finds**: the three most valuable finds of the session.
 
 Amounts show with the game's coin icons (or as `12g 34s 56c`, see Options),
@@ -145,8 +147,8 @@ items.
   started (`Today 20:21`, `Yesterday`, a weekday, then the date) and your
   note, its length, gold per hour, item count and main place, and its value
   (with the raw gold, unless the option **Raw gold** leaves it out). A session
-  is saved when you reset it, when a new login starts a fresh one, or (option)
-  when you enter or leave a dungeon. A session keeps the prices of the day it
+  is saved when you reset it, when a new login starts a fresh one, or (options)
+  when you enter or leave a dungeon or change zones. A session keeps the prices of the day it
   was saved, so its value doesn't change later. Sort the sessions by Value,
   Recent or Gold/h; the search (date, note, length, place) and the minimum
   value pick sessions, and the footer adds up the listed ones. Sorted by
@@ -204,7 +206,10 @@ items.
     buyer). Sorts: Gold earned, Sold, Sell rate, vs market, Name.
   - **Log** lists every entry, newest first: Posted, Cancelled, Expired, Sold,
     Trade sale, Trade purchase and Trade, with the date, the other player and
-    your character.
+    your character. Sorts: Recent, Gold earned, Name.
+  - The filter bar works on both: the search and the minimum value pick
+    items or entries, the quality filter the items (a trade with a player
+    has no quality and always stays).
   - Auctions you post or cancel are recorded at the auction house. Sales and
     expired auctions are recorded from the mail, so they show once you open
     your mailbox; a sale mail counts once, also when you open it again or on

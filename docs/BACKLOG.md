@@ -12,6 +12,28 @@ Sizes: S = under an hour, M = a few hours, L = a bigger piece of work.
 - Destroy values without TSM and Auctionator: own disenchant / mill /
   prospect tables priced with AnotherLedger scan prices. L
 
+From the fifth review (2026-11-19, screenshots of Bags and compact):
+
+- "Unpriced" reads wrong on a row that has a vendor value: call it "no AH
+  price" (`N without AH price (marked ?)`), and let the footer tooltip say
+  why: no TSM / Auctionator and no scan yet ("scan at the auction house:
+  `/al scan`"), or the price addon has no price for them. S
+- Option to show the source tag only when the best value is not Vendor
+  (every row in a typical Bags list says `Vendor`). S
+- Bags header: color the free slots orange / red when few are left
+  (`2 free`). S
+- Net worth counts bags and gold only: add the last bank scan (and maybe
+  the alts' bags and banks), or rename it "Bags + gold". S-M
+- Trade > Log: show trade purchases with a minus sign (gold paid out). S
+- Compact: optional item icons in Last drops; a dimmer color for the
+  quantity (`x47`) so names stand out. Decide whether compact drops show
+  `?` like the list does. S
+- Sort button: right-click steps back to the previous sort, or reverses the
+  order (reversing needs every view's sort to take a direction). S / M
+- At a vendor: a "Sell vendor items" button on the Bags tab that sells the
+  rows whose best value is Vendor, skipping kept and ignored items, after a
+  confirmation with count and total (buyback holds only the last 12). M
+
 ## Already built
 
 Session goal, session notes, ignore list, price per unit, compact breakdown

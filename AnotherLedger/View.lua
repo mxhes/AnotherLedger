@@ -181,6 +181,12 @@ local function makeRow(item, opts)
   -- vendor, then AH; opts.ahMinGain is the option Auction from).
   local bestTotal, bestKind = ns.Prices.best(vendorTotal, ahTotal, deTotal, opts.ahMinGain)
   local rateLevel, volumeLevel = View.marketLevels(lookup.saleRate, lookup.soldPerDay, opts.market)
+  -- Bound items can never be sold on the AH: by bind type (info.bound) or
+  -- because this stack is soulbound (item.bound, Bags and Bank).
+  local bound = (info and info.bound or item.bound == true) and true or false
+  -- Nothing to sell it for (quest items, keys): a vendor price of 0 and no
+  -- AH or destroy value. The row shows a dash instead of "0 Vendor".
+  local worthless = vendorEach == 0 and ahEach == nil and deEach == nil
 
   return {
     rateLevel = rateLevel, volumeLevel = volumeLevel,
@@ -190,16 +196,15 @@ local function makeRow(item, opts)
     ahEach = ahEach, ahTotal = ahTotal,
     deEach = deEach, deTotal = deTotal,
     bestTotal = bestTotal, bestKind = bestKind,
-    -- Bound items can never be sold on the AH: no "unpriced" count for them.
-    bound = info and info.bound and true or false,
-    unpriced = ahEach == nil and not (info and info.bound),
+    bound = bound,
+    -- No AH price ("?" on the row, counted in the footer): never for bound
+    -- or worthless items, which show no "?".
+    unpriced = ahEach == nil and not bound and not worthless,
     ahFromCache = ahFromCache, ahAge = ahAge,
     ahCut = ahCut and true or false,
     stale = ahFromCache and ahAge ~= nil and ns.Prices.isStale(ahAge) or false,
     value = bestTotal or 0,
-    -- Nothing to sell it for (quest items, keys): a vendor price of 0 and no
-    -- AH or destroy value. The row shows a dash instead of "0 Vendor".
-    worthless = vendorEach == 0 and ahEach == nil and deEach == nil,
+    worthless = worthless,
     lastSeen = item.lastSeen,
   }
 end
@@ -963,8 +968,8 @@ end
 
 -- ---------------------------------------------------------------------------
 -- History Mobs: every mob (by NPC ID) and node (by object ID) of the saved
--- sessions plus the running one: what it dropped (valued like Zones: saved
--- prices first), its gold, how often it was looted and the value per loot
+-- sessions plus the running one: what it dropped (valued like Zones: today's
+-- prices, the saved ones for what has none), its gold, how often it was looted and the value per loot
 -- (corpse or node; kills are not known on this client, Mobs.lua). The search
 -- and the minimum value pick mobs; the qualities filter their items. The mob
 -- at `openKey` lists its items under it.
@@ -1624,6 +1629,25 @@ local TRADE_SORTS = {
   name = byName,
 }
 
+-- Trade > Log: newest first (the log's own order on the same second).
+local function newestEntry(a, b)
+  local ta, tb = a.lastSeen or 0, b.lastSeen or 0
+  if ta ~= tb then return ta > tb end
+  return a.id < b.id
+end
+local TRADE_LOG_SORTS = { recent = newestEntry, gold = descending("value"), name = byName }
+
+-- The filter bar on Trade rows: search and minimum value always, quality only
+-- on rows of one item (a trade with a player has no quality).
+local tradeFilter = {}
+local function tradeVisible(row, filter, needle, oneItem)
+  if not oneItem and type(filter) == "table" then
+    tradeFilter.minValue = filter.minValue
+    filter = tradeFilter
+  end
+  return visible(row, filter, needle)
+end
+
 local function dateOf(opts, t)
   local fn = opts.shortDate or opts.formatDate
   return fn and fn(t) or tostring(t)
@@ -1648,6 +1672,8 @@ end
 -- earned as its value, "75% sold" and "+10% vs market" in the second line.
 function View.buildTradeItems(stats, opts)
   opts = opts or {}
+  local filter = opts.filter
+  local needle = searchNeedle(filter)
   local rows, sold, expired, cancelled, gold = {}, 0, 0, 0, 0
   for _, s in ipairs(stats or {}) do
     local info = opts.itemInfo and s.id and opts.itemInfo(s.id) or nil
@@ -1659,7 +1685,7 @@ function View.buildTradeItems(stats, opts)
       local p = percent(s.vsMarket)
       parts[#parts + 1] = string.format(L_VS_MARKET, p > 0 and "+" or "", p)
     end
-    rows[#rows + 1] = {
+    local row = {
       id = s.id, key = s.key or name, name = name, sortName = lower(name),
       quality = info and num(info.quality) and info.quality or 1, quantity = s.sold or 0,
       detail = detailText(parts), rate = s.rate, vsMarket = s.vsMarket,
@@ -1667,13 +1693,16 @@ function View.buildTradeItems(stats, opts)
       icon = info and info.icon or nil,
       hint = function() return tradeHint(s, opts) end,
     }
-    sold, expired, cancelled = sold + (s.sold or 0), expired + (s.expired or 0), cancelled + (s.cancelled or 0)
-    gold = gold + (s.gold or 0)
+    if tradeVisible(row, filter, needle, true) then
+      rows[#rows + 1] = row
+      sold, expired, cancelled = sold + (s.sold or 0), expired + (s.expired or 0), cancelled + (s.cancelled or 0)
+      gold = gold + (s.gold or 0)
+    end
   end
   table.sort(rows, TRADE_SORTS[opts.sort] or TRADE_SORTS.gold)
   local view = { rows = rows, top = {}, kind = "tradeItems", history = true,
-    totals = { vendor = 0, ah = gold, best = gold, unpriced = 0 },
-    empty = #rows == 0 and L_NO_SALES or nil,
+    totals = { vendor = 0, ah = gold, best = gold, unpriced = 0, filtered = View.isFiltered(filter) },
+    empty = View.emptyText(rows, filter, L_NO_SALES),
     headerInfo = #rows > 0 and string.format(L_TRADE_HEADER, sold, expired, cancelled) or nil }
   addGold(view, 0, false)
   return View.applyRates(view, 0)
@@ -1688,9 +1717,12 @@ local function entryGold(e)
   return 0
 end
 
--- log: the Trade log (oldest first). One row per entry, newest first.
+-- log: the Trade log (oldest first). One row per entry, newest first (or by
+-- opts.sort: "gold", "name").
 function View.buildTradeLog(log, opts)
   opts = opts or {}
+  local filter = opts.filter
+  local needle = searchNeedle(filter)
   local rows = {}
   for i = #(log or {}), 1, -1 do
     local e = log[i]
@@ -1700,16 +1732,21 @@ function View.buildTradeLog(log, opts)
     if not isTrade and e.who then parts[#parts + 1] = e.who end
     if e.char then parts[#parts + 1] = e.char end
     local gold = entryGold(e)
-    rows[#rows + 1] = {
-      id = -i, key = -i, name = name, sortName = lower(name), quality = 1,
+    local info = not isTrade and num(e.id) and opts.itemInfo and opts.itemInfo(e.id) or nil
+    if type(info) ~= "table" then info = nil end
+    local row = {
+      id = -i, key = -i, name = name, sortName = lower(name),
+      quality = info and num(info.quality) and info.quality or 1,
       quantity = (not isTrade) and e.n or nil, detail = detailText(parts),
       vendorTotal = 0, ahTotal = gold, bestLineTotal = gold, value = gold,
       icon = TRADE_ICON, lastSeen = e.t,
     }
+    if tradeVisible(row, filter, needle, not isTrade) then rows[#rows + 1] = row end
   end
+  table.sort(rows, TRADE_LOG_SORTS[opts.sort] or TRADE_LOG_SORTS.recent)
   local view = { rows = rows, top = {}, kind = "tradeLog", history = true,
-    totals = { vendor = 0, ah = 0, best = 0, unpriced = 0 },
-    empty = #rows == 0 and L_NO_TRADES or nil }
+    totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) },
+    empty = View.emptyText(rows, filter, L_NO_TRADES) }
   addGold(view, 0, false)
   return View.applyRates(view, 0)
 end

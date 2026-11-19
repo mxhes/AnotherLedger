@@ -425,6 +425,22 @@ h.test("View: bound items are not counted as unpriced", function()
   h.eq(v.totals.unpriced, 1)
 end)
 
+h.test("View: soulbound stacks and worthless items are not counted as unpriced", function()
+  local items = {
+    [1] = { id = 1, link = "[A]", qty = 1, lastSeen = 1, bound = true }, -- an equipped BoE item
+    [2] = { id = 2, link = "[B]", qty = 1, lastSeen = 1 },               -- worthless: shows a dash
+    [3] = { id = 3, link = "[C]", qty = 1, lastSeen = 1 },               -- vendor price only: "?"
+  }
+  local v = ns.View.buildInventory(items, { now = 10,
+    lookup = function(id) return { vendor = id == 2 and 0 or 5 } end })
+  h.eq(v.totals.unpriced, 1)
+  local byId = {}
+  for _, row in ipairs(v.rows) do byId[row.id] = row end
+  h.eq(byId[1].bound, true); h.eq(byId[1].unpriced, false)
+  h.eq(byId[2].worthless, true); h.eq(byId[2].unpriced, false)
+  h.eq(byId[3].unpriced, true)
+end)
+
 h.test("View: loot-time prices fill in a missing live price with their age", function()
   local session = { startedAt = 0, running = true, runningSince = 0, elapsedBase = 0, gold = 0,
     items = { [1] = { id = 1, link = "[A]", qty = 2, lastSeen = 100, price = { ah = 40, vendor = 3 } } } }
@@ -1494,4 +1510,29 @@ h.test("View.buildTradeLog: newest first with the kind word", function()
   h.eq(v.rows[2].name, "Bolt"); h.eq(v.rows[2].value, 380); h.eq(v.rows[2].detail:find("Sold", 1, true) ~= nil, true)
   h.eq(v.rows[3].detail:find("Posted", 1, true) ~= nil, true); h.eq(v.rows[3].value, 0)
   h.eq(V.buildTradeLog({}, {}).empty, "Nothing traded yet.")
+end)
+
+h.test("View: the Trade tab follows the filter bar and Log sorts", function()
+  local stats = {
+    { key = 1, id = 1, name = "Bolt", sold = 2, gold = 500, expired = 0, cancelled = 0, sales = {} },
+    { key = 2, id = 2, name = "Ore", sold = 9, gold = 90, expired = 1, cancelled = 0, sales = {} },
+  }
+  local v = V.buildTradeItems(stats, { filter = { search = "bo" } })
+  h.eq(#v.rows, 1); h.eq(v.rows[1].name, "Bolt"); h.eq(v.totals.best, 500); h.eq(v.totals.filtered, true)
+  v = V.buildTradeItems(stats, { filter = { minValue = 100 } })
+  h.eq(#v.rows, 1); h.eq(v.rows[1].name, "Bolt")
+  h.eq(V.buildTradeItems(stats, { filter = { search = "zzz" } }).empty ~= nil, true)
+  h.eq(V.buildTradeItems(stats, { filter = { search = "zzz" } }).empty ~= V.buildTradeItems({}, {}).empty, true)
+  local log = {
+    { t = 1, kind = "sale", id = 1, name = "Bolt", n = 1, gold = 300 },
+    { t = 2, kind = "sale", id = 2, name = "Ore", n = 1, gold = 50 },
+    { t = 3, kind = "trade", out = {}, ["in"] = {}, goldOut = 0, goldIn = 0, who = "Alt" },
+  }
+  local info = function(id) return { name = id == 1 and "Bolt" or "Ore", quality = id == 1 and 3 or 1 } end
+  -- quality filter: the plain trade (no item) stays, the common Ore goes
+  local l = V.buildTradeLog(log, { itemInfo = info, filter = { qualities = { [3] = true } } })
+  h.eq(#l.rows, 2); h.eq(l.rows[1].name, "Alt"); h.eq(l.rows[2].name, "Bolt")
+  h.eq(V.buildTradeLog(log, { sort = "gold" }).rows[1].name, "Bolt")
+  h.eq(V.buildTradeLog(log, { sort = "name" }).rows[1].name, "Alt")
+  h.eq(V.buildTradeLog(log, {}).rows[1].name, "Alt") -- newest first
 end)

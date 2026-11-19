@@ -100,7 +100,7 @@ function Profiles.validName(db, name, except)
   if type(name) ~= "string" then return nil, L_NO_NAME end
   local trimmed = name:gsub("^%s+", ""):gsub("%s+$", "")
   if trimmed == "" then return nil, L_NO_NAME end
-  if #trimmed > Profiles.MAX_NAME then return nil, L_TOO_LONG end
+  if ns.Util.charCount(trimmed) > Profiles.MAX_NAME then return nil, L_TOO_LONG end
   local taken = find(db, trimmed)
   if taken and taken ~= except then return nil, L_EXISTS end
   return trimmed
@@ -212,7 +212,7 @@ end
 -- booleans t / f, numbers in full, text with % ; = percent-encoded.
 
 Profiles.PREFIX = "LP1:"
-local L_NOT_PROFILE = L["This is not a AnotherLedger profile."]
+local L_NOT_PROFILE = L["This is not an AnotherLedger profile."]
 local L_NOTHING = L["Nothing to import."]
 
 -- The options a profile string carries: stored in the profile, not buttons.
@@ -229,7 +229,8 @@ local function unescape(s)
 end
 
 local function numberText(v)
-  if v == math.floor(v) and math.abs(v) < 2 ^ 53 then return string.format("%d", v) end
+  -- "%.0f", not "%d": Lua 5.1 on Windows casts %d to a 32-bit long.
+  if v == math.floor(v) and math.abs(v) < 2 ^ 53 then return string.format("%.0f", v) end
   local short = string.format("%.15g", v)
   if tonumber(short) == v then return short end
   return string.format("%.17g", v)

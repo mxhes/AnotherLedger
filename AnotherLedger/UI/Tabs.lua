@@ -309,9 +309,9 @@ function Tabs.tradeSince(period, now)
   return now - days * TRADE_DAY
 end
 
+-- The saved period, checked like the period button shows it.
 local function tradePeriod()
-  local db = ns.db
-  return type(db) == "table" and db.tradePeriod or "30"
+  return ns.UI.TradePeriod.current(ns.db)
 end
 
 local function tradeHasItem(itemID)
@@ -332,7 +332,7 @@ Tabs.define({
   subtabs = {
     { key = "items", label = L["Items"], build = buildTradeItems, hasItem = tradeHasItem,
       sorts = { "gold", "sold", "rate", "vsMarket", "name" }, defaultSort = "gold" },
-    { key = "log", label = L["Log"],
+    { key = "log", label = L["Log"], sorts = { "recent", "gold", "name" }, defaultSort = "recent",
       build = function(ctx)
         local bucket = tradeBucket()
         return ns.View.buildTradeLog(bucket and bucket.log or {}, ctx.opts)

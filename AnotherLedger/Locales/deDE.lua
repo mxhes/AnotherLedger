@@ -324,7 +324,7 @@ ns.Locale.register("deDE", {
   ["The name is too long."] = "Der Name ist zu lang.",
   ["The settings this character uses. Every character can use its own profile or share one."] = "Die Einstellungen dieses Charakters. Jeder Charakter kann ein eigenes Profil nutzen oder eines teilen.",
   ["There is no profile with this name."] = "Ein Profil mit diesem Namen gibt es nicht.",
-  ["This is not a AnotherLedger profile."] = "Das ist kein AnotherLedger-Profil.",
+  ["This is not an AnotherLedger profile."] = "Das ist kein AnotherLedger-Profil.",
   ["Color of the Vendor tag and of vendor values in tooltips."] = "Farbe der Markierung Händler und der Händlerwerte in Tooltips.",
   ["Color of the Auction tag and of auction house values in tooltips."] = "Farbe der Markierung Auktion und der Auktionshauswerte in Tooltips.",
   ["Color of the Destroy tag (disenchant, mill, prospect) and of its values in tooltips."] = "Farbe der Markierung Zerstören (Entzaubern, Mahlen, Sondieren) und ihrer Werte in Tooltips.",

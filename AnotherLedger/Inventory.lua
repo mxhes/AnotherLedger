@@ -61,8 +61,9 @@ end
 
 -- Adds one stack to an items map; an invalid id or quantity is skipped.
 -- Stacks are merged per item variant (LootParse.itemKey of the link); the
--- first link seen for a variant is kept.
-local function addStack(items, id, link, qty, now)
+-- first link seen for a variant is kept. `bound`: this stack is soulbound
+-- (an equipped BoE item); the entry is `bound` while every stack of it is.
+local function addStack(items, id, link, qty, now, bound)
   if not (num(id) and id > 0 and num(qty) and qty > 0) then return end
   local key = id
   if type(link) == "string" and ns.LootParse then
@@ -71,8 +72,10 @@ local function addStack(items, id, link, qty, now)
   end
   local item = items[key]
   if not item then
-    item = { id = id, key = key, link = nil, qty = 0, lastSeen = now }
+    item = { id = id, key = key, link = nil, qty = 0, lastSeen = now, bound = bound == true or nil }
     items[key] = item
+  else
+    if bound ~= true then item.bound = nil end
   end
   item.qty = item.qty + qty
   if item.link == nil and type(link) == "string" then item.link = link end
@@ -80,7 +83,8 @@ end
 
 -- Reads every slot of the given containers through C_Container. A missing API
 -- or a failing call gives an empty / partial result, never an error.
--- C_Container.GetContainerItemInfo returns { itemID, stackCount, hyperlink }.
+-- C_Container.GetContainerItemInfo returns { itemID, stackCount, hyperlink,
+-- isBound } (UNVERIFIED (check in client): isBound on Forever).
 function Inventory.scan(env, containerIDs, now)
   local api = env.C_Container
   if type(api) ~= "table" or type(api.GetContainerNumSlots) ~= "function"
@@ -94,7 +98,7 @@ function Inventory.scan(env, containerIDs, now)
       for slot = 1, slots do
         local okInfo, info = pcall(api.GetContainerItemInfo, bag, slot)
         if okInfo and type(info) == "table" then
-          addStack(items, info.itemID, info.hyperlink, info.stackCount, now)
+          addStack(items, info.itemID, info.hyperlink, info.stackCount, now, info.isBound)
         end
       end
     end
