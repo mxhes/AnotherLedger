@@ -124,6 +124,15 @@ h.test("encode compares colors with the profile's preset", function()
     "LP1:colorBackground=261a0f;colorPreset=midnight")
 end)
 
+h.test("encode turns an own color preset into its base and its colors", function()
+  ns.db = { settings = {}, colorPresets = {
+    { name = "Mine", base = "midnight", colors = { colorText = "123456" } },
+  } }
+  local line = P.encode({ colorPreset = "user:Mine", colorBorder = "abcdef" })
+  h.eq(line, "LP1:colorBorder=abcdef;colorPreset=midnight;colorText=123456")
+  ns.db = nil
+end)
+
 h.test("round trip", function()
   local s = { colorPreset = "tsm", colorText = "ff0000", tsmSource = "max(DBMarket;x=1%)",
     alpha = 0.35, goalGold = 987654321, coinIcons = false, fontOutline = "THICKOUTLINE" }

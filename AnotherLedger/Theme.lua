@@ -153,9 +153,9 @@ Theme.colors = {
 -- ---------------------------------------------------------------------------
 -- Color presets (option "colorPreset"): each sets every color above except the
 -- fixed coin colors (item quality colors are fixed too, Theme.qualityColor).
--- Alphas stay as above. `outline`: the font outline the preset turns on when
--- it is picked (Parchment: the fixed white / gold texts on a light panel).
--- tests/test_theme.lua checks every preset is complete and readable.
+-- Alphas stay as above. tests/test_theme.lua checks every preset is complete
+-- and readable. The player's own presets (saved from the color options) are
+-- kept by Options.lua in AnotherLedgerDB.colorPresets, on top of one of these.
 
 Theme.FIXED_COLORS = { moneyGold = true, moneySilver = true, moneyCopper = true }
 -- The game tooltip AnotherLedger tooltips are drawn on: near-black on every preset.
@@ -212,21 +212,6 @@ Theme.presets = {
     tabBorder = "3a4a50", tabBorderHover = "8fa3a8", tabBorderSelected = "f0b429", tabGlow = "f0b429",
     tabText = "c8d0d2", tabTextSelected = "ffffff", scrollTrack = "c8d0d2", scrollThumb = "8fa3a8",
   }, { tipTitle = "f0b429", tipSection = "f0b429" }) },
-  -- Light text with the dark outline on a tan panel, like the game's map
-  -- labels (dark text smeared under the outline in the client).
-  { id = "parchment", label = "Parchment", outline = "OUTLINE", colors = withTips({
-    ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "ffd100", dailyFarm = "ffd100",
-    gold = "ffd100", goldLine = "6e5536", divider = "6e5536", rowSeparator = "6e5536",
-    flashNormal = "fff2cc", flashStrong = "ffe08a",
-    panelTint = "d3b289", panelBorder = "6e5536", hint = "e6d9bd", columnTitle = "e6d9bd",
-    marketGood = "73d959", marketOk = "f2cc66", marketBad = "f26152",
-    tagVendor = "f5ecd6", tagAh = "80d1ff", tagDe = "d9d9d9",
-    buttonFill = "5a4228", buttonEdge = "3d2c18", buttonEdgeHover = "ffd100", buttonText = "ffffff",
-    buttonTextDisabled = "a8987a", buttonWarnEdge = "9e2a1e", buttonWarnEdgeHover = "c23a28",
-    buttonWarnText = "ffb39e", inputFill = "4a3520",
-    tabBorder = "6e5536", tabBorderHover = "3d2c18", tabBorderSelected = "3d2c18", tabGlow = "ffd61a",
-    tabText = "f0e6d2", tabTextSelected = "ffffff", scrollTrack = "4a3520", scrollThumb = "6e5536",
-  }) },
 }
 
 do -- AnotherLedger = the colors above, so it can never drift from them.

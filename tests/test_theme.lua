@@ -173,7 +173,7 @@ h.test("every preset sets every color", function()
     end
     for key in pairs(p.colors) do h.eq(type(T.colors[key]), "table", p.id .. " unknown key " .. key) end
   end
-  h.eq(table.concat(ids, ","), "anotherledger,blizzard,midnight,tsm,parchment")
+  h.eq(table.concat(ids, ","), "anotherledger,blizzard,midnight,tsm")
 end)
 
 h.test("anotherledger preset is today's look", function()
@@ -196,23 +196,17 @@ h.test("presets are readable on their own panel", function()
       local ratio = hexContrast(c[key], bg or panel)
       h.eq(ratio >= min, true, string.format("%s.%s %.2f < %s", p.id, key, ratio, min))
     end
-    -- A preset with an outline (Parchment) draws light text with a dark edge:
-    -- its text must stand out from that black outline, not from the panel
-    -- (seen in the client: dark text with the outline smears).
-    local text = p.outline and "000000" or panel
-    need("ink", 7, text)
-    for _, k in ipairs({ "hint", "gold", "stale", "columnTitle", "best", "dailyFarm", "tabText" }) do need(k, 4.5, text) end
-    for _, k in ipairs({ "tagVendor", "tagAh", "tagDe", "marketGood", "marketOk", "marketBad" }) do need(k, 3, text) end
+    need("ink", 7)
+    for _, k in ipairs({ "hint", "gold", "stale", "columnTitle", "best", "dailyFarm", "tabText" }) do need(k, 4.5) end
+    for _, k in ipairs({ "tagVendor", "tagAh", "tagDe", "marketGood", "marketOk", "marketBad" }) do need(k, 3) end
     need("goldLine", 3)
     need("buttonText", 4.5, c.buttonFill)
     need("buttonWarnText", 3, c.buttonFill)
-    if not p.outline then
-      for _, k in ipairs({ "moneyGold", "moneySilver", "moneyCopper" }) do
-        h.eq(hexContrast(T.colorToHex(T.colors[k]), panel) >= 3, true, p.id .. " " .. k)
-      end
-      for q = 0, 7 do
-        h.eq(hexContrast(T.colorToHex({ T.qualityColor(q) }), panel) >= 3, true, p.id .. " quality " .. q)
-      end
+    for _, k in ipairs({ "moneyGold", "moneySilver", "moneyCopper" }) do
+      h.eq(hexContrast(T.colorToHex(T.colors[k]), panel) >= 3, true, p.id .. " " .. k)
+    end
+    for q = 0, 7 do
+      h.eq(hexContrast(T.colorToHex({ T.qualityColor(q) }), panel) >= 3, true, p.id .. " quality " .. q)
     end
   end
 end)
@@ -223,12 +217,6 @@ h.test("tooltip colors readable on the game tooltip", function()
     for _, k in ipairs({ "tipTitle", "tipSection", "tipLabel", "tipValue", "tipNote", "tipWarn", "tipHint" }) do
       h.eq(hexContrast(p.colors[k], bg) >= 4.5, true, p.id .. "." .. k)
     end
-  end
-end)
-
-h.test("parchment uses an outline", function()
-  for _, p in ipairs(T.presets) do
-    h.eq(p.outline, p.id == "parchment" and "OUTLINE" or nil, p.id)
   end
 end)
 

@@ -111,12 +111,10 @@ end
 -- preset `settings.colorPreset` (default: the active settings, ns.db), so
 -- right-click "default" and the export compare against the chosen preset.
 function Options.defaultFor(key, settings)
-  local colors = Options.colorTargets and Options.colorTargets[key]
-  if colors then
+  if Options.colorTargets and Options.colorTargets[key] then
     if type(settings) ~= "table" then settings = ns.db and ns.db.settings end
-    local id = type(settings) == "table" and settings.colorPreset or nil
-    local p = ns.Theme and ns.Theme.preset(id)
-    if p and p.colors[colors[1]] then return p.colors[colors[1]] end
+    local hex = Options.presetColor(type(settings) == "table" and settings.colorPreset or nil, key)
+    if hex then return hex end
   end
   local d = ns.DB and ns.DB.defaults and ns.DB.defaults.settings
   return d and d[key]
@@ -151,7 +149,7 @@ function Options.normalize(spec, value)
     return math.floor(value)
   elseif spec.type == "dropdown" then
     for _, c in ipairs(Options.choices(spec)) do
-      if c.value == value then return value end
+      if c.value == value and value ~= Options.CUSTOM then return value end
     end
     return default
   elseif spec.type == "color" then
@@ -1008,38 +1006,188 @@ local function refreshPanel()
   if panel and panel.refreshAll then panel.refreshAll() end
 end
 
+local function say(msg)
+  if ns.Util and ns.Util.say then ns.Util.say(msg) end
+end
+
 -- Preset names shown in the panel (Theme.presets keep the English ones).
-local PRESET_LABELS = { midnight = L["Midnight"], tsm = L["TSM-style"], parchment = L["Parchment"] }
+local PRESET_LABELS = { midnight = L["Midnight"], tsm = L["TSM-style"] }
+
+-- The player's own color presets: AnotherLedgerDB.colorPresets (every
+-- profile sees them), a list of { name, base = a Theme.presets id, colors =
+-- { [color option key] = "rrggbb" } }. The option value of one is
+-- Options.USER_PRESET .. name. A Theme color no option sets comes from `base`.
+Options.USER_PRESET = "user:"
+Options.MAX_PRESET_NAME = 32
+
+local function validOwn(p)
+  return type(p) == "table" and type(p.name) == "string" and p.name ~= "" and type(p.colors) == "table"
+end
+
+local function ownList()
+  local db = ns.db
+  if type(db) ~= "table" then return {} end
+  if type(db.colorPresets) ~= "table" then db.colorPresets = {} end
+  return db.colorPresets
+end
+
+-- The own preset whose option value is `id`, and its index; or nil.
+function Options.userPreset(id)
+  local prefix = Options.USER_PRESET
+  if type(id) ~= "string" or id:sub(1, #prefix) ~= prefix then return nil end
+  local name = id:sub(#prefix + 1)
+  for i, p in ipairs(ownList()) do
+    if validOwn(p) and p.name == name then return p, i end
+  end
+  return nil
+end
+
+-- The Theme.presets id a preset stands on: itself, or an own preset's base
+-- (unknown: the first preset, the AnotherLedger look).
+function Options.basePreset(id)
+  local own = Options.userPreset(id)
+  if own then id = own.base end
+  local p = ns.Theme and ns.Theme.preset(id)
+  if p then return p.id end
+  return ns.Theme and ns.Theme.presets[1].id or nil
+end
+
+-- The "rrggbb" of color option `key` in preset `id` (built-in or own), or nil.
+function Options.presetColor(id, key)
+  local targets = Options.colorTargets and Options.colorTargets[key]
+  if not targets then return nil end
+  local own = Options.userPreset(id)
+  if own then
+    local hex = own.colors[key]
+    if type(hex) == "string" and hex:match("^%x%x%x%x%x%x$") then return hex:lower() end
+    id = own.base
+  end
+  local p = ns.Theme and ns.Theme.preset(id)
+  return p and p.colors[targets[1]] or nil
+end
+
+-- Saves the current single colors of `db.settings` as own preset `name`
+-- and makes it the chosen preset. A name an own preset already has
+-- (any case) needs `replace`. Returns the option value; or nil, the reason,
+-- and for a taken name "exists" as the reason plus the stored name.
+function Options.saveColorPreset(db, name, replace)
+  if type(db) ~= "table" or type(ns.db) ~= "table" then return nil, L["Enter a name."] end
+  local trimmed = type(name) == "string" and name:gsub("^%s+", ""):gsub("%s+$", "") or ""
+  if trimmed == "" then return nil, L["Enter a name."] end
+  if #trimmed > Options.MAX_PRESET_NAME then return nil, L["The name is too long."] end
+  local lower = trimmed:lower()
+  for _, p in ipairs(ns.Theme.presets) do
+    if p.id == lower or p.label:lower() == lower or (PRESET_LABELS[p.id] or ""):lower() == lower then
+      return nil, L["A built-in color preset has this name."]
+    end
+  end
+  local list = ownList()
+  local index
+  for i, p in ipairs(list) do
+    if validOwn(p) and p.name:lower() == lower then index = i end
+  end
+  if index and not replace then return nil, "exists", list[index].name end
+  local colors = {}
+  for _, o in ipairs(COLOR_OPTIONS) do colors[o[1]] = Options.get(db, o[1]) end
+  local entry = { name = index and list[index].name or trimmed,
+    base = Options.basePreset(Options.get(db, "colorPreset")), colors = colors }
+  if index then list[index] = entry else list[#list + 1] = entry end
+  return Options.set(db, "colorPreset", Options.USER_PRESET .. entry.name)
+end
+
+-- Deletes the own preset `id`. Every profile that used it keeps its colors:
+-- it moves to the own preset's base with the own colors filled in.
+-- Returns true, or false and the reason.
+function Options.deleteColorPreset(id)
+  local own, index = Options.userPreset(id)
+  if not own then return false, L["Pick one of your own color presets first."] end
+  local base = Options.basePreset(id)
+  local profiles = type(ns.db.profiles) == "table" and ns.db.profiles or {}
+  local touched = { ns.db.settings }
+  for _, s in pairs(profiles) do touched[#touched + 1] = s end
+  for _, s in ipairs(touched) do
+    if type(s) == "table" and s.colorPreset == id then
+      for _, o in ipairs(COLOR_OPTIONS) do
+        if s[o[1]] == nil then s[o[1]] = Options.presetColor(id, o[1]) end
+      end
+      s.colorPreset = base
+    end
+  end
+  table.remove(ns.db.colorPresets, index)
+  return true
+end
 
 -- Color preset: first in Colors so Options.applyAll sets the whole palette
--- before the single colors are applied on top of it.
+-- before the single colors are applied on top of it. The last entry saves
+-- the current colors as an own preset.
 Options.define({
   key = "colorPreset", category = "look", type = "dropdown", label = L["Color preset"],
-  tooltip = L["Sets the whole look of the window, the buttons and the tooltips at once. You can change single colors afterwards."],
+  tooltip = L["Sets the whole look of the window, the buttons and the tooltips at once. You can change single colors afterwards and save them as your own preset with the last entry."],
   choices = function()
     local out = {}
     for _, p in ipairs(ns.Theme.presets) do out[#out + 1] = { value = p.id, label = PRESET_LABELS[p.id] or p.label } end
+    local names = {}
+    for _, p in ipairs(ownList()) do
+      if validOwn(p) then names[#names + 1] = p.name end
+    end
+    table.sort(names, function(a, b) return a:lower() < b:lower() end)
+    for _, name in ipairs(names) do out[#out + 1] = { value = Options.USER_PRESET .. name, label = name } end
+    out[#out + 1] = { value = Options.CUSTOM, label = L["Save as preset..."] }
     return out
   end,
   format = function(v)
+    local own = Options.userPreset(v)
     local p = ns.Theme.preset(v)
-    local text = p and (PRESET_LABELS[p.id] or p.label) or tostring(v)
+    local text = own and own.name or p and (PRESET_LABELS[p.id] or p.label) or tostring(v)
     if ns.db and Options.presetEdited(ns.db.settings) then text = text .. L[" (edited)"] end
     return text
   end,
   apply = function(v)
-    local changed = ns.Theme.applyPreset(v)
+    local changed = ns.Theme.applyPreset(Options.basePreset(v))
+    -- The stored single colors stay on top of the preset.
+    if ns.db then
+      for _, o in ipairs(COLOR_OPTIONS) do
+        local hex = Options.get(ns.db, o[1])
+        for _, key in ipairs(o[4]) do
+          local c = ns.Theme.setColor(key, hex)
+          if c then changed[c] = true end
+        end
+      end
+    end
     local UI = ns.UI
     if UI and UI.Widgets and UI.Widgets.recolor then UI.Widgets.recolor(changed) end
     applyWindowLook()
     refreshUI()
   end,
   picked = function(db, v)
-    local p = ns.Theme.preset(v)
-    if not p then return end
-    for _, o in ipairs(COLOR_OPTIONS) do Options.set(db, o[1], p.colors[o[4][1]]) end
-    if p.outline then Options.set(db, "fontOutline", p.outline) end
+    for _, o in ipairs(COLOR_OPTIONS) do
+      local hex = Options.presetColor(v, o[1])
+      if hex then Options.set(db, o[1], hex) end
+    end
     refreshPanel()
+  end,
+  -- "Save as preset...": asks for a name (an own preset's name overwrites it
+  -- after a question).
+  intercept = function(db, value)
+    if value ~= Options.CUSTOM then return false end
+    local W = ns.UI and ns.UI.Widgets
+    if not (W and W.prompt) then return true end
+    local own = Options.userPreset(Options.get(db, "colorPreset"))
+    W.prompt(L["Name of the color preset:"], L["Save"], own and own.name or "", function(text)
+      local id, err, taken = Options.saveColorPreset(db, text)
+      if not id and err == "exists" then
+        if W.confirm then
+          W.confirm(string.format(L["Overwrite the color preset %s?"], taken), L["Overwrite"], function()
+            Options.saveColorPreset(db, text, true)
+            refreshPanel()
+          end)
+        end
+        return
+      end
+      if not id then say(err) end
+      refreshPanel()
+    end)
+    return true
   end,
 })
 
@@ -1058,6 +1206,25 @@ Options.define({
     -- Back to the chosen preset (its colors, no "(edited)").
     Options.pick(ns.db, "colorPreset", Options.get(ns.db, "colorPreset"))
     refreshPanel()
+  end,
+})
+
+Options.define({
+  key = "deleteColorPreset", category = "look", type = "button", label = L["Delete color preset"],
+  tooltip = L["Deletes the chosen color preset if it is one of your own. The colors stay as they are."],
+  action = function()
+    if not ns.db then return end
+    local id = Options.get(ns.db, "colorPreset")
+    local own = Options.userPreset(id)
+    if not own then return say(L["Pick one of your own color presets first."]) end
+    local W = ns.UI and ns.UI.Widgets
+    if W and W.confirm then
+      W.confirm(string.format(L["Delete the color preset %s?"], own.name), L["Delete"], function()
+        local ok, err = Options.deleteColorPreset(id)
+        if not ok then say(err) end
+        refreshPanel()
+      end)
+    end
   end,
 })
 
