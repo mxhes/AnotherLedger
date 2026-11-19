@@ -8,12 +8,6 @@ and remove both once it is confirmed.
 
 ## Open checks
 
-- Logo (`Media/Logo.tga`, `Theme.textures.logo`, UNVERIFIED): the 64 x 64
-  uncompressed TGA loads (restart the client once after adding the file).
-  Check: the addon list shows the ledger book next to LootLedger, and the
-  minimap button (own and LibDBIcon) and a broker display show it, not a
-  green square.
-
 - Item tooltips (`UI/ItemTooltip.lua`, UNVERIFIED):
   `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, fn)`
   runs for bag, chat link and loot window tooltips, and `tooltip:GetItem()`
@@ -77,10 +71,6 @@ against the test fakes so far:
   "large session" confirmation too.
 - Session per zone no longer splits while resting in a city (`IsResting`).
 - Login without TSM and Auctionator: the chat hint shows once.
-- Compact / full switch: drag the compact window just above the screen
-  middle, switch to full and back a few times; the top left (or, in the
-  bottom right, the bottom right) stays put and the window ends up exactly
-  where it started. Same after resizing with the grip.
 
 ## Release steps
 
