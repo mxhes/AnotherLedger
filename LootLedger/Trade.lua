@@ -120,4 +120,109 @@ function Trade.prune(bucket, now, keepDays)
   end
 end
 
+-- ---------------------------------------------------------------------------
+-- Auction house: posts, cancels, "buyer found" marks and mails
+
+Trade.JOIN_WINDOW = 7200 -- a second invoice of the same sale within this many seconds is the same sale
+
+-- Logs a posted auction and keeps it open, so a sale mail (which only names
+-- the item) finds its item key. post = { t, key, id, name, n, unit }.
+function Trade.addPost(bucket, post)
+  local n, unit = post.n or 0, post.unit or 0
+  Trade.add(bucket, { t = post.t, kind = "post", key = post.key, id = post.id, name = post.name,
+    n = n, gold = unit * n, char = post.char })
+  bucket.posts[#bucket.posts + 1] = { t = post.t, key = post.key, id = post.id, name = post.name, n = n, unit = unit }
+end
+
+-- Takes `n` off the newest open post that `match` accepts; returns that post
+-- (nil without one). An emptied post is dropped.
+local function takeFromPost(bucket, n, match)
+  for i = #bucket.posts, 1, -1 do
+    local p = bucket.posts[i]
+    if match(p) then
+      p.n = (p.n or 0) - (n or 0)
+      if p.n <= 0 then table.remove(bucket.posts, i) end
+      return p
+    end
+  end
+  return nil
+end
+
+local function byKey(key)
+  return function(p) return key ~= nil and p.key == key end
+end
+
+-- A cancelled auction (from the auction house): logged, and its amount off
+-- the open post. c = { t, key, id, name, n, char }.
+function Trade.cancel(bucket, c)
+  Trade.add(bucket, { t = c.t, kind = "cancel", key = c.key, id = c.id, name = c.name, n = c.n, char = c.char })
+  takeFromPost(bucket, c.n, byKey(c.key))
+end
+
+-- The "buyer found" chat line: remembers the market of that moment for the
+-- sale mail that comes later (no sale yet).
+function Trade.markSold(bucket, name, now, market)
+  bucket.pending[#bucket.pending + 1] = { name = name, t = now, market = market }
+end
+
+local function part(v) return v == nil and "" or tostring(v) end
+
+-- The key of a mail: what does not change while it sits in the inbox.
+function Trade.mailKey(m)
+  local expires = type(m.expires) == "number" and math.floor(m.expires / 60) or ""
+  return table.concat({ part(m.kind), part(m.subject), part(m.sender), part(m.money), part(m.name),
+    part(m.who), part(m.gold), part(m.n), part(expires) }, "|")
+end
+
+-- The key of a sale: the same for its temporary and its final invoice.
+function Trade.saleKey(m)
+  return table.concat({ part(m.name), part(m.who), part(m.gold), part(m.n) }, "|")
+end
+
+-- The market of the oldest "buyer found" mark of `name` (removed), or nil.
+local function takeMark(bucket, name)
+  for i, mark in ipairs(bucket.pending) do
+    if mark.name == name then
+      table.remove(bucket.pending, i)
+      return true, mark.market
+    end
+  end
+  return false
+end
+
+-- Records an auction mail once. m = { kind = "sale" / "expire" / "cancel",
+-- subject, sender, money, expires, name, who, gold, cut, n, key, id, char }.
+-- `marketAt(key, id)` gives the market per unit now, asked only when no
+-- "buyer found" mark has it. Returns the new entry, or nil when the mail (or
+-- the other invoice of the same sale) is already recorded, or for a cancel
+-- mail (counted at the auction house already).
+function Trade.recordMail(bucket, m, now, marketAt)
+  local mailKey = Trade.mailKey(m)
+  if bucket.mails[mailKey] then return nil end
+  bucket.mails[mailKey] = type(m.expires) == "number" and m.expires or now + 31 * Trade.DAY
+  if m.kind == "cancel" then return nil end
+
+  if m.kind == "expire" then
+    takeFromPost(bucket, m.n, byKey(m.key))
+    return Trade.add(bucket, { t = now, kind = "expire", key = m.key, id = m.id, name = m.name, n = m.n, char = m.char })
+  end
+  if m.kind ~= "sale" then return nil end
+
+  local saleKey = "s:" .. Trade.saleKey(m)
+  local until_ = bucket.mails[saleKey]
+  if type(until_) == "number" and until_ >= now then return nil end
+  bucket.mails[saleKey] = now + Trade.JOIN_WINDOW
+
+  local key, id = m.key, m.id
+  local post = takeFromPost(bucket, m.n, function(p)
+    if key ~= nil then return p.key == key end
+    return p.name == m.name
+  end)
+  if key == nil and post then key, id = post.key, post.id end
+  local _, market = takeMark(bucket, m.name)
+  if market == nil and key ~= nil and type(marketAt) == "function" then market = marketAt(key, id) end
+  return Trade.add(bucket, { t = now, kind = "sale", key = key, id = id, name = m.name, n = m.n,
+    gold = m.gold, cut = m.cut, market = market, who = m.who, char = m.char })
+end
+
 ns.Trade = Trade
