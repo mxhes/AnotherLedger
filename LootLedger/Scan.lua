@@ -154,6 +154,92 @@ function Scan.lookup(items, itemID, link, kind, now)
 end
 
 -- ---------------------------------------------------------------------------
+-- Chunked reader of a full auction house read
+
+Scan.CHUNK = 2000      -- entries read per frame
+Scan.PET_CAGE = 82800  -- every battle pet shares this item ID: not priced
+Scan.WAIT = 900        -- the game allows one full read every 15 minutes
+
+-- Reads `o.count()` entries through `o.info(i)` (i from 0; returns qty,
+-- buyout, itemID, link) CHUNK per `o.after(0, fn)` call and groups their unit
+-- prices per item key (the link's LootParse.itemKey, else the item ID);
+-- listings with the same unit price add up. Entries without buyout, without
+-- quantity and battle pets are skipped. Ends once, through `o.onDone({ sets,
+-- read, total, stopped })`, when everything is read or on reader:stop().
+-- `o.onProgress(fraction)` follows each chunk.
+function Scan.newReader(o)
+  local r = { sets = {}, read = 0, total = 0, finished = false }
+  local index = {} -- key -> unit -> position in sets[key]
+
+  local function add(key, unit, qty)
+    local set = r.sets[key]
+    if not set then
+      set = {}
+      r.sets[key], index[key] = set, {}
+    end
+    local at = index[key][unit]
+    if at then
+      set[at].qty = set[at].qty + qty
+    else
+      set[#set + 1] = { unit = unit, qty = qty }
+      index[key][unit] = #set
+    end
+  end
+
+  local function finish(stopped)
+    if r.finished then return end
+    r.finished = true
+    o.onDone({ sets = r.sets, read = r.read, total = r.total, stopped = stopped })
+  end
+
+  local function chunk()
+    if r.finished then return end
+    local last = math.min(r.total, r.read + Scan.CHUNK)
+    for i = r.read, last - 1 do
+      local ok, qty, buyout, itemID, link = pcall(o.info, i)
+      if ok and type(qty) == "number" and qty >= 1 and type(buyout) == "number" and buyout > 0
+        and type(itemID) == "number" and itemID ~= Scan.PET_CAGE then
+        local key = ns.LootParse and type(link) == "string" and ns.LootParse.itemKey(link) or itemID
+        add(key, math.floor(buyout / qty), qty)
+      end
+    end
+    r.read = last
+    if o.onProgress then o.onProgress(r.total > 0 and r.read / r.total or 1) end
+    if r.read >= r.total then finish(false) else o.after(0, chunk) end
+  end
+
+  function r:start()
+    local ok, n = pcall(o.count)
+    r.total = ok and type(n) == "number" and n > 0 and math.floor(n) or 0
+    o.after(0, chunk)
+  end
+
+  function r:stop() finish(true) end
+
+  return r
+end
+
+-- Records the market value and lowest price of every listing set; returns
+-- how many keys were priced.
+function Scan.commit(bucket, sets, now)
+  local priced = 0
+  for key, listings in pairs(sets) do
+    local market, lowest = Scan.listingValues(listings)
+    if market then
+      Scan.record(bucket.items, key, market, lowest, now)
+      priced = priced + 1
+    end
+  end
+  return priced
+end
+
+-- Seconds until the game allows the next full read (0 = ready).
+function Scan.waitLeft(scanAt, now)
+  if type(scanAt) ~= "number" then return 0 end
+  return math.max(0, scanAt + Scan.WAIT - now)
+end
+
+-- ---------------------------------------------------------------------------
 -- Saved buckets: LootLedgerDB.scan[realmKey] = { lastFull, items }
 
 -- The price cache key (region and game mode) plus the realm: non-commodity
