@@ -3977,6 +3977,34 @@ h.test("wiring: the scan button shows on the auction house and starts a scan", f
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: the scan button comes when the auction house window loads late", function()
+  local ctx = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW") -- the game's auction house UI is not loaded yet
+  h.eq(ctx.ns.UI.ScanButton.frame, false)
+  ctx.env.AuctionHouseFrame = newFake(ctx.env)
+  fire(ctx, "ADDON_LOADED", "Blizzard_AuctionHouseUI")
+  local b = ctx.ns.UI.ScanButton.frame
+  h.eq(type(b), "table"); h.eq(b:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the scan button retries on the next frame", function()
+  local ctx = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  ctx.env.AuctionHouseFrame = newFake(ctx.env)
+  ctx.runTimers()
+  h.eq(type(ctx.ns.UI.ScanButton.frame), "table")
+end)
+
+h.test("wiring: the scan button is drawn above the auction house's own panels", function()
+  local ctx = scanWorld()
+  local parent = newFake(ctx.env)
+  parent:SetFrameLevel(5)
+  ctx.env.AuctionHouseFrame = parent
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  h.eq(ctx.ns.UI.ScanButton.frame:GetFrameLevel() >= 5 + ctx.ns.Theme.sizes.scanButtonLevel, true)
+end)
+
 h.test("wiring: no scan button while TSM is loaded", function()
   local ctx = bootDeferred()
   fakeAuctionHouse(ctx, {})

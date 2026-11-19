@@ -544,7 +544,12 @@ Each of these is one call in one place; the UI never names them.
   last full read is missing or older than a day. `Core.priceAddonHint` stays
   quiet while the realm's bucket has items. The button (`ScanButton.text`:
   ready / `Reading 42%` / the wait as m:ss) is made on the first show, set as
-  `Core.onScanChange` and counts down with a 1 s ticker while shown.
+  `Core.onScanChange` and counts down with a 1 s ticker while shown. It hangs
+  below `AuctionHouseFrame`'s bottom right corner, `sizes.scanButtonLevel`
+  frame levels above it. The game loads that window on demand, so when it is
+  missing at `AUCTION_HOUSE_SHOW` the button tries again on the next frame and
+  on `ADDON_LOADED` of `Blizzard_AuctionHouseUI` (while the auction house is
+  open, `Core.auctionHouseOpen`).
 - **Price cache**: prices last seen more than 30 days ago are dropped at login
   (`Prices.CACHE_MAX_AGE`). `/ll demo` seeds temporary fake prices that reset
   and logout remove.

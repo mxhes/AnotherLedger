@@ -31,9 +31,11 @@ and remove both once it is confirmed.
     `GetCommoditySearchResultInfo` (`unitPrice`, `quantity`); opening gear
     fires `ITEM_SEARCH_RESULTS_UPDATED` with `HasFullItemSearchResults` and
     `GetItemSearchResultInfo` (`buyoutAmount`, `quantity`, `itemLink`).
-  - The button sits on `AuctionHouseFrame` at the bottom right, clear of the
-    game's own buttons (`Theme.sizes.scanButtonX` / `Y`), and counts the wait
-    down.
+  - The button shows just below `AuctionHouseFrame`'s bottom right corner on
+    the first auction house visit after login too (the window loads on
+    demand), is not covered by the window, and counts the wait down
+    (`Theme.sizes.scanButtonX` / `Y` / `Level`). First report: it did not
+    show at all at its old spot inside the window's bottom right corner.
   - The reminder line shows on the first auction house visit of a login, and
     the login hint mentions `/ll scan` and stays quiet once prices exist.
 

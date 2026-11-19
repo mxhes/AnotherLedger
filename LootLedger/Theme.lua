@@ -296,11 +296,13 @@ Theme.sizes = {
   footerNoteHeight = 16,
   buttonHeight = 20,
   -- The LootLedger scan button on the auction house window (UI/ScanButton.lua):
-  -- width, and its offset from the window's bottom right corner (UNVERIFIED
-  -- (check in client): clear of the game's own buttons there).
+  -- width, its offset below the window's bottom right corner and how many
+  -- frame levels above the window it is drawn (UNVERIFIED (check in client):
+  -- nothing of the game's sits there).
   scanButtonWidth = 150,
-  scanButtonX = -190,
-  scanButtonY = 4,
+  scanButtonX = -4,
+  scanButtonY = -2,
+  scanButtonLevel = 10,
   -- Tab buttons (header row 3, 28 px high): body height, edge size and the
   -- height of the selected tab's glow.
   tabHeight = 24,

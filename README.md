@@ -205,8 +205,8 @@ still do).
 
 Without TSM and Auctionator, LootLedger reads the auction house itself:
 
-- Open the auction house and click **LootLedger scan** at its bottom right
-  (or type `/ll scan`, or use its key binding). The whole auction house is
+- Open the auction house and click **LootLedger scan** just below its
+  bottom right corner (or type `/ll scan`, or use its key binding). The whole auction house is
   read in one go, a piece at a time so the game stays smooth; the button
   shows `Reading 42%` and chat says how many items got a price. Closing the
   auction house stops the scan and keeps what was read so far.

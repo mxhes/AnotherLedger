@@ -1092,6 +1092,12 @@ end
 local events = {}
 
 function events.ADDON_LOADED(name)
+  -- The game's auction house UI loads on demand, possibly after the window's
+  -- open event: the scan button waits for it.
+  if name == "Blizzard_AuctionHouseUI" then
+    if tradeWindows.AUCTION_HOUSE and ns.UI and ns.UI.ScanButton then ns.UI.ScanButton.show() end
+    return
+  end
   if name ~= ADDON then return end
   -- The addon was called LootPrice. A player who renames the old saved files
   -- (SavedVariables/LootPrice.lua -> LootLedger.lua, account and character)
@@ -1259,6 +1265,10 @@ end
 
 local function clock()
   return type(GetTime) == "function" and GetTime() or time()
+end
+
+function Core.auctionHouseOpen()
+  return tradeWindows.AUCTION_HOUSE == true
 end
 
 -- Scanning is offered without TSM and Auctionator, when the client has the

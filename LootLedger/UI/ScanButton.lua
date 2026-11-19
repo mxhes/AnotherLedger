@@ -39,18 +39,23 @@ end
 
 local function make()
   -- UNVERIFIED (check in client): AuctionHouseFrame is the retail auction
-  -- house window, and the bottom right corner has room for the button.
+  -- house window (load on demand: Blizzard_AuctionHouseUI). The button hangs
+  -- just below its bottom right corner, where nothing of the game's sits
+  -- (its tabs hang below the bottom left), and is drawn above its panels.
   local parent = _G.AuctionHouseFrame
   if type(parent) ~= "table" then return false end
   local T = ns.Theme
   local b = ns.UI.Widgets.button(parent, L_NAME, T.sizes.scanButtonWidth)
-  b:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", T.sizes.scanButtonX, T.sizes.scanButtonY)
+  b:SetPoint("TOPRIGHT", parent, "BOTTOMRIGHT", T.sizes.scanButtonX, T.sizes.scanButtonY)
+  b:SetFrameLevel(parent:GetFrameLevel() + T.sizes.scanButtonLevel)
   b:SetScript("OnClick", function()
     ns.Core.scanCommand()
     ScanButton.update()
   end)
   return b
 end
+
+local retrying = false
 
 function ScanButton.show()
   if not ns.Core.scanAvailable(_G) then
@@ -59,7 +64,19 @@ function ScanButton.show()
   end
   if not ScanButton.frame then
     ScanButton.frame = make()
-    if not ScanButton.frame then return end
+    if not ScanButton.frame then
+      -- The game's auction house window may not exist yet when its open
+      -- event comes: try again on the next frame (and Core calls show again
+      -- when Blizzard_AuctionHouseUI loads).
+      if not retrying and C_Timer and type(C_Timer.After) == "function" then
+        retrying = true
+        C_Timer.After(0, function()
+          retrying = false
+          if ns.Core.auctionHouseOpen() then ScanButton.show() end
+        end)
+      end
+      return
+    end
     ns.Core.onScanChange = ScanButton.update
   end
   ScanButton.frame:Show()
