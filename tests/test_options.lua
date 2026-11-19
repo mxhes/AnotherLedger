@@ -205,7 +205,10 @@ end)
 
 h.test("Options.valueText: formatter, choice label, plain value", function()
   h.eq(O.valueText(O.spec("alpha"), 0.35), "35%")
+  h.eq(O.valueText(O.spec("priceSource"), "tsm"), "TSM (not loaded)")
+  _G.TSM_API = {}
   h.eq(O.valueText(O.spec("priceSource"), "tsm"), "TSM")
+  _G.TSM_API = nil
   h.eq(O.valueText({ type = "checkbox" }, true), "On")
   h.eq(O.valueText({ type = "checkbox" }, false), "Off")
 end)
@@ -612,4 +615,24 @@ h.test("account options read and write db.account", function()
   h.eq(d.settings.historyLimit, nil)
   h.eq(O.get(d, "historyLimit"), -1)
   h.eq(O.get(db(), "accountZones"), true) -- default without db.account
+end)
+
+h.test("Options.inactive: price options without their addon say why", function()
+  h.eq(type(O.inactive(O.spec("tsmSource"))), "string")
+  h.eq(type(O.inactive(O.spec("showMarket"))), "string")
+  h.eq(type(O.inactive(O.spec("destroyMode"))), "string")
+  h.eq(O.inactive(O.spec("scanReminder")), nil)
+  h.eq(O.inactive(O.spec("priceSource")), nil)
+  _G.Auctionator = { API = {} }
+  h.eq(O.inactive(O.spec("destroyMode")), nil)
+  h.eq(type(O.inactive(O.spec("scanReminder"))), "string")
+  h.eq(type(O.inactive(O.spec("saleRateGood"))), "string")
+  _G.Auctionator = nil
+  h.eq(O.inactive({ inactive = function() error("x") end }), nil)
+  h.eq(O.inactive({ inactive = function() return "" end }), nil)
+  local warned = false
+  for _, line in ipairs(O.tooltip(O.spec("tsmSource")).lines) do
+    if line.kind == "warn" then warned = true end
+  end
+  h.eq(warned, true)
 end)

@@ -256,10 +256,20 @@ end
 
 -- The hover tooltip of an option (ns.Tooltip): its label as title, what it
 -- does, and its default value (not for a button).
+-- Why an option does nothing right now (its `inactive` function: e.g. the
+-- price addon it needs is not loaded), or nil. The panel shows it dimmed.
+function Options.inactive(spec)
+  if type(spec) ~= "table" or type(spec.inactive) ~= "function" then return nil end
+  local ok, why = pcall(spec.inactive)
+  return ok and type(why) == "string" and why ~= "" and why or nil
+end
+
 function Options.tooltip(spec)
   local Tip = ns.Tooltip
   local tip = Tip.new(spec.label)
   if spec.tooltip then Tip.para(tip, spec.tooltip) end
+  local why = Options.inactive(spec)
+  if why then Tip.warn(tip, why) end
   -- Live facts (the profile's characters), worked out on hover.
   local extra = spec.tooltipExtra and spec.tooltipExtra()
   if type(extra) == "string" and extra ~= "" then Tip.note(tip, extra) end
@@ -379,13 +389,27 @@ Options.define({
   tooltip = L["Counts items you craft, and items you get at a vendor, mailbox, trade or the auction house, as loot."],
 })
 
+-- `inactive` reasons of the price options (Options.inactive): the addon they
+-- need is not loaded. Looked up at hover / panel refresh time.
+local L_NEEDS_TSM = L["Does nothing right now: TSM is not loaded."]
+local L_NEEDS_DESTROY = L["Does nothing right now: destroy values need TSM or Auctionator."]
+local L_OFF_WITH_ADDON = L["Does nothing right now: TSM or Auctionator is loaded."]
+local function sourceLoaded(key)
+  for _, spec in ipairs(ns.Sources.list()) do
+    if spec.key == key then return ns.Sources.isPresent(spec, _G) end
+  end
+  return false
+end
+local function needsTSM() if not sourceLoaded("tsm") then return L_NEEDS_TSM end end
+
 Options.define({
   key = "priceSource", category = "prices",
   type = "dropdown",
   label = L["AH price source"],
   tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator, then AnotherLedger's own scan, then your own sales. TSM's sale info and destroy values count whenever TSM is loaded."],
-  -- "Auto" plus every registered price source (Sources/Sources.lua).
-  choices = function() return ns.Sources.choices() end,
+  -- "Auto" plus every registered price source (Sources/Sources.lua); one
+  -- whose addon is not loaded says so (it acts as Auto).
+  choices = function() return ns.Sources.choices(_G) end,
   apply = refreshUI,
 })
 
@@ -395,6 +419,7 @@ local TSM_PRICES = { "DBMarket", "DBMinBuyout", "DBRegionMarketAvg", "DBRecent",
 Options.define({
   key = "tsmSource", category = "prices", type = "dropdown", free = true, label = L["TSM price"],
   tooltip = L["The TSM price used for AH values, e.g. DBMarket or DBMinBuyout. Same as /al tsm."],
+  inactive = needsTSM,
   choices = function()
     local list, known = {}, {}
     for _, p in ipairs(TSM_PRICES) do
@@ -439,6 +464,7 @@ Options.define({
 Options.define({
   key = "scanReminder", category = "prices", type = "checkbox", label = L["Scan reminder"],
   tooltip = L["A chat line when you open the auction house and your last AnotherLedger scan is more than a day old. Only without TSM or Auctionator."],
+  inactive = function() if ns.Sources.anyPresent(_G) then return L_OFF_WITH_ADDON end end,
 })
 
 -- TSM region sale info under the item name (Sources/TSM.lua TSM.market) and
@@ -446,6 +472,7 @@ Options.define({
 Options.define({
   key = "showMarket", category = "prices", type = "checkbox", label = L["TSM sale info"],
   tooltip = L["With TSM loaded, shows under each item name how well it sells in your region (well / okay / poorly) and how many sell per day."],
+  inactive = needsTSM,
   apply = refreshUI,
 })
 
@@ -472,16 +499,16 @@ local function ordered(topKey, midKey, changed)
 end
 
 local function rate(v) return string.format("%.2f", v) end
-Options.define({ key = "saleRateGood", category = "prices", type = "slider", label = L["Sells well from"],
+Options.define({ key = "saleRateGood", category = "prices", inactive = needsTSM, type = "slider", label = L["Sells well from"],
   tooltip = L["Region sale rate (0 to 1) from which an item counts as selling well."],
   min = 0, max = 1, step = 0.01, format = rate, apply = ordered("saleRateGood", "saleRateOk", "saleRateGood") })
-Options.define({ key = "saleRateOk", category = "prices", type = "slider", label = L["Sells okay from"],
+Options.define({ key = "saleRateOk", category = "prices", inactive = needsTSM, type = "slider", label = L["Sells okay from"],
   tooltip = L["Region sale rate from which an item counts as selling okay. Below it, it sells poorly."],
   min = 0, max = 1, step = 0.01, format = rate, apply = ordered("saleRateGood", "saleRateOk", "saleRateOk") })
-Options.define({ key = "soldHigh", category = "prices", type = "number", label = L["High volume from"],
+Options.define({ key = "soldHigh", category = "prices", inactive = needsTSM, type = "number", label = L["High volume from"],
   tooltip = L["Average number sold per day in your region from which an item is High volume. Empty = never."],
   apply = ordered("soldHigh", "soldMedium", "soldHigh") })
-Options.define({ key = "soldMedium", category = "prices", type = "number", label = L["Medium volume from"],
+Options.define({ key = "soldMedium", category = "prices", inactive = needsTSM, type = "number", label = L["Medium volume from"],
   tooltip = L["Average number sold per day from which an item is Medium volume. Below it, Low volume."],
   withPrevious = true, -- stays under High volume from, in the same column
   apply = ordered("soldHigh", "soldMedium", "soldMedium") })
@@ -522,6 +549,9 @@ Options.define({
 Options.define({
   key = "destroyMode", category = "prices", type = "dropdown", label = L["Destroy values"],
   tooltip = L["When an item counts its disenchant, mill or prospect value: always, only if one of your characters has the profession (Enchanting for gear, Inscription for herbs, Jewelcrafting for ore), only if this character has it, or never."],
+  inactive = function()
+    if not ns.Sources.offers("createDisenchant", _G) then return L_NEEDS_DESTROY end
+  end,
   choices = {
     { value = "always", label = L["Always"] },
     { value = "any", label = L["If one of my characters can"] },

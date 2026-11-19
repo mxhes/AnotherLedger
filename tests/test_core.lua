@@ -324,6 +324,25 @@ h.test("Core.buildPrices asks the sources in order and takes the disenchant valu
   h.eq(p:lookup(5).ah, 222)
 end)
 
+h.test("Core.buildPrices: the disenchant value falls back to Auctionator without TSM", function()
+  local db = ns.DB.applyDefaults(nil, ns.DB.defaults)
+  local env = {
+    Auctionator = { API = { v1 = {
+      GetAuctionPriceByItemID = function() return 222 end,
+      GetAuctionAgeByItemID = function() return 3 end,
+      GetDisenchantPriceByItemLink = function() return 55 end,
+    } } },
+  }
+  local p = Core.buildPrices(env, db, function() return 1000000 end, function() return "EU-1" end)
+  local r = p:lookup(5, "|Hitem:5|h")
+  h.eq(r.de, 55)
+  h.eq(r.ahSource, "Auctionator")
+  h.eq(r.ahAge, 3 * 86400)
+  h.eq(r.ahAged, true)
+  env.TSM_API = { GetCustomPriceValue = function(src) return src == "Destroy" and 40 or nil end }
+  h.eq(p:lookup(5, "|Hitem:5|h").de, 40) -- TSM first
+end)
+
 h.test("Core.lookupPrice never errors", function()
   ns.prices = nil
   h.eq(Core.lookupPrice(1), nil)

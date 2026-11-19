@@ -117,20 +117,29 @@ function Core.buildPrices(env, db, now, getKey)
   local function setting(key) return db.settings and db.settings[key] end
   local function selected() return setting("priceSource") end
 
-  local sources, disenchant, market = {}, nil, nil
+  local sources, destroyers, market = {}, {}, nil
   local keyOfName = {} -- source name (stored with a cached price) -> option key
   for _, spec in ipairs(Sources.list()) do
     local source = spec.create(env, setting)
     keyOfName[source.name] = spec.key
-    sources[#sources + 1] = Sources.gate(source, spec.key, selected)
+    -- A selected source whose addon is not loaded acts as Auto.
+    sources[#sources + 1] = Sources.gate(source, spec.key, selected, env)
     -- Sale rate / sold per day: from the first source that offers them, not
     -- gated by the price source option (TSM data also helps next to Auctionator).
     if not market and spec.createMarket then market = spec.createMarket(env, setting) end
-    -- Disenchant value: from the first source that offers one. Not gated
-    -- either: only TSM has destroy values, and AH source = Auctionator must
-    -- not quietly turn them off (the option Destroy values decides).
-    if not disenchant and spec.createDisenchant then
-      disenchant = spec.createDisenchant(env, setting).get
+    -- Disenchant value: the first source that answers (TSM, then
+    -- Auctionator). Not gated either: AH source = Auctionator must not
+    -- quietly turn TSM's destroy values off (the option Destroy values decides).
+    if spec.createDisenchant then destroyers[#destroyers + 1] = spec.createDisenchant(env, setting).get end
+  end
+  local disenchant = nil
+  if #destroyers > 0 then
+    disenchant = function(itemID, link)
+      for _, get in ipairs(destroyers) do
+        local ok, v = pcall(get, itemID, link)
+        if ok and ns.Util.isPositive(v) then return v end
+      end
+      return nil
     end
   end
 
@@ -158,7 +167,7 @@ function Core.buildPrices(env, db, now, getKey)
     -- A cached price only counts while its source may answer (AH price source).
     cacheAllowed = function(name)
       local key = keyOfName[name]
-      return key == nil or Sources.allowed(selected(), key)
+      return key == nil or Sources.allowed(selected(), key, env)
     end,
     key = getKey,
     now = now,
@@ -1229,14 +1238,15 @@ end
 
 -- ---------------------------------------------------------------------------
 -- AnotherLedger scan (Scan.lua): a full auction house read on request and the
--- search results the player opens, only without TSM and Auctionator.
+-- search results the player opens, also next to TSM and Auctionator (Auto asks
+-- them first; the scan answers for items they have no price for).
 
 local L_SCAN_DONE = L["Scan done: %s items priced (%.1f s)."]
 local L_SCAN_STOPPED = L["Scan stopped: the auction house was closed. %s items priced."]
 local L_SCAN_WAIT = L["The game allows the next full scan in %s."]
 local L_SCAN_REFUSED = L["The game did not answer the scan. Try again later."]
 local L_SCAN_CLOSED = L["Open the auction house to scan."]
-local L_SCAN_OFF = L["Scanning is off while TSM or Auctionator is loaded."]
+local L_SCAN_OFF = L["The game offers no auction house scan."]
 local L_SCAN_NO_REALM = L["The realm is not known yet. Try again in a moment."]
 local L_SCAN_REMIND = L["Your last auction house scan is more than a day old: /al scan or the AnotherLedger scan button."]
 local SCAN_ANSWER_SECONDS = 60 -- no full read within this: the game refused it
@@ -1274,12 +1284,12 @@ function Core.auctionHouseOpen()
   return tradeWindows.AUCTION_HOUSE == true
 end
 
--- Scanning is offered without TSM and Auctionator, when the client has the
--- auction house API.
+-- Scanning is offered whenever the client has the auction house API, also
+-- next to TSM and Auctionator.
 function Core.scanAvailable(env)
   env = env or _G
   local ah = env.C_AuctionHouse
-  return not ns.Sources.anyPresent(env) and type(ah) == "table" and type(ah.ReplicateItems) == "function"
+  return type(ah) == "table" and type(ah.ReplicateItems) == "function"
 end
 
 -- For the scan button: { running, fraction (0..1), waitLeft (seconds) }.
@@ -1306,7 +1316,7 @@ local function finishScan(stats)
 end
 
 -- Starts a full read. Returns true, or false and why: "closed" (no auction
--- house), "unavailable" (TSM / Auctionator or no API), "realm" (the realm
+-- house), "unavailable" (no API), "realm" (the realm
 -- key is not known yet: the read would have nowhere to go), "running",
 -- "wait" (plus the seconds left) or "refused" (the call failed).
 function Core.startScan()
@@ -1433,8 +1443,9 @@ function events.ITEM_SEARCH_RESULTS_UPDATED(itemKey)
 end
 
 -- The reminder: once per login, when the last full scan is old or missing.
+-- Not while TSM or Auctionator is loaded: they bring their own prices.
 local function scanReminder()
-  if scan.reminded or not Core.scanAvailable(_G) then return end
+  if scan.reminded or not Core.scanAvailable(_G) or ns.Sources.anyPresent(_G) then return end
   if not ns.db or ns.Options.get(ns.db, "scanReminder") == false then return end
   local bucket = scanBucket(false)
   local last = bucket and bucket.lastFull

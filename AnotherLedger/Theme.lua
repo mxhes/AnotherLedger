@@ -419,6 +419,7 @@ Theme.options = {
   swatch = 16,
   numberBox = 80,
   boxHeight = 18,
+  inactiveAlpha = 0.45, -- an option that does nothing right now (Options.inactive)
 }
 
 -- Pure. A color with r, g, b multiplied by `k` (clamped to 0..1); alpha kept.
