@@ -297,8 +297,8 @@ Theme.sizes = {
   buttonHeight = 20,
   -- The LootLedger scan button on the auction house window (UI/ScanButton.lua):
   -- width, its offset below the window's bottom right corner and how many
-  -- frame levels above the window it is drawn (UNVERIFIED (check in client):
-  -- nothing of the game's sits there).
+  -- frame levels above the window it is drawn (nothing of the game's sits
+  -- there; confirmed in the client).
   scanButtonWidth = 150,
   scanButtonX = -4,
   scanButtonY = -2,

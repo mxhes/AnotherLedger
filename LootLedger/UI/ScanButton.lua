@@ -38,8 +38,7 @@ local function stopTicker()
 end
 
 local function make()
-  -- UNVERIFIED (check in client): AuctionHouseFrame is the retail auction
-  -- house window (load on demand: Blizzard_AuctionHouseUI). The button hangs
+  -- AuctionHouseFrame is the retail auction house window (load on demand: Blizzard_AuctionHouseUI). The button hangs
   -- just below its bottom right corner, where nothing of the game's sits
   -- (its tabs hang below the bottom left), and is drawn above its panels.
   local parent = _G.AuctionHouseFrame
