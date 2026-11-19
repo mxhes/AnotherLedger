@@ -61,6 +61,12 @@ only inside functions.
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/ll` command, names in `Slash.BINDINGS` |
+| `Media/Logo.tga` | the logo (leather ledger book with the LL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
+
+The logo is drawn by `tools/render_logo.py` (repo root, Pillow, not packaged):
+`python tools/render_logo.py` writes `LootLedger/Media/Logo.tga` and the
+512 px `docs/logo.png` used by the README. Change the shapes or colors there
+and run it again; don't edit the images by hand.
 
 Data flow: `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh`
 builds a view with the shown tab's `build` (`View.lua`) -> every registered part

@@ -12,7 +12,6 @@ local Broker = {}
 ns.UI.Broker = Broker
 
 local NAME = "LootLedger"
-local ICON = "Interface\\Icons\\INV_Misc_Coin_01"
 local UPDATE_SECONDS = 15
 
 local L = ns.L
@@ -101,7 +100,7 @@ function Broker.init()
   local ldb = libStub("LibDataBroker-1.1")
   if not ldb then return false end
   Broker.object = ldb:NewDataObject(NAME, {
-    type = "data source", label = NAME, text = NAME, icon = ICON,
+    type = "data source", label = NAME, text = NAME, icon = ns.Theme.textures.logo,
     OnClick = onClick, OnTooltipShow = onTooltipShow,
   })
   if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(UPDATE_SECONDS, Broker.update) end

@@ -13,7 +13,6 @@ ns.UI.Minimap = Minimap
 
 local SIZE = 31
 local RIM_PADDING = 5 -- distance of the button center outside the minimap edge
-local ICON = "Interface\\Icons\\INV_Misc_Coin_01"
 
 -- ---------------------------------------------------------------------------
 -- Pure helpers
@@ -76,7 +75,7 @@ local function build()
   button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
   local icon = button:CreateTexture(nil, "ARTWORK")
-  icon:SetTexture(ICON)
+  icon:SetTexture(ns.Theme.textures.logo)
   icon:SetSize(20, 20)
   icon:SetPoint("CENTER", button, "CENTER", 0, 0)
   if icon.SetTexCoord then icon:SetTexCoord(0.07, 0.93, 0.07, 0.93) end

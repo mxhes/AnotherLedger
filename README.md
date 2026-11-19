@@ -1,5 +1,7 @@
 # LootLedger
 
+<img src="docs/logo.png" alt="LootLedger logo" width="96" align="right">
+
 A World of Warcraft **Forever** addon that values everything you loot. The
 Session Ledger window lists each item with what it is worth (vendor, auction
 house or disenchant, whichever is highest), adds up your gold per hour, and
