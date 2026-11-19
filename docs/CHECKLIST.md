@@ -95,6 +95,12 @@ against the test fakes so far:
    `git push origin v0.2.0`). The `package` job builds the zip (the `.toc`
    version comes from the tag) and keeps it in the job's artifacts for 30
    days.
-6. CurseForge (once): create the project, add `## X-Curse-Project-ID: <id>`
-   to the `.toc` and the masked CI variable `CF_API_KEY`; from then on every
-   tag uploads the zip.
+   Before tagging, add the version's entry on top of `CHANGELOG.md`: the
+   packager sends it to CurseForge as the release notes.
+6. CurseForge: the project exists (ID 1817047, `## X-Curse-Project-ID` in
+   the `.toc`). The GitLab CI/CD variable `CF_API_KEY` (a CurseForge API
+   token, masked; not protected unless the `v*` tags are protected) lets the
+   `package` job upload every tag. Check after a tag: the job log shows the
+   upload, and the file appears on CurseForge with the changelog and the right
+   game version (the packager maps `## Interface: 16001`; if CurseForge has no
+   such version, the upload fails or lands without one).
