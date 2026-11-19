@@ -295,6 +295,12 @@ Theme.sizes = {
   -- Notes line under the table (filtered / unpriced / bank scan age), when shown.
   footerNoteHeight = 16,
   buttonHeight = 20,
+  -- The LootLedger scan button on the auction house window (UI/ScanButton.lua):
+  -- width, and its offset from the window's bottom right corner (UNVERIFIED
+  -- (check in client): clear of the game's own buttons there).
+  scanButtonWidth = 150,
+  scanButtonX = -190,
+  scanButtonY = 4,
   -- Tab buttons (header row 3, 28 px high): body height, edge size and the
   -- height of the selected tab's glow.
   tabHeight = 24,

@@ -213,3 +213,15 @@ end)
 h.test("Scan wait", function()
   h.eq(S.waitLeft(nil, 100), 0); h.eq(S.waitLeft(100, 400), 600); h.eq(S.waitLeft(100, 2000), 0)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Scan button text
+
+h.test("ScanButton text: ready, reading, waiting", function()
+  local un = h.load({ "Util.lua", "UI/ScanButton.lua" })
+  local T = un.UI.ScanButton.text
+  h.eq(T({ running = false, fraction = 0, waitLeft = 0 }), "LootLedger scan")
+  h.eq(T({ running = true, fraction = 0.423, waitLeft = 900 }), "Reading 42%")
+  h.eq(T({ running = false, fraction = 1, waitLeft = 760 }), "LootLedger scan 12:40")
+  h.eq(T({ running = false, fraction = 1, waitLeft = 5 }), "LootLedger scan 0:05")
+end)
