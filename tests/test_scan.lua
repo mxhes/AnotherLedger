@@ -97,3 +97,48 @@ h.test("Scan lookup takes the variant, then the plain item", function()
   h.eq(S.lookup(items, 51, nil, "market", 0), nil)
   h.eq(S.lookup(nil, 50, nil, "market", 0), nil)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Price source
+
+local function sourceNs()
+  return h.load({ "Util.lua", "LootParse.lua", "Scan.lua", "Sources/Sources.lua", "Sources/Vendor.lua",
+    "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua" })
+end
+
+h.test("Scan source answers with the chosen kind and its age", function()
+  local sn = sourceNs()
+  sn.db = { scan = {} }
+  sn.Scan.currentRealmKey = function() return "EU-7-Realm" end
+  local b = sn.Scan.bucket(sn.db, "EU-7-Realm", true)
+  sn.Scan.record(b.items, 5, 1000, 800, 100)
+  local kind = "lowest"
+  local spec
+  for _, s in ipairs(sn.Sources.list()) do if s.key == "scan" then spec = s end end
+  local src = spec.create({ time = function() return 400 end }, function(k) if k == "scanPrice" then return kind end end)
+  h.eq(src.name, "LootLedger scan")
+  h.eq({ src.get(5) }, { 800, 300 })
+  kind = "market"
+  h.eq(src.get(5), 1000)
+  h.eq(src.get(6), nil)
+  sn.Scan.currentRealmKey = function() return nil end
+  h.eq(src.get(5), nil)
+end)
+
+h.test("Scan source is asked after Auctionator", function()
+  local sn = sourceNs()
+  local keys = {}
+  for _, s in ipairs(sn.Sources.list()) do keys[#keys + 1] = s.key end
+  h.eq(keys, { "tsm", "auctionator", "scan" })
+  h.eq(sn.Sources.choices()[1].label, "Auto (TSM, then Auctionator, then LootLedger scan)")
+end)
+
+h.test("Scan realm key and bucket", function()
+  h.eq(S.realmKey("EU-7", "Realm"), "EU-7-Realm")
+  h.eq(S.realmKey(nil, "Realm"), nil); h.eq(S.realmKey("EU-7", nil), nil)
+  local db = {}
+  h.eq(S.bucket(db, "k"), nil)
+  local b = S.bucket(db, "k", true)
+  h.eq(type(b.items), "table"); h.eq(S.bucket(db, "k"), b)
+  h.eq(S.bucket(db, nil, true), nil)
+end)

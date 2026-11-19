@@ -14,6 +14,10 @@ DB.defaults = {
     alpha = 1,
     brightness = 1,
     priceSource = "auto",
+    -- LootLedger scan: the price that counts ("market" / "lowest") and the
+    -- chat reminder when the last full scan is more than a day old.
+    scanPrice = "market",
+    scanReminder = true,
     combatHide = false,
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,

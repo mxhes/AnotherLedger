@@ -153,4 +153,33 @@ function Scan.lookup(items, itemID, link, kind, now)
   return Scan.price(items, itemID, kind, now)
 end
 
+-- ---------------------------------------------------------------------------
+-- Saved buckets: LootLedgerDB.scan[realmKey] = { lastFull, items }
+
+-- The price cache key (region and game mode) plus the realm: non-commodity
+-- listings are per realm. nil while either is unknown.
+function Scan.realmKey(cacheKey, realm)
+  if cacheKey == nil or type(realm) ~= "string" or realm == "" then return nil end
+  return cacheKey .. "-" .. realm
+end
+
+-- The bucket of `realmKey` in db.scan, made when `create` is set; nil otherwise.
+function Scan.bucket(db, realmKey, create)
+  if type(db) ~= "table" or realmKey == nil then return nil end
+  if type(db.scan) ~= "table" then
+    if not create then return nil end
+    db.scan = {}
+  end
+  local b = db.scan[realmKey]
+  if type(b) ~= "table" or type(b.items) ~= "table" then
+    if not create then return nil end
+    b = { items = {} }
+    db.scan[realmKey] = b
+  end
+  return b
+end
+
+-- The current realm key; Core sets the real one at load.
+function Scan.currentRealmKey() return nil end
+
 ns.Scan = Scan

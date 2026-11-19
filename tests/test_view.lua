@@ -197,6 +197,17 @@ h.test("View stale flag", function()
   h.eq(by[3].stale, false); h.eq(by[3].ahFromCache, false)
 end)
 
+h.test("View an aged live price (LootLedger scan) gets the age tag and stale flag", function()
+  reset()
+  PRICES[1] = { ah = 500, ahSource = "LootLedger scan", ahAge = 50400, ahAged = true }
+  PRICES[2] = { ah = 300, ahSource = "LootLedger scan", ahAge = 0 }
+  local v = V.build(three(), opts())
+  local by = {}
+  for _, r in ipairs(v.rows) do by[r.id] = r end
+  h.eq(by[1].ahFromCache, true); h.eq(by[1].stale, true); h.eq(by[1].ahAge, 50400)
+  h.eq(by[2].ahFromCache, false)
+end)
+
 h.test("View skips zero or missing qty", function()
   reset()
   local s = three()

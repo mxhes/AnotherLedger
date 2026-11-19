@@ -122,6 +122,12 @@ end
 -- ---------------------------------------------------------------------------
 -- Rows
 
+-- Whether a lookup's AH price shows its age: a cached one, or a live source's
+-- with an age of its own (LootLedger scan).
+local function aged(lookup)
+  return lookup.ahSource == "cache" or lookup.ahAged == true
+end
+
 -- One ledger row for an item ({ id, key, link, qty, lastSeen, price }).
 -- `item.price` (unit prices seen at loot time) fills in what the live lookup
 -- does not know; an AH price from there shows its age like a cached one.
@@ -150,7 +156,7 @@ local function makeRow(item, opts)
       ahEach, ahFromCache = saved.ah, false
       ahCut = saved.cut == true
     elseif num(lookup.ah) then
-      ahEach, ahFromCache = lookup.ah, lookup.ahSource == "cache"
+      ahEach, ahFromCache = lookup.ah, aged(lookup)
       ahAge = num(lookup.ahAge) and lookup.ahAge or nil
       ahCut = num(lookup.ahGross)
     end
@@ -158,7 +164,7 @@ local function makeRow(item, opts)
     vendorEach = num(lookup.vendor) and lookup.vendor or (num(saved.vendor) and saved.vendor or nil)
     ahEach = num(lookup.ah) and lookup.ah or nil
     ahCut = ahEach ~= nil and num(lookup.ahGross)
-    ahFromCache = lookup.ahSource == "cache"
+    ahFromCache = aged(lookup)
     ahAge = num(lookup.ahAge) and lookup.ahAge or nil
     if not ahEach and num(saved.ah) then
       ahEach, ahFromCache = saved.ah, true

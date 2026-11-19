@@ -374,7 +374,7 @@ Options.define({
   key = "priceSource", category = "prices",
   type = "dropdown",
   label = L["AH price source"],
-  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator. TSM's sale info and destroy values count whenever TSM is loaded."],
+  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator, then LootLedger's own scan. TSM's sale info and destroy values count whenever TSM is loaded."],
   -- "Auto" plus every registered price source (Sources/Sources.lua).
   choices = function() return ns.Sources.choices() end,
   apply = refreshUI,
@@ -413,6 +413,23 @@ Options.define({
     return true
   end,
   apply = refreshUI,
+})
+
+-- LootLedger scan (Scan.lua, Sources/Scan.lua): which of its two prices
+-- counts, and the chat reminder when the last full scan is old.
+Options.define({
+  key = "scanPrice", category = "prices", type = "dropdown", label = L["Scan price"],
+  tooltip = L["Which LootLedger scan price counts: the market value (average of the cheapest 15% of listed units) or the lowest listed price. Only for prices from LootLedger's own scan."],
+  choices = {
+    { value = "market", label = L["Market value"] },
+    { value = "lowest", label = L["Lowest price"] },
+  },
+  apply = refreshUI,
+})
+
+Options.define({
+  key = "scanReminder", category = "prices", type = "checkbox", label = L["Scan reminder"],
+  tooltip = L["A chat line when you open the auction house and your last LootLedger scan is more than a day old. Only without TSM or Auctionator."],
 })
 
 -- TSM region sale info under the item name (Sources/TSM.lua TSM.market) and
