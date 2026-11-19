@@ -7,6 +7,12 @@
 # addon folder of the zip; the externals land in its Libs/.
 package-as: AnotherLedger
 
+# Release notes for CurseForge: the hand-written CHANGELOG.md (newest version
+# on top) instead of a list of commit messages.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 move-folders:
   AnotherLedger/AnotherLedger: AnotherLedger
 
