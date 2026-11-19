@@ -95,7 +95,11 @@ Each of these is one call in one place; the UI never names them.
   (`Options.pick`), not at login (the color preset writes the single colors
   there). `intercept(db, value)` runs in `Options.pick` first; `true` sets
   nothing (TSM price's "Custom..." entry, `Options.CUSTOM`, opens a text box).
-  A dropdown with `free = true` also keeps any typed string. A new kind of
+  A dropdown with `free = true` also keeps any typed string. `inactive =
+  function() return reason or nil end` says why the option does nothing right
+  now (the price addon it needs is not loaded): `Options.inactive(spec)`; the
+  panel then draws its block at `Theme.options.inactiveAlpha` (still usable)
+  and `Options.tooltip` adds the reason as a warning line. A new kind of
   control is one factory in `Panel.WIDGETS` (`UI/OptionsPanel.lua`) plus its
   height in `Options.HEIGHTS`. The panel's column width, gaps and control
   sizes are `Theme.options`.
@@ -104,8 +108,14 @@ Each of these is one call in one place; the UI never names them.
   = function(env, setting) return { name, get = function(itemID, link) ... end
   } end })`. It joins the lookup order and the AH price source dropdown.
   Optional: `createDisenchant`, `createMarket` and `present(env)` (its addon
-  is loaded; `Sources.anyPresent` drives the login hint and turns the
-  AnotherLedger scan off). See `Sources/Auctionator.lua`. A source's `get` may
+  is loaded, `Sources.isPresent`; `Sources.anyPresent` drives the login hint
+  and the scan reminder). A selected source whose addon is not loaded acts as
+  Auto (`Sources.effective`, used by `Sources.gate` / `allowed` with `env`)
+  and its dropdown entry says `(not loaded)` (`Sources.choices(env)`).
+  `Sources.offers(field, env)`: a loaded source has `createDisenchant` /
+  `createMarket` (the dimmed options). The disenchant value is the first of
+  every source's `createDisenchant` that answers (TSM, then Auctionator). See
+  `Sources/Auctionator.lua`. A source's `get` may
   return the age of its price in seconds as a second value; the lookup then
   sets `ahAge` to it and `ahAged = true`, and the row shows the age tag and
   the old price rule like a cached price (`Sources/Scan.lua` does). The cache
@@ -212,8 +222,8 @@ Each of these is one call in one place; the UI never names them.
   alert. Items that can never be sold on the AH (bind types 1, 4, 7, 8, 9) are
   never counted as unpriced; an AH price a source still reports for them
   counts like any other. The `de` value is TSM's `Destroy` price (disenchant,
-  mill or prospect), shown as `Destroy`; it counts whenever TSM is loaded,
-  whatever the AH price source. A row with no vendor, AH or destroy value gets
+  mill or prospect), else Auctionator's disenchant price, shown as `Destroy`;
+  it counts whenever one of them is loaded, whatever the AH price source. A row with no vendor, AH or destroy value gets
   `worthless = true` and `Rows.rowText` shows a dash for it.
   `View.itemValue(item, lookup, ahMinGain)` is one item's value the same way
   (`Core.sessionValue`).
@@ -584,8 +594,9 @@ Each of these is one call in one place; the UI never names them.
     age of the newest sale) from an index built once per log change (not
     saved), which also answers `Trade.hasItemID`. Core signals `dataChanged("trade")`.
 - **AnotherLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
-  `UI/ScanButton.lua`): only while no source's `present` is true and the
-  client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).
+  `UI/ScanButton.lua`): whenever the client has
+  `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`), also next to TSM
+  and Auctionator (Auto asks them first, so the scan answers what they lack).
   `Core.startScan` (the button, `/al scan` through `Core.scanCommand`, which
   prints why it can't) needs the auction house open, a known realm key and
   the wait over
@@ -618,7 +629,8 @@ Each of these is one call in one place; the UI never names them.
   reads `Scan.bucket(ns.db, Scan.currentRealmKey())` (price cache key plus
   `GetRealmName()`) live and the option `scanPrice`. The reminder
   (`scanReminder`) prints once per login on `AUCTION_HOUSE_SHOW` when the
-  last full read is missing or older than a day. `Core.priceAddonHint` stays
+  last full read is missing or older than a day, and never while a source's
+  `present` is true. `Core.priceAddonHint` stays
   quiet while the realm's bucket has items. The button (`ScanButton.text`:
   ready / `Reading 42%` / the wait as m:ss) is made on the first show, set as
   `Core.onScanChange` and counts down with a 1 s ticker while shown. It hangs

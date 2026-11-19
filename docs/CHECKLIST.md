@@ -22,7 +22,7 @@ and remove both once it is confirmed.
   chances exist; the tooltip ends with `AnotherLedger drop chance` and the mobs.
 
 - AnotherLedger scan (`Core.lua` scan section, `UI/ScanButton.lua`,
-  UNVERIFIED; run with TSM and Auctionator disabled):
+  UNVERIFIED; run with TSM and Auctionator disabled first):
   - `C_AuctionHouse.ReplicateItems()` is answered by
     `REPLICATE_ITEM_LIST_UPDATE`, once per 15 minutes; a second call within
     the wait is ignored by the game (the addon's own wait matches it).
@@ -42,6 +42,17 @@ and remove both once it is confirmed.
     below the auction house window: confirmed).
   - The reminder line shows on the first auction house visit of a login, and
     the login hint mentions `/al scan` and stays quiet once prices exist.
+
+- Auctionator extras (`Sources/Auctionator.lua`, UNVERIFIED):
+  `Auctionator.API.v1.GetAuctionAgeByItemLink` / `GetAuctionAgeByItemID`
+  (callerID, link / itemID) return whole days since the price was seen, and
+  `GetDisenchantPriceByItemLink` (callerID, link) returns a copper value for
+  gear. Check with only Auctionator loaded: an item Auctionator last saw days
+  ago shows an age tag; a green weapon shows a `Destroy` value.
+
+- Scanning next to TSM / Auctionator (UNVERIFIED): with TSM or Auctionator
+  loaded, the scan button still shows and `/al scan` works; it does not get in
+  the way of the other addon's own auction house scans.
 
 - Trade section (`Core.lua` trade section, UNVERIFIED):
   - Posting through the auction house UI calls `C_AuctionHouse.PostItem`

@@ -335,6 +335,12 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
       block:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.tops[spec.key]))
       local widget = factory(block, spec)
       widget.block = block
+      -- Dimmed (still usable) while the option does nothing (Options.inactive).
+      local refresh = widget.refresh
+      widget.refresh = function()
+        refresh()
+        block:SetAlpha(ns.Options.inactive(spec) and sizes().inactiveAlpha or 1)
+      end
       if spec.type ~= "header" then wireTooltip(widget, block, spec) end
       widgets[spec.key] = widget
     end

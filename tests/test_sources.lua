@@ -164,3 +164,71 @@ h.test("Sources: sales answers the own sale price with its age", function()
   ns2.Scan.currentRealmKey = function() return nil end
   h.eq(src.get(5), nil)
 end)
+
+-- Auctionator price age and disenchant value
+h.test("Auctionator gives the age of its price in seconds (days * 86400)", function()
+  local env = { Auctionator = { API = { v1 = {
+    GetAuctionPriceByItemLink = function() return 500 end,
+    GetAuctionAgeByItemLink = function(c, l) h.eq(c, "AnotherLedger"); return 2 end,
+    GetAuctionPriceByItemID = function() return 400 end,
+    GetAuctionAgeByItemID = function() return 0 end,
+  } } } }
+  local src = S.Auctionator.new(env)
+  local v, age = src.get(9, "|Hitem:9|h")
+  h.eq(v, 500); h.eq(age, 2 * 86400)
+  v, age = src.get(9)
+  h.eq(v, 400); h.eq(age, 0)
+  env.Auctionator.API.v1.GetAuctionAgeByItemID = nil -- older Auctionator: live
+  v, age = src.get(9)
+  h.eq(v, 400); h.eq(age, 0)
+  env.Auctionator.API.v1.GetAuctionAgeByItemID = function() error("x") end
+  h.eq(select(2, src.get(9)), 0)
+end)
+
+h.test("Auctionator disenchant asks by link, finds the link without one", function()
+  local asked
+  local env = {
+    Auctionator = { API = { v1 = { GetDisenchantPriceByItemLink = function(c, l) asked = l; return 3000 end } } },
+    C_Item = { GetItemInfo = function(id) return "Sword", "|Hitem:" .. id .. "|h" end },
+  }
+  local de = S.Auctionator.disenchant(env)
+  h.eq(de.get(4, "|Hitem:4:1|h"), 3000); h.eq(asked, "|Hitem:4:1|h")
+  h.eq(de.get(4), 3000); h.eq(asked, "|Hitem:4|h")
+  env.C_Item = nil
+  h.eq(de.get(4), nil)
+  env.Auctionator.API.v1.GetDisenchantPriceByItemLink = function() return 0 end
+  h.eq(de.get(4, "x"), nil)
+  h.eq(S.Auctionator.disenchant({}).get(4, "x"), nil)
+end)
+
+-- Presence: a selected source that is not loaded acts as Auto
+h.test("Sources.isPresent, effective, allowed with env and offers", function()
+  local tsm, auc = S.list()[1], S.list()[2]
+  h.eq(S.isPresent(tsm, {}), false)
+  h.eq(S.isPresent(tsm, { TSM_API = {} }), true)
+  h.eq(S.isPresent({ key = "scan" }, {}), true) -- no present check
+  h.eq(S.isPresent({ present = function() error("x") end }, {}), false)
+  h.eq(S.effective("tsm", {}), "auto")
+  h.eq(S.effective("tsm", { TSM_API = {} }), "tsm")
+  h.eq(S.effective("auto", {}), "auto")
+  h.eq(S.allowed("tsm", "auctionator", {}), true)
+  h.eq(S.allowed("tsm", "auctionator", { TSM_API = {} }), false)
+  h.eq(S.allowed("tsm", "auctionator"), false) -- without env: strict
+  h.eq(S.offers("createDisenchant", {}), false)
+  h.eq(S.offers("createDisenchant", { Auctionator = { API = {} } }), true)
+  h.eq(S.offers("createMarket", { Auctionator = { API = {} } }), false)
+  h.eq(S.offers("createMarket", { TSM_API = {} }), true)
+  local choices = S.choices({ TSM_API = {} })
+  h.eq(choices[2].label, "TSM")
+  h.eq(choices[3].label, "Auctionator (not loaded)")
+  h.eq(auc.key, "auctionator")
+end)
+
+h.test("Sources.gate with env: a missing selected addon lets every source answer", function()
+  local selected = "tsm"
+  local env = {}
+  local src = S.gate({ name = "A", get = function() return 5 end }, "auctionator", function() return selected end, env)
+  h.eq(src.get(1), 5)
+  env.TSM_API = {}
+  h.eq(src.get(1), nil)
+end)

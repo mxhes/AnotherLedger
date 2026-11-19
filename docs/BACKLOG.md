@@ -9,6 +9,8 @@ Sizes: S = under an hour, M = a few hours, L = a bigger piece of work.
   statistics. M
 - COD mail between players as sales. M
 - Profit per item (material cost of crafted items against the sale price). L
+- Destroy values without TSM and Auctionator: own disenchant / mill /
+  prospect tables priced with AnotherLedger scan prices. L
 
 ## Already built
 

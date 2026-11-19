@@ -45,20 +45,50 @@ function Sources.anyPresent(env)
   return false
 end
 
+-- Whether the addon of a source is loaded: its `present` check, or true for
+-- a source without one (AnotherLedger scan, own sales).
+function Sources.isPresent(spec, env)
+  if type(spec) ~= "table" then return false end
+  if type(spec.present) ~= "function" then return true end
+  local ok, present = pcall(spec.present, env)
+  return ok and present and true or false
+end
+
+-- Whether a loaded source offers `field` ("createDisenchant", "createMarket"):
+-- destroy values or sale info exist at all (options shown dimmed otherwise).
+function Sources.offers(field, env)
+  for _, spec in ipairs(specs) do
+    if type(spec[field]) == "function" and type(spec.present) == "function" and Sources.isPresent(spec, env) then
+      return true
+    end
+  end
+  return false
+end
+
+-- The option value that counts: a selected source whose addon is not loaded
+-- acts as "auto" (the choice is kept for when the addon is back).
+function Sources.effective(selected, env)
+  local spec = byKey[selected]
+  if spec and not Sources.isPresent(spec, env) then return Sources.AUTO end
+  return selected
+end
+
 -- Whether the source `key` may answer under the selected option value. Only a
 -- registered key narrows the choice; "auto" and unknown values ask everyone.
-function Sources.allowed(selected, key)
+-- With `env`, a selected source that is not loaded counts as "auto".
+function Sources.allowed(selected, key, env)
+  if env ~= nil then selected = Sources.effective(selected, env) end
   return selected == key or byKey[selected] == nil
 end
 
 -- Wraps a source so it only answers while the option allows it. The selection
 -- is read live, so changing the option needs no rebuild.
-function Sources.gate(source, key, getSelected)
+function Sources.gate(source, key, getSelected, env)
   return {
     name = source.name,
     get = function(itemID, link)
       local ok, selected = pcall(getSelected)
-      if not ok or not Sources.allowed(selected, key) then return nil end
+      if not ok or not Sources.allowed(selected, key, env) then return nil end
       return source.get(itemID, link)
     end,
   }
@@ -66,14 +96,18 @@ end
 
 -- Dropdown choices: "Auto (A, then B)" followed by one entry per source. The
 -- Auto entry's `short` text ("Auto") is what the closed dropdown button shows.
-function Sources.choices()
+-- With `env`, a source whose addon is not loaded says so (it acts as Auto).
+local L_NOT_LOADED = L["%s (not loaded)"]
+function Sources.choices(env)
   local labels = {}
   for i, spec in ipairs(specs) do labels[i] = spec.label or spec.key end
   local auto = L["Auto"]
   if #labels > 0 then auto = auto .. " (" .. table.concat(labels, L[", then "]) .. ")" end
   local choices = { { value = Sources.AUTO, label = auto, short = L["Auto"] } }
   for i, spec in ipairs(specs) do
-    choices[#choices + 1] = { value = spec.key, label = labels[i] }
+    local label = labels[i]
+    if env ~= nil and not Sources.isPresent(spec, env) then label = L_NOT_LOADED:format(label) end
+    choices[#choices + 1] = { value = spec.key, label = label }
   end
   return choices
 end

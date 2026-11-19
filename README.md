@@ -19,11 +19,14 @@ from the old name don't carry over, and the slash command is now `/al`.
 
 Vendor prices work on their own. Auction prices come from
 [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
-optional; TSM is asked first), or, without either, from AnotherLedger's own
-auction house scan (see "Scanning the auction house"). Destroy values (what disenchanting, milling or
-prospecting gives) and the "sells well / poorly" info need TSM (they count
-whenever TSM is loaded, also with Auctionator as the AH price source). Without
-either and without scan prices, AnotherLedger says so once in chat. Waypoints use TomTom when it is
+optional; TSM is asked first) and from AnotherLedger's own auction house scan
+(see "Scanning the auction house"), which also fills in items TSM and
+Auctionator have no price for. Destroy values (what disenchanting, milling or
+prospecting gives) come from TSM, else from Auctionator (disenchanting only);
+they count whenever one of them is loaded, whatever the AH price source. The
+"sells well / poorly" info needs TSM. Without either addon and without scan
+prices, AnotherLedger says so once in chat. Options that need an addon you
+don't have show dimmed, and their tooltip says why. Waypoints use TomTom when it is
 installed, else the game's own map pin.
 
 **Libraries** (only when you install from the source code): the release zip
@@ -238,7 +241,8 @@ still do).
 
 ## Scanning the auction house
 
-Without TSM and Auctionator, AnotherLedger reads the auction house itself:
+AnotherLedger can read the auction house itself, with or without TSM and
+Auctionator:
 
 - Open the auction house and click **AnotherLedger scan** just below its
   bottom right corner (or type `/al scan`, or use its key binding). The whole auction house is
@@ -258,13 +262,16 @@ Without TSM and Auctionator, AnotherLedger reads the auction house itself:
   cached prices.
 - **Scan reminder** (on by default): when you open the auction house and your
   last full scan is more than a day old, one chat line suggests a scan (once
-  per login).
-- With TSM or Auctionator loaded, the button and the recording are off. Prices
-  from earlier scans still count if you pick **AnotherLedger scan** as the AH
-  price source.
+  per login). Not while TSM or Auctionator is loaded, as they bring their own
+  prices.
+- With TSM or Auctionator loaded, scan prices count for the items those have
+  no price for (or for everything, if you pick **AnotherLedger scan** as the
+  AH price source).
 
 The order of auction prices is TSM, then Auctionator, then AnotherLedger scan,
-then your own sales (Trade tab), then the last price seen earlier.
+then your own sales (Trade tab), then the last price seen earlier. If the
+**AH price source** names an addon that isn't loaded, it shows as
+`(not loaded)` and works like Auto until the addon is back.
 
 ## Options
 
@@ -385,7 +392,7 @@ clock and scanning the auction house.
 | `/al compact` | switch between the compact and the full layout |
 | `/al reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
 | `/al keep on` / `off` | keep the session across logins |
-| `/al scan` | read the whole auction house (only without TSM and Auctionator; the auction house must be open) |
+| `/al scan` | read the whole auction house (the auction house must be open) |
 | `/al tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
 | `/al export` | the History as CSV in a copy box |
 | `/al export session`, `/al export zones`, `/al export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
@@ -406,10 +413,11 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   Inscription for herbs, Jewelcrafting for ore. Your characters' professions
   are noted when you log in on them. Sessions already in History keep the
   prices they were saved with.
-- **Price age**: TSM and Auctionator don't say when they last scanned, so the
-  age tag is the time since the source last gave a price for that item. A
-  AnotherLedger scan price's tag is the time since the item was last seen on the
-  auction house.
+- **Price age**: TSM doesn't say when it last scanned, so the age tag is the
+  time since TSM last gave a price for that item. Auctionator tells how many
+  days ago it last saw the item, so its prices carry an age tag from the first
+  day on. An AnotherLedger scan price's tag is the time since the item was
+  last seen on the auction house.
 - **Languages**: English and German. Loot and money messages are read from the
   game's own texts, so they work in every client language.
 - **Install**: unzip the release zip (it holds the libraries) into

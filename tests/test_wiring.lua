@@ -1163,6 +1163,22 @@ h.test("wiring: opacity, price source and combat hide options take effect", func
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: an option without its price addon shows dimmed in the panel", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local P = ctx.ns.UI.OptionsPanel
+  P.toggle()
+  local w = P.frame.widgets.tsmSource
+  local alpha
+  w.block.SetAlpha = function(_, a) alpha = a end
+  w.refresh()
+  h.eq(alpha, ctx.ns.Theme.options.inactiveAlpha)
+  ctx.env.TSM_API = { GetCustomPriceValue = function() return nil end }
+  w.refresh()
+  h.eq(alpha, 1)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: the options panel builds a widget for every registered option", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -3945,23 +3961,36 @@ h.test("wiring: /al scan waits while the realm is not known yet", function()
   h.eq(ctx.env.AnotherLedgerCharDB.scanAt, nil)
 end)
 
-h.test("wiring: with TSM loaded scanning is off but saved scan prices answer", function()
+h.test("wiring: with TSM loaded scanning still works and the scan answers what TSM lacks", function()
   local ctx = bootDeferred()
   local ah = fakeAuctionHouse(ctx, { { 1, 1000, 5, nil } })
-  ctx.env.TSM_API = { GetCustomPriceValue = function() return nil end }
+  ctx.env.TSM_API = { GetCustomPriceValue = function(_, item) return item == "i:9" and 777 or nil end }
   startWorld(ctx, false)
   ctx.runTimers()
   local S = ctx.ns.Scan
-  S.record(S.bucket(ctx.ns.db, S.currentRealmKey(), true).items, 5, 2000, 2000, ctx.now)
   fire(ctx, "AUCTION_HOUSE_SHOW")
   slash(ctx, "scan")
-  h.eq(ah.replicated, 0)
-  h.eq(printedWith(ctx, "Scanning is off while TSM or Auctionator is loaded."), true)
+  h.eq(ah.replicated, 1)
   ah.commodity[7] = { full = true, list = { { unitPrice = 50, quantity = 10 } } }
   fire(ctx, "COMMODITY_SEARCH_RESULTS_UPDATED", 7)
-  h.eq(S.bucket(ctx.ns.db, S.currentRealmKey()).items[7], nil)
-  ctx.ns.db.settings.priceSource = "scan"
+  h.eq(S.bucket(ctx.ns.db, S.currentRealmKey()).items[7] ~= nil, true)
+  S.record(S.bucket(ctx.ns.db, S.currentRealmKey(), true).items, 5, 2000, 2000, ctx.now)
+  h.eq(ctx.ns.prices:lookup(5).ahGross, 2000) -- Auto: TSM has none, the scan answers
+  h.eq(ctx.ns.prices:lookup(9).ahSource, "TSM")
+  -- No reminder while TSM is loaded.
+  h.eq(printedWith(ctx, "more than a day old"), false)
+end)
+
+h.test("wiring: a selected price addon that is not loaded acts as Auto", function()
+  local ctx = scanWorld()
+  local S = ctx.ns.Scan
+  S.record(S.bucket(ctx.ns.db, S.currentRealmKey(), true).items, 5, 2000, 2000, ctx.now)
+  ctx.ns.db.settings.priceSource = "tsm"
   h.eq(ctx.ns.prices:lookup(5).ahGross, 2000)
+  ctx.env.TSM_API = { GetCustomPriceValue = function() return 300 end }
+  h.eq(ctx.ns.prices:lookup(5).ahGross, 300) -- TSM back: the choice counts again
+  ctx.env.TSM_API = { GetCustomPriceValue = function() return nil end }
+  h.eq(ctx.ns.prices:lookup(5).ahSource, "cache") -- only TSM may answer
 end)
 
 h.test("wiring: the scan reminder shows once per login, and not when off", function()
@@ -4041,7 +4070,7 @@ h.test("wiring: the scan button is drawn above the auction house's own panels", 
   h.eq(ctx.ns.UI.ScanButton.frame:GetFrameLevel() >= 5 + ctx.ns.Theme.sizes.scanButtonLevel, true)
 end)
 
-h.test("wiring: no scan button while TSM is loaded", function()
+h.test("wiring: the scan button also shows while TSM is loaded", function()
   local ctx = bootDeferred()
   fakeAuctionHouse(ctx, {})
   ctx.env.TSM_API = { GetCustomPriceValue = function() return nil end }
@@ -4050,7 +4079,7 @@ h.test("wiring: no scan button while TSM is loaded", function()
   ctx.runTimers()
   fire(ctx, "AUCTION_HOUSE_SHOW")
   local b = ctx.ns.UI.ScanButton.frame
-  h.eq(b == false or not b:IsShown(), true)
+  h.eq(b ~= false and b:IsShown(), true)
 end)
 
 h.test("wiring: a bronze button looks pressed while the mouse is held down", function()

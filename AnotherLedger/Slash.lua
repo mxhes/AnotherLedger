@@ -181,7 +181,7 @@ local EXPORTS = { history = "history", session = "session", zones = "zones", mob
 
 Slash.define({
   name = "scan",
-  help = L["/al scan - read the whole auction house (without TSM or Auctionator)"],
+  help = L["/al scan - read the whole auction house"],
   run = function()
     if ns.Core and ns.Core.scanCommand then ns.Core.scanCommand() end
   end,
