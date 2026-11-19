@@ -36,7 +36,7 @@ only inside functions.
 | `DB.lua` | saved-variable defaults and repair |
 | `LootParse.lua` | loot, money and currency chat messages into links, copper and currencies; item keys with bonus IDs |
 | `Mobs.lua` | loot, gold and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window |
-| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source (`Sources/Scan.lua`: LootLedger scan) |
+| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source (`Sources/Scan.lua`: LootLedger scan, `Sources/Sales.lua`: Own sales) |
 | `Scan.lua` | LootLedger scan, pure: market value / lowest of a listing set, the daily average, the packed storage, the chunked reader of a full read, the 15-minute wait |
 | `Trade.lua` | Trade section, pure: the per-realm store (log, totals, open posts, mail keys), trade kinds, mail recording, statistics, the own sale price |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
@@ -56,6 +56,7 @@ only inside functions.
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
 | `UI/ItemTooltip.lua` | drop chances in the game's item tooltips (hooked at login) |
 | `UI/ScanButton.lua` | the LootLedger scan button on the auction house window |
+| `UI/TradePeriod.lua` | the Trade tab's 7 days / 30 days / All button (db.tradePeriod) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
@@ -515,6 +516,38 @@ Each of these is one call in one place; the UI never names them.
   the preset's button edge color. Hover lightens both halves
   (`BUTTON_HOVER`) and uses the hover edge; OnMouseDown paints "pressed"
   (halves swapped), OnMouseUp hover or normal. Inputs keep the flat backdrop.
+- **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section,
+  the `trade` tab in `UI/Tabs.lua`, `View.buildTradeItems` /
+  `View.buildTradeLog`, `UI/TradePeriod.lua`): per realm key
+  (`Scan.currentRealmKey`), nothing is recorded while it is unknown.
+  - Posts and cancels: `hooksecurefunc` on `C_AuctionHouse.PostItem` /
+    `PostCommodity` / `CancelAuction` (`Core.hookAuctionCalls`, at login and
+    when `Blizzard_AuctionHouseUI` loads); `Trade.addPost` keeps an open post
+    (2 days) so a sale mail, which only names the item, finds its item key.
+  - `CHAT_MSG_SYSTEM` matching `ERR_AUCTION_SOLD_S` (`Core.formatPattern`)
+    keeps a "buyer found" mark with that moment's market (`Trade.markSold`).
+  - `MAIL_INBOX_UPDATE` reads every mail: seller invoices (also
+    `seller_temp_invoice`) are sales, the expired / cancelled subjects
+    returns. `Trade.recordMail` keeps each mail key (subject, sender, money,
+    invoice fields, expiry to the minute) until the mail would expire, joins
+    the temporary and final invoice of one sale (`Trade.saleKey`,
+    `JOIN_WINDOW` = 2 h), takes the amount off the newest open post of that
+    name and the market from the oldest mark, else `Core.marketAt` (the
+    first live source other than Own sales, `Prices:marketPrice`).
+    Cancel mails are only remembered (counted at the auction house).
+  - Trades: `TRADE_ACCEPT_UPDATE` snapshots both sides (slots 1-6, gold,
+    `UnitName("NPC")`); `UI_INFO_MESSAGE` with `ERR_TRADE_COMPLETE` records
+    it (`Trade.addTrade`, also up to 1 s after `TRADE_CLOSED`);
+    `Trade.classify` makes it a `tsale`, `tbuy` or `trade`. A trade sale of
+    several kinds splits the gold (`Trade.splitGold`) and is marked `split`:
+    it counts in Sold and Gold, not in the comparison or Own sales.
+  - Totals per item key are kept for good (`Trade.add`), the log for
+    **Trade log kept** days (`Core.pruneTrade` at login).
+    `Trade.itemStats(bucket, since, now)` gives the Items rows (from the log
+    with a period, from the totals for All); rate = AH sold / (AH sold +
+    expired + cancelled) in units, none for name-only sales;
+    `Trade.salePrice` the Own sales price (gold before the cut per unit,
+    age of the newest sale). Core signals `dataChanged("trade")`.
 - **LootLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
   `UI/ScanButton.lua`): only while no source's `present` is true and the
   client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).
@@ -578,7 +611,9 @@ Each of these is one call in one place; the UI never names them.
   list) and `histories` (every character's History, see "Account-wide
   History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
   for the option Destroy values), `scan` (LootLedger scan: `[realm key] = {
-  lastFull, items = { [itemKey] = packed } }`, see LootLedger scan).
+  lastFull, items = { [itemKey] = packed } }`, see LootLedger scan), `trade`
+  (Trade tab: `[realm key] = { log, totals, posts, pending, mails }`, see
+  Trade section) and `tradePeriod` (`"7"`, `"30"` or `"all"`).
 - `LootLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
   and the bank scan, `profile` (the name of the profile it uses) and `scanAt`
@@ -604,7 +639,9 @@ events (`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
 (purchases are not loot; the auction house ones also drive the LootLedger
 scan), and `REPLICATE_ITEM_LIST_UPDATE`, `COMMODITY_SEARCH_RESULTS_UPDATED`,
-`ITEM_SEARCH_RESULTS_UPDATED` (LootLedger scan). An event the client does not know is skipped.
+`ITEM_SEARCH_RESULTS_UPDATED` (LootLedger scan), `MAIL_INBOX_UPDATE`,
+`CHAT_MSG_SYSTEM`, `TRADE_ACCEPT_UPDATE` and `UI_INFO_MESSAGE` (Trade
+section). An event the client does not know is skipped.
 
 ## Tests
 

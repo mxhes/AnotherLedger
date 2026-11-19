@@ -4172,3 +4172,23 @@ h.test("wiring: a trade whose complete message comes right after closing still c
   h.eq(#tradeLog(ctx), 1)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones", function()
+  local ctx = tradeWorld()
+  ctx.env.mails[1] = SALE_MAIL
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local Ledger, TP = ctx.ns.UI.Ledger, ctx.ns.UI.TradePeriod
+  Ledger.setTab("trade")
+  Ledger.setSubtab("items")
+  Ledger.refresh()
+  h.eq(#Ledger.view.rows, 1); h.eq(Ledger.view.rows[1].value, 380)
+  h.eq(TP.button:IsShown(), true); h.eq(TP.button:GetText(), "30 days")
+  ctx.now = ctx.now + 10 * 86400
+  TP.set("7")
+  h.eq(ctx.env.LootLedgerDB.tradePeriod, "7")
+  h.eq(#Ledger.view.rows, 0)
+  Ledger.setSubtab("log")
+  Ledger.refresh()
+  h.eq(#Ledger.view.rows, 1); h.eq(TP.button:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)

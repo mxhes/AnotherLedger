@@ -141,6 +141,7 @@ DB.defaults = {
   sorts = {},
   tab = "session", -- last shown tab: session / bags / bank / history
   subtab = {}, -- last shown sub-tab per tab: { history = "sessions" / "zones" }
+  tradePeriod = "30", -- the Trade tab's Items period: "7", "30" or "all"
   -- LibDBIcon's saved state (hide, minimapPos) when that library draws the
   -- minimap button (UI/Broker.lua).
   minimapIcon = {},

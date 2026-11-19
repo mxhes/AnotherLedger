@@ -55,5 +55,6 @@ UI\Export.lua
 UI\Broker.lua
 UI\ItemTooltip.lua
 UI\ScanButton.lua
+UI\TradePeriod.lua
 UI\Ledger.lua
 Core.lua

@@ -3,7 +3,7 @@ local ns = h.load({ "Util.lua", "Theme.lua", "UI/Tabs.lua" })
 local T = ns.UI.Tabs
 
 h.test("Tabs: keys, validity, labels and titles", function()
-  h.eq(T.KEYS, { "session", "bags", "bank", "history" })
+  h.eq(T.KEYS, { "session", "bags", "bank", "history", "trade" })
   h.eq(T.valid("bags"), true)
   h.eq(T.valid("nope"), false)
   h.eq(T.valid(nil), false)
@@ -81,4 +81,11 @@ h.test("Tabs sub-tabs: default, unknown key and build dispatch", function()
   h.eq(T.subtabs("history")[1].key, "sessions")
   h.eq(T.subtabs("history")[2].key, "zones")
   h.eq(T.sorts("history", "zones")[2], "perHour")
+end)
+
+h.test("Tabs: Trade comes after History with Items and Log", function()
+  local T = ns.UI.Tabs
+  h.eq(T.label("trade"), "Trade"); h.eq(T.title("trade"), "Trade Ledger")
+  h.eq(T.subtabs("trade")[1].key, "items"); h.eq(T.subtabs("trade")[2].key, "log")
+  h.eq(T.sorts("trade", "items"), { "gold", "sold", "rate", "vsMarket", "name" })
 end)
