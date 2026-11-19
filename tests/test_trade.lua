@@ -100,3 +100,66 @@ h.test("Trade.cancel and expire mails take the amount off the open post", functi
     expires = 500, key = 7, id = 7, name = "Bolt", n = 7 }, 10, function() end)
   h.eq(#b.posts, 0); h.eq(b.totals[7].expired, 7); h.eq(b.totals[7].posted, 10)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Task 3: statistics, gold split and the sale price
+
+h.test("Trade.splitGold: by market value, equal per unit without one, adds up", function()
+  local T = ns.Trade
+  local items = { { key = 1, n = 1 }, { key = 2, n = 3 } }
+  h.eq(T.splitGold(items, 1000, function(k) return 100 end), { 250, 750 })
+  h.eq(T.splitGold(items, 1001, function(k) return k == 1 and 100 or nil end), { 250, 751 })
+end)
+
+h.test("Trade.addTrade: several item kinds are split and kept out of the price", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.addTrade(b, { out = { { key = 1, id = 1, name = "A", n = 1 }, { key = 2, id = 2, name = "B", n = 1 } },
+    ["in"] = {}, goldOut = 0, goldIn = 1000, who = "P", char = "Me" }, 10, function() return 100 end)
+  h.eq(#b.log, 2); h.eq(b.log[1].split, true); h.eq(b.totals[1].gold, 500)
+  h.eq(T.salePrice(b, 1, nil, 20), nil)
+end)
+
+h.test("Trade.addTrade: one item kind for gold is a trade sale with its market", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.addTrade(b, { out = { { key = 1, id = 1, name = "A", n = 2 } }, ["in"] = {}, goldOut = 0, goldIn = 300,
+    who = "P", char = "Me" }, 10, function() return 140 end)
+  h.eq(b.log[1].kind, "tsale"); h.eq(b.log[1].gold, 300); h.eq(b.log[1].market, 140)
+  h.eq(b.log[1].who, "P"); h.eq(T.salePrice(b, 1, nil, 20), 150)
+end)
+
+h.test("Trade.addTrade: a gift is logged without totals", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.addTrade(b, { out = { { key = 1, id = 1, name = "A", n = 2 } }, ["in"] = {}, goldOut = 0, goldIn = 0,
+    who = "Alt", char = "Me" }, 10, function() end)
+  h.eq(b.log[1].kind, "trade"); h.eq(b.totals[1], nil)
+end)
+
+h.test("Trade.itemStats: sell rate in units and price against the market", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.add(b, { t = 10, kind = "sale", key = 5, id = 5, name = "Bolt", n = 6, gold = 660, cut = 33, market = 100 })
+  T.add(b, { t = 10, kind = "expire", key = 5, id = 5, name = "Bolt", n = 2 })
+  T.add(b, { t = 10, kind = "tsale", key = 5, id = 5, name = "Bolt", n = 2, gold = 200 })
+  local s = T.itemStats(b, nil, 20)[1]
+  h.eq(s.sold, 8); h.eq(s.gold, 827); h.near(s.rate, 0.75, 1e-9); h.near(s.vsMarket, 0.1, 1e-9)
+  h.eq(#s.sales, 2)
+  h.eq(#T.itemStats(b, 15, 20), 0)
+  local recent = T.itemStats(b, 5, 20)[1]
+  h.eq(recent.sold, 8); h.eq(recent.gold, 827); h.near(recent.rate, 0.75, 1e-9)
+end)
+
+h.test("Trade.itemStats: name-only sales are grouped by name", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.add(b, { t = 10, kind = "sale", name = "Old thing", n = 1, gold = 50, cut = 0 })
+  T.add(b, { t = 11, kind = "sale", name = "Old thing", n = 2, gold = 90, cut = 0 })
+  local all = T.itemStats(b, nil, 20)
+  h.eq(#all, 1); h.eq(all[1].sold, 3); h.eq(all[1].key, nil); h.eq(all[1].rate, nil)
+end)
+
+h.test("Trade.salePrice: weighted average per unit and the age of the newest sale", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.add(b, { t = 10, kind = "sale", key = 5, id = 5, n = 1, gold = 100, cut = 5 })
+  T.add(b, { t = 40, kind = "tsale", key = 5, id = 5, n = 3, gold = 600 })
+  local p, age = T.salePrice(b, 5, nil, 100)
+  h.eq(p, 175); h.eq(age, 60)
+  h.eq(T.salePrice(b, 6, nil, 100), nil)
+end)

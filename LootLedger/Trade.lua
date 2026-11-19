@@ -63,20 +63,16 @@ local function totalsOf(bucket, key)
   return t
 end
 
--- Appends `entry` to the log and counts it in the totals of its item key
--- (entries without a key, and plain trades and purchases, count in none).
-function Trade.add(bucket, entry)
-  bucket.log[#bucket.log + 1] = entry
-  local key, kind, n = entry.key, entry.kind, entry.n or 0
-  if key == nil then return entry end
+-- Counts `entry` into the totals table `t` of its item.
+local function countInto(t, entry)
+  local kind, n = entry.kind, entry.n or 0
   if kind == "post" then
-    totalsOf(bucket, key).posted = totalsOf(bucket, key).posted + n
+    t.posted = t.posted + n
   elseif kind == "cancel" then
-    totalsOf(bucket, key).cancelled = totalsOf(bucket, key).cancelled + n
+    t.cancelled = t.cancelled + n
   elseif kind == "expire" then
-    totalsOf(bucket, key).expired = totalsOf(bucket, key).expired + n
+    t.expired = t.expired + n
   elseif SALES[kind] then
-    local t = totalsOf(bucket, key)
     t.sold = t.sold + n
     if kind == "sale" then t.soldAH = t.soldAH + n end
     t.gold = t.gold + (entry.gold or 0) - (entry.cut or 0)
@@ -85,6 +81,15 @@ function Trade.add(bucket, entry)
       t.cmpSale = t.cmpSale + (entry.gold or 0)
       t.cmpMarket = t.cmpMarket + entry.market * n
     end
+  end
+end
+
+-- Appends `entry` to the log and counts it in the totals of its item key
+-- (entries without a key, and plain trades and purchases, count in none).
+function Trade.add(bucket, entry)
+  bucket.log[#bucket.log + 1] = entry
+  if entry.key ~= nil and (entry.kind == "post" or entry.kind == "cancel" or entry.kind == "expire" or SALES[entry.kind]) then
+    countInto(totalsOf(bucket, entry.key), entry)
   end
   return entry
 end
@@ -223,6 +228,149 @@ function Trade.recordMail(bucket, m, now, marketAt)
   if market == nil and key ~= nil and type(marketAt) == "function" then market = marketAt(key, id) end
   return Trade.add(bucket, { t = now, kind = "sale", key = key, id = id, name = m.name, n = m.n,
     gold = m.gold, cut = m.cut, market = market, who = m.who, char = m.char })
+end
+
+-- ---------------------------------------------------------------------------
+-- Player trades
+
+-- Splits `gold` between `items` ({ { key, id, n }, ... }) by each item's
+-- market value x amount; equally per unit when any item has no market.
+-- `marketOf(key, id)` gives the market per unit. The parts add up to `gold`
+-- (the rest of the rounding goes to the last item).
+function Trade.splitGold(items, gold, marketOf)
+  local weights, sum, priced = {}, 0, true
+  for i, item in ipairs(items) do
+    local m = type(marketOf) == "function" and marketOf(item.key, item.id) or nil
+    if type(m) ~= "number" or m <= 0 then priced = false end
+    weights[i] = m
+  end
+  for i, item in ipairs(items) do
+    weights[i] = (priced and weights[i] or 1) * (item.n or 0)
+    sum = sum + weights[i]
+  end
+  local parts, given = {}, 0
+  for i = 1, #items do
+    if i == #items then
+      parts[i] = gold - given
+    else
+      parts[i] = sum > 0 and math.floor(gold * weights[i] / sum) or 0
+      given = given + parts[i]
+    end
+  end
+  return parts
+end
+
+-- Records a finished trade. snap = { out, in, goldOut, goldIn, who, char }
+-- (out / in = { { key, id, name, n }, ... }). A trade sale logs one "tsale"
+-- per item kind (several kinds: the gold split, marked `split`); a purchase
+-- or any other trade logs one entry with both sides (no totals).
+function Trade.addTrade(bucket, snap, now, marketOf)
+  local out, inItems = snap.out or {}, snap["in"] or {}
+  local kind = Trade.classify(out, inItems, snap.goldOut, snap.goldIn)
+  if kind ~= "tsale" then
+    local gold = kind == "tbuy" and snap.goldOut or snap.goldIn
+    return Trade.add(bucket, { t = now, kind = kind, out = out, ["in"] = inItems,
+      goldOut = snap.goldOut or 0, goldIn = snap.goldIn or 0, gold = gold or 0,
+      who = snap.who, char = snap.char })
+  end
+  local parts = Trade.splitGold(out, snap.goldIn, marketOf)
+  local split = #out > 1 or nil
+  for i, item in ipairs(out) do
+    local market = type(marketOf) == "function" and marketOf(item.key, item.id) or nil
+    Trade.add(bucket, { t = now, kind = "tsale", key = item.key, id = item.id, name = item.name, n = item.n,
+      gold = parts[i], market = market, split = split, who = snap.who, char = snap.char })
+  end
+end
+
+-- ---------------------------------------------------------------------------
+-- Statistics and the own sale price
+
+local function groupOf(e)
+  if e.key ~= nil then return e.key end
+  if type(e.name) == "string" then return "name:" .. e.name end
+  return nil
+end
+
+local function emptyStat(key, e)
+  return { key = key, id = e.id, name = e.name, posted = 0, sold = 0, soldAH = 0, expired = 0, cancelled = 0,
+    gold = 0, cmpN = 0, cmpSale = 0, cmpMarket = 0, sales = {} }
+end
+
+-- Per item: { key, id, name, sold, soldAH, gold, expired, cancelled, rate,
+-- vsMarket, sales } from the log entries since `since` (a time), or from the
+-- totals when `since` is nil (sales always from the log, newest first).
+-- rate = sold at the auction house / (that + expired + cancelled), nil
+-- without auction events; vsMarket = sale / market - 1 over the compared
+-- sales, nil without one. Items not yet sold or returned are left out.
+function Trade.itemStats(bucket, since, now)
+  local groups, order = {}, {}
+  local function stat(group, e)
+    local s = groups[group]
+    if not s then
+      s = emptyStat(group ~= nil and e.key or nil, e)
+      groups[group] = s
+      order[#order + 1] = group
+    end
+    if s.name == nil then s.name = e.name end
+    if s.id == nil then s.id = e.id end
+    return s
+  end
+  -- The log: counts (with `since`, and always for name-only sales), names
+  -- and the sales lists.
+  for i = #bucket.log, 1, -1 do
+    local e = bucket.log[i]
+    local group = groupOf(e)
+    if group ~= nil and (since == nil or (e.t or 0) >= since) then
+      local s = stat(group, e)
+      if SALES[e.kind] then s.sales[#s.sales + 1] = e end
+      if since ~= nil or e.key == nil then countInto(s, e) end
+    end
+  end
+  -- All time: the totals of keyed items.
+  if since == nil then
+    for key, t in pairs(bucket.totals) do
+      local s = groups[key]
+      if not s then
+        s = emptyStat(key, { id = type(key) == "number" and key or nil })
+        groups[key] = s
+        order[#order + 1] = key
+      end
+      for _, f in ipairs({ "posted", "sold", "soldAH", "expired", "cancelled", "gold", "cmpN", "cmpSale", "cmpMarket" }) do
+        s[f] = t[f] or 0
+      end
+    end
+  end
+  local list = {}
+  for _, group in ipairs(order) do
+    local s = groups[group]
+    if s.sold > 0 or s.expired + s.cancelled > 0 then
+      local ah = s.soldAH + s.expired + s.cancelled
+      -- Name-only sales have no posts or returns to weigh against: no rate.
+      s.rate = (s.key ~= nil and ah > 0) and s.soldAH / ah or nil
+      s.vsMarket = s.cmpMarket > 0 and s.cmpSale / s.cmpMarket - 1 or nil
+      list[#list + 1] = s
+    end
+  end
+  return list
+end
+
+-- The own sale price of an item: the amount-weighted average gold per unit
+-- (before the cut) of its sales in the log, trade sales with a split left
+-- out; and the age of the newest of them. nil without such a sale.
+function Trade.salePrice(bucket, itemID, link, now)
+  if type(bucket) ~= "table" then return nil end
+  local key = itemID
+  if type(link) == "string" and ns.LootParse then key = ns.LootParse.itemKey(link) or itemID end
+  if key == nil then return nil end
+  local gold, n, newest = 0, 0, nil
+  for _, e in ipairs(bucket.log) do
+    if SALES[e.kind] and e.key == key and not e.split and (e.n or 0) > 0 then
+      gold, n = gold + (e.gold or 0), n + e.n
+      if newest == nil or e.t > newest then newest = e.t end
+    end
+  end
+  if n <= 0 then return nil end
+  return math.floor(gold / n + 0.5), math.max(0, now - newest)
 end
 
 ns.Trade = Trade
