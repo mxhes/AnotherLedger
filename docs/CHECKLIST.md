@@ -36,6 +36,29 @@ and remove both once it is confirmed.
   - The reminder line shows on the first auction house visit of a login, and
     the login hint mentions `/ll scan` and stays quiet once prices exist.
 
+- Trade section (`Core.lua` trade section, UNVERIFIED):
+  - Posting through the auction house UI calls `C_AuctionHouse.PostItem`
+    (itemLocation, duration, quantity, bid, buyout) or `PostCommodity`
+    (itemLocation, duration, quantity, unitPrice), and cancelling calls
+    `CancelAuction(auctionID)` while the owned auction is still listed
+    (`GetOwnedAuctionInfo` with `auctionID`, `itemLink`, `quantity`). Check:
+    post and cancel, then `/dump LootLedgerDB.trade` shows a post and a cancel.
+  - The chat line `ERR_AUCTION_SOLD_S` comes as `CHAT_MSG_SYSTEM` with the
+    item name.
+  - Mail: `GetInboxHeaderInfo` (sender 3rd, subject 4th, money 5th, daysLeft
+    7th), `GetInboxInvoiceInfo` (invoiceType `seller` /
+    `seller_temp_invoice`, itemName, buyer, bid, buyout, deposit, consignment,
+    count 11th); expired and cancelled mails match
+    `AUCTION_EXPIRED_MAIL_SUBJECT` / `AUCTION_REMOVED_MAIL_SUBJECT` and carry
+    the item as attachment 1. A sale is recorded once, also after reopening
+    the mailbox or on another character.
+  - Trades: `TRADE_ACCEPT_UPDATE` on accept, slots 1-6 through
+    `GetTradePlayerItemLink` / `Info` (count 3rd) and the Target versions,
+    `GetPlayerTradeMoney` / `GetTargetTradeMoney`, `UnitName("NPC")`; the
+    `ERR_TRADE_COMPLETE` message as `UI_INFO_MESSAGE` before `TRADE_CLOSED`
+    or within a second after it. Check: sell an item to another player for
+    gold; the Trade log shows a trade sale.
+
 To look at in the client after the fourth review (2026-11-18), only run
 against the test fakes so far:
 

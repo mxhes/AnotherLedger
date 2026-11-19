@@ -5,7 +5,10 @@ Sizes: S = under an hour, M = a few hours, L = a bigger piece of work.
 
 ## Open ideas
 
-None right now.
+- Auction house purchases (buying, bids placed) in the Trade Log and
+  statistics. M
+- COD mail between players as sales. M
+- Profit per item (material cost of crafted items against the sale price). L
 
 ## Already built
 
@@ -31,4 +34,6 @@ and unpriced items first from the footer note. After it: Mobs counts with
 the clock stopped and with fast loot addons, and drop chances show in the
 Mobs tooltips and in the game's item tooltips.
 Then: LootLedger scan (own auction house prices without TSM or Auctionator:
-full scan, passive recording, Scan price, Scan reminder).
+full scan, passive recording, Scan price, Scan reminder), gilded two-tone
+buttons, and the Trade tab (auction and trade recording, Items and Log, Own
+sales price source, Trade log kept).

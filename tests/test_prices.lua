@@ -316,3 +316,15 @@ h.test("Prices.destroyKind / destroyAllowed / professionSet", function()
   h.eq(set.jewelcrafting, nil)
   h.eq(P.professionSet({ 773, 755 }).jewelcrafting, true)
 end)
+
+h.test("Prices.marketPrice: the first live price of the other sources", function()
+  local bValue = 200
+  local p = ns.Prices.new({ sources = {
+    { name = "A", get = function() return 100 end },
+    { name = "B", get = function() return bValue end },
+  }, now = function() return 0 end, key = function() return nil end })
+  h.eq(p:marketPrice(1, nil, "A"), 200)
+  h.eq(p:marketPrice(1, nil, "C"), 100)
+  bValue = nil
+  h.eq(p:marketPrice(1, nil, "A"), nil)
+end)

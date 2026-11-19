@@ -374,7 +374,7 @@ Options.define({
   key = "priceSource", category = "prices",
   type = "dropdown",
   label = L["AH price source"],
-  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator, then LootLedger's own scan. TSM's sale info and destroy values count whenever TSM is loaded."],
+  tooltip = L["Where auction prices come from. Auto asks TSM first, then Auctionator, then LootLedger's own scan, then your own sales. TSM's sale info and destroy values count whenever TSM is loaded."],
   -- "Auto" plus every registered price source (Sources/Sources.lua).
   choices = function() return ns.Sources.choices() end,
   apply = refreshUI,
@@ -922,6 +922,20 @@ Options.define({
     end
     refreshUI()
   end,
+})
+
+-- How many days the Trade log keeps each entry (account-wide, like the
+-- Trade data). Applied at the next login; the totals per item stay.
+Options.define({
+  key = "tradeLogDays", account = true, category = "history", type = "dropdown",
+  label = L["Trade log kept"],
+  tooltip = L["How many days the Trade log keeps each sale, trade and auction. The totals per item stay."],
+  choices = {
+    { value = 30, label = L["30 days"] },
+    { value = 90, label = L["90 days"] },
+    { value = 180, label = L["180 days"] },
+    { value = 365, label = L["365 days"] },
+  },
 })
 
 -- ---------------------------------------------------------------------------

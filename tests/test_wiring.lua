@@ -4029,3 +4029,177 @@ h.test("wiring: a bronze button looks pressed while the mouse is held down", fun
   h.eq(b.look, "normal")
   h.eq(ctx.errors, {})
 end)
+
+-- ---------------------------------------------------------------------------
+-- Trade section: mail, auction house calls, chat and the trade window
+
+local function tradeWorld(withRealm)
+  local ctx = bootDeferred()
+  local env = ctx.env
+  env.hooksecurefunc = function(tbl, name, fn)
+    local orig = tbl[name]
+    tbl[name] = function(...) local r = { orig(...) }; fn(...); return (table.unpack or unpack)(r) end
+  end
+  env.C_AuctionHouse = {
+    PostItem = function() end, PostCommodity = function() end, CancelAuction = function() end,
+    GetNumOwnedAuctions = function() return 1 end,
+    GetOwnedAuctionInfo = function(i) return { auctionID = 77, itemLink = "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r", quantity = 3 } end,
+  }
+  env.C_Item = env.C_Item or {}
+  env.C_Item.GetItemLink = function(loc) return loc.link end
+  env.C_Item.GetItemInfoInstant = function(name) if name == "Bolt" then return 5 end end
+  if withRealm ~= false then env.GetRealmName = function() return "Realm" end end
+  env.UnitName = function(unit) return unit == "NPC" and "Partner" or "Me" end
+  env.ERR_TRADE_COMPLETE = "Trade complete."
+  env.ERR_AUCTION_SOLD_S = "A buyer has been found for your auction of %s."
+  env.AUCTION_EXPIRED_MAIL_SUBJECT = "Auction expired: %s"
+  env.AUCTION_REMOVED_MAIL_SUBJECT = "Auction cancelled: %s"
+  env.mails = {}
+  env.GetInboxNumItems = function() return #env.mails end
+  env.GetInboxHeaderInfo = function(i)
+    local m = env.mails[i]
+    return nil, nil, m.sender, m.subject, m.money, 0, m.daysLeft, m.link ~= nil
+  end
+  env.GetInboxInvoiceInfo = function(i)
+    local m = env.mails[i]
+    if not m.invoice then return nil end
+    return m.invoice, m.name, m.who, m.bid, m.bid, 0, m.cut, 0, 0, 0, m.count
+  end
+  env.GetInboxItemLink = function(i) return env.mails[i].link end
+  env.GetInboxItem = function(i) return env.mails[i].name, 5, nil, env.mails[i].count end
+  startWorld(ctx, false)
+  ctx.runTimers()
+  return ctx
+end
+
+local function tradeLog(ctx)
+  local b = ctx.ns.Trade.bucket(ctx.ns.db, ctx.ns.Scan.currentRealmKey())
+  return b and b.log or {}, b
+end
+
+local SALE_MAIL = { sender = "Auction House", subject = "Auction successful: Bolt", money = 380, daysLeft = 29.5,
+  invoice = "seller", name = "Bolt", who = "Buyer", bid = 400, cut = 20, count = 4 }
+
+h.test("wiring: a sale mail is recorded once", function()
+  local ctx = tradeWorld()
+  ctx.env.mails[1] = SALE_MAIL
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local log = tradeLog(ctx)
+  h.eq(#log, 1)
+  h.eq(log[1].kind, "sale"); h.eq(log[1].gold, 400); h.eq(log[1].cut, 20); h.eq(log[1].who, "Buyer")
+  h.eq(log[1].id, 5); h.eq(log[1].n, 4)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an expired auction mail is recorded with its item", function()
+  local ctx = tradeWorld()
+  ctx.env.mails[1] = { sender = "Auction House", subject = "Auction expired: Bolt", money = 0, daysLeft = 29,
+    link = "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r", name = "Bolt", count = 6 }
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local log = tradeLog(ctx)
+  h.eq(#log, 1); h.eq(log[1].kind, "expire"); h.eq(log[1].n, 6); h.eq(log[1].key, 5)
+  h.eq(ctx.errors, {})
+end)
+
+local function openTrade(ctx, playerLink, playerCount, targetMoney)
+  local env = ctx.env
+  fire(ctx, "TRADE_SHOW")
+  env.GetTradePlayerItemLink = function(i) if i == 1 then return playerLink end end
+  env.GetTradePlayerItemInfo = function(i) if i == 1 and playerLink then return "Bolt", nil, playerCount end end
+  env.GetTradeTargetItemLink = function() return nil end
+  env.GetTradeTargetItemInfo = function() return nil end
+  env.GetPlayerTradeMoney = function() return 0 end
+  env.GetTargetTradeMoney = function() return targetMoney end
+  fire(ctx, "TRADE_ACCEPT_UPDATE", 1, 1)
+end
+
+h.test("wiring: a finished gold-for-items trade is a trade sale", function()
+  local ctx = tradeWorld()
+  openTrade(ctx, "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r", 3, 5000)
+  fire(ctx, "UI_INFO_MESSAGE", 0, "Trade complete.")
+  fire(ctx, "TRADE_CLOSED")
+  local log = tradeLog(ctx)
+  h.eq(#log, 1); h.eq(log[1].kind, "tsale"); h.eq(log[1].gold, 5000); h.eq(log[1].n, 3)
+  h.eq(log[1].who, "Partner"); h.eq(log[1].char, "Me")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a cancelled trade saves nothing", function()
+  local ctx = tradeWorld()
+  openTrade(ctx, "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r", 3, 5000)
+  fire(ctx, "TRADE_CLOSED")
+  ctx.runTimers() -- the second after closing passes
+  fire(ctx, "UI_INFO_MESSAGE", 0, "Trade complete.") -- a later, unrelated message
+  fire(ctx, "TRADE_SHOW")
+  h.eq(#tradeLog(ctx), 0)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: posting a commodity logs a post, cancelling logs a cancel", function()
+  local ctx = tradeWorld()
+  local api = ctx.env.C_AuctionHouse
+  api.PostCommodity({ link = "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r" }, 1, 20, 50)
+  api.CancelAuction(77)
+  local log = tradeLog(ctx)
+  h.eq(#log, 2)
+  h.eq(log[1].kind, "post"); h.eq(log[1].n, 20); h.eq(log[1].gold, 1000); h.eq(log[1].name, "Bolt")
+  h.eq(log[2].kind, "cancel"); h.eq(log[2].n, 3)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the sold chat line marks the sale", function()
+  local ctx = tradeWorld()
+  fire(ctx, "CHAT_MSG_SYSTEM", "A buyer has been found for your auction of Bolt.")
+  local _, b = tradeLog(ctx)
+  h.eq(#b.pending, 1); h.eq(b.pending[1].name, "Bolt")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: nothing is recorded while the realm key is unknown", function()
+  local ctx = tradeWorld(false)
+  ctx.env.mails[1] = SALE_MAIL
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  h.eq(ctx.ns.db.trade == nil or next(ctx.ns.db.trade) == nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a trade whose complete message comes right after closing still counts", function()
+  local ctx = tradeWorld()
+  openTrade(ctx, "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r", 1, 900)
+  fire(ctx, "TRADE_CLOSED")
+  fire(ctx, "UI_INFO_MESSAGE", 0, "Trade complete.")
+  h.eq(#tradeLog(ctx), 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones", function()
+  local ctx = tradeWorld()
+  ctx.env.mails[1] = SALE_MAIL
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local Ledger, TP = ctx.ns.UI.Ledger, ctx.ns.UI.TradePeriod
+  Ledger.setTab("trade")
+  Ledger.setSubtab("items")
+  Ledger.refresh()
+  h.eq(#Ledger.view.rows, 1); h.eq(Ledger.view.rows[1].value, 380)
+  h.eq(TP.button:IsShown(), true); h.eq(TP.button:GetText(), "30 days")
+  ctx.now = ctx.now + 10 * 86400
+  TP.set("7")
+  h.eq(ctx.env.LootLedgerDB.tradePeriod, "7")
+  h.eq(#Ledger.view.rows, 0)
+  Ledger.setSubtab("log")
+  Ledger.refresh()
+  h.eq(#Ledger.view.rows, 1); h.eq(TP.button:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a reagent link with a quality icon matches its sale mail by name", function()
+  local ctx = tradeWorld()
+  ctx.env.C_AuctionHouse.PostCommodity({ link = "|cffffffff|Hitem:8::::::::|h[Ore |A:Professions-ChatIcon-Quality-Tier2:17:17::1|a]|h|r" }, 1, 5, 100)
+  ctx.env.mails[1] = { sender = "Auction House", subject = "Auction successful: Ore", money = 480, daysLeft = 29.5,
+    invoice = "seller", name = "Ore", who = "Buyer", bid = 500, cut = 25, count = 5 }
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local log, b = tradeLog(ctx)
+  h.eq(log[1].name, "Ore"); h.eq(log[2].key, 8); h.eq(#b.posts, 0)
+  h.eq(ctx.errors, {})
+end)

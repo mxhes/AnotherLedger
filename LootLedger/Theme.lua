@@ -300,6 +300,7 @@ Theme.sizes = {
   -- frame levels above the window it is drawn (nothing of the game's sits
   -- there; confirmed in the client).
   scanButtonWidth = 150,
+  tradePeriodWidth = 80, -- the Trade tab's 7 days / 30 days / All button
   scanButtonX = -4,
   scanButtonY = -2,
   scanButtonLevel = 10,

@@ -21,6 +21,7 @@ DB.defaults = {
     combatHide = false,
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,
+    tradeLogDays = 90, -- account-wide: days the Trade log keeps each entry
     -- Minimap button shown (account-wide, like historyLimit and accountZones:
     -- options with `account = true` are stored in LootLedgerDB.account; their
     -- defaults stay here).
@@ -140,6 +141,7 @@ DB.defaults = {
   sorts = {},
   tab = "session", -- last shown tab: session / bags / bank / history
   subtab = {}, -- last shown sub-tab per tab: { history = "sessions" / "zones" }
+  tradePeriod = "30", -- the Trade tab's Items period: "7", "30" or "all"
   -- LibDBIcon's saved state (hide, minimapPos) when that library draws the
   -- minimap button (UI/Broker.lua).
   minimapIcon = {},

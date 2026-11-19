@@ -182,6 +182,33 @@ items.
   combat log. A mob's coin counts what you got of it, so in a group your
   share. A mob or node whose name was never seen shows its number. Sessions
   saved before Mobs existed have no mob data.
+- **Trade**: what you sell and trade on this realm, from all your characters.
+  - **Items** lists every item you sold: how many (auction house and player
+    trades together), the gold you earned after the auction house cut in the
+    coin column, the sell rate (`75% sold`: sold out of everything you put up,
+    expired and cancelled auctions count against it) and your average price
+    against the market price on the day of each sale (`+4% vs market`). The
+    button at the right picks **7 days**, **30 days** or **All**. Hover a row
+    for its sales one by one (date, amount, price, the market then, the
+    buyer). Sorts: Gold earned, Sold, Sell rate, vs market, Name.
+  - **Log** lists every entry, newest first: Posted, Cancelled, Expired, Sold,
+    Trade sale, Trade purchase and Trade, with the date, the other player and
+    your character.
+  - Auctions you post or cancel are recorded at the auction house. Sales and
+    expired auctions are recorded from the mail, so they show once you open
+    your mailbox; a sale mail counts once, also when you open it again or on
+    another character. When the "buyer found" line comes while you are
+    online, that moment's market price is kept for the comparison.
+  - A trade with another player counts as a sale only when you gave items
+    and got only gold back (and as a purchase the other way round). Gifts,
+    swaps and handing items to your alts are kept in the Log but left out of
+    the statistics. When one sum of gold pays for several different items,
+    the gold is split by their market value for Sold and Gold, but that
+    trade is left out of the price comparison and of Own sales.
+  - **Own sales** is also an auction price source for the whole addon, asked
+    after LootLedger scan: the average price you got per item.
+  - **Trade log kept** (History options) sets how many days the Log keeps
+    each entry (90 by default); the totals per item stay for **All**.
 
 ## Daily farm
 
@@ -229,7 +256,7 @@ Without TSM and Auctionator, LootLedger reads the auction house itself:
   price source.
 
 The order of auction prices is TSM, then Auctionator, then LootLedger scan,
-then the last price seen earlier.
+then your own sales (Trade tab), then the last price seen earlier.
 
 ## Options
 
@@ -248,7 +275,7 @@ History asks first.
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
-| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
+| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 

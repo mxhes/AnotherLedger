@@ -1441,3 +1441,57 @@ h.test("View.buildHistory: headings read the date at most three times per sessio
   V.buildHistory(list, { now = now, dateFn = utc, sort = "recent", formatDate = function(t) return "d" .. t end })
   h.eq(calls <= 3 * 20 + 6, true, "date calls: " .. calls)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Trade tab
+
+h.test("View.buildTradeItems: gold in the value column, sold, rate and market in the detail", function()
+  local v = V.buildTradeItems({ { key = 5, id = 5, name = "Bolt", sold = 8, soldAH = 6, gold = 827, expired = 2,
+    cancelled = 0, rate = 0.75, vsMarket = 0.1, sales = {} } }, { sort = "gold" })
+  local r = v.rows[1]
+  h.eq(r.quantity, 8); h.eq(r.value, 827); h.eq(r.bestLineTotal, 827); h.eq(r.name, "Bolt")
+  h.eq(r.detail:find("75% sold", 1, true) ~= nil, true)
+  h.eq(r.detail:find("+10% vs market", 1, true) ~= nil, true)
+  h.eq(v.headerInfo, "8 sold, 2 expired, 0 cancelled")
+end)
+
+h.test("View.buildTradeItems: no rate or market part without them, below market shows minus", function()
+  local v = V.buildTradeItems({ { name = "Old", sold = 1, soldAH = 1, gold = 10, expired = 0, cancelled = 0,
+    vsMarket = -0.12, sales = {} } }, {})
+  h.eq(v.rows[1].detail, "-12% vs market")
+  h.eq(V.buildTradeItems({ { name = "A", sold = 1, gold = 10, expired = 0, cancelled = 0, sales = {} } }, {}).rows[1].detail, "")
+end)
+
+h.test("View.buildTradeItems: sorts by gold first, by sold and rate on request", function()
+  local stats = {
+    { name = "A", sold = 1, gold = 100, expired = 0, cancelled = 0, rate = 0.2, sales = {} },
+    { name = "B", sold = 5, gold = 50, expired = 0, cancelled = 0, rate = 0.9, sales = {} },
+  }
+  h.eq(V.buildTradeItems(stats, {}).rows[1].name, "A")
+  h.eq(V.buildTradeItems(stats, { sort = "sold" }).rows[1].name, "B")
+  h.eq(V.buildTradeItems(stats, { sort = "rate" }).rows[1].name, "B")
+  h.eq(V.buildTradeItems({}, {}).empty, "No sales yet. Sales show after you open your mailbox.")
+end)
+
+h.test("View.buildTradeItems: the hover lists the sales", function()
+  local v = V.buildTradeItems({ { name = "Bolt", sold = 4, gold = 380, expired = 0, cancelled = 0,
+    sales = { { t = 10, kind = "sale", n = 4, gold = 400, cut = 20, market = 110, who = "Buyer" } } } },
+    { shortDate = function() return "Today" end })
+  local text = tipText(v.rows[1])
+  h.eq(text:find("Buyer", 1, true) ~= nil, true)
+  h.eq(text:find("Today", 1, true) ~= nil, true)
+end)
+
+h.test("View.buildTradeLog: newest first with the kind word", function()
+  local log = {
+    { t = 1, kind = "post", name = "Bolt", n = 10, gold = 1000 },
+    { t = 2, kind = "sale", name = "Bolt", n = 4, gold = 400, cut = 20, who = "Buyer", char = "Me" },
+    { t = 3, kind = "trade", out = { { name = "Ore", n = 2 } }, ["in"] = {}, goldOut = 0, goldIn = 0, who = "Alt", char = "Me" },
+  }
+  local v = V.buildTradeLog(log, { shortDate = function(t) return "d" .. t end })
+  h.eq(#v.rows, 3)
+  h.eq(v.rows[1].name, "Alt"); h.eq(v.rows[1].detail:find("Trade", 1, true) ~= nil, true)
+  h.eq(v.rows[2].name, "Bolt"); h.eq(v.rows[2].value, 380); h.eq(v.rows[2].detail:find("Sold", 1, true) ~= nil, true)
+  h.eq(v.rows[3].detail:find("Posted", 1, true) ~= nil, true); h.eq(v.rows[3].value, 0)
+  h.eq(V.buildTradeLog({}, {}).empty, "Nothing traded yet.")
+end)

@@ -294,6 +294,53 @@ Tabs.define({
   },
 })
 
+-- Trade: what sold and how well (Items, over the period of db.tradePeriod:
+-- 7 days, 30 days or all) and every recorded entry (Log), for this realm.
+local TRADE_DAY = 86400
+
+local function tradeBucket()
+  return ns.Core and ns.Core.tradeBucket and ns.Core.tradeBucket() or nil
+end
+
+-- The start of the Items period (nil: all time, from the totals).
+function Tabs.tradeSince(period, now)
+  local days = tonumber(period)
+  if not days then return nil end
+  return now - days * TRADE_DAY
+end
+
+local function tradePeriod()
+  local db = ns.db
+  return type(db) == "table" and db.tradePeriod or "30"
+end
+
+local function tradeHasItem(itemID)
+  return ns.Trade.hasItemID(tradeBucket(), itemID)
+end
+
+local function buildTradeItems(ctx)
+  local bucket = tradeBucket()
+  local stats = bucket and ns.Trade.itemStats(bucket, Tabs.tradeSince(tradePeriod(), ctx.now), ctx.now) or {}
+  return ns.View.buildTradeItems(stats, ctx.opts)
+end
+
+Tabs.define({
+  key = "trade", label = L["Trade"], title = L["Trade Ledger"],
+  watches = "trade",
+  build = buildTradeItems,
+  hasItem = tradeHasItem,
+  subtabs = {
+    { key = "items", label = L["Items"], build = buildTradeItems, hasItem = tradeHasItem,
+      sorts = { "gold", "sold", "rate", "vsMarket", "name" }, defaultSort = "gold" },
+    { key = "log", label = L["Log"],
+      build = function(ctx)
+        local bucket = tradeBucket()
+        return ns.View.buildTradeLog(bucket and bucket.log or {}, ctx.opts)
+      end,
+      hasItem = tradeHasItem },
+  },
+})
+
 -- ---------------------------------------------------------------------------
 -- Buttons
 

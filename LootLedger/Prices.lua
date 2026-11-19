@@ -160,6 +160,18 @@ function Instance:_live(itemID, link)
   return nil
 end
 
+-- The first valid live price of the sources other than `skipName` (no cache,
+-- no rules): the market of a sale without the player's own sales in it.
+function Instance:marketPrice(itemID, link, skipName)
+  for _, source in ipairs(self.sources) do
+    if source.name ~= skipName then
+      local ok, value = pcall(source.get, itemID, link)
+      if ok and isPositive(value) then return value end
+    end
+  end
+  return nil
+end
+
 -- Remembers a live price as seen at `seenAt` (now, or earlier for a source
 -- that reports its price's age); an unchanged, recently stamped entry is
 -- left alone so the saved table is not rewritten on every lookup.

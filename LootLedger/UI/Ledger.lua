@@ -797,6 +797,11 @@ function Ledger.init()
     end
   end)
 
+  -- The Trade tab's period switch, at the right end of the sub-tab row.
+  attach(UI.TradePeriod, function()
+    UI.TradePeriod.attach(frame.header.row4)
+  end)
+
   attach(UI.Compact, function()
     if frame.compact then UI.Compact.attach(frame.compact) end
   end)
