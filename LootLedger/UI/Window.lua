@@ -261,6 +261,7 @@ function Window.endDrag()
   frame:StopMovingOrSizing()
   frame:SetUserPlaced(false) -- db.window is the only position store
   snapFrame(frame)
+  Window.rememberCorner()
   save()
   -- Redraw so the source tags snap to whole screen pixels at the new place.
   if ns.UI.Ledger and ns.UI.Ledger.refresh then ns.UI.Ledger.refresh() end
@@ -385,6 +386,7 @@ local function build(db)
       frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
       frame:SetSize(w, h)
     end
+    Window.rememberCorner()
     save()
   end)
 
@@ -444,8 +446,63 @@ function Window.create(db)
   return Window.frame
 end
 
+local CORNERS = { TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true }
+
+-- Pure. The corner nearest to the screen edges of a window whose CENTER is
+-- (x, y) from the screen center: left half LEFT (else RIGHT), top half TOP
+-- (else BOTTOM).
+function Window.cornerFor(x, y)
+  return (y >= 0 and "TOP" or "BOTTOM") .. (x <= 0 and "LEFT" or "RIGHT")
+end
+
+-- Pure. The CENTER offset (x, y) of a window resized from oldW x oldH to
+-- newW x newH so that `corner` ("TOPLEFT", ...) stays put; without a valid
+-- corner the one nearest to the screen edge (Window.cornerFor).
+function Window.keepCorner(x, y, oldW, oldH, newW, newH, corner)
+  if not CORNERS[corner] then corner = Window.cornerFor(x, y) end
+  local dx, dy = (newW - oldW) / 2, (newH - oldH) / 2
+  local left = corner:sub(-4) == "LEFT"
+  local top = corner:sub(1, 3) == "TOP"
+  return left and x + dx or x - dx, top and y - dy or y + dy
+end
+
+-- The corner a resize keeps: picked where the player put the window
+-- (Window.rememberCorner) and saved as db.window.corner. Picking it from the
+-- current center at every resize let a switch move the center over the screen
+-- middle, so the way back kept the other edge and the window walked.
+local function anchorCorner(frame)
+  local w = winDB()
+  if w and CORNERS[w.corner] then return w.corner end
+  local x, y = centerOffset(frame)
+  if not x then return nil end
+  local corner = Window.cornerFor(x, y)
+  if w then w.corner = corner end
+  return corner
+end
+
+-- After a drag or resize by the player: the corner nearest to the edge now.
+function Window.rememberCorner()
+  local frame, w = Window.frame, winDB()
+  if not (frame and w) then return end
+  local x, y = centerOffset(frame)
+  if x then w.corner = Window.cornerFor(x, y) end
+end
+
+-- Resizes the frame so its anchor corner stays where it is on the screen.
+local function resizeKeepingCorner(frame, newW, newH)
+  local oldW, oldH = frame:GetWidth(), frame:GetHeight()
+  local x, y = centerOffset(frame)
+  frame:SetSize(newW, newH)
+  if x and (newW ~= oldW or newH ~= oldH) then
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER",
+      Window.keepCorner(x, y, oldW, oldH, newW, newH, anchorCorner(frame)))
+  end
+end
+
 -- Raises the resize minimum to what the measured rows need (never below the
--- Theme minimum) and widens the window when it is currently narrower.
+-- Theme minimum) and widens the window when it is currently narrower (its
+-- anchor corner stays put).
 function Window.setMinWidth(required)
   Window.requiredWidth = required
   local frame = Window.frame
@@ -453,7 +510,7 @@ function Window.setMinWidth(required)
   applyBounds(frame)
   local min = minWidth()
   if frame:GetWidth() < min then
-    frame:SetWidth(min)
+    resizeKeepingCorner(frame, min, frame:GetHeight())
     ensureOnScreen(frame)
     save()
   end
@@ -468,7 +525,7 @@ function Window.applySizes()
   local w, h = frame:GetWidth(), frame:GetHeight()
   local nw, nh = math.max(w, minWidth()), math.max(h, minHeight())
   if nw ~= w or nh ~= h then
-    frame:SetSize(nw, nh)
+    resizeKeepingCorner(frame, nw, nh)
     ensureOnScreen(frame)
     save()
   end
@@ -526,18 +583,9 @@ function Window.setFarmRow(shown)
   applyHeaderHeight()
 end
 
--- Pure. The CENTER offset (x, y) of a window resized from oldW x oldH to
--- newW x newH so that the corner nearest to the screen edge stays put: a
--- window in the left half keeps its left edge (else its right edge), one in
--- the top half its top edge (else its bottom edge).
-function Window.keepCorner(x, y, oldW, oldH, newW, newH)
-  local dx, dy = (newW - oldW) / 2, (newH - oldH) / 2
-  return x <= 0 and x + dx or x - dx, y >= 0 and y - dy or y + dy
-end
-
 -- Switches the layout mode: the old mode's size is saved, the new mode's size
--- and minimum applied, the parts shown / hidden. The corner nearest to the
--- screen edge stays where it is (Window.keepCorner).
+-- and minimum applied, the parts shown / hidden. The anchor corner (nearest
+-- to the screen edge where the player put the window) stays where it is.
 function Window.applyMode(mode)
   if not Window.MODES[mode] then mode = "full" end
   local frame = Window.frame
@@ -549,16 +597,10 @@ function Window.applyMode(mode)
   -- is already that layout's own.
   local changed = mode ~= Window.mode and Window.modeApplied == true
   if changed then save() end
-  local oldW, oldH = frame:GetWidth(), frame:GetHeight()
   Window.mode = mode
   applyBounds(frame)
   local newW, newH = modeSize(frame)
-  frame:SetSize(newW, newH)
-  local x, y = centerOffset(frame)
-  if changed and x then
-    frame:ClearAllPoints()
-    frame:SetPoint("CENTER", UIParent, "CENTER", Window.keepCorner(x, y, oldW, oldH, newW, newH))
-  end
+  if changed then resizeKeepingCorner(frame, newW, newH) else frame:SetSize(newW, newH) end
   local parts = Window.modeParts(mode)
   local full = mode == "full"
   local h = frame.header

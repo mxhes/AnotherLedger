@@ -500,6 +500,16 @@ Each of these is one call in one place; the UI never names them.
   frame's scale) and `Theme.sizes.gridSnapDistance`; each axis moves its
   nearest edge or center onto a line within that distance. Unknown spacing =
   no snap.
+- **Anchor corner**: a layout switch (`Window.applyMode`), a wider minimum
+  (`setMinWidth`) and larger font sizes (`applySizes`) resize through
+  `resizeKeepingCorner`, which keeps `db.window.corner` (`"TOPLEFT"`, ...)
+  in place (`Window.keepCorner`). The corner is picked by `Window.cornerFor`
+  (the one nearest the screen edges) only after a drag or a resize by the
+  player (`Window.rememberCorner`), or once when none is saved. Picking it
+  from the center at every switch made the window walk: the taller full
+  layout moves the center over the screen middle, and the way back kept the
+  other edge. `ensureOnScreen` can still push a window that would run off
+  the screen.
 - **Redraws**: the clock and rates every second (running clock, ticking tabs or
   compact); prices and age tags at the **Price refresh** interval on every tab
   while the window is shown, clock running or not; everything at once on loot,
@@ -610,7 +620,8 @@ Each of these is one call in one place; the UI never names them.
   options), `renamed` (old profile name -> new, so other characters follow a
   rename at their next login), `minimapAngle`, `profilesMigrated` /
   `accountMigrated` (one-time migrations), `window` (position, full size
-  `width` / `height`, compact size `compact`, `hidden`), `mode` (layout),
+  `width` / `height`, compact size `compact`, `hidden`, `corner`: the corner a
+  resize keeps), `mode` (layout),
   `tab` and `subtab`, `filter`, `sort` (item lists) and `sorts` (History
   Sessions / Zones), `optionsWindow` (where the options panel was dragged to,
   `{ x, y }` from the screen center), `profileUsers`, `minimapIcon`

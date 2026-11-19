@@ -2339,6 +2339,42 @@ h.test("wiring: double-clicking the title toggles the mode", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: switching compact / full keeps the corner nearest the edge, both ways", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local f = ctx.ns.UI.Window.frame
+  ctx.env.UIParent:SetSize(1920, 1080)
+  -- the window's CENTER offset follows its last SetPoint (UIParent's center is 0, 0)
+  local cx, cy = 0, 0
+  f.GetCenter = function() return cx, cy end
+  f.SetPoint = function(_, p, _, _, x, y) if p == "CENTER" then cx, cy = x or 0, y or 0 end end
+  local function edges() return { cx - f:GetWidth() / 2, cy + f:GetHeight() / 2 } end -- left, top
+  local function rightBottom() return { cx + f:GetWidth() / 2, cy - f:GetHeight() / 2 } end
+  -- compact dragged to just above the screen center on the left: its top left stays
+  slash(ctx, "compact")
+  cx, cy = -600, 40
+  ctx.ns.UI.Window.endDrag()
+  local compactEdges = edges()
+  slash(ctx, "compact") -- to full: taller, so its center drops below the screen center
+  h.eq(edges(), compactEdges)
+  h.eq(cy < 0, true)
+  slash(ctx, "compact") -- and back: the same top left, the same place as before
+  h.eq(edges(), compactEdges)
+  h.eq({ cx, cy }, { -600, 40 })
+  -- full dragged to the bottom right: its bottom right stays, both ways
+  slash(ctx, "compact")
+  cx, cy = 500, -60
+  ctx.ns.UI.Window.endDrag()
+  local fullCorner = rightBottom()
+  slash(ctx, "compact")
+  h.eq(rightBottom(), fullCorner)
+  slash(ctx, "compact")
+  h.eq(rightBottom(), fullCorner)
+  h.eq({ cx, cy }, { 500, -60 })
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: a click on the footer's unpriced note lists those items first, a second click undoes it", function()
   local ctx = boot()
   ctx.env.TSM_API = { GetCustomPriceValue = function(_, itemString)
