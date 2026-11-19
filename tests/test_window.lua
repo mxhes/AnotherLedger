@@ -46,6 +46,7 @@ h.test("setMinWidth raises bounds and widens a too-narrow frame", function()
     SetResizeBounds = function(_, w, ht) bounds = { w, ht } end,
     GetWidth = function() return width end,
     SetWidth = function(_, w) width = w end,
+    SetSize = function(_, w) width = w end,
     GetCenter = function() return nil end,
     GetEffectiveScale = function() return 1 end,
     GetHeight = function() return 300 end,
@@ -92,6 +93,20 @@ h.test("Window.keepCorner: the corner nearest the screen edge stays put", functi
   h.eq({ keep(500, -300, 400, 400, 260, 200) }, { 570, -400 })
   -- back again restores the old center
   h.eq({ keep(-570, 400, 260, 200, 400, 400) }, { -500, 300 })
+end)
+
+h.test("Window.keepCorner: a given corner stays put even across the screen middle", function()
+  local W = ns.UI.Window
+  h.eq(W.cornerFor(-1, 1), "TOPLEFT"); h.eq(W.cornerFor(0, 0), "TOPLEFT")
+  h.eq(W.cornerFor(5, -1), "BOTTOMRIGHT"); h.eq(W.cornerFor(5, 1), "TOPRIGHT")
+  -- 260 x 210 at (-600, 40) grows to 420 x 440 with its top left kept: the
+  -- center drops below the middle, and the way back with the same corner
+  -- (not the one nearest the edge now) lands where it started
+  h.eq({ W.keepCorner(-600, 40, 260, 210, 420, 440, "TOPLEFT") }, { -520, -75 })
+  h.eq({ W.keepCorner(-520, -75, 420, 440, 260, 210, "TOPLEFT") }, { -600, 40 })
+  h.eq({ W.keepCorner(-520, -75, 420, 440, 260, 210) }, { -600, -190 })
+  h.eq({ W.keepCorner(500, -60, 420, 440, 260, 210, "BOTTOMRIGHT") }, { 580, -175 })
+  h.eq({ W.keepCorner(0, 0, 100, 100, 200, 200, "bad") }, { 50, -50 })
 end)
 
 h.test("Window.headerHeight: compact is the title row only", function()

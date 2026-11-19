@@ -77,6 +77,10 @@ against the test fakes so far:
   "large session" confirmation too.
 - Session per zone no longer splits while resting in a city (`IsResting`).
 - Login without TSM and Auctionator: the chat hint shows once.
+- Compact / full switch: drag the compact window just above the screen
+  middle, switch to full and back a few times; the top left (or, in the
+  bottom right, the bottom right) stays put and the window ends up exactly
+  where it started. Same after resizing with the grip.
 
 ## Release steps
 
