@@ -332,7 +332,9 @@ function Widgets.button(parent, label, width, opts)
   buttonBackdrop(b)
   buttonFill(b, T.sizes.buttonHeight)
   local fs = b:CreateFontString(nil, "OVERLAY", T.fonts.button)
-  fs:SetPoint("CENTER", b, "CENTER", 0, 0)
+  -- Anchored to both sides so a long label is cut off inside the button.
+  fs:SetPoint("LEFT", b, "LEFT", T.sizes.buttonTextPad, 0)
+  fs:SetPoint("RIGHT", b, "RIGHT", -T.sizes.buttonTextPad, 0)
   fs:SetWordWrap(false)
   if b.SetFontString then b:SetFontString(fs) end
   b.label, b.glyph, b.onEnter, b.onLeave = fs, false, false, false

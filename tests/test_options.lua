@@ -210,6 +210,17 @@ h.test("Options.valueText: formatter, choice label, plain value", function()
   h.eq(O.valueText({ type = "checkbox" }, false), "Off")
 end)
 
+h.test("Options.buttonText: a choice's short text, else valueText", function()
+  local spec = { type = "dropdown", choices = {
+    { value = "auto", label = "Auto (A, then B, then C)", short = "Auto" },
+    { value = "a", label = "A" },
+  } }
+  h.eq(O.buttonText(spec, "auto"), "Auto")
+  h.eq(O.buttonText(spec, "a"), "A")
+  h.eq(O.buttonText(O.spec("priceSource"), "auto"), "Auto")
+  h.eq(O.buttonText(O.spec("alpha"), 0.35), "35%")
+end)
+
 h.test("Options: number option normalizes to a whole number, negatives mean unlimited", function()
   local s = O.spec("historyLimit")
   h.eq(s.type, "number")

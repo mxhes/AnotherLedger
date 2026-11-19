@@ -270,6 +270,7 @@ Theme.sizes = {
   buttonEdge = 1,
   buttonInset = 1,
   iconButtonPad = 3,
+  buttonTextPad = 6, -- a label longer than the button is cut off this far inside
   -- Mode button arrow: inset of the arrow texture inside its 20 px square.
   arrowPad = 4,
   -- Compact mode: default size and minimum; the title's double-click area.
