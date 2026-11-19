@@ -23,4 +23,5 @@ ignore:
   - CLAUDE.md
   - docs
   - tests
+  - tools
   - .gitlab-ci.yml

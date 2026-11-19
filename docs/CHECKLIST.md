@@ -8,6 +8,12 @@ and remove both once it is confirmed.
 
 ## Open checks
 
+- Logo (`Media/Logo.tga`, `Theme.textures.logo`, UNVERIFIED): the 64 x 64
+  uncompressed TGA loads (restart the client once after adding the file).
+  Check: the addon list shows the ledger book next to LootLedger, and the
+  minimap button (own and LibDBIcon) and a broker display show it, not a
+  green square.
+
 - Item tooltips (`UI/ItemTooltip.lua`, UNVERIFIED):
   `TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, fn)`
   runs for bag, chat link and loot window tooltips, and `tooltip:GetItem()`
