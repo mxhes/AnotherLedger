@@ -223,7 +223,11 @@ function Trade.recordMail(bucket, m, now, marketAt)
     if key ~= nil then return p.key == key end
     return p.name == m.name
   end)
-  if key == nil and post then key, id = post.key, post.id end
+  if key == nil then
+    -- The newest open post of that name gives the item key (a variant
+    -- too); else the item ID the client found for the name, if any.
+    if post then key, id = post.key, post.id else key = id end
+  end
   local _, market = takeMark(bucket, m.name)
   if market == nil and key ~= nil and type(marketAt) == "function" then market = marketAt(key, id) end
   return Trade.add(bucket, { t = now, kind = "sale", key = key, id = id, name = m.name, n = m.n,

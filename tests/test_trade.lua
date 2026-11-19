@@ -163,3 +163,12 @@ h.test("Trade.salePrice: weighted average per unit and the age of the newest sal
   h.eq(p, 175); h.eq(age, 60)
   h.eq(T.salePrice(b, 6, nil, 100), nil)
 end)
+
+h.test("Trade.recordMail: a sale with only an item ID still takes the variant's post by name", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.addPost(b, { t = 1, key = "9:100", id = 9, name = "Bracers", n = 1, unit = 5000 })
+  local e = T.recordMail(b, saleMail({ name = "Bracers", n = 1, gold = 5000, id = 9 }), 10, function() end)
+  h.eq(e.key, "9:100"); h.eq(#b.posts, 0)
+  local e2 = T.recordMail(b, saleMail({ name = "Bracers", who = "X", n = 1, gold = 4000, id = 9 }), 20, function() end)
+  h.eq(e2.key, 9)
+end)

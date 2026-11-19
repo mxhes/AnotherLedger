@@ -1611,8 +1611,7 @@ local function readMail(i, now)
     local kind, name, who, bid, _, _, cut, _, _, _, count = GetInboxInvoiceInfo(i)
     if kind == "seller" or kind == "seller_temp_invoice" then
       m.kind, m.name, m.who, m.gold, m.cut, m.n = "sale", name, who, bid or 0, cut or 0, count or 1
-      m.id = idOfName(name)
-      m.key = m.id
+      m.id = idOfName(name) -- the post of that name gives the key (Trade.recordMail)
       return m
     end
   end
