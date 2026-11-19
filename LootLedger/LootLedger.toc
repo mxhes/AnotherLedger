@@ -20,10 +20,12 @@ Tooltip.lua
 DB.lua
 LootParse.lua
 Prices.lua
+Scan.lua
 Sources\Sources.lua
 Sources\Vendor.lua
 Sources\TSM.lua
 Sources\Auctionator.lua
+Sources\Scan.lua
 Session.lua
 Mobs.lua
 History.lua
@@ -50,5 +52,6 @@ UI\Minimap.lua
 UI\Export.lua
 UI\Broker.lua
 UI\ItemTooltip.lua
+UI\ScanButton.lua
 UI\Ledger.lua
 Core.lua

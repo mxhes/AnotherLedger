@@ -33,6 +33,26 @@ h.test("Prices cache fallback with age", function()
   h.eq(P.isStale(50400), true)
 end)
 
+h.test("Prices a live source may report its age", function()
+  local p = make({ { name = "S", get = function() return 800, 7200 end } }, function() end, {}, nil, { t = 1 })
+  local r = p:lookup(5)
+  h.eq(r.ah, 800); h.eq(r.ahSource, "S"); h.eq(r.ahAge, 7200); h.eq(r.ahAged, true)
+  h.eq(make({ src("T", 5) }, function() end, {}, nil, { t = 1 }):lookup(5).ahAged, nil)
+end)
+
+h.test("Prices an aged live price is cached with its own age", function()
+  local cache, clock, v = {}, { t = 10000 }, 800
+  local p = make({ { name = "S", get = function() return v, 7200 end } }, function() end, cache, nil, clock)
+  p:lookup(5)
+  h.eq(cache["EU-1"][5].seenAt, 2800)
+  clock.t = 20000
+  p:lookup(5)
+  h.eq(cache["EU-1"][5].seenAt, 12800)
+  v = nil
+  local r = p:lookup(5)
+  h.eq(r.ahSource, "cache"); h.eq(r.ahAge, 7200)
+end)
+
 h.test("Prices nothing anywhere", function()
   local p = make({ src("A", nil) }, function() end, {}, nil, { t = 1 })
   local r = p:lookup(5)

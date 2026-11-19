@@ -30,3 +30,5 @@ chat hint without a price addon, Reset: ask for a note, `/ll export mobs`
 and unpriced items first from the footer note. After it: Mobs counts with
 the clock stopped and with fast loot addons, and drop chances show in the
 Mobs tooltips and in the game's item tooltips.
+Then: LootLedger scan (own auction house prices without TSM or Auctionator:
+full scan, passive recording, Scan price, Scan reminder).

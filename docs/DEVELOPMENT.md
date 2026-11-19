@@ -36,7 +36,8 @@ only inside functions.
 | `DB.lua` | saved-variable defaults and repair |
 | `LootParse.lua` | loot, money and currency chat messages into links, copper and currencies; item keys with bonus IDs |
 | `Mobs.lua` | loot, gold and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window |
-| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source |
+| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source (`Sources/Scan.lua`: LootLedger scan) |
+| `Scan.lua` | LootLedger scan, pure: market value / lowest of a listing set, the daily average, the packed storage, the chunked reader of a full read, the 15-minute wait |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
@@ -44,7 +45,7 @@ only inside functions.
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
 | `Slash.lua`, `Demo.lua` | slash commands, `/ll demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
-| `UI/Widgets.lua` | bronze buttons, icon buttons, texts, lines, tooltips, menus |
+| `UI/Widgets.lua` | two-tone buttons, icon buttons, texts, lines, tooltips, menus |
 | `UI/Coins.lua` | amounts in gold / silver / copper columns (list, compact drops, footer, Top finds) |
 | `UI/Window.lua` | the frame: header rows, list area, footer, compact area, sizes per layout |
 | `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua` | list rows, header buttons and clock, footer table and Top finds, filter bar |
@@ -53,6 +54,7 @@ only inside functions.
 | `UI/OptionsPanel.lua` | the options panel and the page in the game's options window |
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
 | `UI/ItemTooltip.lua` | drop chances in the game's item tooltips (hooked at login) |
+| `UI/ScanButton.lua` | the LootLedger scan button on the auction house window |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
@@ -94,8 +96,13 @@ Each of these is one call in one place; the UI never names them.
   = function(env, setting) return { name, get = function(itemID, link) ... end
   } end })`. It joins the lookup order and the AH price source dropdown.
   Optional: `createDisenchant`, `createMarket` and `present(env)` (its addon
-  is loaded; `Sources.anyPresent` drives the login hint). See
-  `Sources/Auctionator.lua`.
+  is loaded; `Sources.anyPresent` drives the login hint and turns the
+  LootLedger scan off). See `Sources/Auctionator.lua`. A source's `get` may
+  return the age of its price in seconds as a second value; the lookup then
+  sets `ahAge` to it and `ahAged = true`, and the row shows the age tag and
+  the old price rule like a cached price (`Sources/Scan.lua` does). The cache
+  remembers such a price as seen `age` seconds ago, not now, so it never looks
+  younger there than it is.
 - **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx)
   return view end, ... })` in `UI/Tabs.lua`; optional `sessionControls` (clock
   and buttons), `ticks` (rates follow the clock), `watches` (data kind that
@@ -499,6 +506,58 @@ Each of these is one call in one place; the UI never names them.
 - **Button text**: `Widgets.buttonColors` passes the label color through
   `Theme.readableOn(color, fill)`: below `Theme.MIN_TEXT_CONTRAST` against the
   button background it turns near-black or white (the arrow follows).
+- **Button look** (`Widgets.button`, `Widgets.iconButton`): the backdrop's
+  edge is a dark outer line (`buttonFill` x `Widgets.BUTTON_OUTLINE`); inside
+  it `b.fill` holds three BACKGROUND textures (top third `buttonFill` x
+  `BUTTON_TOP`, bottom third x `BUTTON_BOTTOM`, the middle a vertical
+  gradient between them) and `inner`, a child frame whose backdrop edge is
+  the preset's button edge color. Hover lightens both halves
+  (`BUTTON_HOVER`) and uses the hover edge; OnMouseDown paints "pressed"
+  (halves swapped), OnMouseUp hover or normal. Inputs keep the flat backdrop.
+- **LootLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
+  `UI/ScanButton.lua`): only while no source's `present` is true and the
+  client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).
+  `Core.startScan` (the button, `/ll scan` through `Core.scanCommand`, which
+  prints why it can't) needs the auction house open, a known realm key and
+  the wait over
+  (`Scan.waitLeft(LootLedgerCharDB.scanAt, now)`, `Scan.WAIT` = 900 s). It
+  calls `ReplicateItems`, stamps `scanAt` and waits for
+  `REPLICATE_ITEM_LIST_UPDATE`; without it within 60 s it restores the old
+  `scanAt` and says the game did not answer. The event starts
+  `Scan.newReader` over `GetReplicateItemInfo` / `GetReplicateItemLink`:
+  `Scan.CHUNK` (2000) entries per `C_Timer.After(0)`, unit price = buyout /
+  count, grouped per `LootParse.itemKey` (the item ID when the link is not
+  loaded; such an item ID set is dropped when the same read has variant keys
+  of that item, as it would mix the variants), same unit prices merged, no
+  buyout / battle pets (item 82800, never priced, also not by search results
+  or lookups) skipped. `AUCTION_HOUSE_CLOSED` stops it; `onDone` commits what it has
+  (`Scan.commit`) and sets the bucket's `lastFull` only for a complete read.
+  Passive: full `COMMODITY_SEARCH_RESULTS_UPDATED` /
+  `ITEM_SEARCH_RESULTS_UPDATED` sets (the `HasFull*` check) are committed the
+  same way; browse results are not (their minimum mixes the variants).
+  `Scan.listingValues`: market = the average unit price of the cheapest 15%
+  of the units (at least one), lowest = the cheapest unit. `Scan.record`
+  keeps per key today's `m` / `l` and time `t` and the weighted average `am` /
+  `al` of the days before up to day `ad` with its total weight `aw`: every day
+  weighs 1 on its own day and halves every 5 days after, so a later day folds
+  the old day in as `(am * aw * w + m) / (aw * w + 1)` with `w = 0.5 ^ (days /
+  5)`; a same-day value replaces `m` / `l`. `Scan.price` blends the average
+  and today the same way and
+  answers nothing past `Scan.MAX_AGE` (14 days, pruned at login by
+  `Core.pruneScan`). Stored packed (`Scan.pack` / `unpack`: base-36 integers
+  joined by `,`), so a full scan stays small in the saved file. The source
+  reads `Scan.bucket(ns.db, Scan.currentRealmKey())` (price cache key plus
+  `GetRealmName()`) live and the option `scanPrice`. The reminder
+  (`scanReminder`) prints once per login on `AUCTION_HOUSE_SHOW` when the
+  last full read is missing or older than a day. `Core.priceAddonHint` stays
+  quiet while the realm's bucket has items. The button (`ScanButton.text`:
+  ready / `Reading 42%` / the wait as m:ss) is made on the first show, set as
+  `Core.onScanChange` and counts down with a 1 s ticker while shown. It hangs
+  below `AuctionHouseFrame`'s bottom right corner, `sizes.scanButtonLevel`
+  frame levels above it. The game loads that window on demand, so when it is
+  missing at `AUCTION_HOUSE_SHOW` the button tries again on the next frame and
+  on `ADDON_LOADED` of `Blizzard_AuctionHouseUI` (while the auction house is
+  open, `Core.auctionHouseOpen`).
 - **Price cache**: prices last seen more than 30 days ago are dropped at login
   (`Prices.CACHE_MAX_AGE`). `/ll demo` seeds temporary fake prices that reset
   and logout remove.
@@ -517,10 +576,12 @@ Each of these is one call in one place; the UI never names them.
   (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep
   list) and `histories` (every character's History, see "Account-wide
   History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
-  for the option Destroy values).
+  for the option Destroy values), `scan` (LootLedger scan: `[realm key] = {
+  lastFull, items = { [itemKey] = packed } }`, see LootLedger scan).
 - `LootLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
-  and the bank scan, and `profile` (the name of the profile it uses).
+  and the bank scan, `profile` (the name of the profile it uses) and `scanAt`
+  (the last full auction house read, for the game's 15-minute wait).
   `history` is only written here by versions before the account-wide History.
 - The addon was called LootPrice. At `ADDON_LOADED`, Core takes over
   `LootPriceDB` / `LootPriceCharDB` when the new tables are missing (a player
@@ -540,7 +601,9 @@ events (`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
 `PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`; never
 `COMBAT_LOG_EVENT_UNFILTERED`, which is forbidden on this client), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
-(purchases are not loot). An event the client does not know is skipped.
+(purchases are not loot; the auction house ones also drive the LootLedger
+scan), and `REPLICATE_ITEM_LIST_UPDATE`, `COMMODITY_SEARCH_RESULTS_UPDATED`,
+`ITEM_SEARCH_RESULTS_UPDATED` (LootLedger scan). An event the client does not know is skipped.
 
 ## Tests
 

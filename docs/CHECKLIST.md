@@ -14,6 +14,28 @@ and remove both once it is confirmed.
   gives the link there. Check: hover an item a mob dropped since drop
   chances exist; the tooltip ends with `LootLedger drop chance` and the mobs.
 
+- LootLedger scan (`Core.lua` scan section, `UI/ScanButton.lua`,
+  UNVERIFIED; run with TSM and Auctionator disabled):
+  - `C_AuctionHouse.ReplicateItems()` is answered by
+    `REPLICATE_ITEM_LIST_UPDATE`, once per 15 minutes; a second call within
+    the wait is ignored by the game (the addon's own wait matches it).
+  - `GetReplicateItemInfo(i)` is 0-based, with count 3rd, buyout 10th and
+    itemID 17th; `GetReplicateItemLink(i)` gives links with bonus IDs, and
+    how many are nil on a first scan after login (those are keyed by item ID,
+    and dropped for items whose variants the same scan saw).
+  - A full scan: how long it takes, whether the game stalls during
+    `ReplicateItems` or the reading, and the size of `LootLedger.lua` in
+    SavedVariables afterwards (budget about 1.5 MB per realm).
+  - Passive: opening a trade good fires `COMMODITY_SEARCH_RESULTS_UPDATED`
+    with `HasFullCommoditySearchResults` and 1-based
+    `GetCommoditySearchResultInfo` (`unitPrice`, `quantity`); opening gear
+    fires `ITEM_SEARCH_RESULTS_UPDATED` with `HasFullItemSearchResults` and
+    `GetItemSearchResultInfo` (`buyoutAmount`, `quantity`, `itemLink`).
+  - The scan button counts the game's wait down after a scan (it shows
+    below the auction house window: confirmed).
+  - The reminder line shows on the first auction house visit of a login, and
+    the login hint mentions `/ll scan` and stays quiet once prices exist.
+
 To look at in the client after the fourth review (2026-11-18), only run
 against the test fakes so far:
 

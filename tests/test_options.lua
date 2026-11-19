@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Options.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua" })
 local O = ns.Options
 
 local function db(settings)
@@ -10,7 +10,7 @@ h.test("Options: the built-in options are registered in panel order", function()
   local keys = {}
   for _, s in ipairs(O.list()) do keys[#keys + 1] = s.key end
   h.eq(keys, { "alpha", "brightness", "windowScale", "lockWindow", "snapToGrid", "showOnLoot", "showInInstance", "hideInCities", "startHidden", "combatHide",
-    "keepSession", "countCrafted", "priceSource", "tsmSource", "showMarket", "saleRateGood", "saleRateOk",
+    "keepSession", "countCrafted", "priceSource", "tsmSource", "scanPrice", "scanReminder", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "ahCut", "ahMinGain", "destroyMode", "defaultSort",
     "goldDisplay", "coinIcons", "rawGold",
     "sessionChat", "resetNote", "afkPause", "cityPause", "instanceSession", "zoneSession", "zoneSessionMinutes", "minSessionMinutes",
@@ -26,6 +26,14 @@ h.test("Options: the built-in options are registered in panel order", function()
     if s.type ~= "button" and not s.get then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end
     h.eq(O.HEIGHTS[s.type] ~= nil, true, s.key)
   end
+end)
+
+h.test("Options.normalize: scan price is market or lowest", function()
+  local spec = O.spec("scanPrice")
+  h.eq(O.normalize(spec, "lowest"), "lowest")
+  h.eq(O.normalize(spec, "bogus"), "market")
+  h.eq(ns.DB.defaults.settings.scanPrice, "market")
+  h.eq(ns.DB.defaults.settings.scanReminder, true)
 end)
 
 h.test("Options.normalize: slider clamps and snaps, falls back to the default", function()

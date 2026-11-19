@@ -147,18 +147,23 @@ function Prices.new(opts)
   }, Instance)
 end
 
--- First valid live price and the name of the source that gave it.
+-- First valid live price, the name of the source that gave it and its age:
+-- a source may return the age of its price in seconds as a second value
+-- (LootLedger scan), else it counts as live (0).
 function Instance:_live(itemID, link)
   for _, source in ipairs(self.sources) do
-    local ok, value = pcall(source.get, itemID, link)
-    if ok and isPositive(value) then return value, source.name end
+    local ok, value, age = pcall(source.get, itemID, link)
+    if ok and isPositive(value) then
+      return value, source.name, isNumber(age) and age > 0 and age or 0
+    end
   end
   return nil
 end
 
--- Remembers a live price; an unchanged, recently stamped entry is left alone
--- so the saved table is not rewritten on every lookup.
-function Instance:_remember(key, bucket, itemID, price, now, source)
+-- Remembers a live price as seen at `seenAt` (now, or earlier for a source
+-- that reports its price's age); an unchanged, recently stamped entry is
+-- left alone so the saved table is not rewritten on every lookup.
+function Instance:_remember(key, bucket, itemID, price, seenAt, source)
   if not bucket then
     bucket = {}
     self.cache[key] = bucket
@@ -166,12 +171,12 @@ function Instance:_remember(key, bucket, itemID, price, now, source)
   local entry = bucket[itemID]
   if validEntry(entry) and entry.price == price then
     entry.source = source
-    local age = now - entry.seenAt
-    if age >= 0 and age < Prices.WRITE_INTERVAL then return end
-    entry.seenAt = now
+    local newer = seenAt - entry.seenAt
+    if newer >= 0 and newer < Prices.WRITE_INTERVAL then return end
+    entry.seenAt = seenAt
     return
   end
-  bucket[itemID] = { price = price, seenAt = now, source = source }
+  bucket[itemID] = { price = price, seenAt = seenAt, source = source }
 end
 
 -- A cached entry from a source the price source option leaves out is not used.
@@ -206,10 +211,10 @@ function Instance:_applyRules(result, itemID, link)
   return result
 end
 
--- Returns { vendor, de, deBlocked, ah, ahGross, ahSource, ahAge, saleRate, soldPerDay };
+-- Returns { vendor, de, deBlocked, ah, ahGross, ahSource, ahAge, ahAged, saleRate, soldPerDay };
 -- every field may be missing (saleRate / soldPerDay are live only, never
 -- cached). ahSource is the live source's name or "cache"; ahAge is 0 for a
--- live price. With the AH cut (opts.rules) `ah` is after the fee and ahGross
+-- live price (ahAged = true when a live source gave its own age). With the AH cut (opts.rules) `ah` is after the fee and ahGross
 -- the raw price.
 function Instance:lookup(itemID, link)
   local result = {}
@@ -241,10 +246,11 @@ function Instance:lookup(itemID, link)
   local bucket = key and self.cache and self.cache[key] or nil
   if type(bucket) ~= "table" then bucket = nil end
 
-  local price, name = self:_live(itemID, link)
+  local price, name, age = self:_live(itemID, link)
   if price then
-    result.ah, result.ahSource, result.ahAge = price, name, 0
-    if key and self.cache then self:_remember(key, bucket, itemKey, price, now, name) end
+    result.ah, result.ahSource, result.ahAge = price, name, age
+    if age > 0 then result.ahAged = true end
+    if key and self.cache then self:_remember(key, bucket, itemKey, price, now - age, name) end
     return self:_applyRules(result, itemID, link)
   end
 

@@ -11,12 +11,13 @@ tells you where your best farm is today.
 
 ## Requirements
 
-Vendor prices work on their own. Auction prices need
+Vendor prices work on their own. Auction prices come from
 [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
-optional; TSM is asked first). Destroy values (what disenchanting, milling or
+optional; TSM is asked first), or, without either, from LootLedger's own
+auction house scan (see "Scanning the auction house"). Destroy values (what disenchanting, milling or
 prospecting gives) and the "sells well / poorly" info need TSM (they count
 whenever TSM is loaded, also with Auctionator as the AH price source). Without
-either, LootLedger says so once in chat. Waypoints use TomTom when it is
+either and without scan prices, LootLedger says so once in chat. Waypoints use TomTom when it is
 installed, else the game's own map pin.
 
 **Libraries** (only when you install from the source code): the release zip
@@ -200,6 +201,36 @@ still do).
 - **Hover**: time, value, exact gold per hour, the next two places and the
   slow sellers.
 
+## Scanning the auction house
+
+Without TSM and Auctionator, LootLedger reads the auction house itself:
+
+- Open the auction house and click **LootLedger scan** just below its
+  bottom right corner (or type `/ll scan`, or use its key binding). The whole auction house is
+  read in one go, a piece at a time so the game stays smooth; the button
+  shows `Reading 42%` and chat says how many items got a price. Closing the
+  auction house stops the scan and keeps what was read so far.
+- The game allows one full scan every 15 minutes; the button shows the time
+  left until the next one.
+- Between full scans, the listings you open anyway (an item's or a trade
+  good's offers) are recorded too, so items you shop for stay fresh.
+- For every item it notes the **market value** (the average of the cheapest
+  15% of the listed units, so one cheap auction doesn't set the price) and
+  the **lowest price**, once per day. The price it uses is a recent average of
+  those days: newer days count most, and a price older than 14 days is no
+  longer used. The option **Scan price** picks market value or lowest price.
+- Prices are kept per realm. Rows priced from a scan carry an age tag like
+  cached prices.
+- **Scan reminder** (on by default): when you open the auction house and your
+  last full scan is more than a day old, one chat line suggests a scan (once
+  per login).
+- With TSM or Auctionator loaded, the button and the recording are off. Prices
+  from earlier scans still count if you pick **LootLedger scan** as the AH
+  price source.
+
+The order of auction prices is TSM, then Auctionator, then LootLedger scan,
+then the last price seen earlier.
+
 ## Options
 
 Open them with the gear, a right-click on the minimap button, or Esc >
@@ -214,7 +245,7 @@ History asks first.
 | Tab | Options |
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
-| Prices | AH price source, TSM price, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
+| Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept |
@@ -228,7 +259,9 @@ windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
 accent and **Parchment** is a light tan with light text and dark brown buttons
 (it also turns on a thin font outline so all text reads on the light
 background, like the labels on the game's maps). Item
-quality and coin colors always stay the game's own. After a preset you can
+quality and coin colors always stay the game's own. Buttons are light on top
+and fade darker toward the bottom, with a thin gold line inside the edge;
+**Button background** sets their color. After a preset you can
 still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
@@ -298,8 +331,8 @@ session.
 of the whole stack; totals and tooltips stay the same.
 
 **Key bindings**: Esc > Options > Key Bindings > AddOns > LootLedger has keys
-for showing the window, switching compact / full and starting / stopping the
-clock.
+for showing the window, switching compact / full, starting / stopping the
+clock and scanning the auction house.
 
 ## Commands
 
@@ -311,6 +344,7 @@ clock.
 | `/ll compact` | switch between the compact and the full layout |
 | `/ll reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
 | `/ll keep on` / `off` | keep the session across logins |
+| `/ll scan` | read the whole auction house (only without TSM and Auctionator; the auction house must be open) |
 | `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
 | `/ll export` | the History as CSV in a copy box |
 | `/ll export session`, `/ll export zones`, `/ll export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
@@ -332,7 +366,9 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   are noted when you log in on them. Sessions already in History keep the
   prices they were saved with.
 - **Price age**: TSM and Auctionator don't say when they last scanned, so the
-  age tag is the time since the source last gave a price for that item.
+  age tag is the time since the source last gave a price for that item. A
+  LootLedger scan price's tag is the time since the item was last seen on the
+  auction house.
 - **Languages**: English and German. Loot and money messages are read from the
   game's own texts, so they work in every client language.
 - **Install**: unzip the release zip (it holds the libraries) into

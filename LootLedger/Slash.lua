@@ -70,6 +70,7 @@ Slash.BINDINGS = {
   BINDING_NAME_LOOTLEDGER_TOGGLE = L["Show / hide the window"],
   BINDING_NAME_LOOTLEDGER_COMPACT = L["Compact / full window"],
   BINDING_NAME_LOOTLEDGER_CLOCK = L["Start / stop the session clock"],
+  BINDING_NAME_LOOTLEDGER_SCAN = L["Scan the auction house"],
 }
 
 -- Registers the slash commands and the key binding names with the client.
@@ -177,6 +178,14 @@ Slash.define({
 -- What /ll export copies: the History list (default), the running session's
 -- items, the History Zones places or the History Mobs.
 local EXPORTS = { history = "history", session = "session", zones = "zones", mobs = "mobs" }
+
+Slash.define({
+  name = "scan",
+  help = L["/ll scan - read the whole auction house (without TSM or Auctionator)"],
+  run = function()
+    if ns.Core and ns.Core.scanCommand then ns.Core.scanCommand() end
+  end,
+})
 
 Slash.define({
   name = "export",
