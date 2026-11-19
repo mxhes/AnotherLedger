@@ -24,7 +24,7 @@ h.test("Waypoint.set prefers TomTom", function()
   end } }
   h.eq(W.set(env, place), "tomtom")
   h.eq(got[1], 2022); h.near(got[2], 0.4523); h.near(got[3], 0.6181)
-  h.eq(got[4], "Wingrest (Waking Shores)"); h.eq(got[5], "LootLedger")
+  h.eq(got[4], "Wingrest (Waking Shores)"); h.eq(got[5], "AnotherLedger")
 end)
 
 h.test("Waypoint.set falls back to the game's map pin", function()

@@ -71,7 +71,7 @@ end
 
 local function readToc()
   local files = {}
-  local fh = assert(io.open("LootLedger/LootLedger.toc", "r"))
+  local fh = assert(io.open("AnotherLedger/AnotherLedger.toc", "r"))
   for line in fh:lines() do
     line = line:gsub("\r", "")
     if line ~= "" and line:sub(1, 2) ~= "##" and line:match("%.lua$") then
@@ -90,7 +90,7 @@ local function addonChunks()
   if not bytecodeCache then
     bytecodeCache = {}
     for _, file in ipairs(readToc()) do
-      local chunk = assert(loadfile("LootLedger/" .. file))
+      local chunk = assert(loadfile("AnotherLedger/" .. file))
       bytecodeCache[#bytecodeCache + 1] = string.dump(chunk)
     end
   end
@@ -145,8 +145,8 @@ local function boot(opts)
   if type(seed) == "table" and type(seed.settings) == "table" and seed.profiles == nil then
     seed.profiles, seed.profilesMigrated = { Default = seed.settings }, true
   end
-  env.LootLedgerDB = opts.db
-  env.LootLedgerCharDB = opts.chardb
+  env.AnotherLedgerDB = opts.db
+  env.AnotherLedgerCharDB = opts.chardb
 
   ctx.baseline = {}
   for k in pairs(env) do ctx.baseline[k] = true end
@@ -161,7 +161,7 @@ local function boot(opts)
       chunk, err = load(code, nil, "b", env)
     end
     assert(chunk, err)
-    chunk("LootLedger", ns)
+    chunk("AnotherLedger", ns)
   end
   ctx.ns = ns
   return ctx
@@ -174,7 +174,7 @@ local function fire(ctx, event, ...)
   frame._scripts.OnEvent(frame, event, ...)
 end
 
-local function slash(ctx, msg) ctx.env.SlashCmdList["LOOTLEDGER"](msg) end
+local function slash(ctx, msg) ctx.env.SlashCmdList["ANOTHERLEDGER"](msg) end
 
 local LINK = "|cffffffff|Hitem:2589::::::::60:::::::::|h[Linen Cloth]|h|r"
 local LOOT = "You receive loot: " .. LINK .. "x3."
@@ -189,22 +189,22 @@ local function sessions(view)
 end
 
 local function startWorld(ctx, isReload)
-  fire(ctx, "ADDON_LOADED", "LootLedger")
+  fire(ctx, "ADDON_LOADED", "AnotherLedger")
   fire(ctx, "PLAYER_ENTERING_WORLD", not isReload, isReload and true or false)
 end
 
 -- A player can install the libraries as their own addons (and update them apart
--- from LootLedger). Every library folder embeds.xml loads must be an OptionalDep
+-- from AnotherLedger). Every library folder embeds.xml loads must be an OptionalDep
 -- (same name as the standalone addon's folder), so an installed copy loads
 -- first; LibStub then skips our bundled copy unless ours is newer.
 h.test("wiring: every bundled library is an OptionalDep", function()
-  local fh = assert(io.open("LootLedger/LootLedger.toc", "r"))
+  local fh = assert(io.open("AnotherLedger/AnotherLedger.toc", "r"))
   local toc = fh:read("*a")
   fh:close()
   local deps = {}
   local line = toc:match("## OptionalDeps:([^\r\n]*)") or ""
   for name in line:gmatch("[^,%s]+") do deps[name] = true end
-  fh = assert(io.open("LootLedger/embeds.xml", "r"))
+  fh = assert(io.open("AnotherLedger/embeds.xml", "r"))
   local xml = fh:read("*a")
   fh:close()
   local count = 0
@@ -217,9 +217,9 @@ end)
 
 h.test("wiring: toc files load and the slash commands register", function()
   local ctx = boot()
-  h.eq(ctx.env.SLASH_LOOTLEDGER1, "/ll")
-  h.eq(ctx.env.SLASH_LOOTLEDGER2, "/lootledger")
-  h.eq(type(ctx.env.SlashCmdList.LOOTLEDGER), "function")
+  h.eq(ctx.env.SLASH_ANOTHERLEDGER1, "/al")
+  h.eq(ctx.env.SLASH_ANOTHERLEDGER2, "/anotherledger")
+  h.eq(type(ctx.env.SlashCmdList.ANOTHERLEDGER), "function")
   h.eq(ctx.errors, {})
 end)
 
@@ -228,8 +228,8 @@ h.test("wiring: saved data under the old name LootPrice is taken over", function
   ctx.env.LootPriceDB = { ignored = { [7] = "Old" } }
   ctx.env.LootPriceCharDB = { history = { { startedAt = 5 } } }
   startWorld(ctx, false)
-  h.eq(ctx.env.LootLedgerDB.ignored[7], "Old")
-  h.eq(ctx.env.LootLedgerCharDB.history[1].startedAt, 5)
+  h.eq(ctx.env.AnotherLedgerDB.ignored[7], "Old")
+  h.eq(ctx.env.AnotherLedgerCharDB.history[1].startedAt, 5)
   h.eq(ctx.env.LootPriceDB, nil)
   h.eq(ctx.env.LootPriceCharDB, nil)
   h.eq(ctx.errors, {})
@@ -239,8 +239,8 @@ h.test("wiring: saved data under the new name wins over the old one", function()
   local ctx = boot({ db = { ignored = { [8] = "New" } } })
   ctx.env.LootPriceDB = { ignored = { [7] = "Old" } }
   startWorld(ctx, false)
-  h.eq(ctx.env.LootLedgerDB.ignored[8], "New")
-  h.eq(ctx.env.LootLedgerDB.ignored[7], nil)
+  h.eq(ctx.env.AnotherLedgerDB.ignored[8], "New")
+  h.eq(ctx.env.AnotherLedgerDB.ignored[7], nil)
 end)
 
 h.test("wiring: login flow records loot and saves the session", function()
@@ -251,14 +251,14 @@ h.test("wiring: login flow records loot and saves the session", function()
   h.eq(ctx.ns.UI.Ledger.frame ~= nil, true)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   h.eq(ctx.ns.session.items[2589].qty, 3)
-  h.eq(ctx.env.LootLedgerCharDB.session, ctx.ns.session)
+  h.eq(ctx.env.AnotherLedgerCharDB.session, ctx.ns.session)
   h.eq(ctx.errors, {})
   h.eq(#ctx.ns.UI.Ledger.view.rows, 1)
 end)
 
 h.test("wiring: loot before the world is entered is ignored", function()
   local ctx = boot()
-  fire(ctx, "ADDON_LOADED", "LootLedger")
+  fire(ctx, "ADDON_LOADED", "AnotherLedger")
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   h.eq(ctx.ns.session, nil)
   slash(ctx, "start")
@@ -268,7 +268,7 @@ end)
 h.test("wiring: demo then reset restores the price cache", function()
   local ctx = boot()
   startWorld(ctx, false)
-  local cache = ctx.env.LootLedgerDB.cache
+  local cache = ctx.env.AnotherLedgerDB.cache
   slash(ctx, "demo")
   h.eq(ctx.errors, {})
   h.eq(ctx.ns.session.items[2589].qty, 23)
@@ -286,7 +286,7 @@ h.test("wiring: demo loot never reaches History, also after a relog", function()
   slash(ctx, "demo")
   h.eq(ctx.ns.session.demo, true)
   fire(ctx, "PLAYER_LOGOUT")
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
   local relog = boot({ db = db, chardb = chardb, now = 3000 })
   startWorld(relog, false) -- keep session off: the old one would be archived
   h.eq(relog.errors, {})
@@ -315,7 +315,7 @@ h.test("wiring: each History view keeps its own sort; Sessions starts newest fir
   local ctx = boot()
   startWorld(ctx, false)
   local Ledger, F = ctx.ns.UI.Ledger, ctx.ns.UI.FilterBar
-  local db = ctx.env.LootLedgerDB
+  local db = ctx.env.AnotherLedgerDB
   db.sort = "name"
   Ledger.setTab("history")
   Ledger.setSubtab("sessions")
@@ -340,7 +340,7 @@ h.test("wiring: History kept asks before deleting, reset asks for a valuable ses
   startWorld(ctx, false)
   local shown = {}
   ctx.env.StaticPopup_Show = function(name) shown[#shown + 1] = ctx.env.StaticPopupDialogs[name] end
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   for i = 1, 3 do history[i] = { startedAt = i, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} } end
   local spec = ctx.ns.Options.spec("historyLimit")
   h.eq(spec.confirm(5), nil) -- nothing would be deleted
@@ -392,13 +392,13 @@ local function menuItem(menu, text)
   return nil
 end
 
-h.test("wiring: a History session's menu deletes it, /ll undo brings it back", function()
+h.test("wiring: a History session's menu deletes it, /al undo brings it back", function()
   local ctx = boot()
   startWorld(ctx, false)
   local menus = captureMenus(ctx)
   local shown = {}
   ctx.env.StaticPopup_Show = function(name) shown[#shown + 1] = ctx.env.StaticPopupDialogs[name] end
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   for i = 1, 3 do history[i] = { startedAt = 4 - i, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} } end
   local Ledger = ctx.ns.UI.Ledger
   local L = ctx.ns.L
@@ -411,11 +411,11 @@ h.test("wiring: a History session's menu deletes it, /ll undo brings it back", f
   h.eq(menu.anchor, "rowFrame")
   h.eq(menu[1].kind, "title")
   h.eq(menuItem(menu, L["Add note"]) ~= nil, true)
-  menuItem(menu, L["Delete"]).click() -- no popup: /ll undo can bring it back
+  menuItem(menu, L["Delete"]).click() -- no popup: /al undo can bring it back
   h.eq(#shown, 0)
   h.eq(#history, 2); h.eq(history[1].startedAt, 2)
   h.eq(Ledger.historyIndex, 2) -- still the same (oldest) session
-  h.eq(ctx.printed[#ctx.printed]:find("/ll undo", 1, true) ~= nil, true)
+  h.eq(ctx.printed[#ctx.printed]:find("/al undo", 1, true) ~= nil, true)
   slash(ctx, "undo")
   h.eq(#history, 3); h.eq(history[1].startedAt, 3)
 
@@ -423,7 +423,7 @@ h.test("wiring: a History session's menu deletes it, /ll undo brings it back", f
   h.eq(#history, 3) -- asks first
   shown[#shown].OnAccept()
   h.eq(#history, 0)
-  h.eq(ctx.env.LootLedgerCharDB.history == history, true)
+  h.eq(ctx.env.AnotherLedgerCharDB.history == history, true)
   slash(ctx, "undo")
   h.eq(#history, 3)
   slash(ctx, "undo")
@@ -431,11 +431,11 @@ h.test("wiring: a History session's menu deletes it, /ll undo brings it back", f
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: merging History sessions, two and more, and /ll undo splits them", function()
+h.test("wiring: merging History sessions, two and more, and /al undo splits them", function()
   local ctx = boot()
   startWorld(ctx, false)
   local menus = captureMenus(ctx)
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   for i = 1, 3 do
     history[i] = { startedAt = 4000 - i * 1000, elapsed = 600, gold = 100 * i, nItems = 0, vendor = 0, ah = 0,
       items = {} }
@@ -487,7 +487,7 @@ h.test("wiring: Reset asks for the saved session's note with the option on", fun
   popup.OnShow({ editBox = box })
   box.text = "Wingrest herbs"
   popup.OnAccept({ editBox = box })
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   h.eq(#history, 2)
   h.eq(history[1].note, "Wingrest herbs"); h.eq(history[2].note, nil)
   -- an empty session saves nothing, so nothing to ask
@@ -503,7 +503,7 @@ h.test("wiring: a note on a History session shows on its row and is searched", f
   local menus = captureMenus(ctx)
   local popup
   ctx.env.StaticPopup_Show = function(name) popup = ctx.env.StaticPopupDialogs[name] end
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   history[1] = { startedAt = 5, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
   history[2] = { startedAt = 4, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
   local Ledger, L = ctx.ns.UI.Ledger, ctx.ns.L
@@ -543,7 +543,7 @@ h.test("wiring: an ignored item leaves the lists and totals; the options menu ta
   local row = Ledger.view.rows[ctx.ns.View.indexOf(Ledger.view.rows, 7)]
   Ledger.list.onRowClick(row, "RightButton", "f")
   menuItem(menus[#menus], L["Ignore this item"]).click()
-  h.eq(ctx.env.LootLedgerDB.ignored[7], row.name)
+  h.eq(ctx.env.AnotherLedgerDB.ignored[7], row.name)
   h.eq(#Ledger.view.rows, 1)
   h.eq(Ledger.view.totals.vendor, 50)
   h.eq(ctx.ns.Core.sessionValue(ctx.ns.session), 50)
@@ -555,7 +555,7 @@ h.test("wiring: an ignored item leaves the lists and totals; the options menu ta
   h.eq(menu[1].text, row.name)
   h.eq(menu[1].checked(), true)
   menu[1].click()
-  h.eq(ctx.env.LootLedgerDB.ignored[7], nil)
+  h.eq(ctx.env.AnotherLedgerDB.ignored[7], nil)
   h.eq(#Ledger.view.rows, 2)
   -- An empty list says so in chat instead of an empty menu.
   local n = #menus
@@ -596,7 +596,7 @@ h.test("wiring: History is account-wide; Zones reads every character's", functio
   ctx.env.UnitName = function() return "Me" end
   ctx.env.GetRealmName = function() return "Realm" end
   startWorld(ctx, false)
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
   h.eq(ctx.ns.Core.character, "Me-Realm")
   h.eq(chardb.history == db.histories["Me-Realm"], true)
   h.eq(#chardb.history, 1)
@@ -620,8 +620,8 @@ h.test("wiring: History is account-wide; Zones reads every character's", functio
   relog.env.UnitName = function() return "Me" end
   relog.env.GetRealmName = function() return "Realm" end
   startWorld(relog, false)
-  h.eq(#relog.env.LootLedgerCharDB.history, 1)
-  h.eq(relog.env.LootLedgerCharDB.history[1].startedAt, 40)
+  h.eq(#relog.env.AnotherLedgerCharDB.history, 1)
+  h.eq(relog.env.AnotherLedgerCharDB.history[1].startedAt, 40)
   h.eq(ctx.errors, {}); h.eq(relog.errors, {})
 end)
 
@@ -639,7 +639,7 @@ h.test("wiring: each tab keeps its scroll position for the login", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /ll export copies the session or Zones as CSV", function()
+h.test("wiring: /al export copies the session or Zones as CSV", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", itemLoot(7, 4))
@@ -662,24 +662,24 @@ h.test("wiring: /ll export copies the session or Zones as CSV", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: key bindings name their commands; /ll clock switches the clock", function()
+h.test("wiring: key bindings name their commands; /al clock switches the clock", function()
   local ctx = boot()
   startWorld(ctx, false)
-  h.eq(ctx.env.BINDING_HEADER_LOOTLEDGER, "LootLedger")
-  h.eq(type(ctx.env.BINDING_NAME_LOOTLEDGER_TOGGLE), "string")
-  local fh = assert(io.open("LootLedger/Bindings.xml", "r"))
+  h.eq(ctx.env.BINDING_HEADER_ANOTHERLEDGER, "AnotherLedger")
+  h.eq(type(ctx.env.BINDING_NAME_ANOTHERLEDGER_TOGGLE), "string")
+  local fh = assert(io.open("AnotherLedger/Bindings.xml", "r"))
   local xml = fh:read("*a")
   fh:close()
   -- Every bound command exists: an unknown one would print the whole help.
   local commands = 0
-  for cmd in xml:gmatch('SlashCmdList%["LOOTLEDGER"%]%("(%a+)"%)') do
+  for cmd in xml:gmatch('SlashCmdList%["ANOTHERLEDGER"%]%("(%a+)"%)') do
     local before = #ctx.printed
     slash(ctx, cmd)
     h.eq(#ctx.printed - before <= 1, true)
     commands = commands + 1
   end
   h.eq(commands, 4)
-  for name in xml:gmatch('name="(LOOTLEDGER_%u+)"') do
+  for name in xml:gmatch('name="(ANOTHERLEDGER_%u+)"') do
     h.eq(type(ctx.env["BINDING_NAME_" .. name]), "string")
   end
   local running = ctx.ns.session.running
@@ -697,7 +697,7 @@ h.test("wiring: demo on a stopped session seeds nothing", function()
   slash(ctx, "demo")
   h.eq(ctx.printed[#ctx.printed]:find("stopped", 1, true) ~= nil, true)
   h.eq(next(ctx.ns.session.items), nil)
-  h.eq(ctx.env.LootLedgerDB.cache["EU-7"], nil)
+  h.eq(ctx.env.AnotherLedgerDB.cache["EU-7"], nil)
 end)
 
 h.test("wiring: logout suspends the session", function()
@@ -705,8 +705,8 @@ h.test("wiring: logout suspends the session", function()
   startWorld(ctx, false)
   ctx.now = 1100
   fire(ctx, "PLAYER_LOGOUT")
-  h.eq(ctx.env.LootLedgerCharDB.session.elapsedBase, 100)
-  h.eq(ctx.env.LootLedgerCharDB.session.runningSince, nil)
+  h.eq(ctx.env.AnotherLedgerCharDB.session.elapsedBase, 100)
+  h.eq(ctx.env.AnotherLedgerCharDB.session.runningSince, nil)
 end)
 
 h.test("wiring: a /reload keeps the session with keep off, a relog starts fresh", function()
@@ -715,7 +715,7 @@ h.test("wiring: a /reload keeps the session with keep off, a relog starts fresh"
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ctx.now = 1050
   fire(ctx, "PLAYER_LOGOUT")
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
   h.eq(db.profiles.Default.keepSession, false)
 
   local reload = boot({ db = db, chardb = chardb, now = 2000 })
@@ -747,12 +747,12 @@ h.test("wiring: no unexpected globals leak", function()
   slash(ctx, "reset")
   fire(ctx, "PLAYER_LOGOUT")
   local allowed = {
-    LootLedgerDB = true, LootLedgerCharDB = true, SLASH_LOOTLEDGER1 = true,
-    SLASH_LOOTLEDGER2 = true, LootLedgerWindow = true, LootLedgerMenu = true,
-    LootLedgerOptionsPage = true, LootLedgerMinimapButton = true, LootLedgerExport = true,
-    BINDING_HEADER_LOOTLEDGER = true, BINDING_NAME_LOOTLEDGER_TOGGLE = true,
-    BINDING_NAME_LOOTLEDGER_COMPACT = true, BINDING_NAME_LOOTLEDGER_CLOCK = true,
-    BINDING_NAME_LOOTLEDGER_SCAN = true,
+    AnotherLedgerDB = true, AnotherLedgerCharDB = true, SLASH_ANOTHERLEDGER1 = true,
+    SLASH_ANOTHERLEDGER2 = true, AnotherLedgerWindow = true, AnotherLedgerMenu = true,
+    AnotherLedgerOptionsPage = true, AnotherLedgerMinimapButton = true, AnotherLedgerExport = true,
+    BINDING_HEADER_ANOTHERLEDGER = true, BINDING_NAME_ANOTHERLEDGER_TOGGLE = true,
+    BINDING_NAME_ANOTHERLEDGER_COMPACT = true, BINDING_NAME_ANOTHERLEDGER_CLOCK = true,
+    BINDING_NAME_ANOTHERLEDGER_SCAN = true,
   }
   for k in pairs(ctx.env) do
     if not ctx.baseline[k] and not allowed[k] then error("leaked global: " .. tostring(k)) end
@@ -808,7 +808,7 @@ end)
 
 h.test("wiring: a stopped session and a missing session ignore gold", function()
   local ctx = boot()
-  fire(ctx, "ADDON_LOADED", "LootLedger")
+  fire(ctx, "ADDON_LOADED", "AnotherLedger")
   fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Silver")
   fire(ctx, "QUEST_TURNED_IN", 1, 0, 100)
   h.eq(ctx.ns.session, nil)
@@ -863,7 +863,7 @@ h.test("wiring: bags tab lists the bag contents, footer shows only the items blo
   L.setTab("bags")
   h.eq(ctx.errors, {})
   h.eq(L.tab, "bags")
-  h.eq(ctx.env.LootLedgerDB.tab, "bags")
+  h.eq(ctx.env.AnotherLedgerDB.tab, "bags")
   h.eq(#L.view.rows, 2)
   h.eq(L.view.kind, "inventory")
   -- a bag change marks the list dirty and shows up on the next refresh
@@ -892,12 +892,12 @@ h.test("wiring: bank is scanned while open and shown from the saved scan", funct
   fire(ctx, "BANKFRAME_OPENED")
   h.eq(ctx.errors, {})
   h.eq(#L.view.rows, 2)
-  h.eq(ctx.env.LootLedgerCharDB.bank.scannedAt, ctx.now)
+  h.eq(ctx.env.AnotherLedgerCharDB.bank.scannedAt, ctx.now)
   fire(ctx, "BANKFRAME_CLOSED")
   -- away from the bank the scan is kept, the bags changing does not touch it
   bagEnv(ctx, {})
   fire(ctx, "BAG_UPDATE_DELAYED")
-  h.eq(ctx.env.LootLedgerCharDB.bank.items[2589].qty, 4)
+  h.eq(ctx.env.AnotherLedgerCharDB.bank.items[2589].qty, 4)
   ctx.now = ctx.now + 7200
   L.refresh()
   h.eq(L.view.note, "Scanned 2h ago")
@@ -913,17 +913,17 @@ h.test("wiring: an empty scan right at opening does not wipe a saved scan", func
   bagEnv(ctx, {})
   fire(ctx, "BANKFRAME_CLOSED")
   fire(ctx, "BANKFRAME_OPENED") -- slots not loaded yet
-  h.eq(ctx.env.LootLedgerCharDB.bank.items[2589].qty, 4)
+  h.eq(ctx.env.AnotherLedgerCharDB.bank.items[2589].qty, 4)
   bagEnv(ctx, {})
   fire(ctx, "BAG_UPDATE_DELAYED") -- bank open: a later empty scan is real
-  h.eq(next(ctx.env.LootLedgerCharDB.bank.items), nil)
+  h.eq(next(ctx.env.AnotherLedgerCharDB.bank.items), nil)
 end)
 
 h.test("wiring: the last tab survives a reload", function()
   local ctx = boot()
   startWorld(ctx, false)
   ctx.ns.UI.Ledger.setTab("bags")
-  local reload = boot({ db = ctx.env.LootLedgerDB, chardb = ctx.env.LootLedgerCharDB, now = 2000 })
+  local reload = boot({ db = ctx.env.AnotherLedgerDB, chardb = ctx.env.AnotherLedgerCharDB, now = 2000 })
   startWorld(reload, true)
   h.eq(reload.errors, {})
   h.eq(reload.ns.UI.Ledger.tab, "bags")
@@ -1264,8 +1264,8 @@ h.test("wiring: saved option values are applied at login", function()
   local ctx = boot({ db = { settings = { alpha = 7, priceSource = "zzz" } } })
   startWorld(ctx, false)
   h.eq(ctx.errors, {})
-  h.eq(ctx.env.LootLedgerDB.settings.alpha, 1)
-  h.eq(ctx.env.LootLedgerDB.settings.priceSource, "auto")
+  h.eq(ctx.env.AnotherLedgerDB.settings.alpha, 1)
+  h.eq(ctx.env.AnotherLedgerDB.settings.priceSource, "auto")
 end)
 
 h.test("wiring: the window look options apply to the background and border", function()
@@ -1295,11 +1295,11 @@ h.test("wiring: Reset archives the session to History, empty sessions are skippe
   local ctx = boot()
   startWorld(ctx, false)
   slash(ctx, "reset") -- empty: nothing archived
-  h.eq(#ctx.env.LootLedgerCharDB.history, 0)
+  h.eq(#ctx.env.AnotherLedgerCharDB.history, 0)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   fire(ctx, "CHAT_MSG_MONEY", "You loot 5 Copper")
   slash(ctx, "reset")
-  local hist = ctx.env.LootLedgerCharDB.history
+  local hist = ctx.env.AnotherLedgerCharDB.history
   h.eq(#hist, 1)
   h.eq(hist[1].items[2589].qty, 3)
   h.eq(hist[1].nItems, 1)
@@ -1311,7 +1311,7 @@ h.test("wiring: a fresh login archives the discarded session, keep-session does 
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   fire(ctx, "PLAYER_LOGOUT")
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
 
   local reload = boot({ db = db, chardb = chardb, now = 2000 })
   startWorld(reload, true) -- /reload keeps the session
@@ -1334,7 +1334,7 @@ h.test("wiring: the History option limits and prunes the archive", function()
     slash(ctx, "reset")
   end
   lootAndReset(); lootAndReset(); lootAndReset()
-  local hist = ctx.env.LootLedgerCharDB.history
+  local hist = ctx.env.AnotherLedgerCharDB.history
   h.eq(#hist, 3)
   ctx.ns.Options.set(ctx.ns.db, "historyLimit", 1)
   h.eq(#hist, 1)
@@ -1539,20 +1539,20 @@ h.test("wiring: cached prices older than 30 days are dropped at login", function
   }, ["US-1"] = { [3] = { price = 7, seenAt = 5 } } } }
   local ctx = boot({ db = db, now = now })
   startWorld(ctx, false)
-  local cache = ctx.env.LootLedgerDB.cache
+  local cache = ctx.env.AnotherLedgerDB.cache
   h.eq(cache["EU-7"][1], nil)
   h.eq(cache["EU-7"][2].price, 6)
   h.eq(cache["US-1"], nil)
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /ll help lists every command, demo included", function()
+h.test("wiring: /al help lists every command, demo included", function()
   local ctx = boot()
   startWorld(ctx, false)
   ctx.printed = {}
   slash(ctx, "help")
   local text = table.concat(ctx.printed, "\n")
-  for _, word in ipairs({ "/ll -", "show | hide", "start | stop", "/ll reset", "/ll keep", "/ll tsm", "/ll demo", "/ll compact", "Note:" }) do
+  for _, word in ipairs({ "/al -", "show | hide", "start | stop", "/al reset", "/al keep", "/al tsm", "/al demo", "/al compact", "Note:" }) do
     h.eq(text:find(word, 1, true) ~= nil, true, word)
   end
 end)
@@ -1602,7 +1602,7 @@ h.test("wiring: the options page registers in the game's options window", functi
   startWorld(ctx, false)
   local P = ctx.ns.UI.OptionsPanel
   h.eq(registered ~= nil, true)
-  h.eq(registered.name, "LootLedger")
+  h.eq(registered.name, "AnotherLedger")
   h.eq(registered.frame, P.page)
   for _, spec in ipairs(ctx.ns.Options.list()) do
     h.eq(P.page.widgets[spec.key] ~= nil, true, spec.key)
@@ -1717,7 +1717,7 @@ h.test("wiring: currencies are recorded and listed after the items", function()
   ns.Options.set(ns.db, "showCurrencies", false)
   h.eq(#ns.UI.Ledger.view.rows, 1)
   slash(ctx, "reset")
-  h.eq(ctx.env.LootLedgerCharDB.history[1].currencies[3008].qty, 15)
+  h.eq(ctx.env.AnotherLedgerCharDB.history[1].currencies[3008].qty, 15)
   h.eq(ctx.errors, {})
 end)
 
@@ -1736,7 +1736,7 @@ h.test("wiring: loot notes the place; a new session per instance with the option
   -- option off: entering a dungeon keeps the session
   where.instance = "The Stonevault"
   fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
-  h.eq(#ctx.env.LootLedgerCharDB.history, 0)
+  h.eq(#ctx.env.AnotherLedgerCharDB.history, 0)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   h.eq(ns.Session.placeList(ns.session.places), { "The Stonevault (Heroic)", "Dornogal" })
@@ -1745,7 +1745,7 @@ h.test("wiring: loot notes the place; a new session per instance with the option
   ns.Options.set(ns.db, "minSessionMinutes", 0)
   where.instance = nil
   fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
-  local hist = ctx.env.LootLedgerCharDB.history
+  local hist = ctx.env.AnotherLedgerCharDB.history
   h.eq(#hist, 1)
   h.eq(hist[1].places, { "The Stonevault (Heroic)", "Dornogal" })
   h.eq(next(ns.session.items), nil)
@@ -1782,17 +1782,17 @@ h.test("wiring: the clock pauses while AFK with the option on", function()
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /ll keep and /ll tsm go through the options", function()
+h.test("wiring: /al keep and /al tsm go through the options", function()
   local ctx = boot()
   startWorld(ctx, false)
   slash(ctx, "keep on")
-  h.eq(ctx.env.LootLedgerDB.settings.keepSession, true)
+  h.eq(ctx.env.AnotherLedgerDB.settings.keepSession, true)
   slash(ctx, "tsm   DBMinBuyout  ")
-  h.eq(ctx.env.LootLedgerDB.settings.tsmSource, "DBMinBuyout")
+  h.eq(ctx.env.AnotherLedgerDB.settings.tsmSource, "DBMinBuyout")
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /ll export shows the History as CSV", function()
+h.test("wiring: /al export shows the History as CSV", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
@@ -1814,14 +1814,14 @@ h.test("wiring: the bank's own slots rescan while it is open", function()
     GetContainerItemInfo = function(bag, slot) return bag == -1 and slots[slot] or nil end,
   }
   fire(ctx, "BANKFRAME_OPENED")
-  h.eq(ctx.env.LootLedgerCharDB.bank.items[2589].qty, 5)
+  h.eq(ctx.env.AnotherLedgerCharDB.bank.items[2589].qty, 5)
   slots[1] = { itemID = 2589, stackCount = 7 }
   fire(ctx, "PLAYERBANKSLOTS_CHANGED", 1)
-  h.eq(ctx.env.LootLedgerCharDB.bank.items[2589].qty, 7)
+  h.eq(ctx.env.AnotherLedgerCharDB.bank.items[2589].qty, 7)
   fire(ctx, "BANKFRAME_CLOSED")
   slots[1] = { itemID = 2589, stackCount = 1 }
   fire(ctx, "PLAYERBANKSLOTS_CHANGED", 1)
-  h.eq(ctx.env.LootLedgerCharDB.bank.items[2589].qty, 7)
+  h.eq(ctx.env.AnotherLedgerCharDB.bank.items[2589].qty, 7)
   h.eq(ctx.errors, {})
 end)
 
@@ -1838,15 +1838,15 @@ h.test("wiring: with LibDataBroker and LibDBIcon the button is LibDBIcon's", fun
   ctx.env.LibStub = function(name) return ({ ["LibDataBroker-1.1"] = ldb, ["LibDBIcon-1.0"] = icon })[name] end
   startWorld(ctx, false)
   local ns = ctx.ns
-  h.eq(objects.LootLedger ~= nil, true)
-  h.eq(registered.LootLedger, ctx.env.LootLedgerDB.minimapIcon)
+  h.eq(objects.AnotherLedger ~= nil, true)
+  h.eq(registered.AnotherLedger, ctx.env.AnotherLedgerDB.minimapIcon)
   h.eq(ns.UI.Minimap.button, nil) -- no own button
   ns.Options.set(ns.db, "minimapButton", false)
-  h.eq(shown.LootLedger, false)
-  h.eq(ctx.env.LootLedgerDB.minimapIcon.hide, true)
+  h.eq(shown.AnotherLedger, false)
+  h.eq(ctx.env.AnotherLedgerDB.minimapIcon.hide, true)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ns.UI.Broker.update()
-  h.eq(type(objects.LootLedger.text), "string")
+  h.eq(type(objects.AnotherLedger.text), "string")
   -- The broker total follows the option Raw gold.
   ns.Core.recordGold(50000)
   local function total(includeGold)
@@ -1855,7 +1855,7 @@ h.test("wiring: with LibDataBroker and LibDBIcon the button is LibDBIcon's", fun
   h.eq(total(true) - total(false), 50000)
   ns.Options.set(ns.db, "rawGold", "apart")
   ns.UI.Broker.update()
-  h.eq(objects.LootLedger.text, ns.UI.Broker.text({ total = total(false) }, ns.Money.formatColored))
+  h.eq(objects.AnotherLedger.text, ns.UI.Broker.text({ total = total(false) }, ns.Money.formatColored))
   -- "Auction from" counts in the broker like in the window: AH 120 must beat
   -- vendor 100 by 50 %.
   local s = { running = false, elapsedBase = 3600, gold = 0, items = { [7] = { id = 7, key = 7, qty = 1 } } }
@@ -1936,7 +1936,7 @@ h.test("wiring: loot and gold are recorded per zone and subzone", function()
   h.eq(z.subs.Wingrest.gold, 500)
   ctx.now = 1100
   slash(ctx, "reset")
-  local e = ctx.env.LootLedgerCharDB.history[1]
+  local e = ctx.env.AnotherLedgerCharDB.history[1]
   h.eq(e.zones["Waking Shores"].subs.Wingrest.time, 40)
   h.eq(ctx.errors, {})
 end)
@@ -2291,7 +2291,7 @@ h.test("wiring: the tab rows clip the tab edge so it never covers the list", fun
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: /ll compact switches the window to the compact layout and back", function()
+h.test("wiring: /al compact switches the window to the compact layout and back", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
@@ -2410,7 +2410,7 @@ h.test("wiring: a login without TSM or Auctionator says so once in chat", functi
   local ctx = boot()
   startWorld(ctx, false)
   h.eq(hints(ctx), 1)
-  h.eq(ctx.env.LootLedgerDB.priceHintShown, true)
+  h.eq(ctx.env.AnotherLedgerDB.priceHintShown, true)
   local tsm = boot()
   tsm.env.TSM_API = { GetCustomPriceValue = function() return nil end }
   startWorld(tsm, false)
@@ -2467,13 +2467,13 @@ h.test("wiring: the mode survives a reload; a bad saved mode starts full", funct
   local ctx = boot()
   startWorld(ctx, false)
   slash(ctx, "compact")
-  local reload = boot({ db = ctx.env.LootLedgerDB, chardb = ctx.env.LootLedgerCharDB, now = 2000 })
+  local reload = boot({ db = ctx.env.AnotherLedgerDB, chardb = ctx.env.AnotherLedgerCharDB, now = 2000 })
   startWorld(reload, true)
   h.eq(reload.ns.UI.Ledger.mode, "compact")
   h.eq(reload.ns.UI.Window.frame.listArea:IsShown(), false)
-  local db = ctx.env.LootLedgerDB
+  local db = ctx.env.AnotherLedgerDB
   db.mode = "weird"
-  local bad = boot({ db = db, chardb = ctx.env.LootLedgerCharDB, now = 3000 })
+  local bad = boot({ db = db, chardb = ctx.env.AnotherLedgerCharDB, now = 3000 })
   startWorld(bad, true)
   h.eq(bad.ns.UI.Ledger.mode, "full")
   h.eq(bad.errors, {})
@@ -2558,7 +2558,7 @@ h.test("wiring: the sub-tab row only shows on History and the choice survives a 
   L.setTab("history")
   h.eq(row4:IsShown(), true)
   L.setSubtab("zones")
-  local reload = boot({ db = ctx.env.LootLedgerDB, chardb = ctx.env.LootLedgerCharDB, now = 2000 })
+  local reload = boot({ db = ctx.env.AnotherLedgerDB, chardb = ctx.env.AnotherLedgerCharDB, now = 2000 })
   startWorld(reload, true)
   h.eq(reload.ns.UI.Ledger.tab, "history")
   h.eq(reload.ns.UI.Ledger.subtab, "zones")
@@ -2717,7 +2717,7 @@ h.test("wiring: History and Zones show the footer with the session count", funct
   startWorld(ctx, false)
   local L, footer = ctx.ns.UI.Ledger, ctx.ns.UI.Window.frame.footer
   local summary = ctx.ns.UI.Summary.instance
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   for i = 1, 2 do history[i] = { startedAt = 10 - i, elapsed = 3600, gold = 100, nItems = 0, vendor = 0, ah = 0, items = {} } end
   L.refresh()
   local sessionHeight = footer:GetHeight()
@@ -2761,7 +2761,7 @@ h.test("wiring: a color option recolors texts, buttons and the window live", fun
   h.eq(colors.total, "00ff00")
   ns.Options.set(ns.db, "colorBackground", "102030")
   h.eq(bg, "102030")
-  h.eq(ctx.env.LootLedgerDB.settings.colorText, "ff0000")
+  h.eq(ctx.env.AnotherLedgerDB.settings.colorText, "ff0000")
   h.eq(ctx.errors, {})
 end)
 
@@ -2803,7 +2803,7 @@ h.test("wiring: the options window shares the window's opacity and brightness", 
   local real = ctx.env.CreateFrame
   ctx.env.CreateFrame = function(kind, name, ...)
     local f = real(kind, name, ...)
-    if name == "LootLedgerOptions" then
+    if name == "AnotherLedgerOptions" then
       f.SetBackdropColor = function(_, r, g, b, a) bg = { r, g, b, a } end
       f.SetBackdropBorderColor = function(_, r, g, b, a) border = { r, g, b, a } end
     end
@@ -2827,7 +2827,7 @@ h.test("wiring: Session per zone splits after the delay, not on flights or detou
   ctx.env.GetRealZoneText = function() return where.zone end
   ctx.env.UnitOnTaxi = function() return where.taxi end
   startWorld(ctx, false)
-  local ns, hist = ctx.ns, ctx.env.LootLedgerCharDB.history
+  local ns, hist = ctx.ns, ctx.env.AnotherLedgerCharDB.history
   ns.Options.set(ns.db, "zoneSession", true)
   fire(ctx, "CHAT_MSG_LOOT", itemLoot(2589, 4))
   local function go(zone, seconds)
@@ -2908,7 +2908,7 @@ h.test("wiring: keeping an item in Bags splits the footer into kept and sellable
   h.eq(menuItem(menuFor(2589), L["Keep (not for sale)"]), nil)
   Ledger.setTab("bags")
   menuItem(menuFor(2589), L["Keep (not for sale)"]).click()
-  h.eq(ctx.env.LootLedgerDB.kept[2589] ~= nil, true)
+  h.eq(ctx.env.AnotherLedgerDB.kept[2589] ~= nil, true)
   local t = Ledger.view.totals
   h.eq({ t.kept, t.sellable }, { 125, 50 })
   h.eq(summary.cells.kept.label:IsShown(), true)
@@ -2925,21 +2925,21 @@ h.test("wiring: logout clears settings alias, the profile is saved once", functi
   local ns = ctx.ns
   ns.Options.set(ns.db, "alpha", 0.5)
   fire(ctx, "PLAYER_LOGOUT")
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
   h.eq(db.settings, nil)
   h.eq(db.profiles.Default.alpha, 0.5)
   h.eq(chardb.profile, "Default")
   local relog = boot({ db = db, chardb = chardb, now = 5000 })
   startWorld(relog, false)
   h.eq(relog.ns.Options.get(relog.ns.db, "alpha"), 0.5)
-  h.eq(relog.ns.db.settings == relog.env.LootLedgerDB.profiles.Default, true)
+  h.eq(relog.ns.db.settings == relog.env.AnotherLedgerDB.profiles.Default, true)
   h.eq(ctx.errors, {}); h.eq(relog.errors, {})
 end)
 
 h.test("wiring: old settings start fresh, account options are kept", function()
   local ctx = boot({ db = { settings = { alpha = 0.3, historyLimit = -1 } } })
   -- boot() turns seeded settings into a profile; undo that for this test.
-  ctx.env.LootLedgerDB.profiles, ctx.env.LootLedgerDB.profilesMigrated = nil, nil
+  ctx.env.AnotherLedgerDB.profiles, ctx.env.AnotherLedgerDB.profilesMigrated = nil, nil
   startWorld(ctx, false)
   local ns = ctx.ns
   h.eq(ns.Options.get(ns.db, "alpha"), 1)
@@ -2954,7 +2954,7 @@ h.test("wiring: switching profile applies the look", function()
   ns.Profiles.create(ns.db, "Night", { colorPreset = "midnight" })
   ns.Profiles.activate(ns.db, ns.chardb, "Night")
   h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), ns.Theme.preset("midnight").colors.panelTint)
-  h.eq(ctx.env.LootLedgerCharDB.profile, "Night")
+  h.eq(ctx.env.AnotherLedgerCharDB.profile, "Night")
   h.eq(ctx.errors, {})
 end)
 
@@ -2971,7 +2971,7 @@ h.test("wiring: import through the box creates and activates a profile", functio
   frame.onAccept(line .. ";nope=1")
   h.eq(popups[#popups].hasEditBox, true)
   popups[#popups].onAccept("Farm")
-  h.eq(ns.Profiles.active(ctx.env.LootLedgerCharDB), "Farm")
+  h.eq(ns.Profiles.active(ctx.env.AnotherLedgerCharDB), "Farm")
   h.eq(ns.Options.get(ns.db, "alpha"), 0.5)
   h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), ns.Theme.preset("midnight").colors.panelTint)
   local said = ctx.printed[#ctx.printed]
@@ -2993,7 +2993,7 @@ h.test("wiring: import through the box creates and activates a profile", functio
   local n = #ns.Profiles.names(ns.db)
   frame.onAccept("hello")
   h.eq(#ns.Profiles.names(ns.db), n)
-  h.eq(ctx.printed[#ctx.printed]:find(L["This is not a LootLedger profile."], 1, true) ~= nil, true)
+  h.eq(ctx.printed[#ctx.printed]:find(L["This is not a AnotherLedger profile."], 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3096,7 +3096,7 @@ h.test("wiring: a short session continues over a zone split, a long one is archi
     local where = { zone = "Dornogal" }
     ctx.env.GetRealZoneText = function() return where.zone end
     startWorld(ctx, false)
-    local ns, hist = ctx.ns, ctx.env.LootLedgerCharDB.history
+    local ns, hist = ctx.ns, ctx.env.AnotherLedgerCharDB.history
     ns.Options.set(ns.db, "zoneSession", true)
     ns.Options.set(ns.db, "zoneSessionMinutes", 1)
     h.eq(ns.Options.get(ns.db, "minSessionMinutes"), 2)
@@ -3124,7 +3124,7 @@ h.test("wiring: a short session at login continues, a long one is archived", fun
     fire(ctx, "CHAT_MSG_LOOT", LOOT)
     ctx.now = ctx.now + seconds
     fire(ctx, "PLAYER_LOGOUT")
-    local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+    local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
     local saved = chardb.session
     local again = boot({ db = db, chardb = chardb, now = ctx.now + 5000 })
     startWorld(again, false)
@@ -3140,13 +3140,13 @@ h.test("wiring: a short session at login continues, a long one is archived", fun
   h.eq(#chardb.history, 1)
 end)
 
-h.test("wiring: /ll reset still archives a short session", function()
+h.test("wiring: /al reset still archives a short session", function()
   local ctx = boot()
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
   ctx.now = ctx.now + 20
   slash(ctx, "reset")
-  h.eq(#ctx.env.LootLedgerCharDB.history, 1)
+  h.eq(#ctx.env.AnotherLedgerCharDB.history, 1)
   h.eq(ctx.errors, {})
 end)
 
@@ -3317,7 +3317,7 @@ h.test("wiring: Hide in cities hides while resting and only undoes its own hidin
   resting = true
   fire(ctx, "PLAYER_UPDATE_RESTING")
   h.eq(W.isShown(), false)
-  h.eq(ctx.env.LootLedgerDB.window.hidden, false) -- the player's own state is kept
+  h.eq(ctx.env.AnotherLedgerDB.window.hidden, false) -- the player's own state is kept
   resting = false
   fire(ctx, "PLAYER_UPDATE_RESTING")
   h.eq(W.isShown(), true)
@@ -3475,7 +3475,7 @@ h.test("wiring: item tooltips list the mobs that drop the item with their chance
     fire(ctx, "LOOT_CLOSED")
   end
   local text = tooltipFor(LINK)
-  h.eq(text:find(ns.L["LootLedger drop chance"], 1, true) ~= nil, true)
+  h.eq(text:find(ns.L["AnotherLedger drop chance"], 1, true) ~= nil, true)
   h.eq(text:find("NPC 2546 = 50% (1 of 2)", 1, true) ~= nil, true)
   -- it stays after Reset (History) and goes with the option off
   slash(ctx, "reset")
@@ -3503,7 +3503,7 @@ h.test("wiring: mob loot counts with the clock stopped and is saved with the ses
   h.eq(next(ns.session.items), nil)
   -- Reset keeps the mob loot in History, so History > Mobs still lists it
   slash(ctx, "reset")
-  local history = ctx.env.LootLedgerCharDB.history
+  local history = ctx.env.AnotherLedgerCharDB.history
   h.eq(#history, 1)
   h.eq(history[1].mobs["npc:2546"].items[2589], 2)
   ns.UI.Ledger.setTab("history")
@@ -3566,7 +3566,7 @@ h.test("wiring: automatic show and hide keep the player's hidden choice", functi
   ns.Options.set(ns.db, "showOnLoot", true)
   ns.Options.set(ns.db, "hideInCities", true)
   W.hide()
-  h.eq(ctx.env.LootLedgerDB.window.hidden, true)
+  h.eq(ctx.env.AnotherLedgerDB.window.hidden, true)
   fire(ctx, "CHAT_MSG_LOOT", LOOT) -- first item: shown
   resting = true
   fire(ctx, "PLAYER_UPDATE_RESTING") -- city: hidden
@@ -3574,7 +3574,7 @@ h.test("wiring: automatic show and hide keep the player's hidden choice", functi
   fire(ctx, "PLAYER_UPDATE_RESTING") -- out again: shown
   h.eq(W.isShown(), true)
   W.endDrag() -- any later save
-  h.eq(ctx.env.LootLedgerDB.window.hidden, true)
+  h.eq(ctx.env.AnotherLedgerDB.window.hidden, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3633,7 +3633,7 @@ h.test("wiring: Destroy values Never also drops the destroy value saved at loot 
   h.eq(row.bestTotal, ns.Core.sessionValue(ns.session, true))
   local value = ns.Core.sessionValue(ns.session, true)
   slash(ctx, "reset")
-  h.eq(ctx.env.LootLedgerCharDB.history[1].best, value)
+  h.eq(ctx.env.AnotherLedgerCharDB.history[1].best, value)
   h.eq(ctx.errors, {})
 end)
 
@@ -3646,7 +3646,7 @@ h.test("wiring: a short session kept at login runs again and dates from the logi
   ctx.now = ctx.now + 30
   slash(ctx, "stop")
   fire(ctx, "PLAYER_LOGOUT")
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
   local again = boot({ db = db, chardb = chardb, now = ctx.now + 7 * 86400 })
   startWorld(again, false)
   local s = again.ns.session
@@ -3675,7 +3675,7 @@ h.test("wiring: an empty short session starts over at login and on an instance s
   startWorld(ctx, false)
   ctx.now = ctx.now + 30
   fire(ctx, "PLAYER_LOGOUT")
-  local db, chardb = ctx.env.LootLedgerDB, ctx.env.LootLedgerCharDB
+  local db, chardb = ctx.env.AnotherLedgerDB, ctx.env.AnotherLedgerCharDB
   local again = boot({ db = db, chardb = chardb, now = ctx.now + 86400 })
   local where = { zone = "Dornogal" }
   again.env.GetRealZoneText = function() return where.zone end
@@ -3778,7 +3778,7 @@ h.test("wiring: an empty profession read at login keeps the saved professions", 
   startWorld(ctx, false)
   ctx.ns.db.professions["Me-Realm"] = { enchanting = true }
   fire(ctx, "PLAYER_LOGOUT")
-  local again = boot({ db = ctx.env.LootLedgerDB, chardb = ctx.env.LootLedgerCharDB, now = ctx.now + 60 })
+  local again = boot({ db = ctx.env.AnotherLedgerDB, chardb = ctx.env.AnotherLedgerCharDB, now = ctx.now + 60 })
   again.env.UnitName = function() return "Me" end
   again.env.GetRealmName = function() return "Realm" end
   again.env.GetProfessions = function() return nil end -- not loaded yet
@@ -3799,7 +3799,7 @@ h.test("wiring: no combat log event is registered (forbidden for addons on this 
 end)
 
 -- ---------------------------------------------------------------------------
--- LootLedger scan
+-- AnotherLedger scan
 
 -- A fake auction house: `rows` = { { qty, buyout, itemID, link }, ... } for the
 -- full read; `commodity[itemID]` / `items[itemID]` = { full = bool, list } for
@@ -3842,16 +3842,16 @@ local function scanWorld(rows)
   return ctx, ah
 end
 
-h.test("wiring: /ll scan reads the auction house and prices items", function()
+h.test("wiring: /al scan reads the auction house and prices items", function()
   local ctx, ah = scanWorld({ { 1, 1000, 5, nil }, { 2, 3000, 5, nil } })
   fire(ctx, "AUCTION_HOUSE_SHOW")
   slash(ctx, "scan")
   h.eq(ah.replicated, 1)
-  h.eq(ctx.env.LootLedgerCharDB.scanAt, ctx.now)
+  h.eq(ctx.env.AnotherLedgerCharDB.scanAt, ctx.now)
   fire(ctx, "REPLICATE_ITEM_LIST_UPDATE")
   ctx.runTimers(); ctx.runTimers()
   local r = ctx.ns.prices:lookup(5)
-  h.eq(r.ahSource, "LootLedger scan"); h.eq(r.ahGross, 1000)
+  h.eq(r.ahSource, "AnotherLedger scan"); h.eq(r.ahGross, 1000)
   h.eq(printedWith(ctx, "Scan done: 1 items priced"), true)
   h.eq(ctx.ns.Core.scanState().running, false)
   h.eq(ctx.errors, {})
@@ -3870,7 +3870,7 @@ h.test("wiring: a second scan within 15 minutes waits", function()
   h.eq(ctx.ns.Core.scanState().waitLeft, 840)
 end)
 
-h.test("wiring: /ll scan needs the auction house open", function()
+h.test("wiring: /al scan needs the auction house open", function()
   local ctx, ah = scanWorld()
   slash(ctx, "scan")
   h.eq(ah.replicated, 0)
@@ -3892,7 +3892,7 @@ h.test("wiring: closing the auction house stops the scan once", function()
   fire(ctx, "REPLICATE_ITEM_LIST_UPDATE")
   ctx.runTimers()
   h.eq(#ctx.printed, before)
-  h.eq(ctx.ns.prices:lookup(5).ahSource, "LootLedger scan")
+  h.eq(ctx.ns.prices:lookup(5).ahSource, "AnotherLedger scan")
   h.eq(ctx.ns.Scan.bucket(ctx.ns.db, ctx.ns.Scan.currentRealmKey()).lastFull, nil)
 end)
 
@@ -3902,7 +3902,7 @@ h.test("wiring: no answer within 60 s restores the wait", function()
   slash(ctx, "scan")
   ctx.runTimers()
   h.eq(printedWith(ctx, "The game did not answer the scan. Try again later."), true)
-  h.eq(ctx.env.LootLedgerCharDB.scanAt, nil)
+  h.eq(ctx.env.AnotherLedgerCharDB.scanAt, nil)
   h.eq(ctx.ns.Core.scanState().running, false)
 end)
 
@@ -3911,7 +3911,7 @@ h.test("wiring: a full commodity search is recorded, a partial one not", functio
   fire(ctx, "AUCTION_HOUSE_SHOW")
   ah.commodity[7] = { full = false, list = { { unitPrice = 50, quantity = 10 } } }
   fire(ctx, "COMMODITY_SEARCH_RESULTS_UPDATED", 7)
-  h.eq(ctx.ns.prices:lookup(7).ahSource == "LootLedger scan", false)
+  h.eq(ctx.ns.prices:lookup(7).ahSource == "AnotherLedger scan", false)
   ah.commodity[7].full = true
   fire(ctx, "COMMODITY_SEARCH_RESULTS_UPDATED", 7)
   h.eq(ctx.ns.prices:lookup(7).ahGross, 50)
@@ -3935,14 +3935,14 @@ h.test("wiring: a battle pet search is not recorded", function()
   h.eq(next(ctx.ns.Scan.bucket(ctx.ns.db, ctx.ns.Scan.currentRealmKey(), true).items), nil)
 end)
 
-h.test("wiring: /ll scan waits while the realm is not known yet", function()
+h.test("wiring: /al scan waits while the realm is not known yet", function()
   local ctx, ah = scanWorld()
   ctx.env.GetRealmName = function() return nil end
   fire(ctx, "AUCTION_HOUSE_SHOW")
   slash(ctx, "scan")
   h.eq(ah.replicated, 0)
   h.eq(printedWith(ctx, "The realm is not known yet. Try again in a moment."), true)
-  h.eq(ctx.env.LootLedgerCharDB.scanAt, nil)
+  h.eq(ctx.env.AnotherLedgerCharDB.scanAt, nil)
 end)
 
 h.test("wiring: with TSM loaded scanning is off but saved scan prices answer", function()
@@ -3992,10 +3992,10 @@ end)
 h.test("wiring: old scan prices are pruned at login", function()
   local ctx = bootDeferred()
   fakeAuctionHouse(ctx, {})
-  ctx.env.LootLedgerDB = { scan = { ["EU-7-Realm"] = { items = { [5] = "1,2,3" } } } }
+  ctx.env.AnotherLedgerDB = { scan = { ["EU-7-Realm"] = { items = { [5] = "1,2,3" } } } }
   ctx.now = 30 * 86400
   startWorld(ctx, false)
-  h.eq(ctx.env.LootLedgerDB.scan["EU-7-Realm"], nil)
+  h.eq(ctx.env.AnotherLedgerDB.scan["EU-7-Realm"], nil)
 end)
 
 h.test("wiring: the scan button shows on the auction house and starts a scan", function()
@@ -4004,7 +4004,7 @@ h.test("wiring: the scan button shows on the auction house and starts a scan", f
   fire(ctx, "AUCTION_HOUSE_SHOW")
   local b = ctx.ns.UI.ScanButton.frame
   h.eq(type(b), "table"); h.eq(b:IsShown(), true)
-  h.eq(b:GetText(), "LootLedger scan")
+  h.eq(b:GetText(), "AnotherLedger scan")
   b._scripts.OnClick(b, "LeftButton")
   h.eq(ah.replicated, 1)
   h.eq(b:GetText(), "Reading 0%")
@@ -4221,7 +4221,7 @@ h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones",
   h.eq(TP.button:IsShown(), true); h.eq(TP.button:GetText(), "30 days")
   ctx.now = ctx.now + 10 * 86400
   TP.set("7")
-  h.eq(ctx.env.LootLedgerDB.tradePeriod, "7")
+  h.eq(ctx.env.AnotherLedgerDB.tradePeriod, "7")
   h.eq(#Ledger.view.rows, 0)
   Ledger.setSubtab("log")
   Ledger.refresh()

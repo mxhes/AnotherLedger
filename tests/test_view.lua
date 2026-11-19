@@ -197,10 +197,10 @@ h.test("View stale flag", function()
   h.eq(by[3].stale, false); h.eq(by[3].ahFromCache, false)
 end)
 
-h.test("View an aged live price (LootLedger scan) gets the age tag and stale flag", function()
+h.test("View an aged live price (AnotherLedger scan) gets the age tag and stale flag", function()
   reset()
-  PRICES[1] = { ah = 500, ahSource = "LootLedger scan", ahAge = 50400, ahAged = true }
-  PRICES[2] = { ah = 300, ahSource = "LootLedger scan", ahAge = 0 }
+  PRICES[1] = { ah = 500, ahSource = "AnotherLedger scan", ahAge = 50400, ahAged = true }
+  PRICES[2] = { ah = 300, ahSource = "AnotherLedger scan", ahAge = 0 }
   local v = V.build(three(), opts())
   local by = {}
   for _, r in ipairs(v.rows) do by[r.id] = r end

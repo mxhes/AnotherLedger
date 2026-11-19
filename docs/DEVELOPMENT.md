@@ -1,4 +1,4 @@
-# LootLedger development
+# AnotherLedger development
 
 How the addon is built and how to extend it. The player guide is
 [README.md](../README.md); the in-client checks and release steps are in
@@ -13,8 +13,8 @@ plans of each feature (history; not kept in sync with the code).
   `git clone https://gitlab.com/mhhenjes/lootledger.git`
 - Lua 5.1 (the client's version). Local tests may run on 5.4, so avoid 5.2+
   features (`goto`, `//`, `table.unpack`, integer-only APIs).
-- No build step: the client loads `LootLedger/*.lua` in the order of
-  `LootLedger/LootLedger.toc`. Copy or symlink `LootLedger/` into
+- No build step: the client loads `AnotherLedger/*.lua` in the order of
+  `AnotherLedger/AnotherLedger.toc`. Copy or symlink `AnotherLedger/` into
   `World of Warcraft/<client>/Interface/AddOns/`.
 - Tests: `lua tests/run.lua` from the repo root (exit 1 on any failure).
   GitLab CI (`.gitlab-ci.yml`) runs them under Lua 5.1 and 5.4 on every push.
@@ -36,15 +36,15 @@ only inside functions.
 | `DB.lua` | saved-variable defaults and repair |
 | `LootParse.lua` | loot, money and currency chat messages into links, copper and currencies; item keys with bonus IDs |
 | `Mobs.lua` | loot, gold and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window |
-| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source (`Sources/Scan.lua`: LootLedger scan, `Sources/Sales.lua`: Own sales) |
-| `Scan.lua` | LootLedger scan, pure: market value / lowest of a listing set, the daily average, the packed storage, the chunked reader of a full read, the 15-minute wait |
+| `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source (`Sources/Scan.lua`: AnotherLedger scan, `Sources/Sales.lua`: Own sales) |
+| `Scan.lua` | AnotherLedger scan, pure: market value / lowest of a listing set, the daily average, the packed storage, the chunked reader of a full read, the 15-minute wait |
 | `Trade.lua` | Trade section, pure: the per-realm store (log, totals, open posts, mail keys), trade kinds, mail recording, statistics, the own sale price |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
 | `View.lua` | the rows and totals a tab shows, History Zones, the Daily farm pick, the compact view |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
-| `Slash.lua`, `Demo.lua` | slash commands, `/ll demo` |
+| `Slash.lua`, `Demo.lua` | slash commands, `/al demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
 | `UI/Widgets.lua` | two-tone buttons, icon buttons, texts, lines, tooltips, menus |
 | `UI/Coins.lua` | amounts in gold / silver / copper columns (list, compact drops, footer, Top finds) |
@@ -55,16 +55,16 @@ only inside functions.
 | `UI/OptionsPanel.lua` | the options panel and the page in the game's options window |
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
 | `UI/ItemTooltip.lua` | drop chances in the game's item tooltips (hooked at login) |
-| `UI/ScanButton.lua` | the LootLedger scan button on the auction house window |
+| `UI/ScanButton.lua` | the AnotherLedger scan button on the auction house window |
 | `UI/TradePeriod.lua` | the Trade tab's 7 days / 30 days / All button (db.tradePeriod) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
-| `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/ll` command, names in `Slash.BINDINGS` |
-| `Media/Logo.tga` | the logo (leather ledger book with the LL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
+| `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
+| `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
 The logo is drawn by `tools/render_logo.py` (repo root, Pillow, not packaged):
-`python tools/render_logo.py` writes `LootLedger/Media/Logo.tga` and the
+`python tools/render_logo.py` writes `AnotherLedger/Media/Logo.tga` and the
 512 px `docs/logo.png` used by the README. Change the shapes or colors there
 and run it again; don't edit the images by hand.
 
@@ -88,7 +88,7 @@ Each of these is one call in one place; the UI never names them.
   tooltip (the profile's characters). Values are validated by type and fall
   back to the default; `apply` runs on change and for the saved value at
   login. Read it with `Options.get(ns.db, key)`. Optional fields: `account =
-  true` stores the value in `LootLedgerDB.account` (shared by every profile:
+  true` stores the value in `AnotherLedgerDB.account` (shared by every profile:
   `historyLimit`, `accountZones`, `minimapButton`); `get` / `store` functions
   keep the value elsewhere (the profile choice) and `Options.applyAll` skips
   such an option; `picked(db, value)` runs only on a choice in the panel
@@ -105,7 +105,7 @@ Each of these is one call in one place; the UI never names them.
   } end })`. It joins the lookup order and the AH price source dropdown.
   Optional: `createDisenchant`, `createMarket` and `present(env)` (its addon
   is loaded; `Sources.anyPresent` drives the login hint and turns the
-  LootLedger scan off). See `Sources/Auctionator.lua`. A source's `get` may
+  AnotherLedger scan off). See `Sources/Auctionator.lua`. A source's `get` may
   return the age of its price in seconds as a second value; the lookup then
   sets `ahAge` to it and `ahAged = true`, and the row shows the age tag and
   the old price rule like a cached price (`Sources/Scan.lua` does). The cache
@@ -116,14 +116,14 @@ Each of these is one call in one place; the UI never names them.
   and buttons), `ticks` (rates follow the clock), `watches` (data kind that
   redraws it), `hasItem` and `subtabs` (see the comment at the top of the
   file). A view with its own `sorts` list keeps its own sort
-  (`LootLedgerDB.sorts[slot]`, first `defaultSort`, see `Tabs.sortSlot` /
-  `Ledger.currentSort`); the others share `LootLedgerDB.sort`. The filter bar
+  (`AnotherLedgerDB.sorts[slot]`, first `defaultSort`, see `Tabs.sortSlot` /
+  `Ledger.currentSort`); the others share `AnotherLedgerDB.sort`. The filter bar
   reads and sets it through the accessor `Ledger.init` hands it. A view may
   set `headerInfo` (a short text the header shows right of the title on tabs
   without the session controls).
 - **Slash command**: `ns.Slash.define({ name, help, run = function(arg) ...
-  end })`; `help` shows in `/ll help`. A key binding is a `<Binding>` in
-  `Bindings.xml` that runs the command (`SlashCmdList["LOOTLEDGER"]("name")`)
+  end })`; `help` shows in `/al help`. A key binding is a `<Binding>` in
+  `Bindings.xml` that runs the command (`SlashCmdList["ANOTHERLEDGER"]("name")`)
   plus its name in `Slash.BINDINGS` (and in the wiring test's allowed
   globals).
 - **Row menu**: `Ledger.rowMenu(row)` returns the right-click entries of a row
@@ -142,7 +142,7 @@ Each of these is one call in one place; the UI never names them.
 
 - **Color presets**: `Theme.presets` (`id`, `label`, `colors` = every
   `Theme.colors` key except `Theme.FIXED_COLORS` as `"rrggbb"`, optional
-  `outline`). The `lootledger` entry is built from `Theme.colors` at load.
+  `outline`). The `anotherledger` entry is built from `Theme.colors` at load.
   `Theme.applyPreset(id)` sets them in place. The option `colorPreset` comes
   first in Colors, so `Options.applyAll` lays down the palette and the single
   colors go on top; picking a preset in the panel writes the single colors
@@ -153,13 +153,13 @@ Each of these is one call in one place; the UI never names them.
   the dark game tooltip (`Theme.TOOLTIP_BG`); no panel color option sets them
   except Tooltip labels. tests/test_theme.lua checks completeness and contrast
   per preset.
-- **Profiles** (`Profiles.lua`): `LootLedgerDB.profileUsers` maps
+- **Profiles** (`Profiles.lua`): `AnotherLedgerDB.profileUsers` maps
   `"Name-Realm"` to the profile it uses (noted at login by `Core.linkHistory`
   and on a switch; rename and delete keep it current) for the "Used by" line.
-  `LootLedgerDB.profiles[name]` holds the
-  options; `LootLedgerCharDB.profile` names the character's (Default when
+  `AnotherLedgerDB.profiles[name]` holds the
+  options; `AnotherLedgerCharDB.profile` names the character's (Default when
   missing or deleted). At `ADDON_LOADED`, after `DB.migrateAccount`,
-  `Profiles.init` points `LootLedgerDB.settings` at the active profile (filled
+  `Profiles.init` points `AnotherLedgerDB.settings` at the active profile (filled
   with defaults except the single colors, whose default is the preset), so
   every `Options.get(ns.db, key)` reads it; at `PLAYER_LOGOUT`
   `Profiles.beforeLogout` clears that alias so the profile is saved once.
@@ -273,7 +273,7 @@ Each of these is one call in one place; the UI never names them.
   loot shorter than that is not archived by Session per zone / instance; at
   login a short saved session with loot (its `elapsedBase`; demo sessions
   never) is kept, then started like a new one: `afkPaused` cleared, running,
-  `startedAt` = the login. Empty sessions start over as before. `/ll reset`
+  `startedAt` = the login. Empty sessions start over as before. `/al reset`
   and the Reset button always archive.
 - **Value rules** apply at lookup, never to saved History prices: `Prices.new{
   rules = ... }` cuts 5% off `ah` (option `ahCut`; the gross price stays in
@@ -346,18 +346,18 @@ Each of these is one call in one place; the UI never names them.
   with `confirm = function(value) return question or nil end` (History kept).
 - **CSV export** (`History.csv`): one line per session, amounts in gold with
   four decimals, then the currencies (`Name x3; Other x1`) and the note.
-  `/ll export session` writes `View.itemsCsv` of an unfiltered `View.build`,
-  `/ll export mobs` `View.mobsCsv` (every mob of an unfiltered
+  `/al export session` writes `View.itemsCsv` of an unfiltered `View.build`,
+  `/al export mobs` `View.mobsCsv` (every mob of an unfiltered
   `View.buildMobs`, by value),
-  `/ll export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
+  `/al export zones` `View.zonesCsv` (every subzone from `View.zoneTable`,
   quest items left out). Fields go through `History.csvField`.
-- **Ignore list** (`LootLedgerDB.ignored = { [itemID] = name }`, Core
+- **Ignore list** (`AnotherLedgerDB.ignored = { [itemID] = name }`, Core
   `ignoreItem` / `unignoreItem` / `ignoredList`): `opts.ignored` makes
   `collect` skip those items, so every list, total, Top find, compact drop,
   Zones place and the Daily farm leave them out; `Core.sessionValue`, the drop
   alert and the goals too. They stay recorded. History rows subtract them at
   their saved unit prices (`History.totals(e, ignored)`).
-- **Keep list** (`LootLedgerDB.kept`, Core `keepItem` / `unkeepItem` /
+- **Keep list** (`AnotherLedgerDB.kept`, Core `keepItem` / `unkeepItem` /
   `keptList`; both lists are made by `itemList(field)` in `Core.lua`):
   `opts.kept` makes `View.buildInventory` set `row.kept` and
   `totals.kept` / `totals.sellable` (only while a listed row is kept).
@@ -396,9 +396,9 @@ Each of these is one call in one place; the UI never names them.
   `History.NOTE_MAX` characters, cut on UTF-8 boundaries) follows the start on
   line 1 of the session row and is part of its search text. Entered through
   `Widgets.prompt` (the shared text popup).
-- **Account-wide History**: `LootLedgerDB.histories = { ["Name-Realm"] = list
+- **Account-wide History**: `AnotherLedgerDB.histories = { ["Name-Realm"] = list
   }`. At login `Core.linkHistory` adopts the character's old
-  `LootLedgerCharDB.history` into it (`History.adopt`, no duplicates by start)
+  `AnotherLedgerCharDB.history` into it (`History.adopt`, no duplicates by start)
   and points `ns.chardb.history` at that list; `PLAYER_LOGOUT` drops the alias
   so the list is saved once. Without a character name (tests) History stays
   per character. `Core.zoneHistory()` gives Zones (`ctx.zoneHistory`), the
@@ -415,7 +415,7 @@ Each of these is one call in one place; the UI never names them.
   opened session open.
 - **Undo**: `Core.deleteHistory`, `Core.clearHistory` and `Core.mergeHistory`
   push `{ restore = entries, drop = merged | nil }` on a stack kept for the
-  login; `Core.undoDelete` (`/ll undo`) removes `drop` (a merge) and puts
+  login; `Core.undoDelete` (`/al undo`) removes `drop` (a merge) and puts
   `restore` back in start order (`History.restore`).
 - **Scroll memory**: `Ledger` keeps `list.offset` per tab / sub-tab for the
   login (`rememberScroll` / `restoreScroll` around tab switches).
@@ -442,13 +442,13 @@ Each of these is one call in one place; the UI never names them.
 - **No price addon** (`Core.priceAddonHint`, at login): a source spec's
   `present(env)` (TSM, Auctionator) says its addon is loaded
   (`Sources.anyPresent`); without one a chat line once per account
-  (`LootLedgerDB.priceHintShown`, cleared when one is found again).
+  (`AnotherLedgerDB.priceHintShown`, cleared when one is found again).
 - **Reset note** (`resetNote`): `Core.resetSession` returns the saved entry
-  (`Core.archiveSession` does); the Reset button and `/ll reset`
+  (`Core.archiveSession` does); the Reset button and `/al reset`
   (`Header.requestReset` -> `doReset`) then open `Ledger.editNote(entry)`.
   The automatic splits call `Core.resetSession` directly and never ask.
 - **Fonts**: `UI/Fonts.lua` makes the addon's own copies of the game fonts
-  (`LootLedger<Key>`) in `Ledger.init`; typeface and px sizes change live and
+  (`AnotherLedger<Key>`) in `Ledger.init`; typeface and px sizes change live and
   the window re-lays itself out. The source tag font is pinned to Arial Narrow
   (`Theme.fontFiles`). On retail `SetFont` returns nothing, so only an explicit
   `false` means a font cannot load.
@@ -571,13 +571,13 @@ Each of these is one call in one place; the UI never names them.
     `Trade.salePrice` the Own sales price (gold before the cut per unit,
     age of the newest sale) from an index built once per log change (not
     saved), which also answers `Trade.hasItemID`. Core signals `dataChanged("trade")`.
-- **LootLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
+- **AnotherLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
   `UI/ScanButton.lua`): only while no source's `present` is true and the
   client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).
-  `Core.startScan` (the button, `/ll scan` through `Core.scanCommand`, which
+  `Core.startScan` (the button, `/al scan` through `Core.scanCommand`, which
   prints why it can't) needs the auction house open, a known realm key and
   the wait over
-  (`Scan.waitLeft(LootLedgerCharDB.scanAt, now)`, `Scan.WAIT` = 900 s). It
+  (`Scan.waitLeft(AnotherLedgerCharDB.scanAt, now)`, `Scan.WAIT` = 900 s). It
   calls `ReplicateItems`, stamps `scanAt` and waits for
   `REPLICATE_ITEM_LIST_UPDATE`; without it within 60 s it restores the old
   `scanAt` and says the game did not answer. The event starts
@@ -616,12 +616,17 @@ Each of these is one call in one place; the UI never names them.
   on `ADDON_LOADED` of `Blizzard_AuctionHouseUI` (while the auction house is
   open, `Core.auctionHouseOpen`).
 - **Price cache**: prices last seen more than 30 days ago are dropped at login
-  (`Prices.CACHE_MAX_AGE`). `/ll demo` seeds temporary fake prices that reset
+  (`Prices.CACHE_MAX_AGE`). `/al demo` seeds temporary fake prices that reset
   and logout remove.
 
 ## Saved state
 
-- `LootLedgerDB` (account): `profiles` (options per profile; `settings` is the
+The addon was called LootLedger until v0.3.0 (folder, saved variables
+`LootLedgerDB` / `LootLedgerCharDB`, `/ll`). The rename to AnotherLedger
+starts with fresh saved data: there is no migration, since the game keeps
+saved variables per addon folder and the old file is never loaded.
+
+- `AnotherLedgerDB` (account): `profiles` (options per profile; `settings` is the
   active one while logged in and is not saved), `account` (account-wide
   options), `renamed` (old profile name -> new, so other characters follow a
   rename at their next login), `minimapAngle`, `profilesMigrated` /
@@ -634,11 +639,11 @@ Each of these is one call in one place; the UI never names them.
   (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep
   list) and `histories` (every character's History, see "Account-wide
   History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
-  for the option Destroy values), `scan` (LootLedger scan: `[realm key] = {
-  lastFull, items = { [itemKey] = packed } }`, see LootLedger scan), `trade`
+  for the option Destroy values), `scan` (AnotherLedger scan: `[realm key] = {
+  lastFull, items = { [itemKey] = packed } }`, see AnotherLedger scan), `trade`
   (Trade tab: `[realm key] = { log, totals, posts, pending, mails }`, see
   Trade section) and `tradePeriod` (`"7"`, `"30"` or `"all"`).
-- `LootLedgerCharDB` (character): the session (items, gold, places with time,
+- `AnotherLedgerCharDB` (character): the session (items, gold, places with time,
   positions, recent drops, the goals already announced and the rate samples)
   and the bank scan, `profile` (the name of the profile it uses) and `scanAt`
   (the last full auction house read, for the game's 15-minute wait).
@@ -661,9 +666,9 @@ events (`LOOT_SLOT_CLEARED`, `UNIT_SPELLCAST_SENT`, `NAME_PLATE_UNIT_ADDED`,
 `PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`; never
 `COMBAT_LOG_EVENT_UNFILTERED`, which is forbidden on this client), the
 `MERCHANT_*`, `MAIL_*`, `TRADE_*`, `AUCTION_HOUSE_*` show / closed events
-(purchases are not loot; the auction house ones also drive the LootLedger
+(purchases are not loot; the auction house ones also drive the AnotherLedger
 scan), and `REPLICATE_ITEM_LIST_UPDATE`, `COMMODITY_SEARCH_RESULTS_UPDATED`,
-`ITEM_SEARCH_RESULTS_UPDATED` (LootLedger scan), `MAIL_INBOX_UPDATE`,
+`ITEM_SEARCH_RESULTS_UPDATED` (AnotherLedger scan), `MAIL_INBOX_UPDATE`,
 `CHAT_MSG_SYSTEM`, `TRADE_ACCEPT_UPDATE` and `UI_INFO_MESSAGE` (Trade
 section). An event the client does not know is skipped.
 
@@ -691,9 +696,9 @@ Texts go through `ns.L` (English text as key). A language is one
 
 The BigWigs packager runs from the repo root (it needs a git checkout as its
 top directory) with the root `.pkgmeta`. It copies the repo to
-`.release/LootLedger/`, and `move-folders` makes the inner `LootLedger/` folder
+`.release/AnotherLedger/`, and `move-folders` makes the inner `AnotherLedger/` folder
 the one addon folder of the zip (the docs, tests and CI files are ignored). It
-fetches the libraries into `LootLedger/Libs/` (git-ignored) and fills in the
+fetches the libraries into `AnotherLedger/Libs/` (git-ignored) and fills in the
 `.toc` version from the git tag. CI builds the zip on every tag (job `package`)
 and offers a manual `package-dry-run` on any branch, which lists the zip's
 files in the job log. CurseForge upload needs the CI variable

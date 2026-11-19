@@ -6,11 +6,11 @@
 # - package: on a tag, builds the zip (and uploads it to CurseForge when the
 #            CI variable CF_API_KEY is set and the .toc has X-Curse-Project-ID).
 # - package-dry-run: manual on any branch; builds the zip without uploading
-#            and lists its files, to check the .pkgmeta layout (one LootLedger/
+#            and lists its files, to check the .pkgmeta layout (one AnotherLedger/
 #            folder with the .toc inside). The zip is in the job's artifacts.
 #
 # The packager runs from the repo root (it refuses a top directory that is not
-# a git checkout); .pkgmeta there turns LootLedger/ into the addon folder.
+# a git checkout); .pkgmeta there turns AnotherLedger/ into the addon folder.
 
 stages:
   - test

@@ -29,11 +29,11 @@ window's Open on first loot / Open in instances / Hide in cities, and
 History > Mobs.
 From the fourth review: Hide worthless, gold per hour on History session
 rows, the Mobs hover tooltip, the compact 15 minute rate and goal bar, the
-chat hint without a price addon, Reset: ask for a note, `/ll export mobs`
+chat hint without a price addon, Reset: ask for a note, `/al export mobs`
 and unpriced items first from the footer note. After it: Mobs counts with
 the clock stopped and with fast loot addons, and drop chances show in the
 Mobs tooltips and in the game's item tooltips.
-Then: LootLedger scan (own auction house prices without TSM or Auctionator:
+Then: AnotherLedger scan (own auction house prices without TSM or Auctionator:
 full scan, passive recording, Scan price, Scan reminder), gilded two-tone
 buttons, and the Trade tab (auction and trade recording, Items and Log, Own
 sales price source, Trade log kept).

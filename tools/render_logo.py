@@ -1,6 +1,6 @@
-"""Draws the LootLedger logo (leather ledger book with the LL coin).
+"""Draws the AnotherLedger logo (leather ledger book with the AL coin).
 
-Writes LootLedger/Media/Logo.tga (64 x 64, the in-game icon) and docs/logo.png
+Writes AnotherLedger/Media/Logo.tga (64 x 64, the in-game icon) and docs/logo.png
 (512 x 512). Run from the repo root: python tools/render_logo.py (Pillow only).
 The shapes use a 64 x 64 grid drawn 16 times larger, then scaled down. Light
 comes from the top left. The grain uses a fixed seed, so a run gives the same
@@ -99,11 +99,20 @@ def put(canvas, img, m):
 
 
 def letters(dx=0.0, dy=0.0):
-    """The two L's on the coin as a mask."""
+    """The letters A and L on the coin as a mask."""
+    def pt(x, y):
+        return (u(x + dx), u(y + dy))
+
     def draw(d):
-        for x in (28.8, 34.8):
-            d.rectangle(box(x - 1.2 + dx, 25.3 + dy, x + 1.2 + dx, 36.7 + dy), fill=255)
-            d.rectangle(box(x - 1.2 + dx, 34.3 + dy, x + 3.6 + dx, 36.7 + dy), fill=255)
+        # A: two slanted legs with a flat top, a counter above the crossbar and
+        # an open gap between the legs below it.
+        d.polygon([pt(26.0, 36.7), pt(28.5, 25.3), pt(30.7, 25.3), pt(33.2, 36.7)], fill=255)
+        d.polygon([pt(28.5, 36.7), pt(29.6, 30.2), pt(30.7, 36.7)], fill=0)
+        d.rectangle(box(27.6 + dx, 32.4 + dy, 31.6 + dx, 34.2 + dy), fill=255)
+        d.rectangle(box(28.6 + dx, 34.2 + dy, 30.6 + dx, 36.7 + dy), fill=0)
+        # L
+        d.rectangle(box(34.4 + dx, 25.3 + dy, 36.8 + dx, 36.7 + dy), fill=255)
+        d.rectangle(box(34.4 + dx, 34.3 + dy, 40.0 + dx, 36.7 + dy), fill=255)
     return mask(draw)
 
 
@@ -183,7 +192,7 @@ def draw():
     caps_edge = ImageChops.subtract(caps, caps.filter(ImageFilter.MinFilter(7)))
     put(canvas, solid((92, 60, 18)), fade(caps_edge, 200))
 
-    # Coin: its shadow, a beveled rim, the face and the stamped LL.
+    # Coin: its shadow, a beveled rim, the face and the stamped AL.
     coin_shadow = disc(34.2, 32.6, 11).filter(ImageFilter.GaussianBlur(u(1.0)))
     put(canvas, solid((20, 8, 2)), clip(fade(coin_shadow, 170), cover))
     put(canvas, grad(22, 20, 44, 42, (255, 240, 160), (128, 82, 0), 45), disc(33, 31, 11))
@@ -206,7 +215,7 @@ def draw():
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     big = draw()
-    media = os.path.join(root, "LootLedger", "Media")
+    media = os.path.join(root, "AnotherLedger", "Media")
     os.makedirs(media, exist_ok=True)
     # Uncompressed 32-bit TGA, bottom-left origin (the classic layout).
     big.resize((64, 64), Image.LANCZOS).save(

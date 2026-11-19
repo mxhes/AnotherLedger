@@ -1,0 +1,17 @@
+<!-- Key bindings (the game's key bindings window, AddOns). The client loads
+     this file by its name; each binding runs a /al command, and their names
+     are set by Slash.register (Slash.BINDINGS). -->
+<Bindings>
+  <Binding name="ANOTHERLEDGER_TOGGLE" header="ANOTHERLEDGER" category="ADDONS">
+    SlashCmdList["ANOTHERLEDGER"]("toggle")
+  </Binding>
+  <Binding name="ANOTHERLEDGER_COMPACT" category="ADDONS">
+    SlashCmdList["ANOTHERLEDGER"]("compact")
+  </Binding>
+  <Binding name="ANOTHERLEDGER_CLOCK" category="ADDONS">
+    SlashCmdList["ANOTHERLEDGER"]("clock")
+  </Binding>
+  <Binding name="ANOTHERLEDGER_SCAN" category="ADDONS">
+    SlashCmdList["ANOTHERLEDGER"]("scan")
+  </Binding>
+</Bindings>
