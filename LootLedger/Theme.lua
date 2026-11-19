@@ -6,7 +6,6 @@ local Theme = {}
 Theme.textures = {
   -- The addon's logo (ledger book with the LL coin): minimap and broker icon.
   -- Drawn by tools/render_logo.py; no extension, the client finds the .tga.
-  -- UNVERIFIED (check in client): the TGA loads (docs/CHECKLIST.md).
   logo = "Interface\\AddOns\\LootLedger\\Media\\Logo",
   -- No certain retail leather path; a flat tile tinted with colors.panelTint.
   parchment = "Interface\\Buttons\\WHITE8X8",
