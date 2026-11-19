@@ -244,6 +244,16 @@ end
 function Profiles.encode(settings)
   local O = ns.Options
   settings = type(settings) == "table" and settings or {}
+  -- An own color preset is only on this account: the line carries its base
+  -- preset and every color that differs from that.
+  if O.userPreset and O.userPreset(settings.colorPreset) then
+    local own = settings.colorPreset
+    settings = copy(settings)
+    for _, o in ipairs(O.COLOR_OPTIONS) do
+      if settings[o[1]] == nil then settings[o[1]] = O.presetColor(own, o[1]) end
+    end
+    settings.colorPreset = O.basePreset(own)
+  end
   local pairsOut = {}
   for _, spec in ipairs(O.list()) do
     if portable(spec) and settings[spec.key] ~= nil then -- missing = the default

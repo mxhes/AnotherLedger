@@ -125,6 +125,9 @@ DB.defaults = {
   },
   -- Account-wide options (Options.define `account = true`): { [key] = value }.
   account = {},
+  -- The player's own color presets, shared by every profile (Options.lua):
+  -- list of { name, base = a Theme.presets id, colors = { [color option] = "rrggbb" } }.
+  colorPresets = {},
   -- Place of the own minimap button on the rim in degrees (0 = right,
   -- counter-clockwise; the default is bottom left).
   minimapAngle = 225,

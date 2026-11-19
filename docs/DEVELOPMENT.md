@@ -141,18 +141,30 @@ Each of these is one call in one place; the UI never names them.
 ## How things work
 
 - **Color presets**: `Theme.presets` (`id`, `label`, `colors` = every
-  `Theme.colors` key except `Theme.FIXED_COLORS` as `"rrggbb"`, optional
-  `outline`). The `anotherledger` entry is built from `Theme.colors` at load.
+  `Theme.colors` key except `Theme.FIXED_COLORS` as `"rrggbb"`). The
+  `anotherledger` entry is built from `Theme.colors` at load.
   `Theme.applyPreset(id)` sets them in place. The option `colorPreset` comes
   first in Colors, so `Options.applyAll` lays down the palette and the single
-  colors go on top; picking a preset in the panel writes the single colors
-  (and the outline). A color option's default is its preset's color
-  (`Options.defaultFor(key, settings)`); `Options.presetEdited` drives the
+  colors go on top (its `apply` also re-applies the stored single colors);
+  picking a preset in the panel writes the single colors. A color option's
+  default is its preset's color (`Options.presetColor(id, key)` via
+  `Options.defaultFor(key, settings)`); `Options.presetEdited` drives the
   "(edited)" label. Item quality colors (`Theme.qualityColor`) and coin colors
   are fixed at the game's values. Tooltip colors (`tip*`) must stay readable on
   the dark game tooltip (`Theme.TOOLTIP_BG`); no panel color option sets them
   except Tooltip labels. tests/test_theme.lua checks completeness and contrast
   per preset.
+- **Own color presets**: `AnotherLedgerDB.colorPresets` (account-wide, not in
+  a profile) is a list of `{ name, base, colors }`: `base` is the
+  `Theme.presets` id it was saved on, `colors` the single color options
+  (`colorText`, ...). Their option value is `Options.USER_PRESET .. name`
+  (`"user:Mine"`); `Options.userPreset(id)`, `Options.basePreset(id)` resolve
+  it, and every Theme color no option sets comes from the base. The dropdown's
+  last entry has the value `Options.CUSTOM` (never stored: `normalize`
+  rejects it); its `intercept` asks for a name and calls
+  `Options.saveColorPreset(db, name, replace)`. `Options.deleteColorPreset(id)`
+  moves every profile using it to the base with its colors filled in.
+  `Profiles.encode` exports such a profile as the base plus its colors.
 - **Profiles** (`Profiles.lua`): `AnotherLedgerDB.profileUsers` maps
   `"Name-Realm"` to the profile it uses (noted at login by `Core.linkHistory`
   and on a switch; rename and delete keep it current) for the "Used by" line.
@@ -628,7 +640,7 @@ saved variables per addon folder and the old file is never loaded.
 
 - `AnotherLedgerDB` (account): `profiles` (options per profile; `settings` is the
   active one while logged in and is not saved), `account` (account-wide
-  options), `renamed` (old profile name -> new, so other characters follow a
+  options), `colorPresets` (the player's own color presets), `renamed` (old profile name -> new, so other characters follow a
   rename at their next login), `minimapAngle`, `profilesMigrated` /
   `accountMigrated` (one-time migrations), `window` (position, full size
   `width` / `height`, compact size `compact`, `hidden`, `corner`: the corner a

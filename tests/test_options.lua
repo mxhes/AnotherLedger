@@ -20,7 +20,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit", "tradeLogDays",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
-    "colorBackground", "colorBorder", "colorButtons", "resetColors" })
+    "colorBackground", "colorBorder", "colorButtons", "resetColors", "deleteColorPreset" })
   -- every option but a button has its default in DB.defaults.settings
   for _, s in ipairs(O.list()) do
     if s.type ~= "button" and not s.get then h.eq(ns.DB.defaults.settings[s.key] ~= nil, true, s.key) end
@@ -412,7 +412,7 @@ end)
 local function hex(key) return ns.Theme.colorToHex(ns.Theme.colors[key]) end
 local function presetHex(id, key) return ns.Theme.preset(id).colors[key] end
 
-h.test("colorPreset is the first color option of Look, a dropdown of five", function()
+h.test("colorPreset is the first color option of Look: four presets and Save as preset", function()
   local first
   for _, s in ipairs(O.list()) do
     if s.category == "look" and s.key:match("^color") then first = s; break end
@@ -421,9 +421,12 @@ h.test("colorPreset is the first color option of Look, a dropdown of five", func
   h.eq(first.type, "dropdown")
   local values = {}
   for _, c in ipairs(O.choices(first)) do values[#values + 1] = c.value end
-  h.eq(table.concat(values, ","), "anotherledger,blizzard,midnight,tsm,parchment")
+  h.eq(values, { "anotherledger", "blizzard", "midnight", "tsm", O.CUSTOM })
   h.eq(#first.label <= 24, true)
   h.eq(O.defaultFor("colorPreset"), "anotherledger")
+  -- The save entry is never a stored value; the removed Parchment neither.
+  h.eq(O.normalize(first, O.CUSTOM), "anotherledger")
+  h.eq(O.normalize(first, "parchment"), "anotherledger")
 end)
 
 h.test("picking a preset writes the 11 colors", function()
@@ -439,14 +442,84 @@ h.test("picking a preset writes the 11 colors", function()
   ns.db = nil
 end)
 
-h.test("picking parchment turns the outline on, others leave it", function()
+h.test("own color preset: saved from the current colors, listed, picked back", function()
   local d = db()
   ns.db = d
-  O.pick(d, "colorPreset", "parchment")
-  h.eq(d.settings.fontOutline, "OUTLINE")
-  O.set(d, "fontOutline", "none")
   O.pick(d, "colorPreset", "midnight")
-  h.eq(d.settings.fontOutline, "none")
+  O.pick(d, "colorText", "123456")
+  h.eq(O.saveColorPreset(d, "  Mine  "), "user:Mine")
+  h.eq(d.settings.colorPreset, "user:Mine")
+  h.eq(d.colorPresets[1].base, "midnight")
+  h.eq(d.colorPresets[1].colors.colorText, "123456")
+  h.eq(O.presetEdited(d.settings), false)
+  h.eq(O.valueText(O.spec("colorPreset"), "user:Mine"), "Mine")
+  h.eq(hex("ink"), "123456")
+  -- listed after the built-in ones, before the save entry
+  local values = {}
+  for _, c in ipairs(O.choices(O.spec("colorPreset"))) do values[#values + 1] = c.value end
+  h.eq(values, { "anotherledger", "blizzard", "midnight", "tsm", "user:Mine", O.CUSTOM })
+  -- another preset, then back: the own colors on the base's other colors
+  O.pick(d, "colorPreset", "tsm")
+  h.eq(d.settings.colorText, presetHex("tsm", "ink"))
+  O.pick(d, "colorPreset", "user:Mine")
+  h.eq(d.settings.colorText, "123456")
+  h.eq(d.settings.colorBackground, presetHex("midnight", "panelTint"))
+  h.eq(hex("divider"), presetHex("midnight", "divider"))
+  h.eq(hex("ink"), "123456")
+  O.pick(d, "colorPreset", "anotherledger")
+  ns.db = nil
+end)
+
+h.test("own color preset: names are checked, a taken one needs replace", function()
+  local d = db()
+  ns.db = d
+  h.eq(select(2, O.saveColorPreset(d, "   ")), "Enter a name.")
+  h.eq(select(2, O.saveColorPreset(d, string.rep("x", 33))), "The name is too long.")
+  h.eq(select(2, O.saveColorPreset(d, "midnight")), "A built-in color preset has this name.")
+  h.eq(select(2, O.saveColorPreset(d, "TSM-style")), "A built-in color preset has this name.")
+  h.eq(O.saveColorPreset(d, "Mine"), "user:Mine")
+  O.pick(d, "colorText", "abcdef")
+  local id, err, taken = O.saveColorPreset(d, "MINE")
+  h.eq(id, nil)
+  h.eq(err, "exists")
+  h.eq(taken, "Mine")
+  h.eq(O.saveColorPreset(d, "MINE", true), "user:Mine")
+  h.eq(#d.colorPresets, 1)
+  h.eq(d.colorPresets[1].colors.colorText, "abcdef")
+  O.pick(d, "colorPreset", "anotherledger")
+  ns.db = nil
+end)
+
+h.test("own color preset: delete keeps every profile's colors", function()
+  local d = db()
+  d.profiles = { Default = d.settings, Other = { colorPreset = "user:Mine" } }
+  ns.db = d
+  O.pick(d, "colorPreset", "blizzard")
+  O.pick(d, "colorBorder", "112233")
+  O.saveColorPreset(d, "Mine")
+  h.eq(select(2, O.deleteColorPreset("blizzard")), "Pick one of your own color presets first.")
+  h.eq(O.deleteColorPreset("user:Mine"), true)
+  h.eq(#d.colorPresets, 0)
+  h.eq(d.settings.colorPreset, "blizzard")
+  h.eq(d.settings.colorBorder, "112233")
+  h.eq(d.profiles.Other.colorPreset, "blizzard")
+  h.eq(d.profiles.Other.colorBorder, "112233")
+  h.eq(d.profiles.Other.colorText, presetHex("blizzard", "ink"))
+  h.eq(O.presetEdited(d.settings), true)
+  O.pick(d, "colorPreset", "anotherledger")
+  ns.db = nil
+end)
+
+h.test("Save as preset opens a name prompt and stores nothing itself", function()
+  local d = db()
+  ns.db = d
+  local asked, savedUI = nil, ns.UI
+  ns.UI = { Widgets = { prompt = function(text, accept, initial, fn) asked = fn end } }
+  h.eq(O.pick(d, "colorPreset", O.CUSTOM), "anotherledger")
+  h.eq(d.settings.colorPreset, nil)
+  asked("Night")
+  h.eq(d.settings.colorPreset, "user:Night")
+  ns.UI = savedUI
   O.pick(d, "colorPreset", "anotherledger")
   ns.db = nil
 end)

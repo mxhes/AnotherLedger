@@ -284,20 +284,26 @@ History asks first.
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept |
-| Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors |
+| Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
 **Color preset** changes the whole look at once: the window, the lines, the
 tabs, the buttons and the scrollbar. **AnotherLedger** is the dark leather look,
 **Blizzard** is black and bronze with red buttons like the game's own
-windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
-accent and **Parchment** is a light tan with light text and dark brown buttons
-(it also turns on a thin font outline so all text reads on the light
-background, like the labels on the game's maps). Item
+windows, **Midnight** is dark blue and **TSM-style** is slate with a
+gold-orange accent. Item
 quality and coin colors always stay the game's own. Buttons are light on top
 and fade darker toward the bottom, with a thin gold line inside the edge;
 **Button background** sets their color. After a preset you can
 still change single colors; the preset then shows "(edited)".
+
+**Your own presets**: the last entry of **Color preset**, **Save as
+preset...**, asks for a name and saves the colors you have now as a preset of
+your own. It shows in the list under the built-in ones on every character and
+profile. Saving under the name of one of your presets overwrites it after a
+question. **Delete color preset** deletes the chosen preset if it is one of
+yours; the colors stay as they are. An exported profile that uses one of your
+presets carries its colors, so it looks the same on another account.
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
 window changes while you pick, Cancel puts the old color back); right-click it
