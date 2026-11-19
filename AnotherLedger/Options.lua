@@ -245,6 +245,17 @@ function Options.valueText(spec, value)
   return tostring(value)
 end
 
+-- The text on a closed dropdown's button: a choice's `short` text when it has
+-- one (a long label would not fit), else valueText.
+function Options.buttonText(spec, value)
+  if spec.type == "dropdown" then
+    for _, c in ipairs(Options.choices(spec)) do
+      if c.value == value and type(c.short) == "string" then return c.short end
+    end
+  end
+  return Options.valueText(spec, value)
+end
+
 -- The hover tooltip of an option (ns.Tooltip): its label as title, what it
 -- does, and its default value (not for a button).
 function Options.tooltip(spec)

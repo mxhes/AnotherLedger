@@ -238,7 +238,7 @@ function Panel.WIDGETS.dropdown(block, spec)
   button:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -sizes().controlTop)
 
   local function show(value)
-    button:SetText(ns.Options.valueText(spec, value))
+    button:SetText(ns.Options.buttonText(spec, value))
   end
   button:SetScript("OnClick", function(self)
     openChoiceMenu(self, spec, function(value) show(set(spec, value)) end)

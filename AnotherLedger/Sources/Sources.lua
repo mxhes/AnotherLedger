@@ -64,13 +64,14 @@ function Sources.gate(source, key, getSelected)
   }
 end
 
--- Dropdown choices: "Auto (A, then B)" followed by one entry per source.
+-- Dropdown choices: "Auto (A, then B)" followed by one entry per source. The
+-- Auto entry's `short` text ("Auto") is what the closed dropdown button shows.
 function Sources.choices()
   local labels = {}
   for i, spec in ipairs(specs) do labels[i] = spec.label or spec.key end
   local auto = L["Auto"]
   if #labels > 0 then auto = auto .. " (" .. table.concat(labels, L[", then "]) .. ")" end
-  local choices = { { value = Sources.AUTO, label = auto } }
+  local choices = { { value = Sources.AUTO, label = auto, short = L["Auto"] } }
   for i, spec in ipairs(specs) do
     choices[#choices + 1] = { value = spec.key, label = labels[i] }
   end

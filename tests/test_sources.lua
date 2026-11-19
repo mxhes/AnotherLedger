@@ -85,7 +85,7 @@ h.test("Sources registry: order, choices and the source built from a spec", func
   for i, spec in ipairs(S.list()) do keys[i] = spec.key end
   h.eq(keys, { "tsm", "auctionator" })
   h.eq(S.choices(), {
-    { value = "auto", label = "Auto (TSM, then Auctionator)" },
+    { value = "auto", label = "Auto (TSM, then Auctionator)", short = "Auto" },
     { value = "tsm", label = "TSM" },
     { value = "auctionator", label = "Auctionator" },
   })
