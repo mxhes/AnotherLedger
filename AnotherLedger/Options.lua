@@ -12,7 +12,9 @@ local L = ns.L
 --     category = "window",            -- section of the panel (Options.CATEGORIES)
 --     label   = "Opacity",            -- short; the details go in tooltip
 --     tooltip = "Fades the window...", -- shown on hover with the default (Options.tooltip)
---     zeroText = "Off",               -- number: text of 0 (optional)
+--     zeroText = "Off",               -- number: text of 0 (optional; such an
+--                                     -- option has no "unlimited": an empty
+--                                     -- box or a negative value is 0, Off)
 --     withPrevious = true,            -- never starts a panel column (optional:
 --                                     -- the second of a pair stays with the first)
 --     tooltipExtra = function() -> text or nil, -- a live line for the tooltip (optional)
@@ -145,7 +147,7 @@ function Options.normalize(spec, value)
     return trimmed
   elseif spec.type == "number" then
     if not num(value) then return default end
-    if value < 0 then return -1 end
+    if value < 0 then return spec.zeroText and 0 or -1 end
     return math.floor(value)
   elseif spec.type == "dropdown" then
     for _, c in ipairs(Options.choices(spec)) do

@@ -54,8 +54,14 @@ h.test("Core loads without a client and exposes helpers", function()
 end)
 
 h.test("Core.evalKey needs both parts and survives errors", function()
-  h.eq(Core.evalKey({}), nil)
-  h.eq(Core.evalKey({ GetCurrentRegionName = function() return "EU" end }), nil)
+  -- a client without the calls uses a fixed part instead of waiting for good
+  h.eq(Core.evalKey({}), "any-any")
+  h.eq(Core.evalKey({ GetCurrentRegionName = function() return "EU" end }), "EU-any")
+  -- a call that answers nothing yet: not known yet (asked again later)
+  h.eq(Core.evalKey({
+    GetCurrentRegionName = function() return "EU" end,
+    C_GameRules = { GetCurrentGameModeRecordID = function() return nil end },
+  }), nil)
   h.eq(Core.evalKey({
     GetCurrentRegionName = function() return "EU" end,
     C_GameRules = { GetCurrentGameModeRecordID = function() return 7 end },

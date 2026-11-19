@@ -89,7 +89,7 @@ Each of these is one call in one place; the UI never names them.
   back to the default; `apply` runs on change and for the saved value at
   login. Read it with `Options.get(ns.db, key)`. Optional fields: `account =
   true` stores the value in `AnotherLedgerDB.account` (shared by every profile:
-  `historyLimit`, `accountZones`, `minimapButton`); `get` / `store` functions
+  `historyLimit`, `tradeLogDays`, `accountZones`, `minimapButton`); `get` / `store` functions
   keep the value elsewhere (the profile choice) and `Options.applyAll` skips
   such an option; `picked(db, value)` runs only on a choice in the panel
   (`Options.pick`), not at login (the color preset writes the single colors
@@ -261,8 +261,8 @@ Each of these is one call in one place; the UI never names them.
   `session.mobs` and History entries' `mobs`. `View.buildMobs` (History >
   Mobs) adds them up over the Zones entries (the running session included); a
   mob's `places` count corpses like `looted`, and the most counted is its main
-  place. It values each mob's items like Zones (the entry's saved price, else
-  live) and sorts by value, per loot (`perLoot` = value / `looted`) or name;
+  place. It values each mob's items like Zones (today's price, else the
+  entry's saved one) and sorts by value, per loot (`perLoot` = value / `looted`) or name;
   `Ledger.mobOpen` is the opened mob. A mob row's `hint` builds its tooltip on
   hover (looted, value, gold, per loot, its top 3 places, its best drops). The
   view has no rates, so the footer shows no per hour column.
@@ -324,7 +324,10 @@ Each of these is one call in one place; the UI never names them.
   Backstop: between `LOOT_OPENED` and one second after `LOOT_CLOSED`, a rise
   of `GetMoney()` beyond what the messages counted is recorded too
   (`Core.missingGold`), so a message form the parser does not know still
-  counts, and never twice.
+  counts, and never twice. A loot window opened before the last one settled
+  continues its bookkeeping (`lootWindow.open` counts the windows on it; only
+  the last close settles it), so a money line that comes after the next
+  window opened is not counted a second time.
 - **Places**: each loot and gold event notes its zone (an instance with its
   difficulty is a zone of its own) and subzone, and, outside instances, the
   map position. Time per place only counts while the clock runs. Sessions
@@ -432,9 +435,14 @@ Each of these is one call in one place; the UI never names them.
   count), gold, values and currencies; items by key with quantities added and
   prices averaged by quantity; Zones sub-zones summed (time, gold, items,
   map cells); places of the more valuable session first; notes joined with
-  ` / `. `Core.mergeHistory(index)` replaces the session at `index` with its
-  merge with `index + 1` (the next older one); `Ledger.mergeHistory` keeps the
-  opened session open.
+  ` / `. The merged entry takes the newer session's Auction from
+  (`ahMinGain`) and works its `best` out again at it, per session (each at
+  its own item prices), adding the two up. `Core.mergeHistory(index)`
+  replaces the session at `index` with its merge with `index + 1` (the next older one); `Ledger.mergeHistory` keeps the
+  opened session open. `Core.archiveSession` moves the opened index down one
+  (a new entry goes first); a row menu finds its session again by the entry
+  (`historyIndexOf` in `UI/Ledger.lua`), so Merge and Delete never hit
+  another session after a split saved one.
 - **Undo**: `Core.deleteHistory`, `Core.clearHistory` and `Core.mergeHistory`
   push `{ restore = entries, drop = merged | nil }` on a stack kept for the
   login; `Core.undoDelete` (`/al undo`) removes `drop` (a merge) and puts
@@ -456,8 +464,11 @@ Each of these is one call in one place; the UI never names them.
 - **Hide worthless** (`hideWorthless` -> `opts.hideWorthless`): `collect` and
   the compact drops skip `row.worthless` rows; totals are unchanged (they are
   worth 0).
-- **Unpriced first**: `row.unpriced` (no AH price, not bound) is what the
-  footer counts. A click on the notes line (`Summary.attach`, mouse only
+- **Unpriced first**: `row.unpriced` (no AH price, not bound, not
+  worthless; `makeRow` in `View.lua`) is what the footer counts and what
+  `Rows.rowText` marks `?`. Bound is the bind type (`info.bound`) or, in
+  Bags and Bank, a soulbound stack (`isBound` of
+  `C_Container.GetContainerItemInfo`; `item.bound` while every stack is). A click on the notes line (`Summary.attach`, mouse only
   while something is unpriced) runs `Ledger.toggleUnpricedFirst`;
   `opts.unpricedFirst` wraps the item sort (`unpricedFirst(inner)` in
   `View.lua`) and `Summary.notesText(view, true)` says "listed first".
@@ -557,7 +568,11 @@ Each of these is one call in one place; the UI never names them.
 - **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section,
   the `trade` tab in `UI/Tabs.lua`, `View.buildTradeItems` /
   `View.buildTradeLog`, `UI/TradePeriod.lua`): per realm key
-  (`Scan.currentRealmKey`), nothing is recorded while it is unknown.
+  (`Scan.currentRealmKey`), nothing is recorded while it is unknown. A client
+  without `GetCurrentRegionName` or `C_GameRules.GetCurrentGameModeRecordID`
+  uses `Core.NO_KEY_PART` ("any") for that part of the key instead of
+  waiting for good. Items and Log follow the filter bar (`tradeVisible`:
+  quality only on rows of one item); Log sorts by `recent`, `gold`, `name`.
   - Posts and cancels: `hooksecurefunc` on `C_AuctionHouse.PostItem` /
     `PostCommodity` / `CancelAuction` (`Core.hookAuctionCalls`, at login and
     when `Blizzard_AuctionHouseUI` loads); `Trade.addPost` keeps an open post

@@ -1,6 +1,6 @@
 # AnotherLedger
 
-WoW **Forever** (retail engine, Interface 16001) addon in Lua 5.1: a "Session Ledger" window that values everything you loot (vendor, AH, disenchant), with Bags / Bank / History tabs (Sessions, Zones, Mobs with drop chances), a compact layout and a Daily farm pick. The addon folder is `AnotherLedger/` inside the repo.
+WoW **Forever** (retail engine, Interface 16001) addon in Lua 5.1: a "Session Ledger" window that values everything you loot (vendor, AH, disenchant), with Bags / Bank / History (Sessions, Zones, Mobs with drop chances) / Trade (auction and trade sales) tabs, its own AH scan, a compact layout and a Daily farm pick. The addon folder is `AnotherLedger/` inside the repo.
 
 Docs:
 - `README.md`: player guide (keep it free of texture paths, API names and pixel sizes).
@@ -19,7 +19,7 @@ Docs:
 
 - **Pure vs client code.** Files outside `UI/` are plain Lua; every client call is injected or looked up at call time, so tests load them with `h.load({...})`. Files in `UI/` touch WoW globals only **inside functions**, never at file load.
 - **Namespace.** Every file starts `local ADDON, ns = ...` and publishes one table (`ns.Options`, `ns.UI.Window`, ...). State: `ns.db` (`AnotherLedgerDB`, account), `ns.chardb` (`AnotherLedgerCharDB`), `ns.session`, `ns.prices`.
-- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Sources/*, Session, Mobs, History, Inventory, Options, Profiles, View, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/Ledger, Core last. Core wires events at login (unknown events are skipped).
+- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Scan, Trade, Sources/*, Session, Mobs, History, Inventory, Options, Profiles, View, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/ScanButton, UI/TradePeriod, UI/Ledger, Core last. Core wires events at login (unknown events are skipped).
 - **Data flow.** `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh` builds a view via the shown tab's `build` (`View.lua`, pure) -> each registered part draws it. Nothing redraws while the window is hidden.
 - **Registries** (add things in one place; UI code never names them): options `Options.define`, price sources `ns.Sources.register`, tabs `ns.UI.Tabs.define`, slash commands `ns.Slash.define`, window parts `ns.UI.Ledger.register`. Details in `docs/DEVELOPMENT.md`.
 - **Items** are keyed by `LootParse.itemKey(link)` (`"<id>:<bonus IDs>"` for variants); `item.id` stays numeric. A row's value is the best of vendor, AH and disenchant (`Prices.best`).
@@ -52,6 +52,8 @@ Docs:
 | fonts | `UI/Fonts.lua`, `Theme.fonts` |
 | translations | `Locale.lua`, `Locales/` |
 | History, Zones, CSV export | `History.lua`, `View.buildHistory`, `UI/Export.lua` |
+| own AH scan | `Scan.lua`, `Sources/Scan.lua`, `Core.lua` (scan section), `UI/ScanButton.lua` |
+| Trade tab, sales | `Trade.lua`, `Sources/Sales.lua`, `Core.lua` (trade section), `View.buildTradeItems` / `buildTradeLog` |
 | Mobs tab, drop chances | `Mobs.lua`, `Core.snapshotLoot`, `View.buildMobs`, `UI/ItemTooltip.lua` |
 | profiles | `Profiles.lua` |
 | options window / minimap | `Options.lua`, `UI/OptionsPanel.lua`, `UI/Minimap.lua` |

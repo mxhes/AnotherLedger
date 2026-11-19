@@ -330,15 +330,25 @@ h.test("History.totals: ignored items leave at the session's own Auction from", 
   h.eq(select(3, ns.History.totals(entry(nil, 1300), { [1] = true }, 300)), 1000)
 end)
 
-h.test("History.merge: Auction from kept only when both agree", function()
-  local function entry(t, gain)
-    return { startedAt = t, elapsed = 60, gold = 0, nItems = 0, vendor = 0, ah = 0, best = 0, items = {},
-      ahMinGain = gain }
+h.test("History.merge: the newer session's Auction from, the best worked out again at it", function()
+  -- item 1: vendor 100, AH 120 (20% over vendor)
+  local function entry(t, gain, id)
+    local best = gain >= 50 and 100 or 120
+    return { startedAt = t, elapsed = 60, gold = 0, nItems = 1, vendor = 100, ah = 120, best = best,
+      items = { [id] = { id = id, key = id, qty = 1, price = { vendor = 100, ah = 120 } } }, ahMinGain = gain }
   end
-  local m = ns.History.merge(entry(1, 50), entry(2, 50))
-  h.eq(m.ahMinGain, 50)
-  m = ns.History.merge(entry(1, 50), entry(2, 0))
-  h.eq(m.ahMinGain, nil)
+  local m = ns.History.merge(entry(1, 50, 1), entry(2, 50, 2))
+  h.eq(m.ahMinGain, 50); h.eq(m.best, 200)
+  -- older +50% (vendor counts), newer Off (AH counts): both items at Off
+  m = ns.History.merge(entry(1, 50, 1), entry(2, 0, 2))
+  h.eq(m.ahMinGain, 0); h.eq(m.best, 240)
+  h.eq(select(3, ns.History.totals(m, { [1] = true })), 120)
+  -- the same item, an AH price in only one session: it counts for that one's quantity only
+  local a = { startedAt = 1, elapsed = 60, gold = 0, nItems = 1, vendor = 50, ah = 1000, best = 1000, ahMinGain = 0,
+    items = { [7] = { id = 7, key = 7, qty = 10, price = { vendor = 5, ah = 100 } } } }
+  local b = { startedAt = 2, elapsed = 60, gold = 0, nItems = 1, vendor = 50, ah = 0, best = 50, ahMinGain = 0,
+    items = { [7] = { id = 7, key = 7, qty = 10, price = { vendor = 5 } } } }
+  h.eq(ns.History.merge(a, b).best, 1050)
 end)
 
 h.test("History: an AH price after the 5% cut is marked per item, also through merges", function()

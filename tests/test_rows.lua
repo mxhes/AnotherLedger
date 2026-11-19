@@ -118,7 +118,7 @@ end)
 
 h.test("rowText: vendor beats a lower DE, no AH price marks it unpriced", function()
   local t = R.rowText({ name = "Sword", quantity = 1, value = 18003, bestKind = "vendor",
-    vendorTotal = 18003, deTotal = 8803 }, fm)
+    vendorTotal = 18003, deTotal = 8803, unpriced = true }, fm)
   h.eq(t.amount, fm(18003)); h.eq(t.source, "vendor"); h.eq(t.sourceText, "Vendor")
   h.eq(t.unpriced, true)
   local d = R.rowText({ name = "X", quantity = 2, value = 500, bestKind = "de", deTotal = 500, ahEach = 100,
@@ -131,7 +131,7 @@ h.test("rowText: bound, nothing, currency and rows with their own total", functi
   h.eq(b.amount, "bound"); h.eq(b.source, nil); h.eq(b.unpriced, false)
   local bv = R.rowText({ name = "B", quantity = 1, value = 500, bestKind = "vendor", vendorTotal = 500, bound = true }, fm)
   h.eq(bv.amount, "5s"); h.eq(bv.source, "vendor"); h.eq(bv.unpriced, false)
-  local none = R.rowText({ name = "N", quantity = 1, value = 0 }, fm)
+  local none = R.rowText({ name = "N", quantity = 1, value = 0, unpriced = true }, fm)
   h.eq(none.amount, "?"); h.eq(none.source, nil); h.eq(none.unpriced, true)
   local c = R.rowText({ name = "C", quantity = 3, isCurrency = true }, fm)
   h.eq(c.amount, ""); h.eq(c.source, nil); h.eq(c.unpriced, false)

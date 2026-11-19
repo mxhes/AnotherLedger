@@ -648,20 +648,38 @@ function Ledger.ignoreItem(row)
   ns.Util.say(string.format(L_IGNORED, row.link or row.name or tostring(row.id)))
 end
 
+-- Where `entry` is in this character's History now, or nil when it is gone. A
+-- session saved while a row menu is open moves the others down one.
+local function historyIndexOf(entry)
+  local list = ns.chardb and ns.chardb.history
+  if type(list) ~= "table" then return nil end
+  for i, e in ipairs(list) do
+    if e == entry then return i end
+  end
+  return nil
+end
+
 -- Right-click menu of a row: a History session (note, delete) or an item (ignore).
 -- Returns the menu entries, or nil when the row has none.
 function Ledger.rowMenu(row)
   if row.historyIndex then
     local entry, index = row.entry, row.historyIndex
+    -- Merge and Delete act on the session the menu was opened for.
+    local function act(fn)
+      return function()
+        local now = historyIndexOf(entry)
+        if now then fn(now) end
+      end
+    end
     local entries = {
       { text = (tostring(row.name or ""):gsub("^[%+%-] ", "")), title = true },
       { text = ns.History.note(entry) and L_EDIT_NOTE or L_ADD_NOTE, onClick = function() Ledger.editNote(entry) end },
     }
     -- Merging always takes the next older session (by start), whatever the sort.
     if ns.Core and ns.Core.canMergeHistory(index) then
-      entries[#entries + 1] = { text = L_MERGE, onClick = function() Ledger.mergeHistory(index) end }
+      entries[#entries + 1] = { text = L_MERGE, onClick = act(Ledger.mergeHistory) }
     end
-    entries[#entries + 1] = { text = L_DELETE, onClick = function() Ledger.deleteHistory(index) end }
+    entries[#entries + 1] = { text = L_DELETE, onClick = act(Ledger.deleteHistory) }
     return entries
   end
   if type(row.id) == "number" and row.id > 0 and not row.isCurrency and not row.zoneKey then

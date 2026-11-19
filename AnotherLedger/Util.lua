@@ -26,6 +26,12 @@ function Util.nonNegative(v)
   return isNumber(v) and v >= 0 and v or 0
 end
 
+-- Characters of a UTF-8 string (bytes that do not continue a sequence), so
+-- "Bär" is 3, not 4.
+function Util.charCount(s)
+  return select(2, s:gsub("[^\128-\191]", ""))
+end
+
 function Util.clamp(v, lo, hi)
   if hi < lo then hi = lo end
   if v < lo then return lo end

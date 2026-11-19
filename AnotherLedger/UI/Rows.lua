@@ -61,10 +61,11 @@ function Rows.marketText(row, colors)
   return table.concat(parts, MARKET_SEP)
 end
 
--- Unpriced = no AH price and not bound (the footer's count and History's);
--- such a row still shows its vendor / DE value, marked "?".
+-- Unpriced item rows (View's row.unpriced, the rule the footer counts by)
+-- still show their vendor / DE value, marked "?". Currencies and rows with
+-- their own total (places) never are.
 local function isUnpriced(row)
-  return row.ahEach == nil and not row.bound and not row.isCurrency and row.bestLineTotal == nil
+  return row.unpriced == true and not row.isCurrency and row.bestLineTotal == nil
 end
 
 -- The texts one row shows: line 1 name, quantity, the counted value (the row's

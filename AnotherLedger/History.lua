@@ -366,17 +366,32 @@ function History.merge(a, b)
   for _ in pairs(items) do count = count + 1 end
   local first, second = a, b
   if History.bestOf(b) + b.gold > History.bestOf(a) + a.gold then first, second = b, a end
+  local older, newer = a, b
+  if b.startedAt < a.startedAt then older, newer = b, a end
+  -- One Auction from for the merged session: the newer one's. Each session's
+  -- items are valued again at it with their own prices and the two added up
+  -- (the merged prices are averages, and a price only one session had must
+  -- not count for the other one's quantity).
+  local gain = History.gainOf(newer)
+  local function itemsBest(list)
+    local sum = 0
+    for _, it in pairs(type(list) == "table" and list or {}) do
+      if type(it) == "table" and num(it.qty) and it.qty > 0 then
+        local p = type(it.price) == "table" and it.price or {}
+        sum = sum + bestUnit(p.vendor, p.ah, p.de, gain) * it.qty
+      end
+    end
+    return sum
+  end
+  local best = itemsBest(a.items) + itemsBest(b.items)
   local merged = {
     startedAt = math.min(a.startedAt, b.startedAt), elapsed = a.elapsed + b.elapsed, gold = a.gold + b.gold,
-    nItems = count, vendor = a.vendor + b.vendor, ah = a.ah + b.ah, best = History.bestOf(a) + History.bestOf(b),
+    nItems = count, vendor = a.vendor + b.vendor, ah = a.ah + b.ah, best = best,
     places = mergePlaces(first.places, second.places), items = items,
     currencies = mergeCurrencies(a.currencies, b.currencies), zones = mergeZones(a.zones, b.zones),
     mobs = ns.Mobs and ns.Mobs.merge(a.mobs, b.mobs) or nil,
-    -- One Auction from only when both were saved with the same one.
-    ahMinGain = a.ahMinGain == b.ahMinGain and a.ahMinGain or nil,
+    ahMinGain = gain,
   }
-  local older, newer = a, b
-  if b.startedAt < a.startedAt then older, newer = b, a end
   local notes = {}
   for _, e in ipairs({ older, newer }) do
     local note = History.note(e)

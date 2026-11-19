@@ -2728,6 +2728,32 @@ h.test("wiring: money looted without a known message counts once", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: gold of a quick second loot window counts once when its money message is late", function()
+  local ctx = bootDeferred()
+  local money = 10000
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  ctx.runTimers()
+  local S = ctx.ns.session
+  fire(ctx, "LOOT_OPENED")
+  money = money + 300 -- the money is there, its chat line not yet
+  fire(ctx, "LOOT_CLOSED")
+  fire(ctx, "LOOT_OPENED") -- the next mob, within the settle time
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 3 Silver") -- the first mob's line
+  money = money + 200
+  fire(ctx, "CHAT_MSG_MONEY", "You loot 2 Silver")
+  fire(ctx, "LOOT_CLOSED")
+  ctx.runTimers()
+  h.eq(S.gold, 500)
+  -- the money of a window without a known message still counts once
+  fire(ctx, "LOOT_OPENED")
+  money = money + 700
+  fire(ctx, "LOOT_CLOSED")
+  ctx.runTimers()
+  h.eq(S.gold, 1200)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: History and Zones show the footer with the session count", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -3009,7 +3035,7 @@ h.test("wiring: import through the box creates and activates a profile", functio
   local n = #ns.Profiles.names(ns.db)
   frame.onAccept("hello")
   h.eq(#ns.Profiles.names(ns.db), n)
-  h.eq(ctx.printed[#ctx.printed]:find(L["This is not a AnotherLedger profile."], 1, true) ~= nil, true)
+  h.eq(ctx.printed[#ctx.printed]:find(L["This is not an AnotherLedger profile."], 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3131,6 +3157,30 @@ h.test("wiring: a short session continues over a zone split, a long one is archi
   _, ns, hist = run(600)
   h.eq(#hist, 1)
   h.eq(next(ns.session.items), nil)
+end)
+
+h.test("wiring: a zone split saves a session with only mobs, and an open History session stays open", function()
+  local ctx = boot()
+  local where = { zone = "Dornogal" }
+  ctx.env.GetRealZoneText = function() return where.zone end
+  startWorld(ctx, false)
+  local ns, hist = ctx.ns, ctx.env.AnotherLedgerCharDB.history
+  hist[1] = { startedAt = 1, elapsed = 60, gold = 1, nItems = 0, vendor = 0, ah = 0, items = {} }
+  local Ledger = ns.UI.Ledger
+  Ledger.setTab("history")
+  Ledger.toggleHistory(1)
+  ns.Options.set(ns.db, "zoneSession", true)
+  ns.Options.set(ns.db, "zoneSessionMinutes", 1)
+  ns.session.mobs = { ["npc:1"] = { kind = "npc", kills = 2, looted = 0, gold = 0, items = {}, places = {} } }
+  ctx.now = ctx.now + 600
+  where.zone = "Isle of Dorn"
+  fire(ctx, "ZONE_CHANGED_NEW_AREA")
+  ctx.now = ctx.now + 61
+  ns.Core.heartbeat()
+  h.eq(#hist, 2)
+  h.eq(hist[1].mobs["npc:1"].kills, 2)
+  h.eq(Ledger.historyIndex, 2) -- still the same session
+  h.eq(ctx.errors, {})
 end)
 
 h.test("wiring: a short session at login continues, a long one is archived", function()
