@@ -137,3 +137,30 @@ h.test("TSM.market: a rate already scaled by 1000 is brought back to 0..1; no da
   h.eq(S.TSM.market({}, 7), nil)
   h.eq(S.TSM.market(nil, 7), nil)
 end)
+
+-- Own sales (Sources/Sales.lua)
+local ns2 = h.load({ "Util.lua", "LootParse.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua",
+  "Scan.lua", "Sources/Scan.lua", "Trade.lua", "Sources/Sales.lua" })
+
+h.test("Sources: sales comes right after scan", function()
+  local keys = {}
+  for _, spec in ipairs(ns2.Sources.list()) do keys[#keys + 1] = spec.key end
+  local at
+  for i, k in ipairs(keys) do if k == "scan" then at = i end end
+  h.eq(keys[at + 1], "sales")
+end)
+
+h.test("Sources: sales answers the own sale price with its age", function()
+  ns2.db = {}
+  local b = ns2.Trade.bucket(ns2.db, "k-R", true)
+  ns2.Trade.add(b, { t = 100, kind = "sale", key = 5, id = 5, n = 2, gold = 300, cut = 15 })
+  ns2.Scan.currentRealmKey = function() return "k-R" end
+  local spec
+  for _, s in ipairs(ns2.Sources.list()) do if s.key == "sales" then spec = s end end
+  local src = spec.create({ time = function() return 160 end }, function() end)
+  local price, age = src.get(5)
+  h.eq(price, 150); h.eq(age, 60)
+  h.eq(src.get(6), nil)
+  ns2.Scan.currentRealmKey = function() return nil end
+  h.eq(src.get(5), nil)
+end)

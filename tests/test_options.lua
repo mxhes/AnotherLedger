@@ -18,7 +18,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "showCurrencies", "hideWorthless", "itemTooltipDrops", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "compactDrops",
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
-    "exportHistory", "clearHistory", "historyLimit",
+    "exportHistory", "clearHistory", "historyLimit", "tradeLogDays",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors" })
   -- every option but a button has its default in DB.defaults.settings
@@ -34,6 +34,14 @@ h.test("Options.normalize: scan price is market or lowest", function()
   h.eq(O.normalize(spec, "bogus"), "market")
   h.eq(ns.DB.defaults.settings.scanPrice, "market")
   h.eq(ns.DB.defaults.settings.scanReminder, true)
+end)
+
+h.test("Options.normalize: Trade log kept is 30, 90, 180 or 365 days, account-wide", function()
+  local spec = O.spec("tradeLogDays")
+  h.eq(spec.account, true)
+  h.eq(O.normalize(spec, 180), 180)
+  h.eq(O.normalize(spec, 7), 90)
+  h.eq(ns.DB.defaults.settings.tradeLogDays, 90)
 end)
 
 h.test("Options.normalize: slider clamps and snaps, falls back to the default", function()
