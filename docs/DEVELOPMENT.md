@@ -702,6 +702,7 @@ fetches the libraries into `AnotherLedger/Libs/` (git-ignored) and fills in the
 `.toc` version from the git tag. CI builds the zip on every tag (job `package`)
 and offers a manual `package-dry-run` on any branch, which lists the zip's
 files in the job log. A tag uploads the zip to CurseForge (project 1817047,
-`## X-Curse-Project-ID` in the `.toc`) when the CI variable `CF_API_KEY` is
-set; the release notes are the root `CHANGELOG.md` (`manual-changelog` in
+`## X-Curse-Project-ID` in the `.toc`) with the protected CI variable
+`CF_API_KEY`, which only pipelines of protected refs get: `v*` tags are
+protected tags (maintainers only). The release notes are the root `CHANGELOG.md` (`manual-changelog` in
 `.pkgmeta`). The release steps are in [CHECKLIST.md](CHECKLIST.md).

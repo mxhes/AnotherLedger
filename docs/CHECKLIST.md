@@ -91,16 +91,19 @@ against the test fakes so far:
    `AnotherLedger/` folder with the `.toc`, the code and `Libs/` (LibStub,
    CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0), and no `docs/`,
    `tests/` or `CLAUDE.md`.
-5. Tag `main` with the version (`git tag v0.2.0`, then
-   `git push origin v0.2.0`). The `package` job builds the zip (the `.toc`
-   version comes from the tag) and keeps it in the job's artifacts for 30
-   days.
-   Before tagging, add the version's entry on top of `CHANGELOG.md`: the
-   packager sends it to CurseForge as the release notes.
-6. CurseForge: the project exists (ID 1817047, `## X-Curse-Project-ID` in
-   the `.toc`). The GitLab CI/CD variable `CF_API_KEY` (a CurseForge API
-   token, masked; not protected unless the `v*` tags are protected) lets the
-   `package` job upload every tag. Check after a tag: the job log shows the
-   upload, and the file appears on CurseForge with the changelog and the right
-   game version (the packager maps `## Interface: 16001`; if CurseForge has no
-   such version, the upload fails or lands without one).
+5. Add the version's entry on top of `CHANGELOG.md` (merged into `main`):
+   the packager sends it to CurseForge as the release notes.
+6. Tag `main` with the version as a maintainer (`git tag -a v0.4.2 -m ...`,
+   then `git push origin v0.4.2`). `v*` tags are protected tags (maintainers
+   only), which is what gives the tag pipeline the protected, masked CI/CD
+   variable `CF_API_KEY` (the CurseForge API token). The `package` job builds
+   the zip (the `.toc` version comes from the tag), uploads it to CurseForge
+   (project 1817047, `## X-Curse-Project-ID` in the `.toc`) and keeps it in the
+   job's artifacts for 30 days.
+7. Check the `package` job log: `CurseForge ID: 1817047 [token set]` near the
+   top and `Uploading ... Success!` before `Packaging complete.`; then the file
+   on CurseForge shows the changelog and the game version (the packager maps
+   `## Interface: 16001` to `1.60.1`). Without `[token set]` the upload is
+   skipped silently. Retrying the job doesn't help: a pipeline keeps the
+   protection it was created with, so start a new pipeline on the tag (CI/CD >
+   Pipelines > Run pipeline, pick the tag).
