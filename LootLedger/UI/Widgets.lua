@@ -159,24 +159,45 @@ function Widgets.snapPoint(region, point, rel, relPoint, x, y)
 end
 
 -- ---------------------------------------------------------------------------
--- Bronze dark buttons: one style for every button of the addon (dark fill,
--- bronze edge, cream text; gold edge on hover, dimmed text when disabled; a
--- warning button such as Reset keeps a red edge and text).
+-- Gilded two-tone buttons: one style for every button of the addon. An outer
+-- dark line, a fill that is light in its top third, dark in its bottom third
+-- and fades between them, and the edge color as a thin line just inside.
+-- Gold edge on hover, the halves swapped while pressed, dimmed text when
+-- disabled; a warning button such as Reset keeps a red edge and text. All
+-- colors come from the preset's button fill and edge.
 
--- Pure. Colors of a button in `state` ("normal" / "hover" / "disabled").
+Widgets.BUTTON_TOP = 1.8      -- top third: the fill this much lighter
+Widgets.BUTTON_BOTTOM = 0.75  -- bottom third: this much darker
+Widgets.BUTTON_OUTLINE = 0.3  -- the outer line
+Widgets.BUTTON_HOVER = 1.25   -- hover lightens both halves by this
+
+-- Pure. Colors of a button in `state` ("normal" / "hover" / "pressed" /
+-- "disabled"): fill (the preset color), top / bottom of the fill, outline,
+-- edge (the inner line) and text.
 function Widgets.buttonColors(state, warn)
-  local c = ns.Theme.colors
-  local hover, disabled = state == "hover", state == "disabled"
+  local T = ns.Theme
+  local c = T.colors
+  local lit, disabled = state == "hover" or state == "pressed", state == "disabled"
   local edge
   if warn then
-    edge = hover and c.buttonWarnEdgeHover or c.buttonWarnEdge
+    edge = lit and c.buttonWarnEdgeHover or c.buttonWarnEdge
   else
-    edge = hover and c.buttonEdgeHover or c.buttonEdge
+    edge = lit and c.buttonEdgeHover or c.buttonEdge
   end
   local text = disabled and c.buttonTextDisabled or (warn and c.buttonWarnText or c.buttonText)
   -- A light button background keeps its label (and arrow) readable.
   text = ns.Theme.readableOn(text, c.buttonFill, disabled)
-  return { fill = c.buttonFill, edge = edge, text = text }
+  local top = T.scaleColor(c.buttonFill, Widgets.BUTTON_TOP)
+  local bottom = T.scaleColor(c.buttonFill, Widgets.BUTTON_BOTTOM)
+  if state == "hover" then
+    top, bottom = T.scaleColor(top, Widgets.BUTTON_HOVER), T.scaleColor(bottom, Widgets.BUTTON_HOVER)
+  elseif state == "pressed" then
+    top, bottom = bottom, top
+  end
+  return {
+    fill = c.buttonFill, top = top, bottom = bottom,
+    outline = T.scaleColor(c.buttonFill, Widgets.BUTTON_OUTLINE), edge = edge, text = text,
+  }
 end
 
 -- The shared backdrop of buttons and input boxes.
@@ -192,12 +213,69 @@ local function buttonBackdrop(frame)
   })
 end
 
+-- A vertical fade from `bottom` (low) to `top` (high) on a texture:
+-- SetGradient with CreateColor on retail, SetGradientAlpha on older clients,
+-- else a flat color halfway.
+local function setFade(tex, bottom, top)
+  if tex.SetGradient and type(CreateColor) == "function" then
+    tex:SetGradient("VERTICAL", CreateColor(bottom[1], bottom[2], bottom[3], bottom[4] or 1),
+      CreateColor(top[1], top[2], top[3], top[4] or 1))
+  elseif tex.SetGradientAlpha then
+    tex:SetGradientAlpha("VERTICAL", bottom[1], bottom[2], bottom[3], bottom[4] or 1,
+      top[1], top[2], top[3], top[4] or 1)
+  else
+    tex:SetVertexColor((top[1] + bottom[1]) / 2, (top[2] + bottom[2]) / 2, (top[3] + bottom[3]) / 2, top[4] or 1)
+  end
+end
+
+-- The fill of a button `height` units tall: three bands inside the outer
+-- line (top third light, middle fading, bottom third dark) and the inner
+-- line, a backdrop edge on a child frame just inside the outer one.
+local function buttonFill(b, height)
+  local T = ns.Theme
+  local inset = T.sizes.buttonInset
+  local band = math.max(1, (height - 2 * inset) / 3)
+  local function tex()
+    local t = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+    t:SetTexture(T.textures.parchment)
+    return t
+  end
+  local top, mid, bottom = tex(), tex(), tex()
+  top:SetPoint("TOPLEFT", b, "TOPLEFT", inset, -inset)
+  top:SetPoint("TOPRIGHT", b, "TOPRIGHT", -inset, -inset)
+  top:SetHeight(band)
+  bottom:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", inset, inset)
+  bottom:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -inset, inset)
+  bottom:SetHeight(band)
+  mid:SetPoint("TOPLEFT", top, "BOTTOMLEFT", 0, 0)
+  mid:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT", 0, 0)
+  local inner = CreateFrame("Frame", nil, b, "BackdropTemplate")
+  inner:SetPoint("TOPLEFT", b, "TOPLEFT", inset, -inset)
+  inner:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -inset, inset)
+  if inner.SetBackdrop then
+    inner:SetBackdrop({ edgeFile = T.textures.buttonEdge, edgeSize = T.sizes.buttonEdge })
+  end
+  b.fill = { top = top, mid = mid, bottom = bottom, inner = inner }
+end
+
 function paint(b, state)
   b.look = state
   local c = Widgets.buttonColors(state, b.warn)
   if b.SetBackdropColor then
-    b:SetBackdropColor(c.fill[1], c.fill[2], c.fill[3], c.fill[4] or 1)
-    b:SetBackdropBorderColor(c.edge[1], c.edge[2], c.edge[3], c.edge[4] or 1)
+    if type(b.fill) == "table" then
+      local f = b.fill
+      b:SetBackdropColor(c.bottom[1], c.bottom[2], c.bottom[3], c.bottom[4] or 1)
+      b:SetBackdropBorderColor(c.outline[1], c.outline[2], c.outline[3], 1)
+      tint(f.top, c.top)
+      tint(f.bottom, c.bottom)
+      setFade(f.mid, c.bottom, c.top)
+      if f.inner.SetBackdropBorderColor then
+        f.inner:SetBackdropBorderColor(c.edge[1], c.edge[2], c.edge[3], c.edge[4] or 1)
+      end
+    else
+      b:SetBackdropColor(c.fill[1], c.fill[2], c.fill[3], c.fill[4] or 1)
+      b:SetBackdropBorderColor(c.edge[1], c.edge[2], c.edge[3], c.edge[4] or 1)
+    end
   end
   if b.label then b.label:SetTextColor(c.text[1], c.text[2], c.text[3], c.text[4] or 1) end
   if b.glyph and b.glyph.SetDesaturated then b.glyph:SetDesaturated(state == "disabled") end
@@ -227,6 +305,15 @@ local function wireStates(b)
   end)
   b:SetScript("OnEnable", function(self) paint(self, "normal") end)
   b:SetScript("OnDisable", function(self) paint(self, "disabled") end)
+  -- Pressed while the mouse is held down; back to hover (still over it) or
+  -- normal on release.
+  b:SetScript("OnMouseDown", function(self)
+    if not isDisabled(self) then paint(self, "pressed") end
+  end)
+  b:SetScript("OnMouseUp", function(self)
+    local over = type(MouseIsOver) == "function" and MouseIsOver(self)
+    paint(self, isDisabled(self) and "disabled" or (over and "hover" or "normal"))
+  end)
   paint(b, "normal")
   tracked[b] = { "button" }
 end
@@ -243,6 +330,7 @@ function Widgets.button(parent, label, width, opts)
     b:SetHeight(T.sizes.buttonHeight)
   end
   buttonBackdrop(b)
+  buttonFill(b, T.sizes.buttonHeight)
   local fs = b:CreateFontString(nil, "OVERLAY", T.fonts.button)
   fs:SetPoint("CENTER", b, "CENTER", 0, 0)
   fs:SetWordWrap(false)
@@ -289,6 +377,7 @@ function Widgets.iconButton(parent, glyph, size, onClick)
   size = size or T.sizes.buttonHeight
   b:SetSize(size, size)
   buttonBackdrop(b)
+  buttonFill(b, size)
   local tex = b:CreateTexture(nil, "ARTWORK")
   local pad = T.sizes.iconButtonPad
   tex:SetPoint("TOPLEFT", b, "TOPLEFT", pad, -pad)

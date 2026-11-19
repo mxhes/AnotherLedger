@@ -36,6 +36,12 @@ and remove both once it is confirmed.
   - The reminder line shows on the first auction house visit of a login, and
     the login hint mentions `/ll scan` and stays quiet once prices exist.
 
+- Button look (`UI/Widgets.lua`): every addon button (LootLedger window,
+  options, the scan button on the auction house) is light on top, fades in
+  the middle and is dark at the bottom, with a dark outer line and the
+  preset's edge color just inside; hover lightens it, holding the mouse down
+  swaps the halves. Check with the LootLedger and Blizzard presets.
+
 To look at in the client after the fourth review (2026-11-18), only run
 against the test fakes so far:
 

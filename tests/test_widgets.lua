@@ -13,6 +13,24 @@ h.test("Widgets.buttonColors: bronze edge, gold on hover, dimmed when disabled",
   h.eq(W.buttonColors("unknown"), n)
 end)
 
+h.test("Widgets.buttonColors: light top, dark bottom and an outer line from the fill", function()
+  local T = ns.Theme
+  local n = W.buttonColors("normal")
+  h.eq(n.top, T.scaleColor(C.buttonFill, W.BUTTON_TOP))
+  h.eq(n.bottom, T.scaleColor(C.buttonFill, W.BUTTON_BOTTOM))
+  h.eq(n.outline, T.scaleColor(C.buttonFill, W.BUTTON_OUTLINE))
+  h.eq(n.top[1] > n.bottom[1], true)
+  local hv = W.buttonColors("hover")
+  h.eq(hv.top[1] > n.top[1] and hv.bottom[1] > n.bottom[1], true)
+end)
+
+h.test("Widgets.buttonColors: pressed swaps the halves and lights the edge", function()
+  local n, p = W.buttonColors("normal"), W.buttonColors("pressed")
+  h.eq(p.top, n.bottom); h.eq(p.bottom, n.top)
+  h.eq(p.edge, C.buttonEdgeHover)
+  h.eq(W.buttonColors("pressed", true).edge, C.buttonWarnEdgeHover)
+end)
+
 h.test("Widgets.pixelError: distance past the nearest whole pixel", function()
   h.near(W.pixelError(10.3, 1), 0.3, 1e-9)
   h.near(W.pixelError(10.7, 1), -0.3, 1e-9)

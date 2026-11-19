@@ -4016,3 +4016,16 @@ h.test("wiring: no scan button while TSM is loaded", function()
   local b = ctx.ns.UI.ScanButton.frame
   h.eq(b == false or not b:IsShown(), true)
 end)
+
+h.test("wiring: a bronze button looks pressed while the mouse is held down", function()
+  local ctx = scanWorld()
+  ctx.env.AuctionHouseFrame = newFake(ctx.env)
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  local b = ctx.ns.UI.ScanButton.frame
+  h.eq(type(b.fill), "table")
+  b._scripts.OnMouseDown(b, "LeftButton")
+  h.eq(b.look, "pressed")
+  b._scripts.OnMouseUp(b, "LeftButton")
+  h.eq(b.look, "normal")
+  h.eq(ctx.errors, {})
+end)

@@ -259,7 +259,9 @@ windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
 accent and **Parchment** is a light tan with light text and dark brown buttons
 (it also turns on a thin font outline so all text reads on the light
 background, like the labels on the game's maps). Item
-quality and coin colors always stay the game's own. After a preset you can
+quality and coin colors always stay the game's own. Buttons are light on top
+and fade darker toward the bottom, with a thin gold line inside the edge;
+**Button background** sets their color. After a preset you can
 still change single colors; the preset then shows "(edited)".
 
 **Colors**: click a swatch to pick a color in the game's color picker (the

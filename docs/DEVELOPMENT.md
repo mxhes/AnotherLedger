@@ -45,7 +45,7 @@ only inside functions.
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
 | `Slash.lua`, `Demo.lua` | slash commands, `/ll demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
-| `UI/Widgets.lua` | bronze buttons, icon buttons, texts, lines, tooltips, menus |
+| `UI/Widgets.lua` | two-tone buttons, icon buttons, texts, lines, tooltips, menus |
 | `UI/Coins.lua` | amounts in gold / silver / copper columns (list, compact drops, footer, Top finds) |
 | `UI/Window.lua` | the frame: header rows, list area, footer, compact area, sizes per layout |
 | `UI/Rows.lua`, `UI/Header.lua`, `UI/Summary.lua`, `UI/FilterBar.lua` | list rows, header buttons and clock, footer table and Top finds, filter bar |
@@ -506,6 +506,14 @@ Each of these is one call in one place; the UI never names them.
 - **Button text**: `Widgets.buttonColors` passes the label color through
   `Theme.readableOn(color, fill)`: below `Theme.MIN_TEXT_CONTRAST` against the
   button background it turns near-black or white (the arrow follows).
+- **Button look** (`Widgets.button`, `Widgets.iconButton`): the backdrop's
+  edge is a dark outer line (`buttonFill` x `Widgets.BUTTON_OUTLINE`); inside
+  it `b.fill` holds three BACKGROUND textures (top third `buttonFill` x
+  `BUTTON_TOP`, bottom third x `BUTTON_BOTTOM`, the middle a vertical
+  gradient between them) and `inner`, a child frame whose backdrop edge is
+  the preset's button edge color. Hover lightens both halves
+  (`BUTTON_HOVER`) and uses the hover edge; OnMouseDown paints "pressed"
+  (halves swapped), OnMouseUp hover or normal. Inputs keep the flat backdrop.
 - **LootLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
   `UI/ScanButton.lua`): only while no source's `present` is true and the
   client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).
