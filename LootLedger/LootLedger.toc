@@ -21,6 +21,7 @@ DB.lua
 LootParse.lua
 Prices.lua
 Scan.lua
+Trade.lua
 Sources\Sources.lua
 Sources\Vendor.lua
 Sources\TSM.lua

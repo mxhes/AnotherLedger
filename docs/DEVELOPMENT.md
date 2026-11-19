@@ -38,6 +38,7 @@ only inside functions.
 | `Mobs.lua` | loot, gold and looted count per mob (NPC ID) and gathering node (object ID); pure, Core feeds it from the loot window |
 | `Prices.lua`, `Sources/` | price lookup with a saved cache; one file per price source (`Sources/Scan.lua`: LootLedger scan) |
 | `Scan.lua` | LootLedger scan, pure: market value / lowest of a listing set, the daily average, the packed storage, the chunked reader of a full read, the 15-minute wait |
+| `Trade.lua` | Trade section, pure: the per-realm store (log, totals, open posts, mail keys), trade kinds, mail recording, statistics, the own sale price |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
