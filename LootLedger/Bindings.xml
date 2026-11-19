@@ -11,4 +11,7 @@
   <Binding name="LOOTLEDGER_CLOCK" category="ADDONS">
     SlashCmdList["LOOTLEDGER"]("clock")
   </Binding>
+  <Binding name="LOOTLEDGER_SCAN" category="ADDONS">
+    SlashCmdList["LOOTLEDGER"]("scan")
+  </Binding>
 </Bindings>

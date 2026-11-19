@@ -678,7 +678,7 @@ h.test("wiring: key bindings name their commands; /ll clock switches the clock",
     h.eq(#ctx.printed - before <= 1, true)
     commands = commands + 1
   end
-  h.eq(commands, 3)
+  h.eq(commands, 4)
   for name in xml:gmatch('name="(LOOTLEDGER_%u+)"') do
     h.eq(type(ctx.env["BINDING_NAME_" .. name]), "string")
   end
@@ -752,6 +752,7 @@ h.test("wiring: no unexpected globals leak", function()
     LootLedgerOptionsPage = true, LootLedgerMinimapButton = true, LootLedgerExport = true,
     BINDING_HEADER_LOOTLEDGER = true, BINDING_NAME_LOOTLEDGER_TOGGLE = true,
     BINDING_NAME_LOOTLEDGER_COMPACT = true, BINDING_NAME_LOOTLEDGER_CLOCK = true,
+    BINDING_NAME_LOOTLEDGER_SCAN = true,
   }
   for k in pairs(ctx.env) do
     if not ctx.baseline[k] and not allowed[k] then error("leaked global: " .. tostring(k)) end
@@ -3759,4 +3760,186 @@ h.test("wiring: no combat log event is registered (forbidden for addons on this 
     h.eq(ctx.ns.Core.events[event], nil, event)
   end
   h.eq(ctx.errors, {})
+end)
+
+-- ---------------------------------------------------------------------------
+-- LootLedger scan
+
+-- A fake auction house: `rows` = { { qty, buyout, itemID, link }, ... } for the
+-- full read; `commodity[itemID]` / `items[itemID]` = { full = bool, list } for
+-- the search results.
+local function fakeAuctionHouse(ctx, rows)
+  local ah = { replicated = 0, commodity = {}, items = {} }
+  ah.api = {
+    ReplicateItems = function() ah.replicated = ah.replicated + 1 end,
+    GetNumReplicateItems = function() return #rows end,
+    GetReplicateItemInfo = function(i)
+      local r = rows[i + 1]
+      return "Item", 1, r[1], 1, true, 1, 1, 0, 0, r[2], 0, false, nil, nil, nil, 1, r[3], true
+    end,
+    GetReplicateItemLink = function(i) return rows[i + 1][4] end,
+    HasFullCommoditySearchResults = function(id) return ah.commodity[id].full end,
+    GetNumCommoditySearchResults = function(id) return #ah.commodity[id].list end,
+    GetCommoditySearchResultInfo = function(id, i) return ah.commodity[id].list[i] end,
+    HasFullItemSearchResults = function(key) return ah.items[key.itemID].full end,
+    GetNumItemSearchResults = function(key) return #ah.items[key.itemID].list end,
+    GetItemSearchResultInfo = function(key, i) return ah.items[key.itemID].list[i] end,
+  }
+  ctx.env.C_AuctionHouse = ah.api
+  ctx.env.GetRealmName = function() return "Realm" end
+  return ah
+end
+
+local function printedWith(ctx, text)
+  for _, line in ipairs(ctx.printed) do
+    if line:find(text, 1, true) then return true end
+  end
+  return false
+end
+
+local function scanWorld(rows)
+  local ctx = bootDeferred()
+  local ah = fakeAuctionHouse(ctx, rows or { { 1, 1000, 5, nil } })
+  startWorld(ctx, false)
+  ctx.runTimers()
+  ctx.printed = {}
+  return ctx, ah
+end
+
+h.test("wiring: /ll scan reads the auction house and prices items", function()
+  local ctx, ah = scanWorld({ { 1, 1000, 5, nil }, { 2, 3000, 5, nil } })
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  slash(ctx, "scan")
+  h.eq(ah.replicated, 1)
+  h.eq(ctx.env.LootLedgerCharDB.scanAt, ctx.now)
+  fire(ctx, "REPLICATE_ITEM_LIST_UPDATE")
+  ctx.runTimers(); ctx.runTimers()
+  local r = ctx.ns.prices:lookup(5)
+  h.eq(r.ahSource, "LootLedger scan"); h.eq(r.ahGross, 1000)
+  h.eq(printedWith(ctx, "Scan done: 1 items priced"), true)
+  h.eq(ctx.ns.Core.scanState().running, false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a second scan within 15 minutes waits", function()
+  local ctx, ah = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  slash(ctx, "scan")
+  fire(ctx, "REPLICATE_ITEM_LIST_UPDATE")
+  ctx.runTimers(); ctx.runTimers()
+  ctx.now = ctx.now + 60
+  slash(ctx, "scan")
+  h.eq(ah.replicated, 1)
+  h.eq(printedWith(ctx, "The game allows the next full scan in 14m."), true)
+  h.eq(ctx.ns.Core.scanState().waitLeft, 840)
+end)
+
+h.test("wiring: /ll scan needs the auction house open", function()
+  local ctx, ah = scanWorld()
+  slash(ctx, "scan")
+  h.eq(ah.replicated, 0)
+  h.eq(printedWith(ctx, "Open the auction house to scan."), true)
+end)
+
+h.test("wiring: closing the auction house stops the scan once", function()
+  local rows = {}
+  for i = 1, 4500 do rows[i] = { 1, 100, 5, nil } end
+  local ctx = scanWorld(rows)
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  slash(ctx, "scan")
+  fire(ctx, "REPLICATE_ITEM_LIST_UPDATE")
+  ctx.runTimers() -- the 60 s check and the first chunk
+  fire(ctx, "AUCTION_HOUSE_CLOSED")
+  h.eq(printedWith(ctx, "Scan stopped: the auction house was closed. 1 items priced."), true)
+  local before = #ctx.printed
+  ctx.runTimers()
+  fire(ctx, "REPLICATE_ITEM_LIST_UPDATE")
+  ctx.runTimers()
+  h.eq(#ctx.printed, before)
+  h.eq(ctx.ns.prices:lookup(5).ahSource, "LootLedger scan")
+  h.eq(ctx.ns.Scan.bucket(ctx.ns.db, ctx.ns.Scan.currentRealmKey()).lastFull, nil)
+end)
+
+h.test("wiring: no answer within 60 s restores the wait", function()
+  local ctx = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  slash(ctx, "scan")
+  ctx.runTimers()
+  h.eq(printedWith(ctx, "The game did not answer the scan. Try again later."), true)
+  h.eq(ctx.env.LootLedgerCharDB.scanAt, nil)
+  h.eq(ctx.ns.Core.scanState().running, false)
+end)
+
+h.test("wiring: a full commodity search is recorded, a partial one not", function()
+  local ctx, ah = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  ah.commodity[7] = { full = false, list = { { unitPrice = 50, quantity = 10 } } }
+  fire(ctx, "COMMODITY_SEARCH_RESULTS_UPDATED", 7)
+  h.eq(ctx.ns.prices:lookup(7).ahSource == "LootLedger scan", false)
+  ah.commodity[7].full = true
+  fire(ctx, "COMMODITY_SEARCH_RESULTS_UPDATED", 7)
+  h.eq(ctx.ns.prices:lookup(7).ahGross, 50)
+end)
+
+h.test("wiring: a full item search is recorded per variant", function()
+  local ctx, ah = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  local link = "|Hitem:50::::::::60::::2:4802:1477::::::|h[Sword]|h"
+  ah.items[50] = { full = true, list = { { buyoutAmount = 9000, quantity = 1, itemLink = link }, { quantity = 1, itemLink = link } } }
+  fire(ctx, "ITEM_SEARCH_RESULTS_UPDATED", { itemID = 50 })
+  h.eq(ctx.ns.prices:lookup(50, link).ahGross, 9000)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: with TSM loaded scanning is off but saved scan prices answer", function()
+  local ctx = bootDeferred()
+  local ah = fakeAuctionHouse(ctx, { { 1, 1000, 5, nil } })
+  ctx.env.TSM_API = { GetCustomPriceValue = function() return nil end }
+  startWorld(ctx, false)
+  ctx.runTimers()
+  local S = ctx.ns.Scan
+  S.record(S.bucket(ctx.ns.db, S.currentRealmKey(), true).items, 5, 2000, 2000, ctx.now)
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  slash(ctx, "scan")
+  h.eq(ah.replicated, 0)
+  h.eq(printedWith(ctx, "Scanning is off while TSM or Auctionator is loaded."), true)
+  ah.commodity[7] = { full = true, list = { { unitPrice = 50, quantity = 10 } } }
+  fire(ctx, "COMMODITY_SEARCH_RESULTS_UPDATED", 7)
+  h.eq(S.bucket(ctx.ns.db, S.currentRealmKey()).items[7], nil)
+  ctx.ns.db.settings.priceSource = "scan"
+  h.eq(ctx.ns.prices:lookup(5).ahGross, 2000)
+end)
+
+h.test("wiring: the scan reminder shows once per login, and not when off", function()
+  local ctx = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  fire(ctx, "AUCTION_HOUSE_CLOSED")
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  local n = 0
+  for _, line in ipairs(ctx.printed) do if line:find("more than a day old", 1, true) then n = n + 1 end end
+  h.eq(n, 1)
+  local off = scanWorld()
+  off.ns.db.settings.scanReminder = false
+  fire(off, "AUCTION_HOUSE_SHOW")
+  h.eq(printedWith(off, "more than a day old"), false)
+end)
+
+h.test("wiring: the no price addon hint stays quiet with scan prices", function()
+  local ctx = scanWorld()
+  local S = ctx.ns.Scan
+  ctx.ns.db.priceHintShown = nil
+  h.eq(ctx.ns.Core.priceAddonHint(ctx.env, ctx.ns.db, function() end), true)
+  ctx.ns.db.priceHintShown = nil
+  S.record(S.bucket(ctx.ns.db, S.currentRealmKey(), true).items, 5, 2000, 2000, ctx.now)
+  h.eq(ctx.ns.Core.priceAddonHint(ctx.env, ctx.ns.db, function() end), false)
+  h.eq(ctx.ns.db.priceHintShown, nil)
+end)
+
+h.test("wiring: old scan prices are pruned at login", function()
+  local ctx = bootDeferred()
+  fakeAuctionHouse(ctx, {})
+  ctx.env.LootLedgerDB = { scan = { ["EU-7-Realm"] = { items = { [5] = "1,2,3" } } } }
+  ctx.now = 30 * 86400
+  startWorld(ctx, false)
+  h.eq(ctx.env.LootLedgerDB.scan["EU-7-Realm"], nil)
 end)
