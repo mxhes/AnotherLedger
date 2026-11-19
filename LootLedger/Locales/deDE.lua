@@ -521,6 +521,7 @@ ns.Locale.register("deDE", {
   ["Your last auction house scan is more than a day old: /ll scan or the LootLedger scan button."] = "Dein letzter Auktionshaus-Scan ist älter als ein Tag: /ll scan oder die Schaltfläche LootLedger-Scan.",
   ["/ll scan - read the whole auction house (without TSM or Auctionator)"] = "/ll scan - das ganze Auktionshaus lesen (ohne TSM oder Auctionator)",
   ["Scan the auction house"] = "Auktionshaus scannen",
+  ["The realm is not known yet. Try again in a moment."] = "Der Realm ist noch nicht bekannt. Versuch es gleich noch einmal.",
   ["Reading %d%%"] = "Lese %d %%",
   ["Reset: ask for a note"] = "Zurücksetzen: Notiz",
   ["After Reset (the button or /ll reset) a box asks for the saved session's note (where, what). Escape skips it. New sessions per zone or instance never ask."] = "Nach dem Zurücksetzen (Knopf oder /ll reset) fragt ein Feld nach der Notiz der gespeicherten Sitzung (wo, was). Escape überspringt es. Neue Sitzungen je Gebiet oder Instanz fragen nie.",

@@ -1228,6 +1228,7 @@ local L_SCAN_WAIT = L["The game allows the next full scan in %s."]
 local L_SCAN_REFUSED = L["The game did not answer the scan. Try again later."]
 local L_SCAN_CLOSED = L["Open the auction house to scan."]
 local L_SCAN_OFF = L["Scanning is off while TSM or Auctionator is loaded."]
+local L_SCAN_NO_REALM = L["The realm is not known yet. Try again in a moment."]
 local L_SCAN_REMIND = L["Your last auction house scan is more than a day old: /ll scan or the LootLedger scan button."]
 local SCAN_ANSWER_SECONDS = 60 -- no full read within this: the game refused it
 local SCAN_REMIND_AFTER = 86400
@@ -1292,12 +1293,14 @@ local function finishScan(stats)
 end
 
 -- Starts a full read. Returns true, or false and why: "closed" (no auction
--- house), "unavailable" (TSM / Auctionator or no API), "running", "wait"
--- (plus the seconds left) or "refused" (the call failed).
+-- house), "unavailable" (TSM / Auctionator or no API), "realm" (the realm
+-- key is not known yet: the read would have nowhere to go), "running",
+-- "wait" (plus the seconds left) or "refused" (the call failed).
 function Core.startScan()
   if not tradeWindows.AUCTION_HOUSE then return false, "closed" end
   if not Core.scanAvailable(_G) then return false, "unavailable" end
   if scan.reader or scan.pending then return false, "running" end
+  if ns.Scan.currentRealmKey() == nil then return false, "realm" end
   local now = time()
   local left = ns.Scan.waitLeft(ns.chardb.scanAt, now)
   if left > 0 then return false, "wait", left end
@@ -1328,6 +1331,7 @@ function Core.scanCommand()
   if ok or why == "running" then return ok end
   if why == "closed" then say(L_SCAN_CLOSED)
   elseif why == "unavailable" then say(L_SCAN_OFF)
+  elseif why == "realm" then say(L_SCAN_NO_REALM)
   elseif why == "wait" then say(L_SCAN_WAIT:format(ns.Util.shortAge(left)))
   else say(L_SCAN_REFUSED) end
   return false
@@ -1392,6 +1396,9 @@ end
 -- quantity, itemLink). Grouped by variant (LootParse.itemKey of the link).
 function events.ITEM_SEARCH_RESULTS_UPDATED(itemKey)
   if not passiveOn() or type(itemKey) ~= "table" then return end
+  -- Battle pets all share the cage item ID: never priced.
+  if itemKey.itemID == ns.Scan.PET_CAGE then return end
+  if num(itemKey.battlePetSpeciesID) and itemKey.battlePetSpeciesID > 0 then return end
   local api = C_AuctionHouse
   local ok, full = pcall(api.HasFullItemSearchResults, itemKey)
   if not (ok and full) then return end

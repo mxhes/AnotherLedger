@@ -3891,6 +3891,24 @@ h.test("wiring: a full item search is recorded per variant", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: a battle pet search is not recorded", function()
+  local ctx, ah = scanWorld()
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  ah.items[82800] = { full = true, list = { { buyoutAmount = 50000000, quantity = 1, itemLink = "|Hbattlepet:39:1:3:150:10:10:0|h[Pet]|h" } } }
+  fire(ctx, "ITEM_SEARCH_RESULTS_UPDATED", { itemID = 82800, battlePetSpeciesID = 39 })
+  h.eq(next(ctx.ns.Scan.bucket(ctx.ns.db, ctx.ns.Scan.currentRealmKey(), true).items), nil)
+end)
+
+h.test("wiring: /ll scan waits while the realm is not known yet", function()
+  local ctx, ah = scanWorld()
+  ctx.env.GetRealmName = function() return nil end
+  fire(ctx, "AUCTION_HOUSE_SHOW")
+  slash(ctx, "scan")
+  h.eq(ah.replicated, 0)
+  h.eq(printedWith(ctx, "The realm is not known yet. Try again in a moment."), true)
+  h.eq(ctx.env.LootLedgerCharDB.scanAt, nil)
+end)
+
 h.test("wiring: with TSM loaded scanning is off but saved scan prices answer", function()
   local ctx = bootDeferred()
   local ah = fakeAuctionHouse(ctx, { { 1, 1000, 5, nil } })

@@ -21,7 +21,8 @@ and remove both once it is confirmed.
     the wait is ignored by the game (the addon's own wait matches it).
   - `GetReplicateItemInfo(i)` is 0-based, with count 3rd, buyout 10th and
     itemID 17th; `GetReplicateItemLink(i)` gives links with bonus IDs, and
-    how many are nil on a first scan (those are keyed by item ID).
+    how many are nil on a first scan after login (those are keyed by item ID,
+    and dropped for items whose variants the same scan saw).
   - A full scan: how long it takes, whether the game stalls during
     `ReplicateItems` or the reading, and the size of `LootLedger.lua` in
     SavedVariables afterwards (budget about 1.5 MB per realm).

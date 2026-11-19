@@ -100,7 +100,9 @@ Each of these is one call in one place; the UI never names them.
   LootLedger scan off). See `Sources/Auctionator.lua`. A source's `get` may
   return the age of its price in seconds as a second value; the lookup then
   sets `ahAge` to it and `ahAged = true`, and the row shows the age tag and
-  the old price rule like a cached price (`Sources/Scan.lua` does).
+  the old price rule like a cached price (`Sources/Scan.lua` does). The cache
+  remembers such a price as seen `age` seconds ago, not now, so it never looks
+  younger there than it is.
 - **Tab**: `ns.UI.Tabs.define({ key, label, title, build = function(ctx)
   return view end, ... })` in `UI/Tabs.lua`; optional `sessionControls` (clock
   and buttons), `ticks` (rates follow the clock), `watches` (data kind that
@@ -508,7 +510,8 @@ Each of these is one call in one place; the UI never names them.
   `UI/ScanButton.lua`): only while no source's `present` is true and the
   client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).
   `Core.startScan` (the button, `/ll scan` through `Core.scanCommand`, which
-  prints why it can't) needs the auction house open and the wait over
+  prints why it can't) needs the auction house open, a known realm key and
+  the wait over
   (`Scan.waitLeft(LootLedgerCharDB.scanAt, now)`, `Scan.WAIT` = 900 s). It
   calls `ReplicateItems`, stamps `scanAt` and waits for
   `REPLICATE_ITEM_LIST_UPDATE`; without it within 60 s it restores the old
@@ -516,18 +519,22 @@ Each of these is one call in one place; the UI never names them.
   `Scan.newReader` over `GetReplicateItemInfo` / `GetReplicateItemLink`:
   `Scan.CHUNK` (2000) entries per `C_Timer.After(0)`, unit price = buyout /
   count, grouped per `LootParse.itemKey` (the item ID when the link is not
-  loaded), same unit prices merged, no buyout / battle pets (item 82800)
-  skipped. `AUCTION_HOUSE_CLOSED` stops it; `onDone` commits what it has
+  loaded; such an item ID set is dropped when the same read has variant keys
+  of that item, as it would mix the variants), same unit prices merged, no
+  buyout / battle pets (item 82800, never priced, also not by search results
+  or lookups) skipped. `AUCTION_HOUSE_CLOSED` stops it; `onDone` commits what it has
   (`Scan.commit`) and sets the bucket's `lastFull` only for a complete read.
   Passive: full `COMMODITY_SEARCH_RESULTS_UPDATED` /
   `ITEM_SEARCH_RESULTS_UPDATED` sets (the `HasFull*` check) are committed the
   same way; browse results are not (their minimum mixes the variants).
   `Scan.listingValues`: market = the average unit price of the cheapest 15%
   of the units (at least one), lowest = the cheapest unit. `Scan.record`
-  keeps per key today's `m` / `l` and time `t` and the running average `am` /
-  `al` of the days before up to day `ad`: a later day folds the old day in
-  (the average keeps weight `0.5 ^ (days / 5)`); a same-day value replaces
-  `m` / `l`. `Scan.price` blends the average and today the same way and
+  keeps per key today's `m` / `l` and time `t` and the weighted average `am` /
+  `al` of the days before up to day `ad` with its total weight `aw`: every day
+  weighs 1 on its own day and halves every 5 days after, so a later day folds
+  the old day in as `(am * aw * w + m) / (aw * w + 1)` with `w = 0.5 ^ (days /
+  5)`; a same-day value replaces `m` / `l`. `Scan.price` blends the average
+  and today the same way and
   answers nothing past `Scan.MAX_AGE` (14 days, pruned at login by
   `Core.pruneScan`). Stored packed (`Scan.pack` / `unpack`: base-36 integers
   joined by `,`), so a full scan stays small in the saved file. The source

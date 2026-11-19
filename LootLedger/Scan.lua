@@ -38,9 +38,11 @@ end
 -- Daily average and packed storage
 --
 -- One entry per item key: today's market value and lowest price (m, l) with
--- the time they were seen (t), and the running average of the days before
--- (am, al) up to day ad. A later day folds the old day into the average with
--- a weight that halves every HALF_LIFE_DAYS; a same-day value replaces m / l.
+-- the time they were seen (t), and the weighted average of the days before
+-- (am, al) up to day ad with its total weight aw. Each day weighs 1 on its
+-- own day and halves every HALF_LIFE_DAYS after, so the average is a true
+-- time-weighted mean (an odd first day is diluted like any other). A later
+-- day folds the old day into the average; a same-day value replaces m / l.
 -- Kept this way (not a list of days) so a full scan stays small when saved.
 
 Scan.DAY = 86400
@@ -67,12 +69,14 @@ local function weight(fromDay, toDay)
   return 0.5 ^ ((toDay - fromDay) / Scan.HALF_LIFE_DAYS)
 end
 
--- Packed text of an entry: t, m, l and, with an average, am, al, ad, as
--- base-36 integers joined by ",". Only pack / unpack know this format.
+-- Packed text of an entry: t, m, l and, with an average, am, al, ad and aw
+-- (in thousandths), as base-36 integers joined by ",". Only pack / unpack
+-- know this format.
 function Scan.pack(e)
   local parts = { enc(e.t), enc(e.m), enc(e.l) }
   if e.am then
     parts[4], parts[5], parts[6] = enc(e.am), enc(e.al), enc(e.ad)
+    parts[7] = enc(math.floor((e.aw or 1) * 1000 + 0.5))
   end
   return table.concat(parts, ",")
 end
@@ -86,7 +90,9 @@ function Scan.unpack(s)
     n[#n + 1] = v
   end
   if #n == 3 then return { t = n[1], m = n[2], l = n[3] } end
-  if #n == 6 then return { t = n[1], m = n[2], l = n[3], am = n[4], al = n[5], ad = n[6] } end
+  if #n == 7 and n[7] > 0 then
+    return { t = n[1], m = n[2], l = n[3], am = n[4], al = n[5], ad = n[6], aw = n[7] / 1000 }
+  end
   return nil
 end
 
@@ -97,11 +103,12 @@ function Scan.record(items, key, market, lowest, now)
   if e and day(now) > day(e.t) then
     local d = day(e.t)
     if e.am then
-      local w = weight(e.ad, d)
-      e.am = e.am * w + e.m * (1 - w)
-      e.al = e.al * w + e.l * (1 - w)
+      local w = e.aw * weight(e.ad, d)
+      e.aw = w + 1
+      e.am = (e.am * w + e.m) / e.aw
+      e.al = (e.al * w + e.l) / e.aw
     else
-      e.am, e.al = e.m, e.l
+      e.am, e.al, e.aw = e.m, e.l, 1
     end
     e.ad = d
   elseif e and day(now) < day(e.t) then
@@ -121,8 +128,8 @@ function Scan.price(items, key, kind, now)
   local today = kind == "lowest" and e.l or e.m
   local value = today
   if e.am then
-    local w = weight(e.ad, day(e.t))
-    value = (kind == "lowest" and e.al or e.am) * w + today * (1 - w)
+    local w = e.aw * weight(e.ad, day(e.t))
+    value = ((kind == "lowest" and e.al or e.am) * w + today) / (w + 1)
   end
   return math.floor(value), math.max(0, now - e.t)
 end
@@ -144,7 +151,7 @@ end
 -- The price of an item: its exact variant (LootParse.itemKey of the link),
 -- else the plain item's entry.
 function Scan.lookup(items, itemID, link, kind, now)
-  if type(items) ~= "table" then return nil end
+  if type(items) ~= "table" or itemID == Scan.PET_CAGE then return nil end
   local key = ns.LootParse and type(link) == "string" and ns.LootParse.itemKey(link) or nil
   if key ~= nil then
     local v, age = Scan.price(items, key, kind, now)
@@ -170,6 +177,7 @@ Scan.WAIT = 900        -- the game allows one full read every 15 minutes
 function Scan.newReader(o)
   local r = { sets = {}, read = 0, total = 0, finished = false }
   local index = {} -- key -> unit -> position in sets[key]
+  local noLink = {} -- item IDs with entries keyed by ID because the link was missing
 
   local function add(key, unit, qty)
     local set = r.sets[key]
@@ -186,9 +194,19 @@ function Scan.newReader(o)
     end
   end
 
+  -- An item ID set made of link-less entries mixes the variants: when the
+  -- same read has variant keys for that item, the variants are its prices.
+  local function dropMixed()
+    for key in pairs(r.sets) do
+      local id = type(key) == "string" and tonumber(key:match("^(%d+):"))
+      if id and noLink[id] then r.sets[id] = nil end
+    end
+  end
+
   local function finish(stopped)
     if r.finished then return end
     r.finished = true
+    dropMixed()
     o.onDone({ sets = r.sets, read = r.read, total = r.total, stopped = stopped })
   end
 
@@ -199,7 +217,8 @@ function Scan.newReader(o)
       local ok, qty, buyout, itemID, link = pcall(o.info, i)
       if ok and type(qty) == "number" and qty >= 1 and type(buyout) == "number" and buyout > 0
         and type(itemID) == "number" and itemID ~= Scan.PET_CAGE then
-        local key = ns.LootParse and type(link) == "string" and ns.LootParse.itemKey(link) or itemID
+        local key = ns.LootParse and type(link) == "string" and ns.LootParse.itemKey(link) or nil
+        if key == nil then key, noLink[itemID] = itemID, true end
         add(key, math.floor(buyout / qty), qty)
       end
     end

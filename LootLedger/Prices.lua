@@ -160,9 +160,10 @@ function Instance:_live(itemID, link)
   return nil
 end
 
--- Remembers a live price; an unchanged, recently stamped entry is left alone
--- so the saved table is not rewritten on every lookup.
-function Instance:_remember(key, bucket, itemID, price, now, source)
+-- Remembers a live price as seen at `seenAt` (now, or earlier for a source
+-- that reports its price's age); an unchanged, recently stamped entry is
+-- left alone so the saved table is not rewritten on every lookup.
+function Instance:_remember(key, bucket, itemID, price, seenAt, source)
   if not bucket then
     bucket = {}
     self.cache[key] = bucket
@@ -170,12 +171,12 @@ function Instance:_remember(key, bucket, itemID, price, now, source)
   local entry = bucket[itemID]
   if validEntry(entry) and entry.price == price then
     entry.source = source
-    local age = now - entry.seenAt
-    if age >= 0 and age < Prices.WRITE_INTERVAL then return end
-    entry.seenAt = now
+    local newer = seenAt - entry.seenAt
+    if newer >= 0 and newer < Prices.WRITE_INTERVAL then return end
+    entry.seenAt = seenAt
     return
   end
-  bucket[itemID] = { price = price, seenAt = now, source = source }
+  bucket[itemID] = { price = price, seenAt = seenAt, source = source }
 end
 
 -- A cached entry from a source the price source option leaves out is not used.
@@ -249,7 +250,7 @@ function Instance:lookup(itemID, link)
   if price then
     result.ah, result.ahSource, result.ahAge = price, name, age
     if age > 0 then result.ahAged = true end
-    if key and self.cache then self:_remember(key, bucket, itemKey, price, now, name) end
+    if key and self.cache then self:_remember(key, bucket, itemKey, price, now - age, name) end
     return self:_applyRules(result, itemID, link)
   end
 

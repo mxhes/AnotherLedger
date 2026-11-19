@@ -32,7 +32,7 @@ end)
 local D = 86400
 
 h.test("Scan pack round trip", function()
-  local e = { t = 5 * D + 7, m = 123456, l = 99, am = 120000, al = 90, ad = 4 }
+  local e = { t = 5 * D + 7, m = 123456, l = 99, am = 120000, al = 90, ad = 4, aw = 1.5 }
   h.eq(S.unpack(S.pack(e)), e)
   h.eq(S.unpack(S.pack({ t = 1, m = 2, l = 3 })), { t = 1, m = 2, l = 3 })
   h.eq(S.unpack("zz,!"), nil)
@@ -59,22 +59,31 @@ h.test("Scan next day weighs the old average", function()
   S.record(items, 5, 1000, 1000, 10 * D)
   S.record(items, 5, 2000, 2000, 11 * D)
   local w = 0.5 ^ (1 / 5)
-  h.eq(S.price(items, 5, "market", 11 * D), math.floor(1000 * w + 2000 * (1 - w)))
+  h.eq(S.price(items, 5, "market", 11 * D), math.floor((1000 * w + 2000) / (w + 1)))
 end)
 
 h.test("Scan long gap lets today dominate", function()
   local items = {}
   S.record(items, 5, 1000, 1000, 10 * D)
   S.record(items, 5, 2000, 2000, 20 * D)
-  h.eq(S.price(items, 5, "market", 20 * D), 1750)
+  h.eq(S.price(items, 5, "market", 20 * D), 1800)
 end)
 
 h.test("Scan third day folds into the running average", function()
   local items = {}
   S.record(items, 5, 1000, 1000, 10 * D)
-  S.record(items, 5, 2000, 2000, 15 * D) -- average of day 10 alone: 1000
-  S.record(items, 5, 3000, 3000, 20 * D) -- day 15 folds in: 1000 * 0.5 + 2000 * 0.5 = 1500
-  h.eq(S.price(items, 5, "market", 20 * D), math.floor(1500 * 0.5 + 3000 * 0.5))
+  S.record(items, 5, 2000, 2000, 15 * D) -- average of day 10 alone: 1000, weight 1
+  S.record(items, 5, 3000, 3000, 20 * D) -- day 15 folds in: weight 1.5, (500 + 2000) / 1.5
+  local am, aw = (1000 * 0.5 + 2000) / 1.5, 1.5
+  h.eq(S.price(items, 5, "market", 20 * D), math.floor((am * aw * 0.5 + 3000) / (aw * 0.5 + 1)))
+end)
+
+h.test("Scan one odd first day is diluted like any other day", function()
+  local items = {}
+  S.record(items, 5, 1000000, 1000000, 1 * D) -- a spike on the first day
+  for d = 2, 6 do S.record(items, 5, 200000, 200000, d * D) end
+  local p = S.price(items, 5, "market", 6 * D)
+  h.eq(p < 350000, true, "price " .. tostring(p))
 end)
 
 h.test("Scan old values are not answered and pruned", function()
@@ -196,6 +205,21 @@ h.test("Scan reader stop keeps what it read and ends once", function()
   t.run()
   t.r:stop()
   h.eq(t.dones, 1)
+end)
+
+h.test("Scan reader drops a link-less item ID set when the scan has its variants", function()
+  local link = "|Hitem:50::::::::60::::2:4802:1477::::::|h[Sword]|h"
+  local t = reader({ { 1, 700, 50, link }, { 1, 100, 50, nil }, { 1, 300, 9, nil } })
+  t.r:start(); t.run()
+  h.eq(t.done.sets[50], nil)
+  h.eq(t.done.sets["50:1477:4802"], { { unit = 700, qty = 1 } })
+  h.eq(t.done.sets[9], { { unit = 300, qty = 1 } })
+end)
+
+h.test("Scan lookup never prices the battle pet cage", function()
+  local items = {}
+  S.record(items, 82800, 5000, 5000, 0)
+  h.eq(S.lookup(items, 82800, nil, "market", 0), nil)
 end)
 
 h.test("Scan reader of an empty auction house", function()
