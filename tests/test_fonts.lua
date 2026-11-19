@@ -40,13 +40,13 @@ h.test("Fonts.install: a scaled group gets its own font objects and taller rows"
   assert(ok, err)
   h.eq(ns.Theme.sizes.rowHeight, 45) -- 30 * 18 / 12
   h.eq(ns.Theme.sizes.iconSize, 30) -- the icon scales with the list text
-  h.eq(ns.Theme.fonts.body, "LootLedgerBody")
-  h.eq(ns.Theme.fonts.rowSmall, "LootLedgerRowSmall")
-  h.near(created.LootLedgerBody.size, 18)
-  h.eq(created.LootLedgerBody.base.name, "GameFontHighlight")
+  h.eq(ns.Theme.fonts.body, "AnotherLedgerBody")
+  h.eq(ns.Theme.fonts.rowSmall, "AnotherLedgerRowSmall")
+  h.near(created.AnotherLedgerBody.size, 18)
+  h.eq(created.AnotherLedgerBody.base.name, "GameFontHighlight")
   -- the totals keep their size but are copies too, so the typeface can change live
-  h.eq(ns.Theme.fonts.summary, "LootLedgerSummary")
-  h.eq(created.LootLedgerSummary.size, 12)
+  h.eq(ns.Theme.fonts.summary, "AnotherLedgerSummary")
+  h.eq(created.AnotherLedgerSummary.size, 12)
   h.eq(ns.Theme.fonts.title, "GameFontNormal") -- no such game font in this fake client
   h.eq(ns.Theme.sizes.footerHeight, 4 * ns.Theme.sizes.footerRowHeight)
   h.eq(ns.Theme.sizes.minHeight, ns.UI.Summary.requiredWindowHeight())
@@ -136,14 +136,14 @@ h.test("Fonts.applyFace: switches every own font object live, default restores t
   _G.GameFontHighlight = newFont("GameFontHighlight")
   local ok, err = pcall(function()
     ns.UI.Fonts.install({ settings = { fontFace = "Fonts\\ARIALN.TTF" } })
-    h.eq(created.LootLedgerBody.file, "Fonts\\ARIALN.TTF")
+    h.eq(created.AnotherLedgerBody.file, "Fonts\\ARIALN.TTF")
     ns.Options.set({ settings = {} }, "fontFace", "default") -- apply -> restores
-    h.eq(created.LootLedgerBody.file, "Fonts\\FRIZQT__.TTF")
+    h.eq(created.AnotherLedgerBody.file, "Fonts\\FRIZQT__.TTF")
     ns.UI.Fonts.applyFace("Fonts\\ARIALN.TTF")
-    h.eq(created.LootLedgerBody.file, "Fonts\\ARIALN.TTF")
-    h.eq(created.LootLedgerBody.size, 12) -- size untouched
+    h.eq(created.AnotherLedgerBody.file, "Fonts\\ARIALN.TTF")
+    h.eq(created.AnotherLedgerBody.size, 12) -- size untouched
     ns.UI.Fonts.applyFace("Fonts\\missing.ttf") -- refused: keeps the game font
-    h.eq(created.LootLedgerBody.file, "Fonts\\FRIZQT__.TTF")
+    h.eq(created.AnotherLedgerBody.file, "Fonts\\FRIZQT__.TTF")
   end)
   _G.CreateFont, _G.GameFontHighlight = nil, nil
   assert(ok, err)
@@ -161,13 +161,13 @@ h.test("Fonts.applySizes: a changed size resizes the own font objects live, from
     h.eq(ns.UI.Fonts.applySizes(db), false) -- nothing changed
     db.settings.fontSizeRows = 15
     h.eq(ns.UI.Fonts.applySizes(db), true)
-    h.near(created.LootLedgerBody.size, 15)
+    h.near(created.AnotherLedgerBody.size, 15)
     h.eq(ns.Theme.sizes.rowHeight, 38) -- 30 * 15 / 12, rounded
     db.settings.fontSizeRows = 9
     h.eq(ns.UI.Fonts.applySizes(db), true)
     h.eq(ns.Theme.sizes.rowHeight, 23) -- 30 * 9 / 12 (rounded), not 38 * 9 / 12
-    h.near(created.LootLedgerBody.size, 9)
-    h.eq(created.LootLedgerSummary.size, 12) -- other groups untouched
+    h.near(created.AnotherLedgerBody.size, 9)
+    h.eq(created.AnotherLedgerSummary.size, 12) -- other groups untouched
   end)
   _G.CreateFont, _G.GameFontHighlight = nil, nil
   assert(ok, err)
@@ -180,10 +180,10 @@ h.test("Fonts.install: the source tag font is pinned to Arial Narrow, whatever t
   _G.GameFontHighlightSmall = newFont("GameFontHighlightSmall")
   local ok, err = pcall(function()
     ns.UI.Fonts.install({ settings = {} })
-    h.eq(created.LootLedgerSourceTag.file, "Fonts\\ARIALN.TTF")
+    h.eq(created.AnotherLedgerSourceTag.file, "Fonts\\ARIALN.TTF")
     ns.UI.Fonts.applyFace("Fonts\\skurri.ttf")
-    h.eq(created.LootLedgerSourceTag.file, "Fonts\\ARIALN.TTF")
-    h.eq(created.LootLedgerSmall.file, "Fonts\\skurri.ttf")
+    h.eq(created.AnotherLedgerSourceTag.file, "Fonts\\ARIALN.TTF")
+    h.eq(created.AnotherLedgerSmall.file, "Fonts\\skurri.ttf")
   end)
   _G.CreateFont, _G.GameFontHighlightSmall = nil, nil
   assert(ok, err)
@@ -196,7 +196,7 @@ h.test("Fonts.install: without Arial Narrow the source tag keeps the game font",
   _G.GameFontHighlightSmall = newFont("GameFontHighlightSmall")
   local ok, err = pcall(function()
     ns.UI.Fonts.install({ settings = {} })
-    h.eq(created.LootLedgerSourceTag.file, "Fonts\\FRIZQT__.TTF")
+    h.eq(created.AnotherLedgerSourceTag.file, "Fonts\\FRIZQT__.TTF")
   end)
   _G.CreateFont, _G.GameFontHighlightSmall = nil, nil
   assert(ok, err)
@@ -230,7 +230,7 @@ h.test("Fonts.applyStyle: outline and shadow on every own font object, live", fu
   _G.GameFontHighlight = base
   local ok, err = pcall(function()
     ns.UI.Fonts.install({ settings = { fontOutline = "OUTLINE", fontShadow = false } })
-    local body = created.LootLedgerBody
+    local body = created.AnotherLedgerBody
     h.eq(body.flags, "OUTLINE"); h.eq(body.shadow, { 0, 0 })
     h.eq(ns.UI.Fonts.applyStyle("OUTLINE", false), false) -- nothing changed
     h.eq(ns.UI.Fonts.applyStyle("THICKOUTLINE", true), true)

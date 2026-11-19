@@ -32,7 +32,7 @@ h.test("Slash.define / run: commands, session guard and help", function()
   local realPrint = print
   print = function(msg) said[#said + 1] = msg end
   local ok, err = pcall(function()
-    S.define({ name = "ping", help = "/ll ping - test", run = function(arg) got = arg or true end })
+    S.define({ name = "ping", help = "/al ping - test", run = function(arg) got = arg or true end })
     S.define({ name = "free", needsSession = false, run = function() got = "free" end })
     ns.session = nil
     S.run("ping")
@@ -45,8 +45,8 @@ h.test("Slash.define / run: commands, session guard and help", function()
     said = {}
     S.run("nonsense") -- unknown: prints the help
     local text = table.concat(said, "\n")
-    h.eq(text:find("/ll ping - test", 1, true) ~= nil, true)
-    h.eq(text:find("/ll reset", 1, true) ~= nil, true)
+    h.eq(text:find("/al ping - test", 1, true) ~= nil, true)
+    h.eq(text:find("/al reset", 1, true) ~= nil, true)
     h.eq(said[#said]:find("Note:", 1, true) ~= nil, true)
     ns.session = nil
     said = {}

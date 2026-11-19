@@ -1,4 +1,4 @@
 .superpowers/
 # Libraries fetched by the packager (.pkgmeta externals)
-LootLedger/Libs/
+AnotherLedger/Libs/
 .release/

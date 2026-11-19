@@ -125,7 +125,7 @@ h.test("Scan source answers with the chosen kind and its age", function()
   local spec
   for _, s in ipairs(sn.Sources.list()) do if s.key == "scan" then spec = s end end
   local src = spec.create({ time = function() return 400 end }, function(k) if k == "scanPrice" then return kind end end)
-  h.eq(src.name, "LootLedger scan")
+  h.eq(src.name, "AnotherLedger scan")
   h.eq({ src.get(5) }, { 800, 300 })
   kind = "market"
   h.eq(src.get(5), 1000)
@@ -139,7 +139,7 @@ h.test("Scan source is asked after Auctionator", function()
   local keys = {}
   for _, s in ipairs(sn.Sources.list()) do keys[#keys + 1] = s.key end
   h.eq(keys, { "tsm", "auctionator", "scan" })
-  h.eq(sn.Sources.choices()[1].label, "Auto (TSM, then Auctionator, then LootLedger scan)")
+  h.eq(sn.Sources.choices()[1].label, "Auto (TSM, then Auctionator, then AnotherLedger scan)")
 end)
 
 h.test("Scan realm key and bucket", function()
@@ -244,8 +244,8 @@ end)
 h.test("ScanButton text: ready, reading, waiting", function()
   local un = h.load({ "Util.lua", "UI/ScanButton.lua" })
   local T = un.UI.ScanButton.text
-  h.eq(T({ running = false, fraction = 0, waitLeft = 0 }), "LootLedger scan")
+  h.eq(T({ running = false, fraction = 0, waitLeft = 0 }), "AnotherLedger scan")
   h.eq(T({ running = true, fraction = 0.423, waitLeft = 900 }), "Reading 42%")
-  h.eq(T({ running = false, fraction = 1, waitLeft = 760 }), "LootLedger scan 12:40")
-  h.eq(T({ running = false, fraction = 1, waitLeft = 5 }), "LootLedger scan 0:05")
+  h.eq(T({ running = false, fraction = 1, waitLeft = 760 }), "AnotherLedger scan 12:40")
+  h.eq(T({ running = false, fraction = 1, waitLeft = 5 }), "AnotherLedger scan 0:05")
 end)

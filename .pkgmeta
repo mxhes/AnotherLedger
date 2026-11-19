@@ -1,22 +1,22 @@
 # BigWigs packager config (https://github.com/BigWigsMods/packager).
 #
-# Layout: the repo root is NOT the addon folder; the addon lives in LootLedger/.
+# Layout: the repo root is NOT the addon folder; the addon lives in AnotherLedger/.
 # The packager must run from the repo root (it needs the git checkout there,
-# see .gitlab-ci.yml) and copies it into .release/LootLedger/. move-folders
-# then makes the inner LootLedger/ folder (the .toc and the code) the one
+# see .gitlab-ci.yml) and copies it into .release/AnotherLedger/. move-folders
+# then makes the inner AnotherLedger/ folder (the .toc and the code) the one
 # addon folder of the zip; the externals land in its Libs/.
-package-as: LootLedger
+package-as: AnotherLedger
 
 move-folders:
-  LootLedger/LootLedger: LootLedger
+  AnotherLedger/AnotherLedger: AnotherLedger
 
 # Libraries loaded by embeds.xml. A development copy without Libs/ still
 # works (own minimap button, no data broker).
 externals:
-  LootLedger/Libs/LibStub: https://repos.curseforge.com/wow/libstub/trunk
-  LootLedger/Libs/CallbackHandler-1.0: https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0
-  LootLedger/Libs/LibDataBroker-1.1: https://github.com/tekkub/libdatabroker-1-1
-  LootLedger/Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
+  AnotherLedger/Libs/LibStub: https://repos.curseforge.com/wow/libstub/trunk
+  AnotherLedger/Libs/CallbackHandler-1.0: https://repos.curseforge.com/wow/callbackhandler/trunk/CallbackHandler-1.0
+  AnotherLedger/Libs/LibDataBroker-1.1: https://github.com/tekkub/libdatabroker-1-1
+  AnotherLedger/Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
 
 # Repo files that are not part of the addon.
 ignore:

@@ -1,11 +1,15 @@
-# LootLedger
+# AnotherLedger
 
-<img src="docs/logo.png" alt="LootLedger logo" width="96" align="right">
+<img src="docs/logo.png" alt="AnotherLedger logo" width="96" align="right">
 
 A World of Warcraft **Forever** addon that values everything you loot. The
 Session Ledger window lists each item with what it is worth (vendor, auction
 house or disenchant, whichever is highest), adds up your gold per hour, and
 tells you where your best farm is today.
+
+AnotherLedger was called LootLedger before (that name was taken). If you used
+the old version, remove its `LootLedger` addon folder. Settings and history
+from the old name don't carry over, and the slash command is now `/al`.
 
 - Source code and issues: <https://gitlab.com/mhhenjes/lootledger>
 - Developers: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
@@ -15,25 +19,25 @@ tells you where your best farm is today.
 
 Vendor prices work on their own. Auction prices come from
 [TradeSkillMaster](https://www.tradeskillmaster.com/) or Auctionator (both
-optional; TSM is asked first), or, without either, from LootLedger's own
+optional; TSM is asked first), or, without either, from AnotherLedger's own
 auction house scan (see "Scanning the auction house"). Destroy values (what disenchanting, milling or
 prospecting gives) and the "sells well / poorly" info need TSM (they count
 whenever TSM is loaded, also with Auctionator as the AH price source). Without
-either and without scan prices, LootLedger says so once in chat. Waypoints use TomTom when it is
+either and without scan prices, AnotherLedger says so once in chat. Waypoints use TomTom when it is
 installed, else the game's own map pin.
 
 **Libraries** (only when you install from the source code): the release zip
-already contains them. A copy of the `LootLedger/` folder from the repository
+already contains them. A copy of the `AnotherLedger/` folder from the repository
 needs these four libraries in its `Libs/` folder, or the game warns `Error
-loading LootLedger/Libs/...` at login (the addon still works, with its own
+loading AnotherLedger/Libs/...` at login (the addon still works, with its own
 minimap button and no data broker display):
 
 | Library | Goes to | Download |
 | --- | --- | --- |
-| LibStub | `LootLedger/Libs/LibStub/LibStub.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libstub) |
-| CallbackHandler-1.0 | `LootLedger/Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/callbackhandler) |
-| LibDataBroker-1.1 | `LootLedger/Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua` | [GitHub](https://github.com/tekkub/libdatabroker-1-1) |
-| LibDBIcon-1.0 | `LootLedger/Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libdbicon-1-0) |
+| LibStub | `AnotherLedger/Libs/LibStub/LibStub.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libstub) |
+| CallbackHandler-1.0 | `AnotherLedger/Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/callbackhandler) |
+| LibDataBroker-1.1 | `AnotherLedger/Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua` | [GitHub](https://github.com/tekkub/libdatabroker-1-1) |
+| LibDBIcon-1.0 | `AnotherLedger/Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua` | [CurseForge](https://www.curseforge.com/wow/addons/libdbicon-1-0) |
 
 The file has to sit at exactly that path: copy just the library's folder
 (with the `.lua` file in it) out of the download. Installing them as separate
@@ -41,15 +45,15 @@ addons does not remove the warning.
 
 **Updating the libraries yourself**: you can also install any of the four as
 its own addon (in `Interface/AddOns/`, from the links above) and update it
-whenever you like. LootLedger then uses that copy; the one that comes with
-LootLedger is only used when it is newer or when you don't have the library
+whenever you like. AnotherLedger then uses that copy; the one that comes with
+AnotherLedger is only used when it is newer or when you don't have the library
 installed.
 
 ## The window
 
-Open it with `/ll`, the minimap button or a data broker display (Titan Panel,
+Open it with `/al`, the minimap button or a data broker display (Titan Panel,
 ElvUI, ...). It has two layouts; switch with the **arrow button** next to the
-gear, a double-click on the title, or `/ll compact`. Each layout keeps its own
+gear, a double-click on the title, or `/al compact`. Each layout keeps its own
 size; the corner nearest to the screen edge where you last moved or resized
 the window stays where it is when you switch, so switching back puts it
 exactly where it was.
@@ -151,8 +155,8 @@ items.
   hour. **Merge with the older session** joins a session with the one started
   before it (say a dungeon run you left and re-entered): items, gold, time and
   places add up, the time between the two does not count. Merge again to join
-  three or more. `/ll undo` takes back the last merge or delete until you log
-  out or reload. `/ll export` copies the History as CSV for a spreadsheet.
+  three or more. `/al undo` takes back the last merge or delete until you log
+  out or reload. `/al export` copies the History as CSV for a spreadsheet.
   **Clear History** (options) deletes all of it.
 - **History > Zones**: which places are worth farming. All sessions of all
   your characters (option **Zones: all characters**) grouped by zone and
@@ -210,7 +214,7 @@ items.
     the gold is split by their market value for Sold and Gold, but that
     trade is left out of the price comparison and of Own sales.
   - **Own sales** is also an auction price source for the whole addon, asked
-    after LootLedger scan: the average price you got per item.
+    after AnotherLedger scan: the average price you got per item.
   - **Trade log kept** (History options) sets how many days the Log keeps
     each entry (90 by default); the totals per item stay for **All**.
 
@@ -234,10 +238,10 @@ still do).
 
 ## Scanning the auction house
 
-Without TSM and Auctionator, LootLedger reads the auction house itself:
+Without TSM and Auctionator, AnotherLedger reads the auction house itself:
 
-- Open the auction house and click **LootLedger scan** just below its
-  bottom right corner (or type `/ll scan`, or use its key binding). The whole auction house is
+- Open the auction house and click **AnotherLedger scan** just below its
+  bottom right corner (or type `/al scan`, or use its key binding). The whole auction house is
   read in one go, a piece at a time so the game stays smooth; the button
   shows `Reading 42%` and chat says how many items got a price. Closing the
   auction house stops the scan and keeps what was read so far.
@@ -256,16 +260,16 @@ Without TSM and Auctionator, LootLedger reads the auction house itself:
   last full scan is more than a day old, one chat line suggests a scan (once
   per login).
 - With TSM or Auctionator loaded, the button and the recording are off. Prices
-  from earlier scans still count if you pick **LootLedger scan** as the AH
+  from earlier scans still count if you pick **AnotherLedger scan** as the AH
   price source.
 
-The order of auction prices is TSM, then Auctionator, then LootLedger scan,
+The order of auction prices is TSM, then Auctionator, then AnotherLedger scan,
 then your own sales (Trade tab), then the last price seen earlier.
 
 ## Options
 
 Open them with the gear, a right-click on the minimap button, or Esc >
-Options > AddOns > LootLedger. Hover any option for what it does and its
+Options > AddOns > AnotherLedger. Hover any option for what it does and its
 default. Changes apply at once. Drag the options window to move it; it opens
 there from then on (until then, next to the ledger). **Opacity** and
 **Brightness** apply to the options window as well. **Lock window** also
@@ -284,7 +288,7 @@ History asks first.
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
 **Color preset** changes the whole look at once: the window, the lines, the
-tabs, the buttons and the scrollbar. **LootLedger** is the dark leather look,
+tabs, the buttons and the scrollbar. **AnotherLedger** is the dark leather look,
 **Blizzard** is black and bronze with red buttons like the game's own
 windows, **Midnight** is dark blue, **TSM-style** is slate with a gold-orange
 accent and **Parchment** is a light tan with light text and dark brown buttons
@@ -319,7 +323,7 @@ understand are skipped and counted in chat. Window position and size, filters,
 the ignore and keep lists and History are not part of a profile. Updating to
 the version with profiles starts with the default settings once.
 
-**Font outline** (None, Thin, Thick) puts a dark outline around all LootLedger
+**Font outline** (None, Thin, Thick) puts a dark outline around all AnotherLedger
 text, which reads better over a bright background; **Font shadow** turns the
 game's soft text shadow on or off. Both change the window right away and leave
 other addons alone.
@@ -361,7 +365,7 @@ session.
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.
 
-**Key bindings**: Esc > Options > Key Bindings > AddOns > LootLedger has keys
+**Key bindings**: Esc > Options > Key Bindings > AddOns > AnotherLedger has keys
 for showing the window, switching compact / full, starting / stopping the
 clock and scanning the auction house.
 
@@ -369,19 +373,19 @@ clock and scanning the auction house.
 
 | Command | Does |
 | --- | --- |
-| `/ll` (or `/lootledger`) | show or hide the window |
-| `/ll show`, `/ll hide` | show or hide it |
-| `/ll start`, `/ll stop`, `/ll clock` | start, stop or switch the session clock |
-| `/ll compact` | switch between the compact and the full layout |
-| `/ll reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
-| `/ll keep on` / `off` | keep the session across logins |
-| `/ll scan` | read the whole auction house (only without TSM and Auctionator; the auction house must be open) |
-| `/ll tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
-| `/ll export` | the History as CSV in a copy box |
-| `/ll export session`, `/ll export zones`, `/ll export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
-| `/ll undo` | take back the last merge or delete in History (or the cleared History) |
-| `/ll demo` | sample loot and temporary sample prices, to look at the window |
-| `/ll help` | list the commands |
+| `/al` (or `/anotherledger`) | show or hide the window |
+| `/al show`, `/al hide` | show or hide it |
+| `/al start`, `/al stop`, `/al clock` | start, stop or switch the session clock |
+| `/al compact` | switch between the compact and the full layout |
+| `/al reset` | clear the session (saved to History; asks first when it holds many items or is worth 100 gold or more) |
+| `/al keep on` / `off` | keep the session across logins |
+| `/al scan` | read the whole auction house (only without TSM and Auctionator; the auction house must be open) |
+| `/al tsm <price>` | the TSM price to use, e.g. `DBMarket` (also the option TSM price: pick a common one or Custom... to type any TSM price) |
+| `/al export` | the History as CSV in a copy box |
+| `/al export session`, `/al export zones`, `/al export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
+| `/al undo` | take back the last merge or delete in History (or the cleared History) |
+| `/al demo` | sample loot and temporary sample prices, to look at the window |
+| `/al help` | list the commands |
 
 A `/reload` always keeps the session; a new login starts a fresh one unless
 **Keep session** is on.
@@ -398,19 +402,19 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   prices they were saved with.
 - **Price age**: TSM and Auctionator don't say when they last scanned, so the
   age tag is the time since the source last gave a price for that item. A
-  LootLedger scan price's tag is the time since the item was last seen on the
+  AnotherLedger scan price's tag is the time since the item was last seen on the
   auction house.
 - **Languages**: English and German. Loot and money messages are read from the
   game's own texts, so they work in every client language.
 - **Install**: unzip the release zip (it holds the libraries) into
   `World of Warcraft/<client>/Interface/AddOns/`, so the `.toc` ends up in
-  `Interface/AddOns/LootLedger/`. From the source code, copy the
-  `LootLedger/` folder of the repository there and add the libraries (see
+  `Interface/AddOns/AnotherLedger/`. From the source code, copy the
+  `AnotherLedger/` folder of the repository there and add the libraries (see
   Requirements).
 - **Bugs and ideas**: open an issue at
   <https://gitlab.com/mhhenjes/lootledger/-/issues>.
 - **Coming from LootPrice** (the addon's old name): delete the old `LootPrice`
   folder. To keep your History, options and lists, rename the saved files
-  `LootPrice.lua` to `LootLedger.lua` while the game is closed, in
+  `LootPrice.lua` to `AnotherLedger.lua` while the game is closed, in
   `WTF/Account/<account>/SavedVariables/` and in each character's
   `SavedVariables/` folder under `WTF/Account/<account>/<realm>/<character>/`.
