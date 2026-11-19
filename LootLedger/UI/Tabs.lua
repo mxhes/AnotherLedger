@@ -315,12 +315,7 @@ local function tradePeriod()
 end
 
 local function tradeHasItem(itemID)
-  local bucket = tradeBucket()
-  if not bucket then return false end
-  for _, e in ipairs(bucket.log) do
-    if e.id == itemID then return true end
-  end
-  return false
+  return ns.Trade.hasItemID(tradeBucket(), itemID)
 end
 
 local function buildTradeItems(ctx)

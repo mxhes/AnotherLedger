@@ -47,19 +47,61 @@ local function saleMail(over)
   return m
 end
 
-h.test("Trade.recordMail: a sale is recorded once, also from a second character", function()
+h.test("Trade.recordMail: a sale is recorded once; another character's mail is its own", function()
   local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
   h.eq(T.recordMail(b, saleMail(), 100, function() return 110 end).kind, "sale")
   h.eq(T.recordMail(b, saleMail(), 200, function() return 110 end), nil)
-  h.eq(T.recordMail(b, saleMail({ char = "Alt" }), 300, function() return 110 end), nil)
-  h.eq(#b.log, 1)
+  h.eq(T.recordMail(b, saleMail({ char = "Alt" }), 300, function() return 110 end).kind, "sale")
+  h.eq(#b.log, 2)
 end)
 
 h.test("Trade.recordMail: temporary and final invoice are one sale", function()
   local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
-  T.recordMail(b, saleMail({ subject = "Sale pending: Bolt" }), 100, function() end)
+  T.recordMail(b, saleMail({ subject = "Sale pending: Bolt", temp = true }), 100, function() end)
   h.eq(T.recordMail(b, saleMail({ money = 380, expires = 30 * 86400 + 3700 }), 3700, function() end), nil)
-  h.eq(T.recordMail(b, saleMail({ money = 380, expires = 40 * 86400 }), 100 + T.JOIN_WINDOW + 1, function() end).kind, "sale")
+  h.eq(T.recordMail(b, saleMail({ money = 380, expires = 40 * 86400 }), 9000, function() end).kind, "sale")
+end)
+
+h.test("Trade.recordMail: the final invoice read hours after the temporary one is still one sale", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.recordMail(b, saleMail({ subject = "Sale pending: Bolt", temp = true }), 100, function() end)
+  h.eq(T.recordMail(b, saleMail({ money = 380, expires = 30 * 86400 + 3700 }), 100 + 5 * 3600, function() end), nil)
+  h.eq(#b.log, 1); h.eq(b.log[1].temp, nil)
+end)
+
+h.test("Trade.recordInbox: two identical sale mails are two sales, also when read again", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  local inbox = { saleMail(), saleMail({ expires = 30 * 86400 + 30 }) }
+  h.eq(#T.recordInbox(b, inbox, 100, function() end), 2)
+  h.eq(#T.recordInbox(b, inbox, 200, function() end), 0)
+  h.eq(#b.log, 2)
+end)
+
+h.test("Trade.recordInbox: a mail whose expiry drifts by a few seconds is not counted again", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  local m = { kind = "expire", subject = "Auction expired: Bolt", sender = "AH", money = 0,
+    expires = 59 * 60 + 59.6, key = 7, id = 7, name = "Bolt", n = 3, char = "Me" }
+  T.recordInbox(b, { m }, 10, function() end)
+  local later = {}
+  for k, v in pairs(m) do later[k] = v end
+  later.expires = 60 * 60 + 0.4 -- across the minute
+  h.eq(#T.recordInbox(b, { later }, 3 * 86400, function() end), 0)
+  h.eq(b.totals[7].expired, 3)
+end)
+
+h.test("Trade.salePrice: stays quick on a big log and follows new sales and pruning", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  for i = 1, 20000 do T.add(b, { t = i, kind = "post", key = i % 50, id = i % 50, n = 1, gold = 10 }) end
+  T.add(b, { t = 20001, kind = "sale", key = 5, id = 5, n = 1, gold = 100, cut = 5 })
+  local start = os.clock()
+  for _ = 1, 2000 do T.salePrice(b, 999, nil, 30000) end
+  h.eq(os.clock() - start < 0.5, true)
+  h.eq(T.salePrice(b, 5, nil, 30000), 100)
+  T.add(b, { t = 20002, kind = "sale", key = 5, id = 5, n = 1, gold = 300, cut = 5 })
+  h.eq(T.salePrice(b, 5, nil, 30000), 200)
+  T.prune(b, 20001.5 + 90 * T.DAY, 90)
+  h.eq(T.salePrice(b, 5, nil, 30000), 300)
+  h.eq(T.hasItemID(b, 5), true); h.eq(T.hasItemID(b, 999), false)
 end)
 
 h.test("Trade.recordMail: the item comes from the open post, parts of a stack shrink it", function()

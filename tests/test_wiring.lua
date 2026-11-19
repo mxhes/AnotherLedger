@@ -4192,3 +4192,14 @@ h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones",
   h.eq(#Ledger.view.rows, 1); h.eq(TP.button:IsShown(), false)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: a reagent link with a quality icon matches its sale mail by name", function()
+  local ctx = tradeWorld()
+  ctx.env.C_AuctionHouse.PostCommodity({ link = "|cffffffff|Hitem:8::::::::|h[Ore |A:Professions-ChatIcon-Quality-Tier2:17:17::1|a]|h|r" }, 1, 5, 100)
+  ctx.env.mails[1] = { sender = "Auction House", subject = "Auction successful: Ore", money = 480, daysLeft = 29.5,
+    invoice = "seller", name = "Ore", who = "Buyer", bid = 500, cut = 25, count = 5 }
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local log, b = tradeLog(ctx)
+  h.eq(log[1].name, "Ore"); h.eq(log[2].key, 8); h.eq(#b.posts, 0)
+  h.eq(ctx.errors, {})
+end)

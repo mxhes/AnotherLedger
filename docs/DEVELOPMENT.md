@@ -528,13 +528,19 @@ Each of these is one call in one place; the UI never names them.
     keeps a "buyer found" mark with that moment's market (`Trade.markSold`).
   - `MAIL_INBOX_UPDATE` reads every mail: seller invoices (also
     `seller_temp_invoice`) are sales, the expired / cancelled subjects
-    returns. `Trade.recordMail` keeps each mail key (subject, sender, money,
-    invoice fields, expiry to the minute) until the mail would expire, joins
-    the temporary and final invoice of one sale (`Trade.saleKey`,
-    `JOIN_WINDOW` = 2 h), takes the amount off the newest open post of that
-    name and the market from the oldest mark, else `Core.marketAt` (the
-    first live source other than Own sales, `Prices:marketPrice`).
-    Cancel mails are only remembered (counted at the auction house).
+    returns. `Trade.recordInbox` takes one inbox read (temporary invoices
+    first) through `Trade.recordMail`: a mail key (character, subject,
+    sender, money, invoice fields) keeps the expiry of every copy seen, and a
+    copy counts as seen when a remembered expiry is within `MAIL_DRIFT`
+    (300 s) and not already matched in this read, so identical mails are
+    each counted once and a re-read never twice. A sale from a temporary
+    invoice is marked `temp` (its `Trade.saleKey`); the final invoice of the
+    same sale clears the mark instead of adding a sale. A sale takes the
+    amount off the newest open post of that name (link names lose a
+    reagent's `|A...|a` quality icon) and the market from the oldest mark,
+    else `Core.marketAt` (the first live source other than Own sales,
+    `Prices:marketPrice`). Cancel mails are only remembered (counted at the
+    auction house).
   - Trades: `TRADE_ACCEPT_UPDATE` snapshots both sides (slots 1-6, gold,
     `UnitName("NPC")`); `UI_INFO_MESSAGE` with `ERR_TRADE_COMPLETE` records
     it (`Trade.addTrade`, also up to 1 s after `TRADE_CLOSED`);
@@ -547,7 +553,8 @@ Each of these is one call in one place; the UI never names them.
     with a period, from the totals for All); rate = AH sold / (AH sold +
     expired + cancelled) in units, none for name-only sales;
     `Trade.salePrice` the Own sales price (gold before the cut per unit,
-    age of the newest sale). Core signals `dataChanged("trade")`.
+    age of the newest sale) from an index built once per log change (not
+    saved), which also answers `Trade.hasItemID`. Core signals `dataChanged("trade")`.
 - **LootLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
   `UI/ScanButton.lua`): only while no source's `present` is true and the
   client has `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`).

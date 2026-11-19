@@ -1508,7 +1508,11 @@ local function itemOfLink(link)
   if type(link) ~= "string" then return nil end
   local id = ns.LootParse.itemID(link)
   if not id then return nil end
-  return { key = ns.LootParse.itemKey(link) or id, id = id, name = link:match("%[(.-)%]") }
+  -- A crafting reagent's name carries its quality icon (|A...|a) in the
+  -- link; mails name the item without it.
+  local name = link:match("%[(.-)%]")
+  if name then name = name:gsub("|A.-|a", ""):gsub("^%s+", ""):gsub("%s+$", "") end
+  return { key = ns.LootParse.itemKey(link) or id, id = id, name = name }
 end
 
 -- The item ID the client knows for an item name (cached items only).
@@ -1611,6 +1615,7 @@ local function readMail(i, now)
     local kind, name, who, bid, _, _, cut, _, _, _, count = GetInboxInvoiceInfo(i)
     if kind == "seller" or kind == "seller_temp_invoice" then
       m.kind, m.name, m.who, m.gold, m.cut, m.n = "sale", name, who, bid or 0, cut or 0, count or 1
+      m.temp = kind == "seller_temp_invoice" or nil
       m.id = idOfName(name) -- the post of that name gives the key (Trade.recordMail)
       return m
     end
@@ -1632,12 +1637,12 @@ events.MAIL_INBOX_UPDATE = function()
   if type(GetInboxNumItems) ~= "function" or type(GetInboxHeaderInfo) ~= "function" then return end
   local bucket = Core.tradeBucket(true)
   if not bucket then return end
-  local now, any = time(), false
+  local now, mails = time(), {}
   for i = 1, GetInboxNumItems() or 0 do
     local ok, m = pcall(readMail, i, now)
-    if ok and m and ns.Trade.recordMail(bucket, m, now, marketOf) then any = true end
+    if ok and m then mails[#mails + 1] = m end
   end
-  if any then recorded() end
+  if #ns.Trade.recordInbox(bucket, mails, now, marketOf) > 0 then recorded() end
 end
 
 -- UNVERIFIED (check in client): TRADE_ACCEPT_UPDATE fires when either side

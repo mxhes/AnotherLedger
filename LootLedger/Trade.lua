@@ -11,7 +11,8 @@ local ADDON, ns = ...
 --               cmpN, cmpSale, cmpMarket } } (kept for good),
 --   posts   = { open posts: { t, key, id, name, n, unit } },
 --   pending = { "buyer found" marks: { name, t, market } },
---   mails   = { [mail key] = expires } (mails already recorded),
+--   mails   = { [mail key] = { expires, ... } } (mails already recorded:
+--               the expiry of each copy, per character),
 -- }
 --
 -- entry = { t, kind, key, id, name, n, gold, cut, market, who, char, split,
@@ -86,7 +87,10 @@ end
 
 -- Appends `entry` to the log and counts it in the totals of its item key
 -- (entries without a key, and plain trades and purchases, count in none).
+local indexes = setmetatable({}, { __mode = "k" }) -- bucket -> sale price index (not saved)
+
 function Trade.add(bucket, entry)
+  indexes[bucket] = nil
   bucket.log[#bucket.log + 1] = entry
   if entry.key ~= nil and (entry.kind == "post" or entry.kind == "cancel" or entry.kind == "expire" or SALES[entry.kind]) then
     countInto(totalsOf(bucket, entry.key), entry)
@@ -120,15 +124,22 @@ function Trade.prune(bucket, now, keepDays)
   bucket.log = keepNewer(bucket.log, now - days * Trade.DAY, "t")
   bucket.posts = keepNewer(bucket.posts, now - Trade.POST_DAYS * Trade.DAY, "t")
   bucket.pending = keepNewer(bucket.pending, now - Trade.POST_DAYS * Trade.DAY, "t")
-  for key, expires in pairs(bucket.mails) do
-    if type(expires) ~= "number" or expires < now then bucket.mails[key] = nil end
+  indexes[bucket] = nil
+  for key, list in pairs(bucket.mails) do
+    local kept = {}
+    if type(list) == "table" then
+      for _, expires in ipairs(list) do
+        if type(expires) == "number" and expires >= now then kept[#kept + 1] = expires end
+      end
+    end
+    bucket.mails[key] = #kept > 0 and kept or nil
   end
 end
 
 -- ---------------------------------------------------------------------------
 -- Auction house: posts, cancels, "buyer found" marks and mails
 
-Trade.JOIN_WINDOW = 7200 -- a second invoice of the same sale within this many seconds is the same sale
+Trade.MAIL_DRIFT = 300 -- seconds a mail's computed expiry may move between two reads
 
 -- Logs a posted auction and keeps it open, so a sale mail (which only names
 -- the item) finds its item key. post = { t, key, id, name, n, unit }.
@@ -172,11 +183,12 @@ end
 
 local function part(v) return v == nil and "" or tostring(v) end
 
--- The key of a mail: what does not change while it sits in the inbox.
+-- The key of a mail: what does not change while it sits in the inbox, and
+-- whose inbox it is (each mail lives in one character's inbox). Copies with
+-- the same key are told apart by their expiry (Trade.recordMail).
 function Trade.mailKey(m)
-  local expires = type(m.expires) == "number" and math.floor(m.expires / 60) or ""
-  return table.concat({ part(m.kind), part(m.subject), part(m.sender), part(m.money), part(m.name),
-    part(m.who), part(m.gold), part(m.n), part(expires) }, "|")
+  return table.concat({ part(m.char), part(m.kind), part(m.subject), part(m.sender), part(m.money),
+    part(m.name), part(m.who), part(m.gold), part(m.n) }, "|")
 end
 
 -- The key of a sale: the same for its temporary and its final invoice.
@@ -195,16 +207,49 @@ local function takeMark(bucket, name)
   return false
 end
 
+-- Whether this copy of a mail was recorded before: one remembered expiry
+-- (within MAIL_DRIFT) per copy. `used` = { [list] = { [index] = true } }
+-- keeps one inbox read from matching the same copy twice. A new copy's
+-- expiry is remembered (marked used).
+local function seenBefore(bucket, key, expires, used)
+  local list = bucket.mails[key]
+  if type(list) ~= "table" then
+    list = {}
+    bucket.mails[key] = list
+  end
+  used[list] = used[list] or {}
+  for i, e in ipairs(list) do
+    if not used[list][i] and math.abs(e - expires) <= Trade.MAIL_DRIFT then
+      used[list][i] = true
+      return true
+    end
+  end
+  list[#list + 1] = expires
+  used[list][#list] = true
+  return false
+end
+
+-- The newest sale still waiting for its final invoice (temporary invoice
+-- recorded, `temp` = its sale key), or nil.
+local function waitingSale(bucket, saleKey)
+  for i = #bucket.log, 1, -1 do
+    local e = bucket.log[i]
+    if e.temp == saleKey then return e end
+  end
+  return nil
+end
+
 -- Records an auction mail once. m = { kind = "sale" / "expire" / "cancel",
--- subject, sender, money, expires, name, who, gold, cut, n, key, id, char }.
--- `marketAt(key, id)` gives the market per unit now, asked only when no
--- "buyer found" mark has it. Returns the new entry, or nil when the mail (or
--- the other invoice of the same sale) is already recorded, or for a cancel
+-- subject, sender, money, expires, name, who, gold, cut, n, key, id, char,
+-- temp } (temp: a temporary invoice, sent before the money). `marketAt(key,
+-- id)` gives the market per unit now, asked only when no "buyer found" mark
+-- has it. `used`: see seenBefore (one per inbox read; Trade.recordInbox).
+-- Returns the new entry, or nil when this copy is already recorded, for the
+-- final invoice of a sale whose temporary one was recorded, or for a cancel
 -- mail (counted at the auction house already).
-function Trade.recordMail(bucket, m, now, marketAt)
-  local mailKey = Trade.mailKey(m)
-  if bucket.mails[mailKey] then return nil end
-  bucket.mails[mailKey] = type(m.expires) == "number" and m.expires or now + 31 * Trade.DAY
+function Trade.recordMail(bucket, m, now, marketAt, used)
+  local expires = type(m.expires) == "number" and m.expires or now + 31 * Trade.DAY
+  if seenBefore(bucket, Trade.mailKey(m), expires, used or {}) then return nil end
   if m.kind == "cancel" then return nil end
 
   if m.kind == "expire" then
@@ -213,10 +258,14 @@ function Trade.recordMail(bucket, m, now, marketAt)
   end
   if m.kind ~= "sale" then return nil end
 
-  local saleKey = "s:" .. Trade.saleKey(m)
-  local until_ = bucket.mails[saleKey]
-  if type(until_) == "number" and until_ >= now then return nil end
-  bucket.mails[saleKey] = now + Trade.JOIN_WINDOW
+  local saleKey = Trade.saleKey(m)
+  if not m.temp then
+    local waiting = waitingSale(bucket, saleKey)
+    if waiting then
+      waiting.temp = nil
+      return nil
+    end
+  end
 
   local key, id = m.key, m.id
   local post = takeFromPost(bucket, m.n, function(p)
@@ -231,7 +280,22 @@ function Trade.recordMail(bucket, m, now, marketAt)
   local _, market = takeMark(bucket, m.name)
   if market == nil and key ~= nil and type(marketAt) == "function" then market = marketAt(key, id) end
   return Trade.add(bucket, { t = now, kind = "sale", key = key, id = id, name = m.name, n = m.n,
-    gold = m.gold, cut = m.cut, market = market, who = m.who, char = m.char })
+    gold = m.gold, cut = m.cut, market = market, who = m.who, char = m.char, temp = m.temp and saleKey or nil })
+end
+
+-- Records the mails of one inbox read (Core: MAIL_INBOX_UPDATE). Temporary
+-- invoices go first, so a final invoice read together with its temporary
+-- one settles it. Returns the new entries.
+function Trade.recordInbox(bucket, mails, now, marketAt)
+  local ordered = {}
+  for _, m in ipairs(mails) do if m.temp then ordered[#ordered + 1] = m end end
+  for _, m in ipairs(mails) do if not m.temp then ordered[#ordered + 1] = m end end
+  local used, added = {}, {}
+  for _, m in ipairs(ordered) do
+    local e = Trade.recordMail(bucket, m, now, marketAt, used)
+    if e then added[#added + 1] = e end
+  end
+  return added
 end
 
 -- ---------------------------------------------------------------------------
@@ -358,6 +422,29 @@ function Trade.itemStats(bucket, since, now)
   return list
 end
 
+-- The sale price index of a bucket, built in one pass over the log and kept
+-- until the log changes (Trade.add, Trade.prune): per item key { gold, n,
+-- newest } of its sales without a split, and the item IDs in the log.
+local function indexOf(bucket)
+  local idx = indexes[bucket]
+  if idx then return idx end
+  idx = { keys = {}, ids = {} }
+  for _, e in ipairs(bucket.log) do
+    if e.id ~= nil then idx.ids[e.id] = true end
+    if SALES[e.kind] and e.key ~= nil and not e.split and (e.n or 0) > 0 then
+      local k = idx.keys[e.key]
+      if not k then
+        k = { gold = 0, n = 0, newest = e.t }
+        idx.keys[e.key] = k
+      end
+      k.gold, k.n = k.gold + (e.gold or 0), k.n + e.n
+      if e.t > k.newest then k.newest = e.t end
+    end
+  end
+  indexes[bucket] = idx
+  return idx
+end
+
 -- The own sale price of an item: the amount-weighted average gold per unit
 -- (before the cut) of its sales in the log, trade sales with a split left
 -- out; and the age of the newest of them. nil without such a sale.
@@ -366,15 +453,15 @@ function Trade.salePrice(bucket, itemID, link, now)
   local key = itemID
   if type(link) == "string" and ns.LootParse then key = ns.LootParse.itemKey(link) or itemID end
   if key == nil then return nil end
-  local gold, n, newest = 0, 0, nil
-  for _, e in ipairs(bucket.log) do
-    if SALES[e.kind] and e.key == key and not e.split and (e.n or 0) > 0 then
-      gold, n = gold + (e.gold or 0), n + e.n
-      if newest == nil or e.t > newest then newest = e.t end
-    end
-  end
-  if n <= 0 then return nil end
-  return math.floor(gold / n + 0.5), math.max(0, now - newest)
+  local k = indexOf(bucket).keys[key]
+  if not k or k.n <= 0 then return nil end
+  return math.floor(k.gold / k.n + 0.5), math.max(0, now - k.newest)
+end
+
+-- Whether an item ID appears anywhere in the bucket's log (Trade tab: redraw
+-- when its item info arrives).
+function Trade.hasItemID(bucket, itemID)
+  return type(bucket) == "table" and itemID ~= nil and indexOf(bucket).ids[itemID] == true
 end
 
 ns.Trade = Trade
