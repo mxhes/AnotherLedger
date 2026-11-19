@@ -4,7 +4,8 @@
 # - test:    Lua 5.1 (the client's language version) and Lua 5.4 (catches code
 #            that only one of them accepts).
 # - package: on a tag, builds the zip (and uploads it to CurseForge when the
-#            CI variable CF_API_KEY is set and the .toc has X-Curse-Project-ID).
+#            CI variable CF_API_KEY is set and the .toc has X-Curse-Project-ID;
+#            the variable is protected, so only protected v* tags get it).
 # - package-dry-run: manual on any branch; builds the zip without uploading
 #            and lists its files, to check the .pkgmeta layout (one AnotherLedger/
 #            folder with the .toc inside). The zip is in the job's artifacts.
