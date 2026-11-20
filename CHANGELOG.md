@@ -1,5 +1,26 @@
 # AnotherLedger
 
+## v0.4.2
+
+- Price sources work in every TradeSkillMaster / Auctionator combination:
+  AnotherLedger's own scan fills items the others lack, a chosen source that
+  isn't loaded acts as Auto and says so, Auctionator gives price ages and
+  disenchant values, and options for a missing addon are dimmed with the
+  reason in their tooltip.
+- Own color presets: "Save as preset..." in the Color preset dropdown saves
+  your current colors under a name, and a button deletes one. Profile exports
+  carry them. The Parchment preset is gone.
+- Long dropdown texts stay inside their button (the AH price source shows
+  "Auto").
+- Soulbound items in Bags / Bank no longer show a "?" or count as unpriced,
+  and worthless items aren't counted as unpriced either.
+- History: an opened session stays open when a split saves one, row menus act
+  on their own session, and merged sessions keep the newer one's price source.
+- Looting two mobs quickly no longer counts the coins twice.
+- The Trade tab's Items and Log follow the filter bar, and Log has its own
+  sorts.
+- Goal and alert boxes: empty or negative means Off.
+
 ## v0.4.1
 
 First release on CurseForge.
