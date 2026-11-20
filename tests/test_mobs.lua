@@ -12,6 +12,16 @@ h.test("Mobs.idOf parses creatures, vehicles and nodes", function()
   h.eq({ M.idOf("Vehicle-0-3110-0-12-3000-000012ABCD") }, { "npc:3000", "npc" })
   h.eq({ M.idOf(NODE) }, { "obj:1731", "node" })
   h.eq(M.idOf("Player-3110-0ABCDEF"), nil)
+  -- a secret GUID is never parsed
+  local saved = _G.issecretvalue
+  _G.issecretvalue = function(v) return v == A end
+  h.eq(M.idOf(A), nil)
+  h.eq(ns.Util.plainString("x"), "x")
+  h.eq(ns.Util.plainString(""), nil)
+  _G.issecretvalue = function() error("no") end -- a failing check counts as secret
+  h.eq(ns.Util.plainString("x"), nil)
+  _G.issecretvalue = saved
+  h.eq(ns.Util.isSecret(A), false)
   h.eq(M.idOf("Pet-0-3110-0-12-416-0100ABCD"), nil)
   h.eq(M.idOf(nil), nil)
   h.eq(M.idOf("Creature-0-1"), nil)

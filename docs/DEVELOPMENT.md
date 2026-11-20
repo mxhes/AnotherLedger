@@ -237,7 +237,10 @@ Each of these is one call in one place; the UI never names them.
   `kills` stays 0. Mob names come from name plates, target and mouseover, else
   the unit tooltip; a node takes the target of the player's last
   `UNIT_SPELLCAST_SENT` (the gathering cast) when the loot window opens within
-  30 s (no tooltip for objects). No name is saved without one:
+  30 s (no tooltip for objects). Names, GUIDs and cast targets the client
+  hands over as secret values (`issecretvalue`, in instances and combat) are
+  dropped unread through `Util.isSecret` / `Util.plainString`: comparing one
+  errors and taints the addon. No name is saved without one:
   `View.buildMobs` shows "NPC 12345" / "Object 1731" and takes the newest
   saved name (the first History entry's, the running session's over all). Coin
   slots wait for `settleLoot`, which scales them (`Mobs.scaleMoney`) to the

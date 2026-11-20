@@ -966,8 +966,8 @@ function Core.mobName(env, guid, key)
   if key:sub(1, 4) ~= "obj:" and type(C) == "table" and type(C.GetHyperlink) == "function" then
     local ok, data = pcall(C.GetHyperlink, "unit:" .. guid)
     local line = ok and type(data) == "table" and type(data.lines) == "table" and data.lines[1]
-    local text = type(line) == "table" and line.leftText
-    if type(text) == "string" and text ~= "" then
+    local text = type(line) == "table" and ns.Util.plainString(line.leftText)
+    if text then
       mobNames[key] = text
       return text
     end
@@ -1808,8 +1808,9 @@ end
 
 -- The player's cast target: the node's name for a gathering cast.
 function events.UNIT_SPELLCAST_SENT(unit, target)
-  if unit == "player" and type(target) == "string" and target ~= "" then
-    castTarget = { name = target, at = time() }
+  local name = unit == "player" and ns.Util.plainString(target)
+  if name then
+    castTarget = { name = name, at = time() }
   end
 end
 
@@ -1820,7 +1821,8 @@ local function noteUnitName(unit)
   local key = ok and ns.Mobs.idOf(guid)
   if not key then return end
   local okName, name = pcall(UnitName, unit)
-  if okName and type(name) == "string" and name ~= "" then mobNames[key] = name end
+  name = okName and ns.Util.plainString(name)
+  if name then mobNames[key] = name end
 end
 
 function events.NAME_PLATE_UNIT_ADDED(unit) noteUnitName(unit) end

@@ -95,6 +95,11 @@ and remove both once it is confirmed.
     or within a second after it. Check: sell an item to another player for
     gold; the Trade log shows a trade sale.
 
+- Secret values (`Util.isSecret`, UNVERIFIED): `/dump issecretvalue` shows a
+  function. Loot mobs in a dungeon and in combat: no "attempt to compare ...
+  secret string value" error from `Core.mobName` (BugSack), and History >
+  Mobs still lists the loot (names may fall back to "NPC 12345").
+
 To look at in the client after the fourth review (2026-11-18), only run
 against the test fakes so far:
 
