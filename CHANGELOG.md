@@ -1,5 +1,11 @@
 # AnotherLedger
 
+## v0.4.3
+
+- Looting in dungeons or in combat no longer raises a "secret string value"
+  Lua error. Mobs whose name the game keeps hidden show as "NPC 12345" in
+  History > Mobs until their name is seen.
+
 ## v0.4.2
 
 - Price sources work in every TradeSkillMaster / Auctionator combination:

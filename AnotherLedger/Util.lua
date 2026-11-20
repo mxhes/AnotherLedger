@@ -18,7 +18,6 @@ local isNumber = Util.isNumber
 -- concatenating or matching one raises "attempt to compare ... a secret
 -- string value" and taints the addon, so such values are dropped unread.
 -- issecretvalue is looked up at call time; without it nothing is secret.
--- UNVERIFIED (check in client): issecretvalue exists on Interface 16001.
 function Util.isSecret(v)
   local f = _G.issecretvalue
   if type(f) ~= "function" then return false end
