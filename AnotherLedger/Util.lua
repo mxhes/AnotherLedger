@@ -13,6 +13,24 @@ end
 
 local isNumber = Util.isNumber
 
+-- A "secret" value: unit names, GUIDs and tooltip lines the client hides
+-- from addons in restricted contexts (instances, combat). Comparing,
+-- concatenating or matching one raises "attempt to compare ... a secret
+-- string value" and taints the addon, so such values are dropped unread.
+-- issecretvalue is looked up at call time; without it nothing is secret.
+function Util.isSecret(v)
+  local f = _G.issecretvalue
+  if type(f) ~= "function" then return false end
+  local ok, secret = pcall(f, v)
+  return not ok or secret == true
+end
+
+-- `v` when it is a readable, non-empty string, else nil.
+function Util.plainString(v)
+  if type(v) ~= "string" or Util.isSecret(v) or v == "" then return nil end
+  return v
+end
+
 function Util.isPositive(v)
   return isNumber(v) and v > 0
 end

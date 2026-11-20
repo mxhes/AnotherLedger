@@ -3597,6 +3597,36 @@ h.test("wiring: loot is credited without kills; unknown names get a fallback", f
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: secret unit names and GUIDs are dropped unread", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local SECRET_NAME, SECRET_GUID = "Secret Name", "Creature-0-1-0-1-9999-0000000001"
+  ctx.env.issecretvalue = function(v) return v == SECRET_NAME or v == SECRET_GUID end
+  -- the unit tooltip's first line is secret: no name, no error
+  ctx.env.C_TooltipInfo = { GetHyperlink = function()
+    return { lines = { { leftText = SECRET_NAME } } }
+  end }
+  lootWindowEnv(ctx, { { link = LINK, qty = 2, guid = MOB } })
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["npc:2546"].items[2589], 2)
+  h.eq(ns.session.mobs["npc:2546"].name, nil)
+  -- a secret name plate name or GUID names nothing
+  ctx.env.UnitGUID = function() return MOB end
+  ctx.env.UnitName = function() return SECRET_NAME end
+  fire(ctx, "NAME_PLATE_UNIT_ADDED", "nameplate1")
+  ctx.env.UnitGUID = function() return SECRET_GUID end
+  ctx.env.UnitName = function() return "Kobold Vermin" end
+  fire(ctx, "NAME_PLATE_UNIT_ADDED", "nameplate2")
+  fire(ctx, "UNIT_SPELLCAST_SENT", "player", SECRET_NAME)
+  fire(ctx, "LOOT_OPENED")
+  fire(ctx, "LOOT_SLOT_CLEARED", 1)
+  h.eq(ns.session.mobs["npc:2546"].name, nil)
+  h.eq(ns.session.mobs["npc:9999"], nil)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: History > Mobs lists the mobs of History and the running session", function()
   local ctx = boot()
   startWorld(ctx, false)

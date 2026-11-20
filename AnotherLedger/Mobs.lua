@@ -26,7 +26,7 @@ local GUID_KINDS = { Creature = "npc", Vehicle = "npc", GameObject = "node" }
 -- "Creature-0-3110-0-12-2546-000012ABCD" -> "npc:2546", "npc";
 -- "GameObject-...-1731-..." -> "obj:1731", "node"; anything else nil.
 function Mobs.idOf(guid)
-  if type(guid) ~= "string" then return nil end
+  if type(guid) ~= "string" or ns.Util.isSecret(guid) then return nil end
   -- One match, no table: the combat log and mouseover call this often.
   local prefix, idText = guid:match("^([^%-]+)%-[^%-]+%-[^%-]+%-[^%-]+%-[^%-]+%-([^%-]+)")
   local kind = GUID_KINDS[prefix]
@@ -61,7 +61,7 @@ function Mobs.readSlot(env, slot)
   end
   if okSrc then
     local i = 2
-    while type(packed[i]) == "string" do
+    while type(packed[i]) == "string" and not ns.Util.isSecret(packed[i]) do
       sources[#sources + 1] = { guid = packed[i], qty = num(packed[i + 1]) and packed[i + 1] or nil }
       i = i + 2
     end
