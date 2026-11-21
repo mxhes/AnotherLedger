@@ -32,10 +32,19 @@ local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_DROPS = 4
 
 -- Pure. Texts of one drop line: name, quantity, amount, source (nil without).
+-- An unpriced drop shows "?" like its list row.
 function Compact.dropText(row, formatMoney)
   local t = ns.UI.Rows.rowText(row, formatMoney)
   return { name = t.name, qty = t.qty, amount = t.amount, copper = t.copper, source = t.source,
     sourceText = t.sourceText, hideTag = t.hideTag }
+end
+
+-- Pure. The name with its quantity ("x47") in the quiet color `hint` (a
+-- color code), so the names stand out.
+function Compact.nameText(t, hint)
+  if t.qty == nil or t.qty == "" then return t.name end
+  if not hint then return t.name .. " " .. t.qty end
+  return t.name .. " " .. hint .. t.qty .. "|r"
 end
 
 -- Pure. Window height the compact body needs: chrome, the title row, the top
@@ -125,6 +134,7 @@ function part:Update(view)
   local c = view and view.compact
   if not c then return end
   local T = ns.Theme
+  local S = T.sizes
   Compact.perHour:SetText(Compact.rateText(c.perHour))
   Compact.total:SetText(Compact.totalText(c, nil, ns.Money.colorCode(T.colors.hint)))
   Compact.view = c
@@ -148,14 +158,22 @@ function part:Update(view)
     Compact.goalBar:Hide()
   end
   local cells = {}
+  local hint = ns.Money.colorCode(T.colors.hint)
+  local icons = ns.Util.setting("compactIcons", false) == true
   for i = 1, MAX_DROPS do
     local w = Compact.drops[i]
     local row = drops[i]
     if row then
       local t = Compact.dropText(row)
       local r, g, b = T.qualityColor(row.quality)
-      w.name:SetText(t.name .. " " .. t.qty)
+      w.name:SetText(Compact.nameText(t, hint))
       ns.UI.Widgets.setTextRGB(w.name, r, g, b, 1)
+      -- Option "compactIcons": the item icon before the name.
+      if icons then w.icon:SetTexture(ns.UI.Rows.iconOf(row)) end
+      w.icon:SetShown(icons)
+      w.name:ClearAllPoints()
+      w.name:SetPoint("LEFT", icons and w.icon or w.frame, icons and "RIGHT" or "LEFT", icons and S.rowIconGap or 0, 0)
+      w.name:SetPoint("RIGHT", w.amount, "LEFT", -S.rowNameGap, 0)
       ns.UI.Coins.set(w.amount, t.copper, t.amount)
       cells[#cells + 1] = w.amount
       -- The same framed tag as the list rows, lined up with the widest one.
@@ -278,12 +296,17 @@ function Compact.attach(area)
     tag:SetPoint("RIGHT", f, "RIGHT", 0, 0)
     tag:Hide()
     local amount = ns.UI.Coins.new(f, T.fonts.rowSmall, T.colors.ink)
+    local icon = f:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(S.compactRowHeight - 2, S.compactRowHeight - 2)
+    icon:SetPoint("LEFT", f, "LEFT", 0, 0)
+    icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    icon:Hide()
     local name = W.text(f, T.fonts.rowSmall, T.colors.ink, "LEFT")
     name:SetPoint("LEFT", f, "LEFT", 0, 0)
     name:SetPoint("RIGHT", amount, "LEFT", -S.rowNameGap, 0)
     if name.SetWordWrap then name:SetWordWrap(false) end
     f:Hide()
-    Compact.drops[i] = { frame = f, name = name, amount = amount, tag = tag }
+    Compact.drops[i] = { frame = f, name = name, amount = amount, tag = tag, icon = icon }
   end
   placeTexts()
 

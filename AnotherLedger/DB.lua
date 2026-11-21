@@ -64,6 +64,7 @@ DB.defaults = {
     showTopFinds = true,
     -- Compact mode: how many last drops it lists (0..4).
     compactDrops = 4,
+    compactIcons = false,
     -- Item icon at the left of each list row.
     showIcons = true,
     -- New loot scrolls the Session list to its row.

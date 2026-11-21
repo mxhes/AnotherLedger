@@ -15,11 +15,6 @@ embeds.xml
 Util.lua
 Locale.lua
 Locales\deDE.lua
-Locales\frFR.lua
-Locales\esES.lua
-Locales\itIT.lua
-Locales\ptBR.lua
-Locales\ruRU.lua
 Money.lua
 Theme.lua
 Tooltip.lua
@@ -68,6 +63,9 @@ UI\ScanButton.lua
 UI\TradePeriod.lua
 UI\Ledger.lua
 Core.lua
+CorePrices.lua
+CoreLists.lua
+CoreHistory.lua
 CoreScan.lua
 CoreTrade.lua
 Boot.lua

@@ -44,7 +44,9 @@ h.test("Locale: no language has keys the code does not use or other placeholders
     if name:match("%.lua$") then files[#files + 1] = name end
   end
   list:close()
-  h.eq(#files >= 2, true)
+  local hasGerman = false
+  for _, name in ipairs(files) do if name == "deDE.lua" then hasGerman = true end end
+  h.eq(hasGerman, true)
   local unknown, wrong = {}, {}
   for _, name in ipairs(files) do
     local captured

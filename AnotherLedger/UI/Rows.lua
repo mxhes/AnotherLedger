@@ -406,6 +406,11 @@ local function itemIcon(itemID)
   return icon or QUESTION_MARK
 end
 
+-- The icon a row shows (its own, else its item's; UI/Compact.lua too).
+function Rows.iconOf(row)
+  return row.icon or (row.isCurrency and QUESTION_MARK) or itemIcon(row.id)
+end
+
 -- Through Widgets when loaded, so a color option recolors the text live.
 local function setColor(fs, c)
   local W = ns.UI.Widgets

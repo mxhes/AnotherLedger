@@ -107,7 +107,7 @@ function Tooltip.text(tip)
   local out = {}
   if tip.title then out[#out + 1] = tip.title end
   for _, line in ipairs(tip.lines) do
-    if line.kind == "bars" then
+    if line.kind == "bars" then -- luacheck: ignore 542
       -- no text form
     elseif DOUBLE[line.kind] then
       local sep = line.label:match("%s$") and "" or " "

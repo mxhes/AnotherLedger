@@ -5,8 +5,6 @@ Sizes: S = under an hour, M = a few hours, L = a bigger piece of work.
 
 ## Open ideas
 
-- Auction house purchases (buying, bids placed) in the Trade Log and
-  statistics. M
 - COD mail between players as sales. M
 - Profit per item (material cost of crafted items against the sale price). L
 - Destroy values without TSM and Auctionator: own disenchant / mill /
@@ -14,9 +12,6 @@ Sizes: S = under an hour, M = a few hours, L = a bigger piece of work.
 
 From the fifth review (2026-11-19, screenshots of Bags and compact):
 
-- Compact: optional item icons in Last drops; a dimmer color for the
-  quantity (`x47`) so names stand out. Decide whether compact drops show
-  `?` like the list does. S
 - Sort button: right-click steps back to the previous sort, or reverses the
   order (reversing needs every view's sort to take a direction). S / M
 - At a vendor: a "Sell vendor items" button on the Bags tab that sells the
@@ -55,3 +50,6 @@ tooltip, Hide Vendor tags, colored free bag slots and trade purchases with a
 minus sign, net worth with the bank and all characters (`/al worth`). Also:
 `/al stats`, Mob data kept, the History cache, the price trend in item
 tooltips and the watch list.
+After v0.5.0: auction house purchases in the Trade tab, History > Totals
+(weeks and months), compact item icons and a quieter quantity (compact
+drops already showed `?`), luacheck in CI, a short-changelog test.

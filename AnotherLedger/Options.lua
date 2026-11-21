@@ -756,6 +756,13 @@ Options.define({
   min = 0, max = 4, step = 1, apply = refreshUI,
 })
 
+-- Compact mode: the item icon before each of the last drops.
+Options.define({
+  key = "compactIcons", category = "display", type = "checkbox", label = L["Compact: item icons"],
+  tooltip = L["Shows the item icon before each of the last drops in the compact window."],
+  apply = refreshUI,
+})
+
 -- Off: the list rows have no icon and their text starts at the left edge.
 Options.define({
   key = "showIcons", category = "display", type = "checkbox", label = L["Item icons"],

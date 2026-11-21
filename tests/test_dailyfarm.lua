@@ -105,6 +105,14 @@ h.test("View.recentRate: the last 15 minutes from the newest sample that old", f
   h.eq(V.recentRate(samples, 2100, 0), 0)
 end)
 
+h.test("Compact.nameText: the quantity in the quiet color; dropText keeps the list's ?", function()
+  local C = ns.UI.Compact
+  h.eq(C.nameText({ name = "Ore", qty = "x47" }, "|cff808080"), "Ore |cff808080x47|r")
+  h.eq(C.nameText({ name = "Ore", qty = "" }, "|cff808080"), "Ore")
+  h.eq(C.nameText({ name = "Ore", qty = "x2" }), "Ore x2")
+  h.eq(C.dropText({ id = 1, name = "Odd", quantity = 1 }).amount, "?")
+end)
+
 h.test("Compact.recentText and goalFraction", function()
   local C = ns.UI.Compact
   local f = ns.Money.format

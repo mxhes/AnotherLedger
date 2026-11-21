@@ -329,6 +329,16 @@ Tabs.define({
         return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
       end,
     },
+    -- Totals: this character's saved sessions per week and month.
+    {
+      key = "totals", label = L["Totals"], title = L["Weekly Totals"],
+      sorts = { "recent", "ah", "perHour" }, defaultSort = "recent",
+      build = function(ctx)
+        local view = ns.View.buildTotals(savedHistory(ctx), ctx.opts)
+        view.scope = L_SCOPE_OWN
+        return view
+      end,
+    },
   },
 })
 

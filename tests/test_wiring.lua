@@ -2369,6 +2369,22 @@ h.test("wiring: /al compact switches the window to the compact layout and back",
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: Compact: item icons puts the icon before each drop; the quantity is quiet", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "compact")
+  local C = ctx.ns.UI.Compact
+  local w = C.drops[1]
+  h.eq(w.icon:IsShown(), false) -- off by default
+  h.eq(w.name:GetText():find("|c%x%x%x%x%x%x%x%xx3|r") ~= nil, true)
+  ctx.ns.Options.set(ctx.ns.db, "compactIcons", true)
+  ctx.ns.UI.Ledger.refresh()
+  h.eq(w.icon:IsShown(), true)
+  h.eq(w.icon:GetTexture() ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: double-clicking the title toggles the mode", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -4407,6 +4423,26 @@ h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones",
   Ledger.setSubtab("log")
   Ledger.refresh()
   h.eq(#Ledger.view.rows, 1); h.eq(TP.button:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an auction won mail is a purchase in the Log and in Items, once", function()
+  local ctx = tradeWorld()
+  ctx.env.mails[1] = { sender = "Auction House", subject = "Auction won: Bolt", money = 0, daysLeft = 29.5,
+    invoice = "buyer", name = "Bolt", who = "Seller", bid = 900, count = 3,
+    link = "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r" }
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  fire(ctx, "MAIL_INBOX_UPDATE") -- read again: still one purchase
+  local log = tradeLog(ctx)
+  h.eq(#log, 1); h.eq(log[1].kind, "buy"); h.eq(log[1].key, 5); h.eq(log[1].gold, 900); h.eq(log[1].n, 3)
+  local Ledger = ctx.ns.UI.Ledger
+  Ledger.setTab("trade")
+  Ledger.setSubtab("log")
+  Ledger.refresh()
+  h.eq(Ledger.view.rows[1].value, -900)
+  Ledger.setSubtab("items")
+  Ledger.refresh()
+  h.eq(#Ledger.view.rows, 1); h.eq(Ledger.view.rows[1].value, -900)
   h.eq(ctx.errors, {})
 end)
 

@@ -78,7 +78,7 @@ end
 local UNAUCTIONABLE = { [1] = true, [4] = true, [7] = true, [8] = true, [9] = true }
 
 local function readItemInfo(itemID, link)
-  local name, _, quality, bindType
+  local name, quality, bindType
   local query = type(link) == "string" and link or itemID
   local getInfo = (C_Item and C_Item.GetItemInfo) or (type(GetItemInfo) == "function" and GetItemInfo) or nil
   if getInfo then

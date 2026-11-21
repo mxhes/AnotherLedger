@@ -135,8 +135,8 @@ function Profiles.rename(db, chardb, old, new)
   db.profiles[valid] = t
   -- Other characters still name the old one: AnotherLedgerDB.renamed = { [old] = new }.
   if type(db.renamed) ~= "table" then db.renamed = {} end
-  for old, new in pairs(db.renamed) do
-    if new == key then db.renamed[old] = valid end
+  for from, to in pairs(db.renamed) do
+    if to == key then db.renamed[from] = valid end
   end
   db.renamed[key] = valid
   db.renamed[valid] = nil

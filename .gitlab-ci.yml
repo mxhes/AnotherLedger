@@ -3,6 +3,8 @@
 #
 # - test:    Lua 5.1 (the client's language version) and Lua 5.4 (catches code
 #            that only one of them accepts).
+# - lint:    luacheck over AnotherLedger/ (.luacheckrc): leaked or misspelled
+#            globals, unused variables, overwritten values.
 # - package: on a tag, builds the zip (and uploads it to CurseForge when the
 #            CI variable CF_API_KEY is set and the .toc has X-Curse-Project-ID;
 #            the variable is protected, so only protected v* tags get it).
@@ -27,6 +29,15 @@ test:
     - apk add --no-cache "$LUA"
   script:
     - '"$LUA" tests/run.lua'
+
+lint:
+  stage: test
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache lua5.1 lua5.1-dev luarocks5.1 build-base >/dev/null
+    - luarocks-5.1 install luacheck >/dev/null
+  script:
+    - luacheck AnotherLedger
 
 .packager:
   stage: package

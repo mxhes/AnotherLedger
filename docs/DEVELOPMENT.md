@@ -18,6 +18,10 @@ plans of each feature (history; not kept in sync with the code).
   `World of Warcraft/<client>/Interface/AddOns/`.
 - Tests: `lua tests/run.lua` from the repo root (exit 1 on any failure).
   GitLab CI (`.gitlab-ci.yml`) runs them under Lua 5.1 and 5.4 on every push.
+- Lint: `luacheck AnotherLedger` (config `.luacheckrc`; CI job `lint`). It
+  flags leaked or misspelled globals, unused variables and overwritten
+  values. A WoW API the code starts to read goes in `read_globals`, a global
+  it writes in `globals`. Shadowing and unused arguments are not checked.
 
 ## Code layout
 
@@ -29,7 +33,7 @@ only inside functions.
 | --- | --- |
 | `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them. Each library is also an `## OptionalDeps` entry (the standalone addon's folder name), so a copy the player installed loads first and LibStub keeps the newest one; `UI/Broker.lua` looks them up through LibStub at login, never from `Libs/` directly |
 | `Util.lua` | shared helpers (number checks, clamp, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
-| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key): deDE, frFR, esES (also esMX), itIT, ptBR, ruRU |
+| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key): deDE |
 | `Money.lua` | coin text: letters or coin icons, colored, the "large amounts" style |
 | `Theme.lua` | look and feel: colors, fonts, sizes, textures |
 | `Tooltip.lua` | rich tooltips built as data (Daily, History, Zones, options) and rendered with the theme colors |
@@ -63,7 +67,10 @@ only inside functions.
 | `UI/TradePeriod.lua` | the Trade tab's 7 days / 30 days / All button (db.tradePeriod) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
-| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo; `Core.events` is the event table every Core file adds to |
+| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, zone sessions, rate samples; `Core.events` is the event table every Core file adds to; `Core.refreshUI` / `requestRefresh` / `dataChanged` for the other Core files |
+| `CorePrices.lua` | Core's price section: the cache key (`Core.cacheKey`, `renewKey`), `Core.buildPrices`, the no-price-addon hint, destroy professions, the price trend, `lookupPrice` / `unitValue` / `sessionValue` |
+| `CoreLists.lua` | Core's item lists: ignore, keep and watch lists, the watch alert |
+| `CoreHistory.lua` | Core's History section: every character's History list, delete / clear / merge, `/al undo` |
 | `CoreScan.lua` | Core's AnotherLedger scan section: `/al scan`, the full read, the passive search results, the reminder |
 | `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
 | `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
@@ -300,6 +307,13 @@ Each of these is one call in one place; the UI never names them.
   row (`isHeading`, `periodKey` from `History.period`: a day this week, else
   an ISO week via `History.isoWeek`) over the visible sessions of each
   period. `Ledger.periodFold` holds the folded keys for the Lua session.
+- **History Totals** (`View.buildTotals`, subtab `totals`): this character's
+  saved sessions summed per ISO week inside each calendar month (a week
+  spanning two months gives two rows), value as on the session rows. Sorted
+  by `recent`: month headings (`isHeading`, `periodKey` `"m:YYYY-MM"`, folded
+  through `Ledger.periodFold` like the Sessions headings) over their weeks;
+  by `ah` / `perHour`: the week rows alone. Week rows have `id = 0`, so
+  they take no click and no row menu. Month names are `L["January"]` ...
 - **Bags footer**: `buildInventory` sets `totals.sellSplit` (best value of
   the rows not kept, by `bestKind`; the footer tooltip's Sell split). The
   Bags tab adds `View.addWorth(view, money, bags, bank)` (`totals.money`,
@@ -513,6 +527,10 @@ Each of these is one call in one place; the UI never names them.
   (`sizes.compactGoalBarHeight`) over the divider; it follows a resize on the
   next redraw. It also returns `items`, `gold`, `elapsed`, `top`, `goal` and
   `graph` for the hover breakdown (`Compact.hint`) over the rate and total.
+  A drop's name carries its quantity in the hint color (`Compact.nameText`);
+  an unpriced drop shows `?` like its list row (`Rows.rowText`). Option
+  `compactIcons`: a texture before the name (`Rows.iconOf(row)`), the name
+  re-anchored after it on each update.
 - **Hide worthless** (`hideWorthless` -> `opts.hideWorthless`): `collect` and
   the compact drops skip `row.worthless` rows; totals are unchanged (they are
   worth 0).
@@ -647,7 +665,9 @@ Each of these is one call in one place; the UI never names them.
   - `CHAT_MSG_SYSTEM` matching `ERR_AUCTION_SOLD_S` (`Core.formatPattern`)
     keeps a "buyer found" mark with that moment's market (`Trade.markSold`).
   - `MAIL_INBOX_UPDATE` reads every mail: seller invoices (also
-    `seller_temp_invoice`) are sales, the expired / cancelled subjects
+    `seller_temp_invoice`) are sales, buyer invoices (auctions won and
+    purchases, UNVERIFIED) are `buy` entries keyed by the attached item's
+    link (else the item ID of the name), the expired / cancelled subjects
     returns. `Trade.recordInbox` takes one inbox read (temporary invoices
     first) through `Trade.recordMail`: a mail key (character, subject,
     sender, money, invoice fields) keeps the expiry of every copy seen, and a
@@ -667,6 +687,12 @@ Each of these is one call in one place; the UI never names them.
     `Trade.classify` makes it a `tsale`, `tbuy` or `trade`. A trade sale of
     several kinds splits the gold (`Trade.splitGold`) and is marked `split`:
     it counts in Sold and Gold, not in the comparison or Own sales.
+  - A `buy` counts `bought` and `spent` in its item's totals (totals saved
+    before have neither: read as 0). Items rows show the gold earned less
+    `spent` (`View.buildTradeItems`; an item only bought is listed with a
+    negative value, the minimum value filter takes the amount), `N bought`
+    and a Purchases section in the hover; the Log shows a `buy` as gold
+    paid out.
   - Totals per item key are kept for good (`Trade.add`), the log for
     **Trade log kept** days (`Core.pruneTrade` at login).
     `Trade.itemStats(bucket, since, now)` gives the Items rows (from the log
@@ -796,18 +822,18 @@ anything relying on an unconfirmed client API gets an
 
 Texts go through `ns.L` (English text as key). A language is one
 `Locales/<locale>.lua` with `ns.Locale.register("<locale>", { ["English"] =
-"translation" })`, listed in the `.toc` after `Locale.lua`.
-`esES.lua` registers its table for `esMX` too. `tests/test_locale.lua` fails
+"translation" })`, listed in the `.toc` after `Locale.lua`. Only English and German are
+kept (French, Spanish, Italian, Portuguese and Russian were dropped after
+v0.5.0: nobody could check them). `tests/test_locale.lua` fails
 on an entry of any language that the code no longer uses or whose `%s` /
 `%d` placeholders differ from the English text (string.format has no
 positional arguments; only the date format `%Y-%m-%d` may reorder).
 `tests/test_overflow.lua` loads the addon in every language and checks the
 fixed spaces (see "Text fits"). Spaces at either end of a key are part of
-the text (`"Sort: "`, `" items"`): keep them in the translation. The
-languages other than German were written in one go; players' corrections
-are welcome. Korean and Chinese are not there yet: their glyphs are about
-twice as wide (the overflow test already counts them so) and need a check
-of the custom fonts (`fontFace`) in those clients.
+the text (`"Sort: "`, `" items"`): keep them in the translation. A new
+language is a new file there plus its `.toc` line; Korean and Chinese
+glyphs are about twice as wide (the overflow test already counts them so)
+and need a check of the custom fonts (`fontFace`) in those clients.
 
 ## Packaging
 

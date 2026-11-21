@@ -58,7 +58,6 @@ local L_NO_MATCH = L["Nothing matches the filters. The x next to Sort clears the
 local L_STOPPED = L["The clock is stopped: loot is not counted. Press Start."]
 local L_NO_LOOT = L["No loot yet."]
 local L_NO_HISTORY = L["No saved sessions yet. A session is saved when you reset it."]
-local L_NO_MOBS = L["No mob loot recorded yet. What you loot from mobs and nodes while the clock runs shows here."]
 
 -- A tooltip (ns.Tooltip) with its click hint added at the bottom.
 local function withHint(tip, text)
@@ -662,6 +661,105 @@ function View.buildHistory(list, opts, openIndex)
   local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true,
     empty = View.emptyText(rows, filter, L_NO_HISTORY),
     headerInfo = #sessionRows > 0 and History.sessionCount(#sessionRows) or nil }
+  addGold(view, gold, opts.includeGold)
+  return View.applyRates(view, elapsed)
+end
+
+-- ---------------------------------------------------------------------------
+-- History > Totals: the saved sessions added up per ISO week and month, to
+-- compare them. Sorted by Recent: a heading per month (foldable, like the
+-- Sessions headings) over its weeks, newest first; a week that spans two
+-- months shows under both with its part. By value or gold per hour: the
+-- weeks alone, best first. Each row: sessions, length, value and its rate
+-- (value as on the Sessions rows: items plus, with includeGold, raw gold).
+
+local MONTH_NAMES = { L["January"], L["February"], L["March"], L["April"], L["May"], L["June"], L["July"],
+  L["August"], L["September"], L["October"], L["November"], L["December"] }
+local L_WEEK_OF, L_WEEK_OF_YEAR = L["Week %d"], L["Week %d, %d"]
+local L_NO_TOTALS = L["No saved sessions yet. A session is saved when you reset it."]
+
+local function periodRow(key, label, icon)
+  return { id = 0, key = key, name = label, sortName = lower(label), quality = 1, icon = icon,
+    count = 0, elapsed = 0, value = 0, lastSeen = 0, vendorTotal = 0, ahTotal = 0 }
+end
+
+local function addSession(row, e, value, t)
+  row.count = row.count + 1
+  row.elapsed = row.elapsed + e.elapsed
+  row.value = row.value + value
+  row.vendorTotal = row.vendorTotal + t.vendor
+  row.ahTotal = row.ahTotal + t.ah
+  if e.startedAt > row.lastSeen then row.lastSeen = e.startedAt end
+end
+
+local function finishPeriod(row)
+  local History = ns.History
+  row.detail = History.sessionCount(row.count) .. DETAIL_SEP .. History.duration(row.elapsed)
+  row.perHour = History.perHour(row.value, row.elapsed)
+  row.bestLineTotal = row.value
+  return row
+end
+
+function View.buildTotals(list, opts)
+  opts = opts or {}
+  local History = ns.History
+  local dateFn = opts.dateFn
+  if type(list) ~= "table" then list = {} end
+  local months, weeks, monthOrder = {}, {}, {}
+  local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = false }
+  local gold, elapsed, count, t = 0, 0, 0, {}
+  local nowYear = type(dateFn) == "function" and num(opts.now) and dateFn("*t", opts.now).year or nil
+  for _, e in ipairs(list) do
+    if History.valid(e) and type(dateFn) == "function" then
+      t.vendor, t.ah, t.best, t.count = History.totals(e, opts.ignored)
+      local value = t.best + (opts.includeGold ~= false and e.gold or 0)
+      local d = dateFn("*t", e.startedAt)
+      local monthKey = string.format("m:%04d-%02d", d.year, d.month)
+      local month = months[monthKey]
+      if not month then
+        local name = MONTH_NAMES[d.month] or tostring(d.month)
+        month = periodRow(monthKey, name .. " " .. d.year, CALENDAR_ICON)
+        month.isHeading, month.periodKey, month.hint, month.weeks = true, monthKey, L_SESSIONS_FOLD, {}
+        months[monthKey] = month
+        monthOrder[#monthOrder + 1] = month
+      end
+      local week, year = History.isoWeek(d.year, d.month, d.day)
+      local weekKey = string.format("%s|w:%d-%02d", monthKey, year, week)
+      local row = weeks[weekKey]
+      if not row then
+        local label = year == nowYear and string.format(L_WEEK_OF, week) or string.format(L_WEEK_OF_YEAR, week, year)
+        row = periodRow(weekKey, label, nil)
+        weeks[weekKey] = row
+        month.weeks[#month.weeks + 1] = row
+      end
+      addSession(month, e, value, t)
+      addSession(row, e, value, t)
+      totals.vendor, totals.ah, totals.best = totals.vendor + t.vendor, totals.ah + t.ah, totals.best + t.best
+      gold, elapsed, count = gold + e.gold, elapsed + e.elapsed, count + 1
+    end
+  end
+  local rows = {}
+  local sort = opts.sort or "recent"
+  if sort == "recent" then
+    table.sort(monthOrder, SESSION_SORT.recent)
+    local folded = type(opts.folded) == "table" and opts.folded or NO_LOOKUP
+    for _, month in ipairs(monthOrder) do
+      rows[#rows + 1] = finishPeriod(month)
+      table.sort(month.weeks, SESSION_SORT.recent)
+      for _, w in ipairs(month.weeks) do
+        finishPeriod(w)
+        if not folded[month.periodKey] then rows[#rows + 1] = w end
+      end
+    end
+  else
+    for _, month in ipairs(monthOrder) do
+      for _, w in ipairs(month.weeks) do rows[#rows + 1] = finishPeriod(w) end
+    end
+    table.sort(rows, SESSION_SORT[sort] or SESSION_SORT.ah)
+  end
+  local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true,
+    empty = #rows == 0 and L_NO_TOTALS or nil,
+    headerInfo = count > 0 and History.sessionCount(count) or nil }
   addGold(view, gold, opts.includeGold)
   return View.applyRates(view, elapsed)
 end

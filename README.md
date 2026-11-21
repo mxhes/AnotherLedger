@@ -65,7 +65,9 @@ and buttons need (in some languages a little wider), so nothing is cut off.
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`, and a gold bar
 under them that fills up toward the goal), the last four drops with their
-value and source tag (framed, as in the list), and the Daily farm line. After
+value and source tag (framed, as in the list; the quantity in a quieter
+color, an item without an auction price marked `?`, and with **Compact: item
+icons** its icon in front), and the Daily farm line. After
 a quarter hour, `15 min: 120g/h` right of the drops title is the gold per
 hour of the last 15 minutes, so you see when a spot slows down. Until the
 session earns something the rate shows `—/h`. Hover the gold per hour for the
@@ -204,25 +206,35 @@ items.
   combat log. A mob's coin counts what you got of it, so in a group your
   share. A mob or node whose name was never seen shows its number. Sessions
   saved before Mobs existed have no mob data.
+- **History > Totals**: your saved sessions added up per week and per month,
+  to see whether your farming gets better. Sorted by Recent, each month is a
+  heading with its total (click it to fold its weeks) and its weeks are
+  listed under it, newest first; a week that spans two months shows under
+  both with its part. Each row shows the number of sessions, their length,
+  the value and the gold per hour. Sorted by Value or Gold/h, the weeks are
+  ranked without the month headings, best first.
 - **Trade**: what you sell and trade on this realm, from all your characters.
-  - **Items** lists every item you sold: how many (auction house and player
-    trades together), the gold you earned after the auction house cut in the
-    coin column, the sell rate (`75% sold`: sold out of everything you put up,
+  - **Items** lists every item you sold or bought on the auction house: how
+    many you sold (auction house and player trades together), the gold you
+    earned after the auction house cut less what your auction house
+    purchases of it cost in the coin column (`4 bought` in the second line;
+    an item you only bought shows a minus), the sell rate (`75% sold`: sold out of everything you put up,
     expired and cancelled auctions count against it) and your average price
     against the market price on the day of each sale (`+4% vs market`). The
     button at the right picks **7 days**, **30 days** or **All**. Hover a row
-    for its sales one by one (date, amount, price, the market then, the
-    buyer). Sorts: Gold earned, Sold, Sell rate, vs market, Name.
+    for its sales and purchases one by one (date, amount, price, the market
+    then, the other player). The header counts sold, expired, cancelled and
+    bought. Sorts: Gold earned, Sold, Sell rate, vs market, Name.
   - **Log** lists every entry, newest first: Posted, Cancelled, Expired, Sold,
-    Trade sale, Trade purchase and Trade, with the date, the other player and
-    your character; a trade purchase shows the gold you paid with a minus
+    Bought, Trade sale, Trade purchase and Trade, with the date, the other
+    player and your character; purchases show the gold you paid with a minus
     sign. Sorts: Recent, Gold earned, Name.
   - The filter bar works on both: the search and the minimum value pick
     items or entries, the quality filter the items (a trade with a player
     has no quality and always stays).
-  - Auctions you post or cancel are recorded at the auction house. Sales and
-    expired auctions are recorded from the mail, so they show once you open
-    your mailbox; a sale mail counts once, also when you open it again or on
+  - Auctions you post or cancel are recorded at the auction house. Sales,
+    expired auctions and auctions you won or bought are recorded from the
+    mail, so they show once you open your mailbox; a sale mail counts once, also when you open it again or on
     another character. When the "buyer found" line comes while you are
     online, that moment's market price is kept for the comparison.
   - A trade with another player counts as a sale only when you gave items
@@ -325,7 +337,7 @@ History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Compact: item icons, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
@@ -467,12 +479,10 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   days ago it last saw the item, so its prices carry an age tag from the first
   day on. An AnotherLedger scan price's tag is the time since the item was
   last seen on the auction house.
-- **Languages**: English, German, French, Spanish (Spain and Mexico),
-  Italian, Portuguese (Brazil) and Russian, picked from your client's
-  language. Loot and money messages are read from the game's own texts, so
-  they work in every client language (Korean and Chinese clients show the
-  English texts). Slash commands stay in English (`/al watch`, ...). Found a
-  clumsy translation? Open an issue with the better wording.
+- **Languages**: English and German, picked from your client's language;
+  other clients show English. Loot and money messages are read from the
+  game's own texts, so they work in every client language. Slash commands
+  stay in English (`/al watch`, ...).
 - **Install**: unzip the release zip (it holds the libraries) into
   `World of Warcraft/<client>/Interface/AddOns/`, so the `.toc` ends up in
   `Interface/AddOns/AnotherLedger/`. From the source code, copy the
