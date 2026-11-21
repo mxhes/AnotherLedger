@@ -9,7 +9,6 @@ local events = Core.events
 local say = ns.Util.say
 local num = ns.Util.isNumber
 local tradeWindows = Core.tradeWindows
-local function dataChanged(what) Core.dataChanged(what) end
 local function requestRefresh(delay) Core.requestRefresh(delay) end
 
 -- AnotherLedger scan (Scan.lua): a full auction house read on request and the

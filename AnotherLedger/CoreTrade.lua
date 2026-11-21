@@ -6,11 +6,7 @@ local ADDON, ns = ...
 local L = ns.L
 local Core = ns.Core
 local events = Core.events
-local say = ns.Util.say
-local num = ns.Util.isNumber
-local tradeWindows = Core.tradeWindows
 local function dataChanged(what) Core.dataChanged(what) end
-local function requestRefresh(delay) Core.requestRefresh(delay) end
 
 -- Trade section: auction posts and cancels (hooked calls), the "buyer found"
 -- chat line, auction mails and finished player trades, recorded per realm
@@ -144,7 +140,7 @@ end
 
 -- Client API: GetInboxHeaderInfo(i) gives sender 3rd,
 -- subject 4th, money 5th, daysLeft 7th; GetInboxInvoiceInfo(i) gives
--- invoiceType ("seller" / "seller_temp_invoice"), itemName, playerName, bid,
+-- invoiceType ("seller" / "seller_temp_invoice" / "buyer"), itemName, playerName, bid,
 -- buyout, deposit, consignment, ..., count 11th; expired and cancelled mails
 -- have the subjects AUCTION_EXPIRED_MAIL_SUBJECT / AUCTION_REMOVED_MAIL_SUBJECT
 -- and the item as attachment 1 (GetInboxItemLink, count 4th of GetInboxItem).
@@ -159,6 +155,15 @@ local function readMail(i, now)
       m.kind, m.name, m.who, m.gold, m.cut, m.n = "sale", name, who, bid or 0, cut or 0, count or 1
       m.temp = kind == "seller_temp_invoice" or nil
       m.id = idOfName(name) -- the post of that name gives the key (Trade.recordMail)
+      return m
+    end
+    -- UNVERIFIED (check in client): an auction won (also a commodity
+    -- purchase) has invoiceType "buyer", the seller as playerName and the
+    -- price paid as bid; the item is attachment 1.
+    if kind == "buyer" then
+      local item = itemOfLink(type(GetInboxItemLink) == "function" and GetInboxItemLink(i, 1) or nil)
+      m.kind, m.name, m.who, m.gold, m.n = "buy", name or (item and item.name), who, bid or 0, count or 1
+      if item then m.key, m.id = item.key, item.id else m.id = idOfName(name) end
       return m
     end
   end

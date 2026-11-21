@@ -8,7 +8,7 @@ local ADDON, ns = ...
 -- Saved: AnotherLedgerDB.trade[realmKey] = {
 --   log     = { entry, ... } (oldest first, dropped after Trade log kept),
 --   totals  = { [itemKey] = { posted, sold, soldAH, expired, cancelled, gold,
---               cmpN, cmpSale, cmpMarket } } (kept for good),
+--               cmpN, cmpSale, cmpMarket, bought, spent } } (kept for good),
 --   posts   = { open posts: { t, key, id, name, n, unit } },
 --   pending = { "buyer found" marks: { name, t, market } },
 --   mails   = { [mail key] = { expires, ... } } (mails already recorded:
@@ -17,9 +17,11 @@ local ADDON, ns = ...
 --
 -- entry = { t, kind, key, id, name, n, gold, cut, market, who, char, split,
 --   out, in, goldOut, goldIn }
---   kind: "post", "cancel", "expire", "sale" (auction), "tsale" (trade sale),
---     "tbuy" (trade purchase), "trade" (anything else).
---   gold: total before the cut (sale, tsale, tbuy; post: unit price x n);
+--   kind: "post", "cancel", "expire", "sale" (auction), "buy" (auction
+--     purchase), "tsale" (trade sale), "tbuy" (trade purchase), "trade"
+--     (anything else).
+--   gold: total before the cut (sale, tsale, tbuy; post: unit price x n;
+--     buy: what was paid);
 --   cut: the auction house cut; market: the market price per unit that day;
 --   split: the gold of a trade sale was split between item kinds (estimate);
 --   out / in: { { key, id, name, n }, ... } of a trade.
@@ -30,6 +32,8 @@ local Trade = {
 }
 
 local SALES = { sale = true, tsale = true }
+-- Entries counted in the totals of their item key.
+local COUNTED = { post = true, cancel = true, expire = true, sale = true, tsale = true, buy = true }
 
 -- ---------------------------------------------------------------------------
 -- Store
@@ -58,7 +62,7 @@ local function totalsOf(bucket, key)
   local t = bucket.totals[key]
   if not t then
     t = { posted = 0, sold = 0, soldAH = 0, expired = 0, cancelled = 0, gold = 0,
-      cmpN = 0, cmpSale = 0, cmpMarket = 0 }
+      cmpN = 0, cmpSale = 0, cmpMarket = 0, bought = 0, spent = 0 }
     bucket.totals[key] = t
   end
   return t
@@ -73,6 +77,10 @@ local function countInto(t, entry)
     t.cancelled = t.cancelled + n
   elseif kind == "expire" then
     t.expired = t.expired + n
+  elseif kind == "buy" then
+    -- Totals saved before purchases were recorded have no such fields.
+    t.bought = (t.bought or 0) + n
+    t.spent = (t.spent or 0) + (entry.gold or 0)
   elseif SALES[kind] then
     t.sold = t.sold + n
     if kind == "sale" then t.soldAH = t.soldAH + n end
@@ -86,13 +94,14 @@ local function countInto(t, entry)
 end
 
 -- Appends `entry` to the log and counts it in the totals of its item key
--- (entries without a key, and plain trades and purchases, count in none).
+-- (entries without a key, and plain trades and trade purchases, count in
+-- none).
 local indexes = setmetatable({}, { __mode = "k" }) -- bucket -> sale price index (not saved)
 
 function Trade.add(bucket, entry)
   indexes[bucket] = nil
   bucket.log[#bucket.log + 1] = entry
-  if entry.key ~= nil and (entry.kind == "post" or entry.kind == "cancel" or entry.kind == "expire" or SALES[entry.kind]) then
+  if entry.key ~= nil and COUNTED[entry.kind] then
     countInto(totalsOf(bucket, entry.key), entry)
   end
   return entry
@@ -239,7 +248,7 @@ local function waitingSale(bucket, saleKey)
   return nil
 end
 
--- Records an auction mail once. m = { kind = "sale" / "expire" / "cancel",
+-- Records an auction mail once. m = { kind = "sale" / "buy" / "expire" / "cancel",
 -- subject, sender, money, expires, name, who, gold, cut, n, key, id, char,
 -- temp } (temp: a temporary invoice, sent before the money). `marketAt(key,
 -- id)` gives the market per unit now, asked only when no "buyer found" mark
@@ -255,6 +264,12 @@ function Trade.recordMail(bucket, m, now, marketAt, used)
   if m.kind == "expire" then
     takeFromPost(bucket, m.n, byKey(m.key))
     return Trade.add(bucket, { t = now, kind = "expire", key = m.key, id = m.id, name = m.name, n = m.n, char = m.char })
+  end
+  if m.kind == "buy" then
+    -- An auction won: the item (attached) is known by link or by name.
+    local key = m.key ~= nil and m.key or m.id
+    return Trade.add(bucket, { t = now, kind = "buy", key = key, id = m.id, name = m.name, n = m.n,
+      gold = m.gold, who = m.who, char = m.char })
   end
   if m.kind ~= "sale" then return nil end
 
@@ -361,15 +376,17 @@ end
 
 local function emptyStat(key, e)
   return { key = key, id = e.id, name = e.name, posted = 0, sold = 0, soldAH = 0, expired = 0, cancelled = 0,
-    gold = 0, cmpN = 0, cmpSale = 0, cmpMarket = 0, sales = {} }
+    gold = 0, cmpN = 0, cmpSale = 0, cmpMarket = 0, bought = 0, spent = 0, sales = {}, buys = {} }
 end
 
--- Per item: { key, id, name, sold, soldAH, gold, expired, cancelled, rate,
--- vsMarket, sales } from the log entries since `since` (a time), or from the
--- totals when `since` is nil (sales always from the log, newest first).
+-- Per item: { key, id, name, sold, soldAH, gold, expired, cancelled, bought,
+-- spent, rate, vsMarket, sales, buys } from the log entries since `since` (a
+-- time), or from the totals when `since` is nil (sales and purchases always
+-- from the log, newest first).
 -- rate = sold at the auction house / (that + expired + cancelled), nil
 -- without auction events; vsMarket = sale / market - 1 over the compared
--- sales, nil without one. Items not yet sold or returned are left out.
+-- sales, nil without one. Items not yet sold, returned or bought are left
+-- out.
 function Trade.itemStats(bucket, since, now)
   local groups, order = {}, {}
   local function stat(group, e)
@@ -391,6 +408,7 @@ function Trade.itemStats(bucket, since, now)
     if group ~= nil and (since == nil or (e.t or 0) >= since) then
       local s = stat(group, e)
       if SALES[e.kind] then s.sales[#s.sales + 1] = e end
+      if e.kind == "buy" then s.buys[#s.buys + 1] = e end
       if since ~= nil or e.key == nil then countInto(s, e) end
     end
   end
@@ -403,7 +421,8 @@ function Trade.itemStats(bucket, since, now)
         groups[key] = s
         order[#order + 1] = key
       end
-      for _, f in ipairs({ "posted", "sold", "soldAH", "expired", "cancelled", "gold", "cmpN", "cmpSale", "cmpMarket" }) do
+      for _, f in ipairs({ "posted", "sold", "soldAH", "expired", "cancelled", "gold", "cmpN", "cmpSale", "cmpMarket",
+        "bought", "spent" }) do
         s[f] = t[f] or 0
       end
     end
@@ -411,7 +430,7 @@ function Trade.itemStats(bucket, since, now)
   local list = {}
   for _, group in ipairs(order) do
     local s = groups[group]
-    if s.sold > 0 or s.expired + s.cancelled > 0 then
+    if s.sold > 0 or s.expired + s.cancelled > 0 or s.bought > 0 then
       local ah = s.soldAH + s.expired + s.cancelled
       -- Name-only sales have no posts or returns to weigh against: no rate.
       s.rate = (s.key ~= nil and ah > 0) and s.soldAH / ah or nil

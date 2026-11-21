@@ -340,6 +340,43 @@ h.test("View rows carry the disenchant value times quantity", function()
   h.eq(v.rows[1].deTotal, nil)
 end)
 
+local function at(y, m, d) return os.time({ year = y, month = m, day = d, hour = 12 }) end
+local function saved(t, elapsed, ah, gold)
+  return { startedAt = t, elapsed = elapsed, gold = gold or 0, nItems = 1, vendor = 0, ah = ah, items = {} }
+end
+
+h.test("View.buildTotals: weeks under month headings, a week split at the month's end", function()
+  local list = {
+    saved(at(2026, 11, 17), 3600, 300),   -- Tue, week 47
+    saved(at(2026, 11, 16), 1800, 100),   -- Mon, week 47
+    saved(at(2026, 11, 1), 3600, 50, 10), -- Sun, week 44 (November part)
+    saved(at(2026, 10, 30), 7200, 200),   -- Fri, week 44 (October part)
+    "garbage",
+  }
+  local v = ns.View.buildTotals(list, { dateFn = os.date, now = at(2026, 11, 21) })
+  local names = {}
+  for i, r in ipairs(v.rows) do names[i] = r.name end
+  h.eq(names, { "November 2026", "Week 47", "Week 44", "October 2026", "Week 44" })
+  local nov, w47 = v.rows[1], v.rows[2]
+  h.eq(nov.isHeading, true); h.eq(nov.periodKey, "m:2026-11"); h.eq(nov.value, 460)
+  h.eq(nov.detail, "3 sessions \194\183 2h 30m")
+  h.eq(w47.value, 400); h.eq(w47.id, 0); h.eq(w47.isHeading, nil)
+  h.near(w47.perHour, 400 * 3600 / 5400)
+  h.eq(v.rows[3].value, 60) -- 50 + 10 raw gold
+  h.eq(v.headerInfo, "4 sessions")
+  h.eq(v.totals.ah, 650); h.eq(v.gold.total, 10)
+  -- A folded month keeps its heading.
+  local folded = ns.View.buildTotals(list, { dateFn = os.date, now = at(2026, 11, 21), folded = { ["m:2026-11"] = true } })
+  h.eq(#folded.rows, 3)
+  -- By value: the weeks alone, best first.
+  local byValue = ns.View.buildTotals(list, { dateFn = os.date, now = at(2026, 11, 21), sort = "ah" })
+  h.eq(#byValue.rows, 3); h.eq(byValue.rows[1].value, 400); h.eq(byValue.rows[1].isHeading, nil)
+  h.eq(ns.View.buildTotals({}, { dateFn = os.date, now = 1 }).empty ~= nil, true)
+  -- Another year's week says which.
+  local old = ns.View.buildTotals({ saved(at(2025, 3, 5), 60, 1) }, { dateFn = os.date, now = at(2026, 11, 21) })
+  h.eq(old.rows[2].name, "Week 10, 2025")
+end)
+
 h.test("View.buildHistory: one row per archived session with totals", function()
   local list = {
     { startedAt = 200, elapsed = 3600, gold = 40, nItems = 3, vendor = 10, ah = 100, items = {} },
@@ -1505,6 +1542,31 @@ h.test("View.buildTradeItems: sorts by gold first, by sold and rate on request",
   h.eq(V.buildTradeItems(stats, { sort = "sold" }).rows[1].name, "B")
   h.eq(V.buildTradeItems(stats, { sort = "rate" }).rows[1].name, "B")
   h.eq(V.buildTradeItems({}, {}).empty, "No sales yet. Sales show after you open your mailbox.")
+end)
+
+h.test("View.buildTradeItems: auction purchases cost gold, show as bought and in the hover", function()
+  local v = V.buildTradeItems({
+    { key = 5, id = 5, name = "Bolt", sold = 2, gold = 475, bought = 4, spent = 400, expired = 0, cancelled = 0,
+      sales = {}, buys = { { t = 1, kind = "buy", n = 4, gold = 400, who = "Seller" } } },
+    { key = 6, id = 6, name = "Ore", sold = 0, gold = 0, bought = 1, spent = 30, expired = 0, cancelled = 0,
+      sales = {}, buys = {} },
+  }, { shortDate = function() return "Today" end })
+  h.eq(v.rows[1].name, "Bolt"); h.eq(v.rows[1].value, 75)
+  h.eq(v.rows[1].detail:find("4 bought", 1, true) ~= nil, true)
+  h.eq(v.rows[2].value, -30)
+  h.eq(v.totals.best, 45)
+  h.eq(v.headerInfo, "2 sold, 0 expired, 0 cancelled, 5 bought")
+  local text = tipText(v.rows[1])
+  h.eq(text:find("Purchases", 1, true) ~= nil, true)
+  h.eq(text:find("Seller", 1, true) ~= nil, true)
+end)
+
+h.test("View.buildTradeLog: an auction purchase is gold paid out", function()
+  local v = V.buildTradeLog({ { t = 5, kind = "buy", key = 5, id = 5, name = "Bolt", n = 4, gold = 400, who = "Seller" } },
+    { shortDate = function(t) return "d" .. t end })
+  h.eq(v.rows[1].name, "Bolt"); h.eq(v.rows[1].value, -400); h.eq(v.rows[1].quantity, 4)
+  h.eq(v.rows[1].detail:find("Bought", 1, true) ~= nil, true)
+  h.eq(v.rows[1].detail:find("Seller", 1, true) ~= nil, true)
 end)
 
 h.test("View.buildTradeItems: the hover lists the sales", function()

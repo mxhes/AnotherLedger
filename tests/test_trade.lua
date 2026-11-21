@@ -21,8 +21,44 @@ h.test("Trade.add: totals per item, earned after the cut, compared sales only wi
   ns.Trade.add(b, { t = 3, kind = "tsale", key = 5, id = 5, n = 2, gold = 300, split = true, market = 110 })
   ns.Trade.add(b, { t = 4, kind = "expire", key = 5, id = 5, n = 6 })
   h.eq(b.totals[5], { posted = 10, sold = 6, soldAH = 4, expired = 6, cancelled = 0,
-    gold = 680, cmpN = 4, cmpSale = 400, cmpMarket = 440 })
+    gold = 680, cmpN = 4, cmpSale = 400, cmpMarket = 440, bought = 0, spent = 0 })
   h.eq(#b.log, 4)
+end)
+
+h.test("Trade.recordMail: an auction won is a purchase, once, counted as bought and spent", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  local m = { kind = "buy", subject = "Auction won: Bolt", sender = "AH", money = 0, expires = 1000,
+    name = "Bolt", who = "Seller", gold = 900, n = 3, id = 5, key = "5:1", char = "Me" }
+  local e = T.recordMail(b, m, 10)
+  h.eq(e.kind, "buy"); h.eq(e.key, "5:1"); h.eq(e.gold, 900); h.eq(e.who, "Seller")
+  h.eq(T.recordMail(b, m, 20), nil) -- the same mail read again
+  h.eq(b.totals["5:1"].bought, 3)
+  h.eq(b.totals["5:1"].spent, 900)
+  h.eq(b.totals["5:1"].gold, 0) -- spending is not earning
+  -- Without a link: the item ID is the key.
+  local byName = T.recordMail(b, { kind = "buy", name = "Ore", gold = 50, n = 1, id = 7, expires = 2000 }, 30)
+  h.eq(byName.key, 7)
+  -- Totals saved before purchases were recorded have no bought / spent yet.
+  b.totals[9] = { posted = 0, sold = 0, soldAH = 0, expired = 0, cancelled = 0, gold = 0, cmpN = 0, cmpSale = 0, cmpMarket = 0 }
+  T.add(b, { t = 40, kind = "buy", key = 9, id = 9, n = 2, gold = 20 })
+  h.eq(b.totals[9].bought, 2); h.eq(b.totals[9].spent, 20)
+end)
+
+h.test("Trade.itemStats: purchases count per item, in the period and all time", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.add(b, { t = 100, kind = "buy", key = 5, id = 5, name = "Bolt", n = 4, gold = 400 })
+  T.add(b, { t = 200, kind = "sale", key = 5, id = 5, name = "Bolt", n = 2, gold = 500, cut = 25 })
+  T.add(b, { t = 300, kind = "buy", key = 6, id = 6, name = "Ore", n = 1, gold = 30 })
+  local all = T.itemStats(b, nil, 400)
+  h.eq(#all, 2)
+  local bolt, ore
+  for _, s in ipairs(all) do if s.key == 5 then bolt = s else ore = s end end
+  h.eq(bolt.bought, 4); h.eq(bolt.spent, 400); h.eq(bolt.gold, 475); h.eq(#bolt.buys, 1)
+  h.eq(ore.bought, 1); h.eq(ore.sold, 0) -- only bought: still listed
+  local recent = T.itemStats(b, 150, 400)
+  for _, s in ipairs(recent) do
+    if s.key == 5 then h.eq(s.bought, 0); h.eq(s.sold, 2) end
+  end
 end)
 
 h.test("Trade.prune: old log entries go, totals stay", function()

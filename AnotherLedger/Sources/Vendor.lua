@@ -13,7 +13,8 @@ function Vendor.get(env, itemID, link)
   if type(env) ~= "table" then return nil end
   local C_Item = env.C_Item
   if type(C_Item) ~= "table" or type(C_Item.GetItemInfo) ~= "function" then return nil end
-  local ok, a, b, c, d, e, f, g, i, j, k, price = pcall(C_Item.GetItemInfo, type(link) == "string" and link or itemID)
+  -- sellPrice is GetItemInfo's 11th return.
+  local ok, price = pcall(function() return select(11, C_Item.GetItemInfo(type(link) == "string" and link or itemID)) end)
   if ok and type(price) == "number" then return price end
   return nil
 end

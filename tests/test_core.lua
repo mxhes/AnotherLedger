@@ -1,6 +1,6 @@
 local h = ...
 local ns = h.load({ "Util.lua", "Money.lua", "DB.lua", "LootParse.lua", "Prices.lua", "Sources/Sources.lua", "Sources/Vendor.lua",
-  "Sources/TSM.lua", "Sources/Auctionator.lua", "Session.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua", "Slash.lua", "Demo.lua", "Core.lua" })
+  "Sources/TSM.lua", "Sources/Auctionator.lua", "Session.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua", "Slash.lua", "Demo.lua", "Core.lua", "CorePrices.lua", "CoreLists.lua", "CoreHistory.lua" })
 local Demo = ns.Demo
 local Core = ns.Core
 
