@@ -35,8 +35,6 @@ Theme.textures = {
   tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   -- Skins (Theme.skins): the addon's own textures, drawn by
   -- tools/render_skins.py; grey-scale, tinted with the theme colors.
-  skinGrain = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Grain",
-  skinLeather = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Leather",
   skinStud = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Stud",
   skinDotted = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Dotted",
 }
@@ -398,10 +396,8 @@ Theme.sizes = {
   backdropTile = 16,
   backdropEdge = 16,
   backdropInset = 5,
-  -- Skins: tile size of the Grain / Leather backgrounds (their texture size),
-  -- the Gilded corner studs, and how far the Sunken list box reaches past the
-  -- list (inside the window padding).
-  skinTile = 64,
+  -- Skins: the Gilded corner studs, and how far the Sunken list box reaches
+  -- past the list (inside the window padding).
   studSize = 10,
   listBoxPad = 3,
 }
@@ -495,26 +491,26 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Skins (options "skin", "skinBorder", ...): the shape of the window border,
--- the background surface, the buttons and the lines, and the Sunken list box.
+-- the buttons and the lines, and the Sunken list box. The window background
+-- is flat (textured backgrounds are planned: tools/render_skins.py).
 -- They never change colors: every style is tinted with Theme.colors.
 
 -- The choices of each part, in option order.
 Theme.skinParts = {
   border = { "round", "bevel", "thin", "gilded" },
-  background = { "flat", "grain", "leather" },
   buttons = { "bronze", "raised", "flat" },
   lines = { "gold", "groove", "plain", "dotted" },
 }
 
 -- Classic is today's look and the default.
 Theme.skins = {
-  { id = "classic", label = "Classic", border = "round", background = "flat", buttons = "bronze",
+  { id = "classic", label = "Classic", border = "round", buttons = "bronze",
     lines = "gold", listBox = false },
-  { id = "forge", label = "Forge", border = "bevel", background = "grain", buttons = "raised",
+  { id = "forge", label = "Forge", border = "bevel", buttons = "raised",
     lines = "groove", listBox = true },
-  { id = "slate", label = "Slate", border = "thin", background = "flat", buttons = "flat",
+  { id = "slate", label = "Slate", border = "thin", buttons = "flat",
     lines = "plain", listBox = false },
-  { id = "gilded", label = "Gilded", border = "gilded", background = "leather", buttons = "bronze",
+  { id = "gilded", label = "Gilded", border = "gilded", buttons = "bronze",
     lines = "dotted", listBox = false },
 }
 
@@ -528,7 +524,7 @@ Theme.skinScales = {
 }
 
 -- The active picks; the options write them with Theme.setStyle.
-Theme.style = { border = "round", background = "flat", buttons = "bronze", lines = "gold", listBox = false }
+Theme.style = { border = "round", buttons = "bronze", lines = "gold", listBox = false }
 
 function Theme.skin(id)
   for _, s in ipairs(Theme.skins) do
@@ -555,18 +551,12 @@ function Theme.setStyle(part, value)
   return false
 end
 
-local BACKGROUNDS = { flat = "parchment", grain = "skinGrain", leather = "skinLeather" }
-function Theme.backgroundTexture(name)
-  return Theme.textures[BACKGROUNDS[name] or "parchment"]
-end
-
 -- The SetBackdrop table of the window: Round keeps the tooltip edge; the
 -- other borders are drawn as lines (Theme.edgeRects), so the fill reaches
 -- the frame's edge.
-function Theme.backdropSpec(border, background)
+function Theme.backdropSpec(border)
   local S = Theme.sizes
-  local bg = Theme.backgroundTexture(background)
-  local tileSize = background == "flat" and S.backdropTile or S.skinTile
+  local bg, tileSize = Theme.textures.parchment, S.backdropTile
   if border == "round" then
     local inset = S.backdropInset
     return { bgFile = bg, edgeFile = Theme.textures.frameBorder, tile = true, tileSize = tileSize,

@@ -350,24 +350,24 @@ History asks first.
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Compact: item icons, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
-| Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Background, Buttons, Lines, Sunken list, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
+| Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Buttons, Lines, Sunken list, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
-**Skin** changes the shape of the window at once: its border, background,
-buttons and lines, and whether the list sits in a darker sunken box. Skins
+**Skin** changes the shape of the window at once: its border, buttons and
+lines, and whether the list sits in a darker sunken box. Skins
 never change colors, so every skin works with every color preset.
 
-| Skin | Border | Background | Buttons | Lines | Sunken list |
-| --- | --- | --- | --- | --- | --- |
-| Classic | Round | Flat | Bronze | Gold | off |
-| Forge | Bevel | Grain | Raised | Groove | on |
-| Slate | Thin | Flat | Flat | Plain | off |
-| Gilded | Gilded | Leather | Bronze | Dotted | off |
+| Skin | Border | Buttons | Lines | Sunken list |
+| --- | --- | --- | --- | --- |
+| Classic | Round | Bronze | Gold | off |
+| Forge | Bevel | Raised | Groove | on |
+| Slate | Thin | Flat | Plain | off |
+| Gilded | Gilded | Bronze | Dotted | off |
 
-**Classic** is the look the addon always had. **Forge** has a carved frame,
-a fine grain and a sunken list, like the game's profession windows.
+**Classic** is the look the addon always had. **Forge** has a carved frame
+and a sunken list, like the game's profession windows.
 **Slate** is plain and square. **Gilded** has a double frame with studs in
-the corners and a leather surface; it looks best with the **Blizzard** color
+the corners; it looks best with the **Blizzard** color
 preset. **Border** also decides the tabs: **Round** gives rounded tabs, the
 others square ones. After a skin you can still change single parts; the skin
 then shows "(edited)". Opacity and Brightness work with every skin. After

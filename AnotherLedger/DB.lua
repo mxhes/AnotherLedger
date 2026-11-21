@@ -120,7 +120,6 @@ DB.defaults = {
     -- (Options.defaultFor gives the chosen skin's part).
     skin = "classic",
     skinBorder = "round",
-    skinBackground = "flat",
     skinButtons = "bronze",
     skinLines = "gold",
     skinListBox = false,

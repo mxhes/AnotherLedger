@@ -76,7 +76,7 @@ only inside functions.
 | `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
 | `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
-| `Media/Skins/*.tga` | skin textures (Grain, Leather 64 x 64; Stud 16 x 16; Dotted 8 x 2), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
+| `Media/Skins/*.tga` | skin textures (Stud 16 x 16; Dotted 8 x 2), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
 | `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
 The logo is drawn by `tools/render_logo.py` (repo root, Pillow, not packaged):
@@ -84,6 +84,9 @@ The logo is drawn by `tools/render_logo.py` (repo root, Pillow, not packaged):
 512 px `docs/logo.png` used by the README. Change the shapes or colors there
 and run it again; don't edit the images by hand. The skin textures come from
 `tools/render_skins.py` the same way (`--preview DIR` writes enlarged PNGs).
+It also holds the planned Grain / Leather window backgrounds (512 x 512, lit,
+tileable); `--backgrounds DIR` writes them outside the addon. They are not
+shipped yet: the window background is always flat (`Theme.backdropSpec`).
 
 Data flow: `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh`
 builds a view with the shown tab's `build` (`View.lua`) -> every registered part
@@ -226,7 +229,7 @@ Each of these is one call in one place; the UI never names them.
   (`Tooltip.money(..., source)`, `Rows.tooltipLines`, `Summary.tooltipLines`).
   The swatch opens the game picker through `Widgets.pickColor`.
 - **Skins**: `Theme.skins` (Classic, Forge, Slate, Gilded) name one choice
-  per part of `Theme.skinParts` (border, background, buttons, lines) plus
+  per part of `Theme.skinParts` (border, buttons, lines) plus
   `listBox`. The options `skinBorder` ... `skinListBox` (`Options.SKIN_PARTS`)
   write `Theme.style` through `Theme.setStyle` and call
   `Widgets.applySkin()`, which re-runs `applyBackdrop` (`Theme.backdropSpec`;

@@ -620,7 +620,7 @@ end
 
 function Widgets.applyBackdrop(frame, opaque)
   local T = ns.Theme
-  frame:SetBackdrop(T.backdropSpec(T.style.border, T.style.background))
+  frame:SetBackdrop(T.backdropSpec(T.style.border))
   skinEdges(frame)
   backdropColors(frame, opaque)
   tracked[frame] = { "backdrop", opaque and true or false }
