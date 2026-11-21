@@ -90,6 +90,7 @@ function Window.paintLook(frame)
   frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
   local bd = Window.scaledColor(T.scaleColor(T.colors.panelBorder, k), alpha)
   frame:SetBackdropBorderColor(bd[1], bd[2], bd[3], bd[4])
+  ns.UI.Widgets.paintEdges(frame, bd)
 end
 
 -- The ledger window and the options panel share one background look.

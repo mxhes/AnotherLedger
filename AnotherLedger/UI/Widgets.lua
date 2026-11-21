@@ -54,6 +54,7 @@ local function backdropColors(frame, opaque)
   local bg, border = T.colors.panelTint, T.colors.panelBorder
   frame:SetBackdropColor(bg[1], bg[2], bg[3], opaque and 1 or bg[4])
   frame:SetBackdropBorderColor(border[1], border[2], border[3], opaque and 1 or border[4])
+  Widgets.paintEdges(frame, { border[1], border[2], border[3], opaque and 1 or border[4] })
 end
 
 local paint -- defined with the buttons below
@@ -76,6 +77,8 @@ function Widgets.recolor(changed)
       inputColors(region)
     elseif kind == "backdrop" then
       backdropColors(region, t[2])
+    elseif kind == "rule" then
+      Widgets.restyleRule(region)
     end
   end
 end
@@ -102,8 +105,14 @@ function Widgets.line(parent, color, layer, alpha)
   return tex
 end
 
--- Gives a line of Widgets.line another theme color (still recolored live).
+-- Gives a line of Widgets.line (or a styled Widgets.rule) another theme color
+-- (still recolored live).
 function Widgets.setLineColor(tex, color, alpha)
+  if tracked[tex] and tracked[tex][1] == "rule" then
+    tracked[tex] = { "rule", color, alpha }
+    Widgets.restyleRule(tex)
+    return
+  end
   tint(tex, color, alpha)
   tracked[tex] = { "line", color, alpha }
 end
@@ -194,9 +203,18 @@ function Widgets.buttonColors(state, warn)
   elseif state == "pressed" then
     top, bottom = bottom, top
   end
+  -- Raised style: a light top / left and a dark bottom / right edge line.
+  local k = T.skinScales
+  local light, dark = T.scaleColor(c.buttonFill, k.raisedLight), T.scaleColor(c.buttonFill, k.raisedDark)
+  if state == "hover" then
+    light, dark = T.scaleColor(light, Widgets.BUTTON_HOVER), T.scaleColor(dark, Widgets.BUTTON_HOVER)
+  elseif state == "pressed" then
+    light, dark = dark, light
+  end
   return {
     fill = c.buttonFill, top = top, bottom = bottom,
     outline = T.scaleColor(c.buttonFill, Widgets.BUTTON_OUTLINE), edge = edge, text = text,
+    light = light, dark = dark,
   }
 end
 
@@ -256,14 +274,61 @@ local function buttonFill(b, height)
     inner:SetBackdrop({ edgeFile = T.textures.buttonEdge, edgeSize = T.sizes.buttonEdge })
   end
   b.fill = { top = top, mid = mid, bottom = bottom, inner = inner }
+  b.raise = false -- Raised style edge lines (raiseLines), made when first needed
+end
+
+-- The four 1 px edge lines of a Raised button, just inside its outer edge
+-- (made the first time a button is drawn Raised).
+local function raiseLines(b)
+  if type(b.raise) == "table" then return b.raise end
+  local T = ns.Theme
+  local inset = T.sizes.buttonInset
+  local px = Widgets.pixels(b, 1)
+  local function tex() local t = b:CreateTexture(nil, "BACKGROUND", nil, 2); t:SetTexture(T.textures.buttonEdge); return t end
+  local r = { top = tex(), left = tex(), bottom = tex(), right = tex() }
+  r.top:SetPoint("TOPLEFT", b, "TOPLEFT", inset, -inset)
+  r.top:SetPoint("TOPRIGHT", b, "TOPRIGHT", -inset, -inset)
+  r.top:SetHeight(px)
+  r.bottom:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", inset, inset)
+  r.bottom:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -inset, inset)
+  r.bottom:SetHeight(px)
+  r.left:SetPoint("TOPLEFT", b, "TOPLEFT", inset, -inset)
+  r.left:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", inset, inset)
+  r.left:SetWidth(px)
+  r.right:SetPoint("TOPRIGHT", b, "TOPRIGHT", -inset, -inset)
+  r.right:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -inset, inset)
+  r.right:SetWidth(px)
+  b.raise = r
+  return r
+end
+
+local function showParts(parts, shown)
+  if type(parts) ~= "table" then return end
+  for _, region in pairs(parts) do region:SetShown(shown) end
 end
 
 function paint(b, state)
   b.look = state
   local c = Widgets.buttonColors(state, b.warn)
-  if b.SetBackdropColor then
+  local style = ns.Theme.style.buttons
+  if b.SetBackdropColor and type(b.fill) == "table" and style ~= "bronze" then
+    -- Raised / Flat: one fill and the edge color; Raised adds its edge lines.
+    showParts(b.fill, false)
+    b:SetBackdropColor(c.fill[1], c.fill[2], c.fill[3], c.fill[4] or 1)
+    b:SetBackdropBorderColor(c.edge[1], c.edge[2], c.edge[3], c.edge[4] or 1)
+    if style == "raised" then
+      local r = raiseLines(b)
+      showParts(r, true)
+      tint(r.top, c.light); tint(r.left, c.light)
+      tint(r.bottom, c.dark); tint(r.right, c.dark)
+    else
+      showParts(b.raise, false)
+    end
+  elseif b.SetBackdropColor then
     if type(b.fill) == "table" then
       local f = b.fill
+      showParts(f, true)
+      showParts(b.raise, false)
       b:SetBackdropColor(c.bottom[1], c.bottom[2], c.bottom[3], c.bottom[4] or 1)
       b:SetBackdropBorderColor(c.outline[1], c.outline[2], c.outline[3], 1)
       tint(f.top, c.top)
@@ -470,19 +535,177 @@ end
 -- The dark leather backdrop of the ledger window and the options panel.
 -- `opaque`: full alpha. Both get the opacity / brightness options from
 -- Window.applyLook afterwards.
+-- The border and background follow the skin (Theme.style): Round is the
+-- backdrop's own tooltip edge; Bevel / Thin / Gilded are line rectangles on
+-- the frame (frame.skinEdges, Theme.edgeRects) plus, for Gilded, a stud in
+-- each corner (frame.skinStuds). Called again on a skin change: the regions
+-- are made once and shown / hidden.
+local CORNERS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
+local STUD_OFFSET = { TOPLEFT = { 1, -1 }, TOPRIGHT = { -1, -1 }, BOTTOMLEFT = { 1, 1 }, BOTTOMRIGHT = { -1, 1 } }
+
+local function edgeRect(frame)
+  local T = ns.Theme
+  local function tex()
+    local t = frame:CreateTexture(nil, "BORDER")
+    t:SetTexture(T.textures.rowHighlight)
+    return t
+  end
+  return { top = tex(), bottom = tex(), left = tex(), right = tex() }
+end
+
+local function placeRect(frame, r, inset)
+  local p = Widgets.pixelSize(frame) or 1
+  local o, t = inset * p, p
+  r.top:ClearAllPoints(); r.bottom:ClearAllPoints(); r.left:ClearAllPoints(); r.right:ClearAllPoints()
+  r.top:SetPoint("TOPLEFT", frame, "TOPLEFT", o, -o); r.top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -o, -o)
+  r.top:SetHeight(t)
+  r.bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", o, o); r.bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -o, o)
+  r.bottom:SetHeight(t)
+  r.left:SetPoint("TOPLEFT", frame, "TOPLEFT", o, -o); r.left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", o, o)
+  r.left:SetWidth(t)
+  r.right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -o, -o); r.right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -o, o)
+  r.right:SetWidth(t)
+end
+
+local function skinEdges(frame)
+  local T = ns.Theme
+  local border = T.style.border
+  local rects = T.edgeRects(border)
+  if type(frame.skinEdges) ~= "table" then frame.skinEdges = {} end
+  local edges = frame.skinEdges
+  for i, spec in ipairs(rects) do
+    edges[i] = edges[i] or edgeRect(frame)
+    edges[i].shade = spec.shade
+    placeRect(frame, edges[i], spec.inset)
+    showParts({ edges[i].top, edges[i].bottom, edges[i].left, edges[i].right }, true)
+  end
+  for i = #rects + 1, #edges do
+    showParts({ edges[i].top, edges[i].bottom, edges[i].left, edges[i].right }, false)
+  end
+  local studs = T.edgeStuds(border)
+  if studs and type(frame.skinStuds) ~= "table" then
+    frame.skinStuds = {}
+    for i, corner in ipairs(CORNERS) do
+      local s = frame:CreateTexture(nil, "OVERLAY")
+      -- SetTexture returns false when the file cannot be loaded: no stud then.
+      s.loaded = s:SetTexture(T.textures.skinStud) ~= false
+      s:SetSize(T.sizes.studSize, T.sizes.studSize)
+      local off = STUD_OFFSET[corner]
+      s:SetPoint("CENTER", frame, corner, off[1], off[2])
+      frame.skinStuds[i] = s
+    end
+  end
+  if type(frame.skinStuds) == "table" then
+    for _, s in ipairs(frame.skinStuds) do s:SetShown(studs and s.loaded) end
+  end
+end
+
+-- Colors the edge lines and studs of `frame` from `border` (the backdrop
+-- border color with opacity / brightness already applied): each line its
+-- shade of it, alpha kept.
+function Widgets.paintEdges(frame, border)
+  if type(frame) ~= "table" then return end
+  local T = ns.Theme
+  if type(frame.skinEdges) == "table" then
+    for _, r in ipairs(frame.skinEdges) do
+      local c = T.scaleColor(border, r.shade or 1)
+      c[4] = border[4] or 1
+      tint(r.top, c); tint(r.bottom, c); tint(r.left, c); tint(r.right, c)
+    end
+  end
+  if type(frame.skinStuds) == "table" then
+    for _, s in ipairs(frame.skinStuds) do tint(s, border) end
+  end
+end
+
 function Widgets.applyBackdrop(frame, opaque)
   local T = ns.Theme
-  local inset = T.sizes.backdropInset
-  frame:SetBackdrop({
-    bgFile = T.textures.parchment,
-    edgeFile = T.textures.frameBorder,
-    tile = true,
-    tileSize = T.sizes.backdropTile,
-    edgeSize = T.sizes.backdropEdge,
-    insets = { left = inset, right = inset, top = inset, bottom = inset },
-  })
+  frame:SetBackdrop(T.backdropSpec(T.style.border, T.style.background))
+  skinEdges(frame)
   backdropColors(frame, opaque)
   tracked[frame] = { "backdrop", opaque and true or false }
+end
+
+-- ---------------------------------------------------------------------------
+-- Styled lines (option "skinLines"): dividers and separators that follow the
+-- Lines pick. Gold is one line in its color; Groove adds a light line right
+-- under it; Plain is greyed toward the panel; Dotted tiles a dash texture.
+-- Plain lines and bars that are not dividers stay Widgets.line.
+
+local function styleRule(tex)
+  local T = ns.Theme
+  local t = tracked[tex]
+  if not t then return end
+  local color, alpha = t[2], t[3]
+  local lines = T.style.lines
+  local main, second = T.lineColors(lines, color, T.colors.panelTint)
+  local dotted = false
+  if lines == "dotted" then
+    -- UNVERIFIED (check in client): an addon texture tiled along the line
+    -- with SetHorizTile.
+    dotted = tex:SetTexture(T.textures.skinDotted, "REPEAT", "CLAMP") ~= false
+  end
+  if not dotted then tex:SetTexture(T.textures.rowHighlight) end
+  if tex.SetHorizTile then tex:SetHorizTile(dotted) end
+  tint(tex, main, alpha)
+  if second then
+    if not tex.groove then
+      local g = tex.ruleParent:CreateTexture(nil, tex.ruleLayer)
+      g:SetTexture(T.textures.rowHighlight)
+      g:SetPoint("TOPLEFT", tex, "BOTTOMLEFT", 0, 0)
+      g:SetPoint("TOPRIGHT", tex, "BOTTOMRIGHT", 0, 0)
+      g:SetHeight(Widgets.pixels(tex, 1))
+      tex.groove = g
+    end
+    tint(tex.groove, second, alpha)
+    tex.groove:SetShown(tex:IsShown() ~= false)
+  elseif tex.groove then
+    tex.groove:Hide()
+  end
+end
+
+Widgets.restyleRule = styleRule
+
+-- Shows / hides a styled line with its groove line.
+function Widgets.showRule(tex, shown)
+  tex:SetShown(shown)
+  if tex.groove then tex.groove:SetShown(shown and ns.Theme.style.lines == "groove") end
+end
+
+-- A horizontal divider line in a theme color that follows the Lines pick.
+function Widgets.rule(parent, color, layer, alpha)
+  local tex = parent:CreateTexture(nil, layer or "ARTWORK")
+  tex.ruleParent, tex.ruleLayer, tex.groove = parent, layer or "ARTWORK", false
+  tracked[tex] = { "rule", color, alpha }
+  styleRule(tex)
+  return tex
+end
+
+-- ---------------------------------------------------------------------------
+-- Skin changes: hooks of UI parts that draw something of their own (tabs,
+-- the sunken list box), run after the shared regions are redrawn.
+local skinHooks = {}
+
+function Widgets.onSkin(fn)
+  skinHooks[#skinHooks + 1] = fn
+end
+
+-- Redraws every backdrop, button and styled line in the current Theme.style,
+-- runs the hooks, then the window look (opacity / brightness).
+function Widgets.applySkin()
+  for region, t in pairs(tracked) do
+    local kind = t[1]
+    if kind == "backdrop" then
+      Widgets.applyBackdrop(region, t[2])
+    elseif kind == "button" then
+      paint(region, region.look or "normal")
+    elseif kind == "rule" then
+      styleRule(region)
+    end
+  end
+  for _, fn in ipairs(skinHooks) do fn() end
+  local Window = ns.UI.Window
+  if Window and Window.applyLook then Window.applyLook() end
 end
 
 -- ---------------------------------------------------------------------------

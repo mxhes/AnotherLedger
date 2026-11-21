@@ -106,3 +106,11 @@ h.test("Widgets.arrowCoords: turns the right-pointing arrow texture up or down",
   h.eq(down, { 0, 1, 1, 1, 0, 0, 1, 0 })
   h.eq(down[3], 1); h.eq(down[7], 1) -- LL and LR sample x = 1
 end)
+
+h.test("Widgets.buttonColors: raised light / dark from the fill, swapped while pressed", function()
+  local T = ns.Theme
+  local n, p = W.buttonColors("normal"), W.buttonColors("pressed")
+  h.eq(n.light, T.scaleColor(C.buttonFill, T.skinScales.raisedLight))
+  h.eq(n.dark, T.scaleColor(C.buttonFill, T.skinScales.raisedDark))
+  h.eq(p.light, n.dark); h.eq(p.dark, n.light)
+end)

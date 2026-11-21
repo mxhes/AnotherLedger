@@ -34,6 +34,8 @@ function methods.SetFrameLevel(self, l) self._level = l end
 function methods.GetFrameLevel(self) return self._level or 1 end
 function methods.SetClipsChildren(self, v) self._clips = v end
 function methods.SetTexture(self, t) self._texture = t end
+function methods.SetBackdrop(self, b) self._backdrop = b end
+function methods.SetVertexColor(self, r, g, b, a) self._vertex = { r, g, b, a } end
 for k, n in pairs(NUMBERS) do
   if not methods[k] then methods[k] = function() return n end end
 end
@@ -4600,4 +4602,73 @@ h.test("wiring: a watched item alerts on loot, also with the clock stopped", fun
   watch.onClick()
   h.eq(ns.db.watched[2589] ~= nil, true)
   h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: switching border restyles the window without stacking frames", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, win = ctx.ns, ctx.ns.UI.Window.frame
+  h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
+  ns.Options.pick(ns.db, "skinBorder", "bevel")
+  h.eq(win._backdrop.edgeFile, nil)
+  h.eq(#win.skinEdges, 3); h.eq(win.skinEdges[1].top:IsShown(), true)
+  local first = win.skinEdges[1].top
+  ns.Options.pick(ns.db, "skinBorder", "round")
+  h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
+  h.eq(win.skinEdges[1].top:IsShown(), false)
+  ns.Options.pick(ns.db, "skinBorder", "gilded")
+  h.eq(win.skinEdges[1].top, first) -- reused, not stacked
+  h.eq(win.skinEdges[3].top:IsShown(), true)
+  h.eq(win.skinStuds[1]:IsShown(), true)
+  ns.Options.pick(ns.db, "skinBorder", "thin")
+  h.eq(win.skinEdges[3].top:IsShown(), false); h.eq(win.skinStuds[1]:IsShown(), false)
+  ns.Options.pick(ns.db, "skinBackground", "grain")
+  h.eq(win._backdrop.bgFile, ns.Theme.textures.skinGrain)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: opacity and brightness reach the edge lines", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Options.pick(ns.db, "skinBorder", "thin")
+  local top = ns.UI.Window.frame.skinEdges[2].top
+  h.eq(top._vertex[4], 1)
+  ns.Options.pick(ns.db, "alpha", 0)
+  h.eq(top._vertex[4], 0)
+  ns.Options.pick(ns.db, "alpha", 1)
+  local before = top._vertex[1]
+  ns.Options.pick(ns.db, "brightness", 2)
+  h.eq(top._vertex[1] > before, true)
+end)
+
+h.test("wiring: each button style shows its own parts", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local b = ns.UI.Widgets.button(ns.UI.Window.frame, "Test", 40)
+  h.eq(b.fill.top:IsShown(), true)
+  ns.Options.pick(ns.db, "skinButtons", "raised")
+  h.eq(b.fill.top:IsShown(), false); h.eq(b.raise.top:IsShown(), true)
+  h.eq(b.raise.top._vertex[1] > b.raise.bottom._vertex[1], true)
+  ns.Options.pick(ns.db, "skinButtons", "flat")
+  h.eq(b.fill.top:IsShown(), false); h.eq(b.raise.top:IsShown(), false)
+  h.eq(b.fill.inner:IsShown(), false)
+  ns.Options.pick(ns.db, "skinButtons", "bronze")
+  h.eq(b.fill.top:IsShown(), true); h.eq(b.fill.inner:IsShown(), true); h.eq(b.raise.top:IsShown(), false)
+end)
+
+h.test("wiring: styled lines follow the Lines pick", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local W, T = ns.UI.Widgets, ns.Theme
+  local r = W.rule(ns.UI.Window.frame, T.colors.rowSeparator, "BORDER")
+  h.eq(r._texture, T.textures.rowHighlight)
+  ns.Options.pick(ns.db, "skinLines", "groove")
+  h.eq(r.groove:IsShown(), true)
+  ns.Options.pick(ns.db, "skinLines", "dotted")
+  h.eq(r._texture, T.textures.skinDotted); h.eq(r.groove:IsShown(), false)
+  ns.Options.pick(ns.db, "skinLines", "gold")
+  h.eq(r._texture, T.textures.rowHighlight)
 end)
