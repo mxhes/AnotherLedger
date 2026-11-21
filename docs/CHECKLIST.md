@@ -15,6 +15,11 @@ against the test fakes):
   item link, then loot it: a chat line, the raid warning sound
   (`SOUNDKIT.RAID_WARNING`) and a gold line in the middle of the screen
   (`UIErrorsFrame:AddMessage`); also with the clock stopped.
+- Buttons fit their labels (`Widgets.fitButton`, `Ledger.measureHeader`):
+  Start / Stop, Reset, Quality, Sort and the Trade period button are not cut
+  off (German: Zurücksetzen); the window can't be made narrower than the
+  five tabs need (about 390 px in English, the Trade tab was cut off below
+  that); after changing the font size the buttons fit again.
 - Price trend (`TSM.trend`, UNVERIFIED): with TSM, an item tooltip shows
   `AnotherLedger price trend +N% vs 60 days` (TSM answers `DBHistorical`);
   without TSM, after scans on two days, `vs earlier days`.

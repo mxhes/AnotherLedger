@@ -77,6 +77,16 @@ end
 -- Widgets
 
 -- Attaches to header row 1; `handlers` = { start, stop, reset, hide, options }.
+-- Pure. Width header row 1 needs (px): the title (`titleW`, the widest tab
+-- title), room for the clock, Start / Stop (`toggleW`), Reset (`resetW`) and
+-- the three icon buttons, with the gaps Header.attach puts between them.
+function Header.rowNeed(titleW, toggleW, resetW)
+  local T = ns.Theme
+  local gap, w = T.sizes.buttonGap, widths()
+  return (titleW or 0) + gap * 3 + T.sizes.timerWidth + gap * 3 + (toggleW or w.toggle) + gap
+    + (resetW or w.reset) + gap + w.mode + gap + w.options + gap + w.hide
+end
+
 function Header.attach(row, handlers)
   if Header.instance then return Header.instance end
   local T = ns.Theme
@@ -113,11 +123,13 @@ function Header.attach(row, handlers)
   modeButton.onLeave = W.hideTooltip
 
   local reset = makeButton(row, L_RESET, widths().reset, { warn = true })
+  W.fitButton(reset, { L_RESET }, widths().reset)
   reset:SetPoint("RIGHT", modeButton, "LEFT", -gap, 0)
   reset:SetScript("OnClick", function() Header.requestReset() end)
 
   -- One button: Start while stopped, Stop while running.
   local toggle = makeButton(row, L_START, widths().toggle)
+  W.fitButton(toggle, { L_START, L_STOP }, widths().toggle)
   toggle:SetPoint("RIGHT", reset, "LEFT", -gap, 0)
   toggle:SetScript("OnClick", function()
     local fn = handlers[Header.toggleState(header.running).action]

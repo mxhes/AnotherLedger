@@ -59,7 +59,8 @@ ElvUI, ...). It has two layouts; switch with the **arrow button** next to the
 gear, a double-click on the title, or `/al compact`. Each layout keeps its own
 size; the corner nearest to the screen edge where you last moved or resized
 the window stays where it is when you switch, so switching back puts it
-exactly where it was.
+exactly where it was. The full window can't be made narrower than its tabs
+and buttons need (in some languages a little wider), so nothing is cut off.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`, and a gold bar

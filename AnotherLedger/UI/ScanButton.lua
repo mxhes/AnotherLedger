@@ -45,6 +45,7 @@ local function make()
   if type(parent) ~= "table" then return false end
   local T = ns.Theme
   local b = ns.UI.Widgets.button(parent, L_NAME, T.sizes.scanButtonWidth)
+  ns.UI.Widgets.fitButton(b, { L_NAME, string.format(L_READING, 100) }, T.sizes.scanButtonWidth)
   b:SetPoint("TOPRIGHT", parent, "BOTTOMRIGHT", T.sizes.scanButtonX, T.sizes.scanButtonY)
   b:SetFrameLevel(parent:GetFrameLevel() + T.sizes.scanButtonLevel)
   b:SetScript("OnClick", function()

@@ -1047,6 +1047,27 @@ h.test("wiring: the item icon option hides the row icons live", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: a wide header (a long translation) raises the window's minimum width", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local L, W, FB = ns.UI.Ledger, ns.UI.Window, ns.UI.FilterBar
+  local S = ns.Theme.sizes
+  -- at startup the header is measured
+  h.eq(type(W.headerWidth), "number")
+  -- a sort button the font made 300 px wide
+  FB.sortButton.GetWidth = function() return 300 end
+  local need = L.measureHeader()
+  h.eq(need, math.ceil(FB.rowNeed(nil, 300) + 2 * (S.padding + 4)))
+  h.eq(W.headerWidth, need)
+  h.eq(need > ns.Theme.sizes.minWidth, true)
+  -- font changes measure again
+  FB.sortButton.GetWidth = function() return 78 end
+  L.relayout()
+  h.eq(W.headerWidth < need, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: hovering the footer table shows the vendor / AH tooltip", function()
   local ctx = boot()
   local lines = {}

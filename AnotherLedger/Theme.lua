@@ -333,6 +333,11 @@ Theme.sizes = {
   -- the 10 pt marker font; Summary.tableWorstWidth() budgets with them.
   summaryCharPx = 6.6,
   markerCharPx = 5.5,
+  -- The same estimates for the overflow test (tests/test_overflow.lua): 12 pt
+  -- fonts (titles, tabs, option labels) and the 10 pt button font. The client
+  -- measures the real widths (Widgets.fitButton, Ledger.measureHeader).
+  charPx = 6.6,
+  smallCharPx = 5.5,
   gripSize = 16,
   -- Option "snapToGrid": how close (px) an edge or the center has to be to an
   -- Edit Mode grid line to snap onto it.
@@ -400,7 +405,7 @@ Theme.sizes = {
 -- (Summary.tableWorstWidth, ~278 px of the 326 px content width).
 Theme.widths = {
   header = { toggle = 38, reset = 40, hide = 20, options = 20, mode = 20 },
-  filter = { quality = 78, min = 44, sort = 78, clear = 18 },
+  filter = { quality = 78, min = 44, sort = 78, clear = 18, searchMin = 60 },
   tab = 72, -- tab buttons in header row 3
 }
 

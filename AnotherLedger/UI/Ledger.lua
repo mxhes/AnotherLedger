@@ -384,6 +384,12 @@ end
 function Ledger.relayout()
   if not Ledger.frame then return end
   local window = ns.UI.Window
+  -- New fonts: the buttons fit their labels again, the header is measured again.
+  local okFit, errFit = pcall(function()
+    if ns.UI.Widgets.refitButtons then ns.UI.Widgets.refitButtons() end
+    Ledger.measureHeader()
+  end)
+  if not okFit then reportError(errFit) end
   if window and window.applySizes then
     local ok, err = pcall(window.applySizes)
     if not ok then reportError(err) end
@@ -802,6 +808,55 @@ local function attach(part, fn)
   if not ok then reportError(err) end
 end
 
+-- Measures what the header rows need with the client's fonts (the widest
+-- window title, the fitted buttons, the tab and sub-tab strips) and raises
+-- the window's minimum width to it (Window.setHeaderWidth): no translation
+-- cuts off a tab or a button.
+function Ledger.measureHeader()
+  local UI, frame = ns.UI, Ledger.frame
+  if not (frame and frame.header and UI.Window and UI.Window.setHeaderWidth) then return nil end
+  local W, S = UI.Widgets, ns.Theme.sizes
+  local function width(f)
+    local w = f and f.GetWidth and f:GetWidth()
+    if type(w) == "number" and w == w and w > 0 then return w end
+    return nil
+  end
+  local function stripWidths(strip)
+    local out = {}
+    for i, b in ipairs(type(strip) == "table" and type(strip.order) == "table" and strip.order or {}) do
+      out[i] = width(b) or ns.Theme.widths.tab
+    end
+    return out
+  end
+  local need = 0
+  local title = frame.header.title
+  if title and UI.Header and UI.Header.rowNeed and UI.Tabs then
+    local shown = title.GetText and title:GetText()
+    local titleW = 0
+    for _, text in ipairs(UI.Tabs.titles()) do
+      title:SetText(text)
+      titleW = math.max(titleW, W.textWidth(title))
+    end
+    title:SetText(type(shown) == "string" and shown or "")
+    local h = UI.Header.instance
+    need = math.max(need, UI.Header.rowNeed(titleW, h and width(h.toggle), h and width(h.reset)))
+  end
+  if UI.FilterBar and UI.FilterBar.rowNeed then
+    need = math.max(need, UI.FilterBar.rowNeed(width(UI.FilterBar.qualityButton), width(UI.FilterBar.sortButton)))
+  end
+  if UI.Tabs then
+    need = math.max(need, UI.Tabs.rowNeed(stripWidths(Ledger.tabs)))
+    -- Sub-tabs, with the Trade period button at the right end of their row.
+    local period = UI.TradePeriod and width(UI.TradePeriod.button) or S.tradePeriodWidth
+    for _, strip in pairs(Ledger.subtabStrips or {}) do
+      need = math.max(need, UI.Tabs.rowNeed(stripWidths(strip)) + S.buttonGap * 3 + period)
+    end
+  end
+  local required = math.ceil(need + 2 * (S.padding + 4))
+  UI.Window.setHeaderWidth(required)
+  return required
+end
+
 function Ledger.init()
   if Ledger.frame then return Ledger.frame end
   local UI = ns.UI
@@ -891,6 +946,9 @@ function Ledger.init()
   attach(UI.Compact, function()
     if frame.compact then UI.Compact.attach(frame.compact) end
   end)
+  -- Every header part is built: what the header needs raises the minimum width.
+  local okMeasure, errMeasure = pcall(Ledger.measureHeader)
+  if not okMeasure then reportError(errMeasure) end
   UI.Window.onTitleDoubleClick = Ledger.toggleMode
 
   -- OnUpdate only runs while the frame is shown.

@@ -591,8 +591,23 @@ Each of these is one call in one place; the UI never names them.
   frame's scale) and `Theme.sizes.gridSnapDistance`; each axis moves its
   nearest edge or center onto a line within that distance. Unknown spacing =
   no snap.
+- **Text fits** (long translations): text buttons built with
+  `Widgets.fitButton(b, texts, base)` (Start / Stop, Reset, Quality, Sort,
+  the Trade period, the AH scan button) are as wide as their widest label
+  (`Widgets.fitWidth`, measured with `GetUnboundedStringWidth`), at least
+  the theme width; `Widgets.refitButtons` runs again in `Ledger.relayout`.
+  `Ledger.measureHeader` adds up what header rows 1 to 4 need (the pure
+  `Header.rowNeed`, `FilterBar.rowNeed`, `Tabs.rowNeed` with the widest of
+  `Tabs.titles()`, the fitted buttons and the tab strips) and passes it to
+  `Window.setHeaderWidth`; the resize minimum is the largest of the theme's,
+  the rows' (`setMinWidth`) and the header's. `tests/test_overflow.lua` runs
+  the same functions with estimated widths (`Theme.sizes.charPx` /
+  `smallCharPx` per glyph) for English and every `Locales/` file: the header
+  fits the default window, option labels stay at 24 glyphs, option buttons
+  and closed dropdowns (a choice's `short` text) fit the 150 px control, and
+  the footer labels fit their columns.
 - **Anchor corner**: a layout switch (`Window.applyMode`), a wider minimum
-  (`setMinWidth`) and larger font sizes (`applySizes`) resize through
+  (`setMinWidth`, `setHeaderWidth`) and larger font sizes (`applySizes`) resize through
   `resizeKeepingCorner`, which keeps `db.window.corner` (`"TOPLEFT"`, ...)
   in place (`Window.keepCorner`). The corner is picked by `Window.cornerFor`
   (the one nearest the screen edges) only after a drag or a resize by the

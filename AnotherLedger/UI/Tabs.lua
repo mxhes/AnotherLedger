@@ -495,6 +495,8 @@ function Tabs.strip(row, items, onSelect)
       if onSelect and key ~= tabs.selected then onSelect(key) end
     end)
     tabs.buttons[key] = b
+    tabs.order = tabs.order or {}
+    tabs.order[#tabs.order + 1] = b
     previous = b
   end
 
@@ -547,6 +549,26 @@ function Tabs.strip(row, items, onSelect)
   placeBase(nil)
 
   return tabs
+end
+
+-- Pure. Width a strip of tabs needs (px): the button widths and the gaps.
+function Tabs.rowNeed(buttonWidths)
+  local w, n = 0, 0
+  for _, bw in ipairs(buttonWidths) do w, n = w + bw, n + 1 end
+  return w + math.max(0, n - 1) * ns.Theme.sizes.buttonGap
+end
+
+-- Every window title a tab can show (the tabs' and sub-tabs'), for the
+-- header's width (Ledger.measureHeader).
+function Tabs.titles()
+  local out = {}
+  for _, key in ipairs(Tabs.KEYS) do
+    out[#out + 1] = Tabs.get(key).title
+    for _, sub in ipairs(Tabs.subtabs(key) or {}) do
+      if sub.title then out[#out + 1] = sub.title end
+    end
+  end
+  return out
 end
 
 -- The ledger's tab buttons (header row 3): one per defined tab.

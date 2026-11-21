@@ -556,8 +556,8 @@ Options.define({
   end,
   choices = {
     { value = "always", label = L["Always"] },
-    { value = "any", label = L["If one of my characters can"] },
-    { value = "self", label = L["If this character can"] },
+    { value = "any", label = L["If one of my characters can"], short = L["Any character"] },
+    { value = "self", label = L["If this character can"], short = L["This character"] },
     { value = "never", label = L["Never"] },
   },
   apply = refreshUI,
@@ -621,7 +621,7 @@ Options.define({
   choices = {
     { value = "row", label = L["In Total, own row"] },
     { value = "total", label = L["In Total only"] },
-    { value = "apart", label = L["Own row, not in Total"] },
+    { value = "apart", label = L["Own row, not in Total"], short = L["Own row only"] },
     { value = "off", label = L["Not counted"] },
   },
   apply = refreshUI,
