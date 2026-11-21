@@ -17,6 +17,7 @@ Locale.lua
 Locales\deDE.lua
 Locales\frFR.lua
 Locales\esES.lua
+Locales\itIT.lua
 Money.lua
 Theme.lua
 Tooltip.lua
