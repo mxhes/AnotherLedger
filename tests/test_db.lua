@@ -6,7 +6,7 @@ h.test("DB.defaults shape", function()
   local d = DB.defaults
   h.eq(d.version, 1)
   h.eq(d.cache, {})
-  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, tradeLogDays = 90, minimapButton = true,
+  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, tradeLogDays = 90, minimapButton = true, mobDataDays = 0,
     lockWindow = false, snapToGrid = true, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full", coinIcons = true,
     rawGold = "row", refreshSeconds = 30, staleHours = 12, ahCut = true, ahMinGain = 0, destroyMode = "always",
     alertGold = 0, alertSound = false,

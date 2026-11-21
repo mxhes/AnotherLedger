@@ -46,6 +46,7 @@ only inside functions.
 | `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
 | `ViewTrade.lua` | the Trade tab's Items and Log views |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
+| `Stats.lua` | `/al stats`, pure: the estimated saved-file size of each part (History and its mob data, scan, Trade log, price cache, the character file, the rest) |
 | `Slash.lua`, `Demo.lua` | slash commands, `/al demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
 | `UI/Widgets.lua` | two-tone buttons, icon buttons, texts, lines, tooltips, menus |
@@ -94,7 +95,7 @@ Each of these is one call in one place; the UI never names them.
   back to the default; `apply` runs on change and for the saved value at
   login. Read it with `Options.get(ns.db, key)`. Optional fields: `account =
   true` stores the value in `AnotherLedgerDB.account` (shared by every profile:
-  `historyLimit`, `tradeLogDays`, `accountZones`, `minimapButton`); `get` / `store` functions
+  `historyLimit`, `tradeLogDays`, `mobDataDays`, `accountZones`, `minimapButton`); `get` / `store` functions
   keep the value elsewhere (the profile choice) and `Options.applyAll` skips
   such an option; `picked(db, value)` runs only on a choice in the panel
   (`Options.pick`), not at login (the color preset writes the single colors

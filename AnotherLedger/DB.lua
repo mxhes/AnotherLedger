@@ -22,6 +22,7 @@ DB.defaults = {
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,
     tradeLogDays = 90, -- account-wide: days the Trade log keeps each entry
+    mobDataDays = 0, -- account-wide: days History keeps mob data (0 = all of it)
     -- Minimap button shown (account-wide, like historyLimit, tradeLogDays and accountZones:
     -- options with `account = true` are stored in AnotherLedgerDB.account; their
     -- defaults stay here).

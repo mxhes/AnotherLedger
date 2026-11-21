@@ -4376,3 +4376,26 @@ h.test("wiring: Zones keeps the saved History's sums and adds new loot and reset
   h.eq(L.view.totals.best, saved)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: /al stats prints the saved data parts, Mob data kept drops old mob data", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  local before = #ctx.printed
+  slash(ctx, "stats")
+  h.eq(#ctx.printed - before, 7)
+  h.eq(ctx.printed[before + 1]:find("Saved data: about", 1, true) ~= nil, true)
+  local all = table.concat(ctx.printed, "\n", before + 1)
+  h.eq(all:find("History: ", 1, true) ~= nil, true)
+  h.eq(all:find("sessions: 1,", 1, true) ~= nil, true)
+  -- Mob data kept: a session older than the cut loses its mob data, not itself.
+  local e = ns.chardb.history[1]
+  e.mobs = { ["npc:1"] = { kind = "npc", looted = 1, gold = 0, items = {} } }
+  e.startedAt = ctx.now - 40 * 86400
+  ns.Options.set(ns.db, "mobDataDays", 30)
+  h.eq(e.mobs, nil)
+  h.eq(#ns.chardb.history, 1)
+  h.eq(ctx.errors, {})
+end)

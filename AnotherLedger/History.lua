@@ -156,6 +156,22 @@ function History.add(list, entry, limit)
   return true
 end
 
+-- Drops the mob data (History > Mobs, drop chances) of the entries started
+-- before `before` (option "Mob data kept"); `dry` only counts them. Returns
+-- how many entries had some.
+function History.dropMobs(list, before, dry)
+  if type(list) ~= "table" or not num(before) then return 0 end
+  local n = 0
+  for _, e in ipairs(list) do
+    if type(e) == "table" and e.mobs ~= nil and num(e.startedAt) and e.startedAt < before then
+      n = n + 1
+      if not dry then e.mobs = nil end
+    end
+  end
+  if n > 0 and not dry then History.changed() end
+  return n
+end
+
 -- Removes the entry at `index` (1 = newest). Returns whether one was removed.
 function History.remove(list, index)
   if type(list) ~= "table" or not num(index) or not list[index] then return false end

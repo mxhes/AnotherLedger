@@ -208,6 +208,15 @@ Slash.define({
   run = function() ns.Core.undoDelete() end,
 })
 
+Slash.define({
+  name = "stats",
+  help = L["/al stats - how much of the saved files each part takes"],
+  run = function()
+    if not ns.Stats then return end
+    for _, line in ipairs(ns.Stats.lines(ns.Stats.collect(ns.db, ns.chardb))) do say(line) end
+  end,
+})
+
 Slash.define({ name = "help", needsSession = false, run = Slash.printHelp })
 
 ns.Slash = Slash

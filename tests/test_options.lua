@@ -18,7 +18,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "showCurrencies", "hideWorthless", "itemTooltipDrops", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "compactDrops",
     "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
-    "exportHistory", "clearHistory", "historyLimit", "tradeLogDays",
+    "exportHistory", "clearHistory", "historyLimit", "tradeLogDays", "mobDataDays",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors", "deleteColorPreset" })
   -- every option but a button has its default in DB.defaults.settings

@@ -295,7 +295,7 @@ History asks first.
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
-| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept |
+| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
@@ -326,10 +326,16 @@ colors. Tooltips keep the game's dark tooltip on every preset.
 History: its length, main place, worth and gold per hour. **Reset: ask for a
 note** opens the note box for the saved session after Reset (Escape skips
 it). **History kept** counts per character and applies to all of them.
+**Mob data kept** (All by default) keeps what each mob and node dropped only
+for the sessions of the last 30, 90, 180 or 365 days: older sessions stay in
+History, but no longer count in History > Mobs and the drop chances. Picking
+a shorter time asks first. `/al stats` shows how much of the saved files
+History, its mob data, the auction house scan, the Trade log and the price
+cache take.
 
 **Profiles**: every option is part of a profile, except **History kept**,
-**Zones: all characters** and **Minimap button**, which count for the whole
-account. Each character picks its own profile; new characters use **Default**.
+**Trade log kept**, **Mob data kept**, **Zones: all characters** and
+**Minimap button**, which count for the whole account. Each character picks its own profile; new characters use **Default**.
 Hover **Profile** to see which characters use the chosen one. **New profile**
 starts from the defaults, **Copy profile** from the current one; Default can't
 be renamed or deleted. **Reset profile** sets every option of the current
@@ -402,6 +408,7 @@ clock and scanning the auction house.
 | `/al export` | the History as CSV in a copy box |
 | `/al export session`, `/al export zones`, `/al export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
 | `/al undo` | take back the last merge or delete in History (or the cleared History) |
+| `/al stats` | how much of the saved files each part takes (History, mob data, scan, Trade log, price cache) |
 | `/al demo` | sample loot and temporary sample prices, to look at the window |
 | `/al help` | list the commands |
 

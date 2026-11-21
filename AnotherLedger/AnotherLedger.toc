@@ -33,6 +33,7 @@ Session.lua
 Mobs.lua
 History.lua
 Inventory.lua
+Stats.lua
 Options.lua
 Profiles.lua
 View.lua

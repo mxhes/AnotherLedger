@@ -979,6 +979,41 @@ Options.define({
   },
 })
 
+-- How many days History keeps the mob data of a session (History > Mobs,
+-- drop chances); the session itself stays. Applied now (it asks first) and at
+-- every login. 0 keeps all of it.
+local MOB_DAY = 86400
+local function mobCutoff(v)
+  local now = type(time) == "function" and time() or os.time()
+  return num(v) and v > 0 and (now - v * MOB_DAY) or nil
+end
+Options.define({
+  key = "mobDataDays", account = true, category = "history", type = "dropdown",
+  label = L["Mob data kept"],
+  tooltip = L["How long History keeps what each mob and node dropped (History > Mobs and the drop chances). Older sessions stay, without their mob data. /al stats shows how much it takes."],
+  choices = {
+    { value = 0, label = L["All"] },
+    { value = 30, label = L["30 days"] },
+    { value = 90, label = L["90 days"] },
+    { value = 180, label = L["180 days"] },
+    { value = 365, label = L["365 days"] },
+  },
+  confirm = function(v)
+    local before = mobCutoff(v)
+    if not (before and ns.History) then return nil end
+    local n = 0
+    for _, list in ipairs(historyLists()) do n = n + ns.History.dropMobs(list, before, true) end
+    if n == 0 then return nil end
+    return string.format(L["Delete the mob data of %d older sessions? The sessions stay. This can't be undone."], n)
+  end,
+  apply = function(v)
+    local before = mobCutoff(v)
+    if not (before and ns.History) then return end
+    for _, list in ipairs(historyLists()) do ns.History.dropMobs(list, before) end
+    refreshUI()
+  end,
+})
+
 -- ---------------------------------------------------------------------------
 -- Colors (category "look", after the fonts): each option sets one or more Theme.colors in
 -- place (Theme.setColor), then the UI recolors live: the texts, lines and
