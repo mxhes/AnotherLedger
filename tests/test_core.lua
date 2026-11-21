@@ -28,7 +28,9 @@ h.test("Core.placeOf: zone outside, instance with difficulty inside", function()
   h.eq({ Core.placeOf({ GetInstanceInfo = function() return "The Stonevault", "party", 23, "Mythic" end }) },
     { "The Stonevault (Mythic)", "The Stonevault" })
   h.eq({ Core.placeOf({ GetInstanceInfo = function() return "Arena", "arena", 0, "" end }) },
-    { "Arena", "Arena" })
+    { "Arena" }) -- a place, but no instance key: only dungeons and raids split
+  h.eq({ Core.placeOf({ GetInstanceInfo = function() return "Molten Core", "raid", 9, "40 Player" end }) },
+    { "Molten Core (40 Player)", "Molten Core" })
   h.eq({ Core.placeOf({ GetInstanceInfo = function() error("x") end }) }, {})
   h.eq({ Core.placeOf({}) }, {})
 end)

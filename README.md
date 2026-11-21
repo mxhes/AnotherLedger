@@ -64,11 +64,12 @@ and buttons need (in some languages a little wider), so nothing is cut off.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`, and a gold bar
-under them that fills up toward the goal), the last four drops with their
+under them that fills up toward the goal), the last four drops (the same item
+looted twice in a row shows as one line, `x2`) with their
 value and source tag (framed, as in the list; the quantity in a quieter
 color, an item without an auction price marked `?`, and with **Compact: item
 icons** its icon in front), and the Daily farm line. After
-a quarter hour, `15 min: 120g/h` right of the drops title is the gold per
+a quarter hour, `Last 15 min: 120g/h` right of the drops title is the gold per
 hour of the last 15 minutes, so you see when a spot slows down. Until the
 session earns something the rate shows `—/h`. Hover the gold per hour for the
 breakdown: time, items, raw gold, total, the best find, how far the goal is,
@@ -166,7 +167,9 @@ items.
   this week, then week numbers, with the year for another year's weeks) with
   their count, length and value; click a heading to fold it. Click a session
   to list its items; right-click it to add a note (`Wingrest herbs, 2 alts`),
-  merge it or delete it; hover it for places, currencies, values and gold per
+  **Rename** its place (your name shows instead of the main place in its
+  second line; Zones keep the real places), merge it or delete it (after
+  asking); hover it for places, currencies, values and gold per
   hour. **Merge with the older session** joins a session with the one started
   before it (say a dungeon run you left and re-entered): items, gold, time and
   places add up, the time between the two does not count. Merge again to join
@@ -174,7 +177,8 @@ items.
   out or reload. `/al export` copies the History as CSV for a spreadsheet.
   **Clear History** (options) deletes all of it.
 - **History > Zones**: which places are worth farming. All sessions of all
-  your characters (option **Zones: all characters**) grouped by zone and
+  your characters (option **Zones: all characters**; the header then says
+  `all chars`, which is why its totals differ from Sessions) grouped by zone and
   subzone, each with its time, gold per hour and item count (sort by
   **Gold/h**). Click a zone to open its subzones, a subzone to list its items.
   A zone's time includes the subzones where nothing was looted, so its gold
@@ -189,7 +193,9 @@ items.
   price addon and no scan yet, or your price sources don't know those items.
 - **History > Mobs**: what each kind of mob and gathering node gave you, over
   the same sessions as Zones: how often you looted it, the value of its loot
-  plus its gold, and the value per corpse or node looted. Sort by **Value**,
+  plus its gold, and the value per corpse or node looted. Gathering nodes say
+  `Node` in their second line; the button at the right lists **All**, only
+  **Mobs** or only **Nodes**. Sort by **Value**,
   **Per loot** or **Name**; click a mob to list its items, hover it for where
   you looted it most, its best drops and its likeliest drops with their drop
   chance; an opened mob's items show theirs in the tooltip (`Drop chance: 35%
@@ -212,7 +218,9 @@ items.
   listed under it, newest first; a week that spans two months shows under
   both with its part. Each row shows the number of sessions, their length,
   the value and the gold per hour. Sorted by Value or Gold/h, the weeks are
-  ranked without the month headings, best first.
+  ranked without the month headings, best first (a week that spans two
+  months is one row there). The filters do not apply here, so only the sort
+  button shows.
 - **Trade**: what you sell and trade on this realm, from all your characters.
   - **Items** lists every item you sold or bought on the auction house: how
     many you sold (auction house and player trades together), the gold you
@@ -232,6 +240,8 @@ items.
   - The filter bar works on both: the search and the minimum value pick
     items or entries, the quality filter the items (a trade with a player
     has no quality and always stays).
+  - The footer adds up the listed rows: **Earned** (sales after the auction
+    house cut, gold received in trades), **Spent** (purchases) and **Net**.
   - Auctions you post or cancel are recorded at the auction house. Sales,
     expired auctions and auctions you won or bought are recorded from the
     mail, so they show once you open your mailbox; a sale mail counts once, also when you open it again or on
@@ -424,7 +434,9 @@ are not counted as loot; **Crafted and bought** turns that on.
 the total against it and a chat line says when the session is worth that much
 (counted like the compact total). **Session goal (minutes)** says in chat when
 the clock reaches that time, with what the session is worth. Each goal is
-announced once per session; **Alert sound** plays with them.
+announced once per session; **Alert sound** plays with them. A thin gold bar
+fills up toward the goal: under the title on the Session tab, and under the
+total in compact (the gold goal when set, else the minutes goal).
 
 **Session per zone** saves the session to History and starts a new one when
 you change zones, so History rows stay apart when you hop between farm spots.
@@ -434,6 +446,10 @@ session, and flight paths and time resting in a city or inn never count
 (selling in Orgrimmar does not end your Badlands session). Loot from those
 minutes still belongs to the old session. An empty session just starts its
 clock over. While the clock is stopped nothing splits.
+
+**Session per instance** does the same when you enter or leave a dungeon or
+raid (battlegrounds, arenas and scenarios do not count), also not while the
+clock is stopped.
 
 **Open on first loot**, **Open in instances** and **Hide in cities** show or
 hide the window for you. Each only undoes what it did itself: close the

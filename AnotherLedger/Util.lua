@@ -50,6 +50,14 @@ function Util.charCount(s)
   return select(2, s:gsub("[^\128-\191]", ""))
 end
 
+-- A deep copy of `v` (tables copied all the way down; other values as they are).
+function Util.copy(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, x in pairs(v) do out[k] = Util.copy(x) end
+  return out
+end
+
 function Util.clamp(v, lo, hi)
   if hi < lo then hi = lo end
   if v < lo then return lo end

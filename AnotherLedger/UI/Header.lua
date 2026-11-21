@@ -194,6 +194,7 @@ function Header.attach(row, handlers)
       self.timerAnchor = anchor
     end
     self.modeButton:SetGlyph(compact and "full" or "compact")
+    if compact and self.goalBar then self.goalBar:Hide() end
     self.timer:SetShown(compact or self.sessionShown)
     self.info:SetShown(not compact and not self.sessionShown and (self.infoText or "") ~= "")
     self.toggle:SetShown(not compact and self.sessionShown)
@@ -242,14 +243,43 @@ function Header.attach(row, handlers)
     self:Apply()
   end
 
-  -- Ledger part: the clock is the same work on a full refresh and on a tick;
-  -- the info text only changes with a full refresh.
+  -- Session goal bar (options "Session goal (gold / minutes)"): a thin gold
+  -- line along the bottom of the title row, full layout and Session tab only
+  -- (compact has its own, UI/Compact.lua).
+  local goalBar = W.line(row, T.colors.gold, "OVERLAY")
+  goalBar:SetHeight(T.sizes.compactGoalBarHeight)
+  goalBar:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, -2)
+  goalBar:Hide()
+  header.goalBar = goalBar
+
+  -- `fraction` 0 to 1, or nil (no goal, or not the full Session tab): hidden.
+  function header:SetGoal(fraction)
+    local width = self.row:GetWidth() or 0
+    if self.mode ~= "compact" and fraction and fraction > 0 and width > 0 then
+      self.goalBar:SetWidth(math.max(1, math.floor(width * fraction + 0.5)))
+      self.goalBar:Show()
+    else
+      self.goalBar:Hide()
+    end
+  end
+
+  -- Ledger part: the clock (and the minutes goal) is the same work on a full
+  -- refresh and on a tick; the info text only changes with a full refresh.
   local part = {}
+  local goalView
   function part:Tick(_, session, now)
-    header:SetElapsed(ns.Session.elapsed(session, now))
+    local elapsed = ns.Session.elapsed(session, now)
+    header:SetElapsed(elapsed)
     header:SetRunning(session.running, session.resting)
+    local goal = nil
+    if goalView then
+      local minutes = ns.Util.setting("goalMinutes", 0)
+      goal = ns.View.goalFraction(goalView.goal, elapsed, ns.Util.isPositive(minutes) and minutes * 60 or nil)
+    end
+    header:SetGoal(goal)
   end
   function part:Update(view, session, now)
+    goalView = type(view) == "table" and view.kind == "session" and view or nil
     self:Tick(view, session, now)
     header:SetInfo(type(view) == "table" and view.headerInfo or nil)
   end

@@ -63,3 +63,18 @@ h.test("Locale: no language has keys the code does not use or other placeholders
   h.eq(unknown, {})
   h.eq(wrong, {})
 end)
+
+h.test("Locale: no language lists a key twice (luacheck W314 in CI)", function()
+  local twice = {}
+  for _, name in ipairs({ "deDE.lua" }) do
+    local seen = {}
+    for line in io.lines("AnotherLedger/Locales/" .. name) do
+      local key = line:match('^%s*%["(.-)"%]%s*=')
+      if key then
+        if seen[key] then twice[#twice + 1] = name .. ": " .. key end
+        seen[key] = true
+      end
+    end
+  end
+  h.eq(twice, {})
+end)

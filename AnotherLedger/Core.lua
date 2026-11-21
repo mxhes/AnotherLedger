@@ -99,15 +99,17 @@ local difficulties = {} -- instance name -> last difficulty name seen
 
 -- Pure over `env` (and `remembered`, a table the caller keeps; optional).
 -- Returns the place label ("Zone", or "Instance (Difficulty)") and an instance
--- key (the instance name; nil outside instances).
+-- key (the instance name, only in dungeons and raids: "Session per instance"
+-- and "Open in instances" ignore battlegrounds, arenas and scenarios).
 -- GetInstanceInfo gives name, instanceType, difficultyID, difficultyName.
 function Core.placeOf(env, remembered)
   if type(env.GetInstanceInfo) == "function" then
     local ok, name, instanceType, difficultyID, difficultyName = pcall(env.GetInstanceInfo)
     if ok and type(name) == "string" and name ~= "" and instanceType ~= nil and instanceType ~= "none" then
       local difficulty = difficultyOf(env, name, difficultyID, difficultyName, remembered)
-      if difficulty then return name .. " (" .. difficulty .. ")", name end
-      return name, name
+      local key = (instanceType == "party" or instanceType == "raid") and name or nil
+      if difficulty then return name .. " (" .. difficulty .. ")", key end
+      return name, key
     end
   end
   local zone
@@ -517,13 +519,6 @@ function Core.resetSession(message)
   return entry
 end
 
--- Option "instanceSession": a loading screen that enters or leaves an
--- instance (or changes to another one) archives the session and starts a new
--- one. Pure decision: returns whether the instance key changed.
-function Core.instanceChanged(previous, current)
-  return previous ~= current
-end
-
 -- The window's automatic show / hide (UI.Window.autoShow / autoHide /
 -- autoUndo). `option` (for show and hide) must be on; undo always runs, so
 -- turning the option off never leaves the window hidden.
@@ -620,14 +615,17 @@ local function hasLoot(session)
     or ns.Session.goldTotal(session) > 0 or next(session.mobs or {}) ~= nil
 end
 
+-- Option "instanceSession": a loading screen that enters or leaves a dungeon
+-- or raid (or changes to another one) archives the session and starts a new
+-- one. Like the zone split, nothing splits while the clock is stopped.
 local function checkInstance()
   local place, key = Core.placeOf(_G, difficulties)
-  local changed = Core.instanceChanged(lastInstance, key)
+  local changed = key ~= lastInstance
   lastInstance = key
   if not changed then return end
   -- Option "showInInstance": open inside, close again on leaving.
   if key ~= nil then Core.autoWindow("show", "instance", "showInInstance") else Core.autoWindow("undo", "instance") end
-  if not (ns.session and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
+  if not (ns.session and ns.session.running and ns.db and ns.Options.get(ns.db, "instanceSession")) then return end
   zoneState.zone, zoneState.pending = place, nil -- no second split for the same move
   if hasLoot(ns.session) and shortNow(ns.session) then return end -- continues
   Core.resetSession(L["new session"] .. (place and (": " .. place) or "") .. ".")

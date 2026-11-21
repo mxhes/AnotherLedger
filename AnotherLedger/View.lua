@@ -460,9 +460,8 @@ function View.addWorth(view, money, bags, bank)
   return view
 end
 
-local function perHour(amount, elapsed)
-  return amount * 3600 / elapsed
-end
+-- applyRates checks the minimum time first; History.perHour is the one formula.
+local function perHour(amount, elapsed) return ns.History.perHour(amount, elapsed) end
 
 -- Sets (or clears, while the session is younger than MIN_RATE_SECONDS) the
 -- per-hour rates of a session view in place. Cheap: the clock tick calls it
@@ -540,7 +539,7 @@ local function sessionRow(e, i, open, opts, totals)
   local parts = { History.duration(e.elapsed) }
   if perHour then parts[#parts + 1] = ns.Money.format(ns.Money.roundRate(perHour)) .. L_PER_HOUR end
   parts[#parts + 1] = History.itemCount(totals.count)
-  local place = History.place(e)
+  local place = History.label(e) or History.place(e)
   if place then parts[#parts + 1] = place end
   local note = History.note(e)
   local label = note and (when .. DETAIL_SEP .. note) or when
@@ -676,7 +675,6 @@ end
 local MONTH_NAMES = { L["January"], L["February"], L["March"], L["April"], L["May"], L["June"], L["July"],
   L["August"], L["September"], L["October"], L["November"], L["December"] }
 local L_WEEK_OF, L_WEEK_OF_YEAR = L["Week %d"], L["Week %d, %d"]
-local L_NO_TOTALS = L["No saved sessions yet. A session is saved when you reset it."]
 
 local function periodRow(key, label, icon)
   return { id = 0, key = key, name = label, sortName = lower(label), quality = 1, icon = icon,
@@ -705,7 +703,9 @@ function View.buildTotals(list, opts)
   local History = ns.History
   local dateFn = opts.dateFn
   if type(list) ~= "table" then list = {} end
-  local months, weeks, monthOrder = {}, {}, {}
+  -- weeks: a week's part in one month (Recent); wholeWeeks: the whole week
+  -- (value sorts rank weeks, so a week over two months is one row there).
+  local months, weeks, wholeWeeks, monthOrder = {}, {}, {}, {}
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = false }
   local gold, elapsed, count, t = 0, 0, 0, {}
   local nowYear = type(dateFn) == "function" and num(opts.now) and dateFn("*t", opts.now).year or nil
@@ -725,15 +725,22 @@ function View.buildTotals(list, opts)
       end
       local week, year = History.isoWeek(d.year, d.month, d.day)
       local weekKey = string.format("%s|w:%d-%02d", monthKey, year, week)
+      local label = year == nowYear and string.format(L_WEEK_OF, week) or string.format(L_WEEK_OF_YEAR, week, year)
       local row = weeks[weekKey]
       if not row then
-        local label = year == nowYear and string.format(L_WEEK_OF, week) or string.format(L_WEEK_OF_YEAR, week, year)
         row = periodRow(weekKey, label, nil)
         weeks[weekKey] = row
         month.weeks[#month.weeks + 1] = row
       end
+      local wholeKey = string.format("w:%d-%02d", year, week)
+      local whole = wholeWeeks[wholeKey]
+      if not whole then
+        whole = periodRow(wholeKey, label, nil)
+        wholeWeeks[wholeKey] = whole
+      end
       addSession(month, e, value, t)
       addSession(row, e, value, t)
+      addSession(whole, e, value, t)
       totals.vendor, totals.ah, totals.best = totals.vendor + t.vendor, totals.ah + t.ah, totals.best + t.best
       gold, elapsed, count = gold + e.gold, elapsed + e.elapsed, count + 1
     end
@@ -752,13 +759,11 @@ function View.buildTotals(list, opts)
       end
     end
   else
-    for _, month in ipairs(monthOrder) do
-      for _, w in ipairs(month.weeks) do rows[#rows + 1] = finishPeriod(w) end
-    end
+    for _, w in pairs(wholeWeeks) do rows[#rows + 1] = finishPeriod(w) end
     table.sort(rows, SESSION_SORT[sort] or SESSION_SORT.ah)
   end
   local view = { rows = rows, top = {}, totals = totals, kind = "history", history = true,
-    empty = #rows == 0 and L_NO_TOTALS or nil,
+    empty = #rows == 0 and L_NO_HISTORY or nil, noFilter = true,
     headerInfo = count > 0 and History.sessionCount(count) or nil }
   addGold(view, gold, opts.includeGold)
   return View.applyRates(view, elapsed)
@@ -782,6 +787,21 @@ local compactOpts = {}
 function View.goalProgress(value, goal)
   if not (num(goal) and goal > 0 and num(value)) then return nil end
   return { value = value, goal = goal }
+end
+
+-- How far the session goals are (0 to 1) for the goal bars: the gold goal
+-- (`progress`, View.goalProgress) when set, else the minutes goal
+-- (`elapsed` of `goalSeconds`); nil without either.
+function View.goalFraction(progress, elapsed, goalSeconds)
+  local value, goal
+  if type(progress) == "table" and num(progress.goal) and progress.goal > 0 then
+    value, goal = num(progress.value) and progress.value or 0, progress.goal
+  elseif num(goalSeconds) and goalSeconds > 0 and num(elapsed) then
+    value, goal = elapsed, goalSeconds
+  else
+    return nil
+  end
+  return math.max(0, math.min(1, value / goal))
 end
 
 -- Whole percent of a goal progress, at most 100.
@@ -870,7 +890,8 @@ function View.buildCompact(session, opts)
   return { total = total, perHour = ns.History.perHour(total, elapsed), running = session.running and true or false,
     recent = View.recentRate(session.samples, elapsed, total),
     drops = drops, dropLimit = limit, items = t.best, gold = gold, elapsed = elapsed, top = topRows(rows, 1)[1],
-    goal = View.goalProgress(total, opts.goal), graph = View.rateGraph(session.samples) }
+    goal = View.goalProgress(total, opts.goal), goalSeconds = opts.goalSeconds,
+    graph = View.rateGraph(session.samples) }
 end
 
 -- Session tab: rows, totals, raw gold, combined totals, rates and top finds.

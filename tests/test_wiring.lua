@@ -413,8 +413,10 @@ h.test("wiring: a History session's menu deletes it, /al undo brings it back", f
   h.eq(menu.anchor, "rowFrame")
   h.eq(menu[1].kind, "title")
   h.eq(menuItem(menu, L["Add note"]) ~= nil, true)
-  menuItem(menu, L["Delete"]).click() -- no popup: /al undo can bring it back
-  h.eq(#shown, 0)
+  h.eq(menuItem(menu, L["Rename"]) ~= nil, true)
+  menuItem(menu, L["Delete"]).click() -- asks first
+  h.eq(#shown, 1); h.eq(#history, 3)
+  shown[1].OnAccept()
   h.eq(#history, 2); h.eq(history[1].startedAt, 2)
   h.eq(Ledger.historyIndex, 2) -- still the same (oldest) session
   h.eq(ctx.printed[#ctx.printed]:find("/al undo", 1, true) ~= nil, true)
@@ -1234,14 +1236,19 @@ h.test("wiring: the options panel opens where it was dragged to", function()
   P.toggle()
   local frame = P.frame
   frame.GetCenter = function() return 120, -40 end -- UIParent's fake center is 0, 0
+  frame.GetTop = function() return 250 end -- UIParent's fake top is 300
   frame._scripts.OnDragStart(frame)
   frame._scripts.OnDragStop(frame)
-  h.eq(P.savedPosition(ctx.ns.db), { x = 120, y = -40 })
+  h.eq(P.savedPosition(ctx.ns.db), { x = 120, top = -50 })
   local placed
   frame.SetPoint = function(_, point, _, _, x, y) placed = { point, x, y } end
   P.toggle() -- closes
-  P.toggle() -- opens at the saved place
-  h.eq(placed, { "CENTER", 120, -40 })
+  P.toggle() -- opens at the saved place, by its top edge
+  h.eq(placed, { "TOP", 120, -50 })
+  -- A center saved by an older version still opens there.
+  ctx.ns.db.optionsWindow = { x = 10, y = 20 }
+  P.toggle(); P.toggle()
+  h.eq(placed, { "CENTER", 10, 20 })
   ctx.ns.db.optionsWindow = { x = "bad" }
   h.eq(P.savedPosition(ctx.ns.db), nil)
   h.eq(ctx.errors, {})
@@ -1295,10 +1302,14 @@ h.test("wiring: the options panel has a tab per category, one page shown at a ti
   local page = P.registerPage()
   page._scripts.OnShow(page)
   h.eq(page.tabbed.strip.selected, second)
-  -- the panel keeps its size whichever tab is shown
+  -- the panel is as tall as the shown tab needs
   local height = P.frame:GetHeight()
   tabbed.select(first)
-  h.eq(P.frame:GetHeight(), height)
+  local delta = tabbed.heights[first] - tabbed.heights[second]
+  h.eq(P.frame:GetHeight(), height + delta)
+  local look = 0
+  for _, s in ipairs(sections) do look = math.max(look, tabbed.heights[s.id]) end
+  h.eq(look > tabbed.heights[first], true) -- Appearance is the tallest, Window shorter
   h.eq(ctx.errors, {})
 end)
 
@@ -1792,6 +1803,12 @@ h.test("wiring: loot notes the place; a new session per instance with the option
   h.eq(hist[1].places, { "The Stonevault (Heroic)", "Dornogal" })
   h.eq(next(ns.session.items), nil)
   -- a loading screen inside the open world changes nothing
+  fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  h.eq(#hist, 1)
+  -- a stopped clock splits nothing (like Session per zone)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "stop")
+  where.instance = "The Stonevault"
   fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
   h.eq(#hist, 1)
   h.eq(ctx.errors, {})
@@ -2497,7 +2514,30 @@ h.test("wiring: compact shows the goal bar with a session goal and the last 15 m
     ns.Core.heartbeat()
   end
   ns.UI.Ledger.refresh()
-  h.eq(C.recent:GetText():find(ns.L["15 min: "], 1, true) ~= nil, true)
+  h.eq(C.recent:GetText():find(ns.L["Last 15 min: "], 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the full header shows the goal bar on the Session tab, minutes goal too", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local H = ns.UI.Header.instance
+  H.row._w = 300
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ns.UI.Ledger.refresh()
+  h.eq(H.goalBar:IsShown(), false) -- no goal
+  ns.Options.set(ns.db, "goalMinutes", 10)
+  ctx.now = ctx.now + 300
+  ns.UI.Ledger.refresh()
+  h.eq(H.goalBar:IsShown(), true)
+  h.eq(H.goalBar._w, 150) -- 5 of 10 minutes
+  ns.UI.Ledger.setTab("bags")
+  ns.UI.Ledger.refresh()
+  h.eq(H.goalBar:IsShown(), false)
+  ns.UI.Ledger.setTab("session")
+  slash(ctx, "compact")
+  h.eq(H.goalBar:IsShown(), false) -- compact draws its own
   h.eq(ctx.errors, {})
 end)
 
@@ -2547,6 +2587,18 @@ h.test("wiring: switching while hidden draws the compact view when shown", funct
   slash(ctx, "show")
   ctx.ns.UI.Ledger.refresh() -- the client fires OnShow, which is hooked to this
   h.eq(ctx.ns.UI.Compact.drops[1].name:GetText():find("x3", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: applying every option redraws the window once", function()
+  local ctx = boot()
+  startWorld(ctx, true)
+  local ns = ctx.ns
+  local builds, original = 0, ns.UI.Ledger.buildView
+  ns.UI.Ledger.buildView = function(...) builds = builds + 1; return original(...) end
+  ns.Options.applyAll(ns.db)
+  ns.UI.Ledger.buildView = original
+  h.eq(builds <= 1, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3735,7 +3787,7 @@ h.test("wiring: History > Mobs lists the mobs of History and the running session
   h.eq(Ledger.currentSort(), "ah")
   h.eq(#Ledger.view.rows, 1)
   h.eq(Ledger.view.rows[1].mobKey, "npc:2546")
-  h.eq(Ledger.view.headerInfo, "1 mob")
+  h.eq(Ledger.view.headerInfo, "1 mob, all chars") -- Zones: all characters is on by default
   Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
   h.eq(Ledger.mobOpen, "npc:2546")
   h.eq(Ledger.view.rows[2].id, 2589)
@@ -4425,6 +4477,24 @@ h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones",
   Ledger.setSubtab("log")
   Ledger.refresh()
   h.eq(#Ledger.view.rows, 1); h.eq(TP.button:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: History > Mobs shows the Mobs / Nodes switch, the Trade period hides", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local Ledger, MK, TP = ctx.ns.UI.Ledger, ctx.ns.UI.MobKind, ctx.ns.UI.TradePeriod
+  Ledger.setTab("history")
+  Ledger.setSubtab("mobs")
+  Ledger.refresh()
+  h.eq(MK.button:IsShown(), true); h.eq(MK.button:GetText(), "All")
+  h.eq(TP.button:IsShown(), false)
+  MK.set("nodes")
+  h.eq(ctx.env.AnotherLedgerDB.mobKind, "nodes")
+  h.eq(MK.button:GetText(), "Nodes")
+  Ledger.setSubtab("sessions")
+  Ledger.refresh()
+  h.eq(MK.button:IsShown(), false)
   h.eq(ctx.errors, {})
 end)
 

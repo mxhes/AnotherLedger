@@ -117,10 +117,13 @@ h.test("Compact.recentText and goalFraction", function()
   local C = ns.UI.Compact
   local f = ns.Money.format
   h.eq(C.recentText({}, f), nil)
-  h.eq(C.recentText({ recent = 12000.4 }, f), "15 min: " .. f(ns.Money.roundRate(12000.4)) .. "/h")
+  h.eq(C.recentText({ recent = 12000.4 }, f), "Last 15 min: " .. f(ns.Money.roundRate(12000.4)) .. "/h")
   h.eq(C.goalFraction({}), nil)
   h.eq(C.goalFraction({ goal = { value = 2500, goal = 10000 } }), 0.25)
   h.eq(C.goalFraction({ goal = { value = 20000, goal = 10000 } }), 1)
+  -- no gold goal: the minutes goal; the gold goal wins when both are set
+  h.eq(C.goalFraction({ elapsed = 300, goalSeconds = 1200 }), 0.25)
+  h.eq(C.goalFraction({ goal = { value = 5000, goal = 10000 }, elapsed = 300, goalSeconds = 1200 }), 0.5)
   local text = ns.Tooltip.text(C.hint({ total = 7000, perHour = 9000, recent = 12000, elapsed = 2100 }))
   h.eq(text:find("Last 15 minutes: ", 1, true) ~= nil, true)
 end)

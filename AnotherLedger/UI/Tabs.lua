@@ -241,6 +241,17 @@ local function zoneScope()
   return ns.Util.setting("accountZones", true) and L_SCOPE_ALL or L_SCOPE_ZONES
 end
 
+-- Zones and Mobs: the scope on the view, and in the header count when they
+-- add up every character (so their totals differ from Sessions').
+local L_ALL_CHARS = L[", all chars"]
+local function withScope(view)
+  view.scope = zoneScope()
+  if view.headerInfo and ns.Util.setting("accountZones", true) then
+    view.headerInfo = view.headerInfo .. L_ALL_CHARS
+  end
+  return view
+end
+
 local function buildSessions(ctx)
   local history, ledger = savedHistory(ctx), ctx.ledger
   if ledger.historyIndex and not history[ledger.historyIndex] then ledger.historyIndex = nil end
@@ -276,14 +287,30 @@ end
 -- The item IDs of the Zones entries of the last build ({ [itemID] = true }).
 local zoneItemIDs
 
-local function itemIDsOf(entries)
-  local ids = {}
-  for _, e in ipairs(entries) do
-    if type(e) == "table" and type(e.items) == "table" then
-      for _, it in pairs(e.items) do
-        if type(it) == "table" and ns.Util.isNumber(it.id) then ids[it.id] = true end
-      end
+local function addItemIDs(ids, e)
+  if type(e) == "table" and type(e.items) == "table" then
+    for _, it in pairs(e.items) do
+      if type(it) == "table" and ns.Util.isNumber(it.id) then ids[it.id] = true end
     end
+  end
+end
+
+-- The saved sessions' IDs are kept per History key (it changes with any
+-- History change); only the running session is walked on every build.
+local savedIDs = { key = nil, ids = nil }
+
+local function itemIDsOf(entries, historyKey)
+  if not historyKey or savedIDs.key ~= historyKey then
+    local ids = {}
+    for _, e in ipairs(entries) do
+      if type(e) == "table" and not e.live then addItemIDs(ids, e) end
+    end
+    savedIDs.key, savedIDs.ids = historyKey, ids
+  end
+  local ids = {}
+  for id in pairs(savedIDs.ids) do ids[id] = true end
+  for _, e in ipairs(entries) do
+    if type(e) == "table" and e.live then addItemIDs(ids, e) end
   end
   return ids
 end
@@ -303,10 +330,8 @@ Tabs.define({
         local ledger = ctx.ledger
         if type(ledger.zoneOpen) ~= "table" then ledger.zoneOpen = {} end
         local entries = zoneEntries(ctx)
-        zoneItemIDs = itemIDsOf(entries)
-        local view = ns.View.buildZones(entries, ctx.opts, ledger.zoneOpen)
-        view.scope = zoneScope()
-        return view
+        zoneItemIDs = itemIDsOf(entries, ctx.opts.historyKey)
+        return withScope(ns.View.buildZones(entries, ctx.opts, ledger.zoneOpen))
       end,
       -- Item info arrives in bursts (hundreds at login): look the item up in
       -- the IDs of the last build instead of gathering every History again.
@@ -320,10 +345,9 @@ Tabs.define({
       sorts = { "ah", "perLoot", "name" },
       build = function(ctx)
         local entries = zoneEntries(ctx)
-        zoneItemIDs = itemIDsOf(entries)
-        local view = ns.View.buildMobs(entries, ctx.opts, ctx.ledger.mobOpen)
-        view.scope = zoneScope()
-        return view
+        zoneItemIDs = itemIDsOf(entries, ctx.opts.historyKey)
+        ctx.opts.mobKind = ns.UI.MobKind.current(ns.db)
+        return withScope(ns.View.buildMobs(entries, ctx.opts, ctx.ledger.mobOpen))
       end,
       hasItem = function(itemID)
         return zoneItemIDs ~= nil and zoneItemIDs[itemID] == true
@@ -331,7 +355,7 @@ Tabs.define({
     },
     -- Totals: this character's saved sessions per week and month.
     {
-      key = "totals", label = L["Totals"], title = L["Weekly Totals"],
+      key = "totals", label = L["Totals"], title = L["Weeks and Months"],
       sorts = { "recent", "ah", "perHour" }, defaultSort = "recent",
       build = function(ctx)
         local view = ns.View.buildTotals(savedHistory(ctx), ctx.opts)

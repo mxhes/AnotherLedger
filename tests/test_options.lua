@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua", "OptionsLook.lua" })
 local O = ns.Options
 
 local function db(settings)
@@ -194,6 +194,14 @@ h.test("Options.applyAll skips buttons", function()
   local d = db({})
   O.applyAll(d)
   h.eq(d.settings.minimapReset, nil)
+end)
+
+h.test("Options.applyAll leaves unsaved colors and skin parts unsaved", function()
+  local d = db({})
+  O.applyAll(d)
+  for key in pairs(O.colorTargets) do h.eq(d.settings[key], nil) end
+  for key in pairs(O.skinTargets) do h.eq(d.settings[key], nil) end
+  h.eq(d.settings.skin ~= nil, true) -- other options are stored
 end)
 
 h.test("Options: the window sliders cover 0..100 % (brightness 0..200 %)", function()

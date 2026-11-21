@@ -34,6 +34,25 @@ against the test fakes):
   `AnotherLedger price trend +N% vs 60 days` (TSM answers `DBHistorical`);
   without TSM, after scans on two days, `vs earlier days`.
 
+- Review fixes (only run against the test fakes):
+  - Options window: its height follows the shown tab (History and Profiles
+    short, Appearance tall), the top edge stays put; a dragged window opens
+    at its place again (saved by its top edge now).
+  - History > Mobs: the All / Mobs / Nodes button at the right of the
+    sub-tab row (German: Alle / Gegner / Vorkommen); nodes say `Node`.
+  - Trade footer: Earned / Spent / Net, no per hour column; the Log footer
+    adds up its entries.
+  - Session goal bar along the bottom of the title row (Session tab, full
+    layout), also for the minutes goal; hidden in compact and other tabs.
+  - History row menu: Rename, and Delete asks first.
+  - Totals tab: only the Sort button in the filter row.
+  - Color swatches are wide chips with a light frame; the hex code after the
+    label still fits (German labels).
+  - Zones / Mobs header: `9 places, all chars` fits next to the buttons.
+  - A battleground or arena no longer splits the session or opens the window
+    (Session per instance / Open in instances); a stopped clock no longer
+    splits on entering a dungeon.
+
 - Skins (UNVERIFIED): every skin with every color preset, at UI scale 0.64
   and 1.0: Forge and Gilded show their Grain / Leather background (addon
   `.tga` as tiled backdrop `bgFile`), the Bevel / Thin / Gilded edge lines are

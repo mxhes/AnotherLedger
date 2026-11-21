@@ -368,9 +368,11 @@ h.test("View.buildTotals: weeks under month headings, a week split at the month'
   -- A folded month keeps its heading.
   local folded = ns.View.buildTotals(list, { dateFn = os.date, now = at(2026, 11, 21), folded = { ["m:2026-11"] = true } })
   h.eq(#folded.rows, 3)
-  -- By value: the weeks alone, best first.
+  -- By value: the weeks alone, best first; a week over two months is one row.
   local byValue = ns.View.buildTotals(list, { dateFn = os.date, now = at(2026, 11, 21), sort = "ah" })
-  h.eq(#byValue.rows, 3); h.eq(byValue.rows[1].value, 400); h.eq(byValue.rows[1].isHeading, nil)
+  h.eq(#byValue.rows, 2); h.eq(byValue.rows[1].value, 400); h.eq(byValue.rows[1].isHeading, nil)
+  h.eq(byValue.rows[2].name, "Week 44"); h.eq(byValue.rows[2].value, 260)
+  h.eq(byValue.rows[2].detail, "2 sessions \194\183 3h 0m")
   h.eq(ns.View.buildTotals({}, { dateFn = os.date, now = 1 }).empty ~= nil, true)
   -- Another year's week says which.
   local old = ns.View.buildTotals({ saved(at(2025, 3, 5), 60, 1) }, { dateFn = os.date, now = at(2026, 11, 21) })
@@ -430,6 +432,11 @@ h.test("View.buildHistory: the place joins the name, the details the hint", func
   h.eq(ns.View.buildHistory(list, { formatDate = function() return "D" end }).rows[1].detail,
     "30s \194\183 1 item \194\183 The Stonevault (Heroic)")
   list[1].elapsed = 3600
+  -- a session renamed by the player shows its own place name
+  list[1].label = "Vault run"
+  h.eq(ns.View.buildHistory(list, { formatDate = function() return "D" end }).rows[1].detail,
+    "1h 0m \194\183 1g/h \194\183 1 item \194\183 Vault run")
+  list[1].label = nil
   h.eq(v.rows[1].value, 10150)
   h.eq(ns.View.buildHistory(list, { includeGold = false }).rows[1].value, 150)
   h.eq(v.totals.best, 150)
@@ -1364,6 +1371,13 @@ h.test("View.buildMobs adds up a mob over entries, value per loot, empty mobs la
     h.eq(tip:find(part, 1, true) ~= nil, true)
   end
   h.eq(V.buildMobs(entries, { sort = "perLoot" }).rows[1].mobKey, "npc:1")
+  -- Nodes carry a tag; the Mobs switch lists one kind
+  h.eq(byKey["obj:9"].detail:find("^Node") ~= nil, true)
+  h.eq(k.detail:find("Node", 1, true), nil)
+  local nodes = V.buildMobs(entries, { sort = "ah", mobKind = "nodes" })
+  h.eq(#nodes.rows, 1); h.eq(nodes.rows[1].mobKey, "obj:9"); h.eq(nodes.headerInfo, "1 node")
+  local onlyMobs = V.buildMobs(entries, { sort = "ah", mobKind = "mobs" })
+  h.eq(#onlyMobs.rows, 2); h.eq(onlyMobs.headerInfo, "2 mobs")
   h.eq(byKey["npc:2"].value, 0)
   h.eq(v.rows[#v.rows].mobKey, "npc:2") -- nothing dropped: last
   h.eq(v.totals.best, 80)
@@ -1567,6 +1581,18 @@ h.test("View.buildTradeLog: an auction purchase is gold paid out", function()
   h.eq(v.rows[1].name, "Bolt"); h.eq(v.rows[1].value, -400); h.eq(v.rows[1].quantity, 4)
   h.eq(v.rows[1].detail:find("Bought", 1, true) ~= nil, true)
   h.eq(v.rows[1].detail:find("Seller", 1, true) ~= nil, true)
+end)
+
+h.test("View.buildTradeLog / buildTradeItems: footer totals earned, spent and net", function()
+  local v = V.buildTradeLog({
+    { t = 5, kind = "buy", key = 5, id = 5, name = "Bolt", n = 4, gold = 400 },
+    { t = 6, kind = "sale", key = 5, id = 5, name = "Bolt", n = 4, gold = 1000, cut = 50 },
+    { t = 7, kind = "post", key = 5, id = 5, name = "Bolt", n = 1 },
+  }, {})
+  h.eq(v.totals.earned, 950); h.eq(v.totals.spent, 400); h.eq(v.totals.best, 550)
+  local items = V.buildTradeItems({ { name = "Bolt", sold = 4, gold = 950, spent = 400, bought = 4,
+    expired = 0, cancelled = 0, sales = {} } }, {})
+  h.eq(items.totals.earned, 950); h.eq(items.totals.spent, 400); h.eq(items.totals.best, 550)
 end)
 
 h.test("View.buildTradeItems: the hover lists the sales", function()

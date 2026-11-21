@@ -360,9 +360,15 @@ function FilterBar.attach(row, db, onChange, sortAccess)
   bar.quality, bar.minBox, bar.search, bar.sort, bar.underline = quality, minBox, search, sort, underline
   bar.clear = clear
 
-  -- Ledger part: re-sync the widgets from db (never calls onChange).
+  -- Ledger part: re-sync the widgets from db (never calls onChange). A view
+  -- that no filter applies to (view.noFilter: History > Totals) shows only
+  -- the sort.
   local part = {}
-  function part:Update()
+  function part:Update(view)
+    local filters = not (type(view) == "table" and view.noFilter)
+    quality:SetShown(filters)
+    minBox:SetShown(filters)
+    search:SetShown(filters)
     local f = getFilter()
     if not minBox:HasFocus() then
       local text = FilterBar.formatMinGold(f.minValue)
@@ -374,7 +380,7 @@ function FilterBar.attach(row, db, onChange, sortAccess)
     minBox:RefreshHint()
     search:RefreshHint()
     sort:SetText(sortText())
-    local active = FilterBar.isActive(db)
+    local active = filters and FilterBar.isActive(db)
     underline:SetShown(active)
     clear:SetShown(active)
     placeSearch(active)

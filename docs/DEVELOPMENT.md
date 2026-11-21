@@ -32,7 +32,7 @@ only inside functions.
 | File | Job |
 | --- | --- |
 | `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them. Each library is also an `## OptionalDeps` entry (the standalone addon's folder name), so a copy the player installed loads first and LibStub keeps the newest one; `UI/Broker.lua` looks them up through LibStub at login, never from `Libs/` directly |
-| `Util.lua` | shared helpers (number checks, clamp, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
+| `Util.lua` | shared helpers (number checks, clamp, deep copy, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
 | `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key): deDE |
 | `Money.lua` | coin text: letters or coin icons, colored, the "large amounts" style |
 | `Theme.lua` | look and feel: colors, fonts, sizes, textures |
@@ -45,6 +45,7 @@ only inside functions.
 | `Trade.lua` | Trade section, pure: the per-realm store (log, totals, open posts, mail keys), trade kinds, mail recording, statistics, the own sale price |
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
+| `OptionsLook.lua` | Appearance options that set the look: single colors, color presets, skin and its parts |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
 | `View.lua` | the rows and totals a tab shows (Session, Bags, Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
 | `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
@@ -64,7 +65,7 @@ only inside functions.
 | `UI/Minimap.lua`, `UI/Broker.lua` | own minimap button; LibDataBroker source and LibDBIcon button |
 | `UI/ItemTooltip.lua` | drop chances in the game's item tooltips (hooked at login) |
 | `UI/ScanButton.lua` | the AnotherLedger scan button on the auction house window |
-| `UI/TradePeriod.lua` | the Trade tab's 7 days / 30 days / All button (db.tradePeriod) |
+| `UI/RowSwitch.lua` | switches at the right end of the sub-tab row: the Trade tab's 7 days / 30 days / All (`UI.TradePeriod`, db.tradePeriod) and History > Mobs' All / Mobs / Nodes (`UI.MobKind`, db.mobKind) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
 | `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, zone sessions, rate samples; `Core.events` is the event table every Core file adds to; `Core.refreshUI` / `requestRefresh` / `dataChanged` for the other Core files |
@@ -171,7 +172,10 @@ Each of these is one call in one place; the UI never names them.
   `anotherledger` entry is built from `Theme.colors` at load.
   `Theme.applyPreset(id)` sets them in place. The option `colorPreset` comes
   first in Colors, so `Options.applyAll` lays down the palette and the single
-  colors go on top (its `apply` also re-applies the stored single colors);
+  colors go on top (its `apply` also re-applies the stored single colors).
+  `Options.applyAll` applies a single color or skin part that is not saved
+  without storing it (its default follows the preset / skin), and runs inside
+  `Ledger.batch`, so the window redraws once at its end instead of per option;
   picking a preset in the panel writes the single colors. A color option's
   default is its preset's color (`Options.presetColor(id, key)` via
   `Options.defaultFor(key, settings)`); `Options.presetEdited` drives the
@@ -398,8 +402,9 @@ Each of these is one call in one place; the UI never names them.
   difficulty name comes from `GetInstanceInfo`, else
   `GetDifficultyInfo(difficultyID)`, else the last one seen in that instance
   (`Core.placeOf(env, remembered)`), so a loading screen that reports none
-  does not split a dungeon in two. The instance key ("Session per instance")
-  is the instance name alone.
+  does not split a dungeon in two. The instance key ("Session per instance",
+  "Open in instances") is the instance name alone, and only in dungeons and
+  raids (`instanceType` party / raid); the split skips a stopped clock.
 - **Stopped clock**: `Core.recordLoot`, `recordGold` and `recordCurrency`
   ignore events while the clock is stopped and say so once in chat per stop.
   The Mobs record does not depend on the clock (see Mobs).
@@ -433,8 +438,10 @@ Each of these is one call in one place; the UI never names them.
   as copies of the places and mobs it looted (`fresh`). The item rows and
   totals of a closed, saved place or mob are kept per `opts.valueKey`
   (`Ledger.valueKey`: the options and lists that value items, the filter,
-  demo mode and an epoch that moves once per price refresh interval, on item
-  data for a listed item and on `Ledger.valuesChanged()`). Without both keys
+  demo mode and an epoch that moves once per price refresh interval and at
+  the next build after `Ledger.valuesChanged()` (item data for a listed item:
+  a burst of events moves it once). Zones / Mobs keep the saved sessions' item
+  IDs per History key (`itemIDsOf` in `UI/Tabs.lua`). Without both keys
   nothing is cached (tests, CSV export). Only an opened place or mob sorts
   its rows (`collect(items, opts, unsorted)`). `lua tests/bench_zones.lua
   [sessions]` times the views over a made-up History (not part of the run).
@@ -502,10 +509,23 @@ Each of these is one call in one place; the UI never names them.
   `Session.reset`) keeps each goal from being announced twice. `opts.goal`
   (copper) gives `view.goal` / `compact.goal` = `{ value, goal }`: the
   unfiltered total like compact; `Summary.notesText` shows the percent.
+  `opts.goalSeconds` (`goalMinutes` * 60) reaches compact as `goalSeconds`.
+  `View.goalFraction(goal, elapsed, goalSeconds)` (gold goal first, else
+  the minutes goal) sizes the compact bar and the full header's bar
+  (`header:SetGoal`, along the bottom of the title row, Session tab only,
+  updated on every tick).
 - **Notes**: `entry.note` (`History.setNote`: trimmed, one line, at most
   `History.NOTE_MAX` characters, cut on UTF-8 boundaries) follows the start on
   line 1 of the session row and is part of its search text. Entered through
-  `Widgets.prompt` (the shared text popup).
+  `Widgets.prompt` (the shared text popup). `entry.label` (`History.setLabel`,
+  right-click Rename, at most `History.LABEL_MAX`) replaces the main place in
+  line 2 of the row only; `places`, Zones and the CSV keep the real ones. A
+  merge keeps the newer session's label.
+- **Options window height**: `Panel.tabbedHeight(section, columns)` per tab;
+  `tabbed.select` calls `tabbed.onResize`, which re-anchors a CENTER-placed
+  panel by its TOP and sets the height. `db.optionsWindow` = `{ x, top }`
+  (offset of the top edge's middle from the screen's top middle); an older
+  `{ x, y }` (CENTER) still opens there.
 - **Account-wide History**: `AnotherLedgerDB.histories = { ["Name-Realm"] = list
   }`. At login `Core.linkHistory` adopts the character's old
   `AnotherLedgerCharDB.history` into it (`History.adopt`, no duplicates by start)
@@ -671,7 +691,7 @@ Each of these is one call in one place; the UI never names them.
   (halves swapped), OnMouseUp hover or normal. Inputs keep the flat backdrop.
 - **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section in `CoreTrade.lua`,
   the `trade` tab in `UI/Tabs.lua`, `View.buildTradeItems` /
-  `View.buildTradeLog`, `UI/TradePeriod.lua`): per realm key
+  `View.buildTradeLog`, `UI/RowSwitch.lua`): per realm key
   (`Scan.currentRealmKey`), nothing is recorded while it is unknown. A client
   without `GetCurrentRegionName` or `C_GameRules.GetCurrentGameModeRecordID`
   uses `Core.NO_KEY_PART` ("any") for that part of the key instead of

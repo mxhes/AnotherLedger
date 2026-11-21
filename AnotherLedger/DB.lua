@@ -23,9 +23,10 @@ DB.defaults = {
     historyLimit = 50,
     tradeLogDays = 90, -- account-wide: days the Trade log keeps each entry
     mobDataDays = 0, -- account-wide: days History keeps mob data (0 = all of it)
-    -- Minimap button shown (account-wide, like historyLimit, tradeLogDays and accountZones:
-    -- options with `account = true` are stored in AnotherLedgerDB.account; their
-    -- defaults stay here).
+    -- Minimap button shown (account-wide like historyLimit, tradeLogDays,
+    -- mobDataDays and accountZones: options with `account = true` are stored in
+    -- AnotherLedgerDB.account; their defaults stay here. DB.migrateAccount
+    -- moves only the three that existed before that table).
     minimapButton = true,
     lockWindow = false,
     snapToGrid = true,
@@ -157,6 +158,7 @@ DB.defaults = {
   tab = "session", -- last shown tab: session / bags / bank / history
   subtab = {}, -- last shown sub-tab per tab: { history = "sessions" / "zones" }
   tradePeriod = "30", -- the Trade tab's Items period: "7", "30" or "all"
+  mobKind = "all", -- History > Mobs lists "all", only "mobs" or only "nodes"
   -- LibDBIcon's saved state (hide, minimapPos) when that library draws the
   -- minimap button (UI/Broker.lua).
   minimapIcon = {},
@@ -188,12 +190,7 @@ DB.charDefaults = {
   history = {},
 }
 
-local function copy(v)
-  if type(v) ~= "table" then return v end
-  local out = {}
-  for k, x in pairs(v) do out[k] = copy(x) end
-  return out
-end
+local copy = ns.Util.copy
 
 -- Once: the account-wide options and the minimap angle move out of the old
 -- settings table (which profiles replace) to AnotherLedgerDB.account and

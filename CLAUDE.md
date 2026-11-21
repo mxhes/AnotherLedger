@@ -20,7 +20,7 @@ Docs:
 
 - **Pure vs client code.** Files outside `UI/` are plain Lua; every client call is injected or looked up at call time, so tests load them with `h.load({...})`. Files in `UI/` touch WoW globals only **inside functions**, never at file load.
 - **Namespace.** Every file starts `local ADDON, ns = ...` and publishes one table (`ns.Options`, `ns.UI.Window`, ...). State: `ns.db` (`AnotherLedgerDB`, account), `ns.chardb` (`AnotherLedgerCharDB`), `ns.session`, `ns.prices`.
-- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Scan, Trade, Sources/*, Session, Mobs, History, Inventory, Worth, Stats, Options, Profiles, View, ViewZones, ViewTrade, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/ScanButton, UI/TradePeriod, UI/Ledger, Core, CorePrices, CoreLists, CoreHistory, CoreScan, CoreTrade, Boot last. Boot calls `Core.init`, which wires every `Core.events` handler (unknown events are skipped).
+- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Scan, Trade, Sources/*, Session, Mobs, History, Inventory, Worth, Stats, Options, OptionsLook, Profiles, View, ViewZones, ViewTrade, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/ScanButton, UI/TradePeriod, UI/Ledger, Core, CorePrices, CoreLists, CoreHistory, CoreScan, CoreTrade, Boot last. Boot calls `Core.init`, which wires every `Core.events` handler (unknown events are skipped).
 - **Data flow.** `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh` builds a view via the shown tab's `build` (`View.lua`, pure) -> each registered part draws it. Nothing redraws while the window is hidden.
 - **Registries** (add things in one place; UI code never names them): options `Options.define`, price sources `ns.Sources.register`, tabs `ns.UI.Tabs.define`, slash commands `ns.Slash.define`, window parts `ns.UI.Ledger.register`. Details in `docs/DEVELOPMENT.md`.
 - **Items** are keyed by `LootParse.itemKey(link)` (`"<id>:<bonus IDs>"` for variants); `item.id` stays numeric. A row's value is the best of vendor, AH and disenchant (`Prices.best`).
@@ -60,5 +60,6 @@ Docs:
 | Mobs tab, drop chances | `Mobs.lua`, `Core.snapshotLoot`, `View.buildMobs`, `UI/ItemTooltip.lua` |
 | profiles | `Profiles.lua` |
 | options window / minimap | `Options.lua`, `UI/OptionsPanel.lua`, `UI/Minimap.lua` |
+| colors, color presets, skins | `OptionsLook.lua`, `Theme.lua` |
 | data broker / LibDBIcon | `UI/Broker.lua`, `embeds.xml`, `.pkgmeta` |
 | CI / packaging / release | `.gitlab-ci.yml`, `.pkgmeta`, `docs/CHECKLIST.md` (release steps) |

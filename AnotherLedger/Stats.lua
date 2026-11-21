@@ -13,7 +13,7 @@ local num = ns.Util.isNumber
 local floor = math.floor
 
 local function numberSize(v)
-  if v == floor(v) and v > -1e15 and v < 1e15 then return #string.format("%d", v) end
+  if v == floor(v) and v > -1e15 and v < 1e15 then return #string.format("%.0f", v) end
   return 18
 end
 

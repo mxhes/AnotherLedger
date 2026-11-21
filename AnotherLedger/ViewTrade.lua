@@ -37,7 +37,6 @@ local TRADE_KINDS = {
   tsale = L["Trade sale"], tbuy = L["Trade purchase"], trade = L["Trade"],
 }
 
-View.TRADE_PERIODS = { "7", "30", "all" }
 
 local function percent(fraction)
   local p = math.floor(math.abs(fraction) * 100 + 0.5)
@@ -104,6 +103,7 @@ function View.buildTradeItems(stats, opts)
   local filter = opts.filter
   local needle = searchNeedle(filter)
   local rows, sold, expired, cancelled, bought, gold = {}, 0, 0, 0, 0, 0
+  local earned, spent = 0, 0
   for _, s in ipairs(stats or {}) do
     local info = opts.itemInfo and s.id and opts.itemInfo(s.id) or nil
     if type(info) ~= "table" then info = nil end
@@ -133,11 +133,13 @@ function View.buildTradeItems(stats, opts)
       rows[#rows + 1] = row
       sold, expired, cancelled = sold + (s.sold or 0), expired + (s.expired or 0), cancelled + (s.cancelled or 0)
       bought, gold = bought + nBought, gold + net
+      earned, spent = earned + (s.gold or 0), spent + (s.spent or 0)
     end
   end
   table.sort(rows, TRADE_SORTS[opts.sort] or TRADE_SORTS.gold)
   local view = { rows = rows, top = {}, kind = "tradeItems", history = true,
-    totals = { vendor = 0, ah = gold, best = gold, unpriced = 0, filtered = View.isFiltered(filter) },
+    totals = { vendor = 0, ah = gold, best = gold, earned = earned, spent = spent, unpriced = 0,
+      filtered = View.isFiltered(filter) },
     empty = View.emptyText(rows, filter, L_NO_SALES),
     headerInfo = #rows > 0 and (string.format(L_TRADE_HEADER, sold, expired, cancelled)
       .. (bought > 0 and (", " .. string.format(L_BOUGHT_N, bought)) or "")) or nil }
@@ -161,7 +163,7 @@ function View.buildTradeLog(log, opts)
   opts = opts or {}
   local filter = opts.filter
   local needle = searchNeedle(filter)
-  local rows = {}
+  local rows, earned, spent = {}, 0, 0
   for i = #(log or {}), 1, -1 do
     local e = log[i]
     local isTrade = e.kind == "tbuy" or e.kind == "trade"
@@ -183,11 +185,16 @@ function View.buildTradeLog(log, opts)
     row.value = math.abs(gold)
     local shown = tradeVisible(row, filter, needle, not isTrade)
     row.value = gold
-    if shown then rows[#rows + 1] = row end
+    if shown then
+      rows[#rows + 1] = row
+      if gold > 0 then earned = earned + gold else spent = spent - gold end
+    end
   end
   table.sort(rows, TRADE_LOG_SORTS[opts.sort] or TRADE_LOG_SORTS.recent)
+  -- Footer: what the listed entries brought in and paid out.
   local view = { rows = rows, top = {}, kind = "tradeLog", history = true,
-    totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) },
+    totals = { vendor = 0, ah = earned - spent, best = earned - spent, earned = earned, spent = spent, unpriced = 0,
+      filtered = View.isFiltered(filter) },
     empty = View.emptyText(rows, filter, L_NO_TRADES) }
   addGold(view, 0, false)
   return View.applyRates(view, 0)

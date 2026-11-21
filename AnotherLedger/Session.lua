@@ -38,12 +38,18 @@ function Session.new(now)
 end
 
 -- Last drops: { key, qty, at } of the last RECENT_MAX counted loot events,
--- newest first. Not part of History; cleared with the session.
+-- newest first; the same item looted again right after adds to the newest
+-- line (x1 and x1 show as x2). Not part of History; cleared with the session.
 Session.RECENT_MAX = 4
 
 function Session.noteRecent(session, key, qty, now)
   if not (num(key) or type(key) == "string") or not posInt(qty) then return end
   if type(session.recent) ~= "table" then session.recent = {} end
+  local newest = session.recent[1]
+  if type(newest) == "table" and newest.key == key and num(newest.qty) then
+    newest.qty, newest.at = newest.qty + qty, now
+    return
+  end
   table.insert(session.recent, 1, { key = key, qty = qty, at = now })
   for i = #session.recent, Session.RECENT_MAX + 1, -1 do session.recent[i] = nil end
 end
