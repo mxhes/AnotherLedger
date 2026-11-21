@@ -29,7 +29,7 @@ only inside functions.
 | --- | --- |
 | `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them. Each library is also an `## OptionalDeps` entry (the standalone addon's folder name), so a copy the player installed loads first and LibStub keeps the newest one; `UI/Broker.lua` looks them up through LibStub at login, never from `Libs/` directly |
 | `Util.lua` | shared helpers (number checks, clamp, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
-| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key); `Locales/deDE.lua` is German |
+| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key): deDE, frFR, esES (also esMX), itIT, ptBR, ruRU |
 | `Money.lua` | coin text: letters or coin icons, colored, the "large amounts" style |
 | `Theme.lua` | look and feel: colors, fonts, sizes, textures |
 | `Tooltip.lua` | rich tooltips built as data (Daily, History, Zones, options) and rendered with the theme colors |
@@ -797,7 +797,17 @@ anything relying on an unconfirmed client API gets an
 Texts go through `ns.L` (English text as key). A language is one
 `Locales/<locale>.lua` with `ns.Locale.register("<locale>", { ["English"] =
 "translation" })`, listed in the `.toc` after `Locale.lua`.
-`tests/test_locale.lua` fails on a German entry the code no longer uses.
+`esES.lua` registers its table for `esMX` too. `tests/test_locale.lua` fails
+on an entry of any language that the code no longer uses or whose `%s` /
+`%d` placeholders differ from the English text (string.format has no
+positional arguments; only the date format `%Y-%m-%d` may reorder).
+`tests/test_overflow.lua` loads the addon in every language and checks the
+fixed spaces (see "Text fits"). Spaces at either end of a key are part of
+the text (`"Sort: "`, `" items"`): keep them in the translation. The
+languages other than German were written in one go; players' corrections
+are welcome. Korean and Chinese are not there yet: their glyphs are about
+twice as wide (the overflow test already counts them so) and need a check
+of the custom fonts (`fontFace`) in those clients.
 
 ## Packaging
 

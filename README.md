@@ -467,8 +467,12 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   days ago it last saw the item, so its prices carry an age tag from the first
   day on. An AnotherLedger scan price's tag is the time since the item was
   last seen on the auction house.
-- **Languages**: English and German. Loot and money messages are read from the
-  game's own texts, so they work in every client language.
+- **Languages**: English, German, French, Spanish (Spain and Mexico),
+  Italian, Portuguese (Brazil) and Russian, picked from your client's
+  language. Loot and money messages are read from the game's own texts, so
+  they work in every client language (Korean and Chinese clients show the
+  English texts). Slash commands stay in English (`/al watch`, ...). Found a
+  clumsy translation? Open an issue with the better wording.
 - **Install**: unzip the release zip (it holds the libraries) into
   `World of Warcraft/<client>/Interface/AddOns/`, so the `.toc` ends up in
   `Interface/AddOns/AnotherLedger/`. From the source code, copy the

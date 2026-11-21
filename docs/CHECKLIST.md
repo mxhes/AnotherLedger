@@ -20,6 +20,9 @@ against the test fakes):
   off (German: Zurücksetzen); the window can't be made narrower than the
   five tabs need (about 390 px in English, the Trade tab was cut off below
   that); after changing the font size the buttons fit again.
+- Translations frFR, esES / esMX, itIT, ptBR, ruRU: in such a client (or
+  with `GetLocale` faked) the window, options and tooltips show the language
+  and nothing is cut off; ruRU with every option of Font.
 - Price trend (`TSM.trend`, UNVERIFIED): with TSM, an item tooltip shows
   `AnotherLedger price trend +N% vs 60 days` (TSM answers `DBHistorical`);
   without TSM, after scans on two days, `vs earlier days`.

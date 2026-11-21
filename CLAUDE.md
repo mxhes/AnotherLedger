@@ -29,7 +29,7 @@ Docs:
 ## Conventions and gotchas
 
 - **Options**: a default in `DB.defaults.settings`, a short `label` (24 characters at most; a test checks) and a `tooltip` with the details. Validate through `Options.normalize`, read with `Options.get`.
-- **Texts** go through `ns.L` (English text as key; `local L_X = L["Text"]` at file top). Add the German text to `Locales/deDE.lua`; `tests/test_locale.lua` fails on German keys the code no longer uses, so remove the German entry when you change an English text.
+- **Texts** go through `ns.L` (English text as key; `local L_X = L["Text"]` at file top). Add the German text to `Locales/deDE.lua` (frFR, esES, itIT, ptBR, ruRU show English until translated; add them too when you can). `tests/test_locale.lua` fails on keys of any language the code no longer uses or with other `%s` / `%d` placeholders, so remove the entries when you change an English text. `tests/test_overflow.lua` checks that every language fits the header, the option labels (24 glyphs) and the footer columns.
 - Money is always **copper**; format with `ns.Money` (it follows the coin-icon and large-amount options).
 - New `.lua` file: add it to the `.toc` (the wiring test loads from it) and the layout table in `docs/DEVELOPMENT.md`. A new named global frame goes in the `allowed` list of the "no unexpected globals leak" test.
 - History lists change only through `History` functions (or call `History.changed()` after an edit in place): Zones / Mobs / Daily farm cache over `History.version`.
