@@ -283,3 +283,15 @@ h.test("Theme.lineColors: groove has two shades, plain loses the gold, alpha kep
   m = T.lineColors("plain", c, panel)
   h.eq(math.abs(m[1] - m[3]) < math.abs(c[1] - c[3]), true); h.eq(m[4], 0.2)
 end)
+
+h.test("Theme: every addon texture exists on disk", function()
+  local prefix = "Interface\\AddOns\\AnotherLedger\\"
+  for key, path in pairs(T.textures) do
+    if path:sub(1, #prefix) == prefix then
+      local file = "AnotherLedger/" .. path:sub(#prefix + 1):gsub("\\", "/") .. ".tga"
+      local f = io.open(file, "rb")
+      h.eq(f ~= nil, true, key .. " -> " .. file)
+      if f then f:close() end
+    end
+  end
+end)
