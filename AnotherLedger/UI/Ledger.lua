@@ -168,11 +168,12 @@ end
 local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate,
   shortDate = shortDate, isQuest = isQuest }
 
--- The History that Zones reads (every character's with "accountZones").
+-- The History that Zones reads (every character's with "accountZones") and
+-- its change key (History.combine; nil without Core).
 local function zoneHistory()
   local Core = ns.Core
-  if Core and Core.zoneHistory then return (Core.zoneHistory()) end
-  return ns.chardb and ns.chardb.history or {}
+  if Core and Core.zoneHistory then return Core.zoneHistory() end
+  return ns.chardb and ns.chardb.history or {}, nil
 end
 
 local context = { opts = viewOpts, ledger = Ledger, zoneHistory = zoneHistory }
@@ -203,6 +204,39 @@ function Ledger.setSort(key)
   db.sorts[slot] = key
 end
 
+-- How History Zones, Mobs and the Daily farm value items now (ViewZones.lua
+-- keeps the sums of the saved History's places and mobs per key): the options
+-- and lists that value or pick items, the filter, and an epoch that moves on
+-- once per price refresh interval (prices may have changed), when item data
+-- arrives for a listed item (names, qualities) and on Ledger.valuesChanged.
+local valueEpoch = { n = 0, at = 0 }
+
+function Ledger.valuesChanged() valueEpoch.n = valueEpoch.n + 1 end
+
+local function listSig(list)
+  local n, sum = 0, 0
+  for id in pairs(type(list) == "table" and list or {}) do n, sum = n + 1, sum + (tonumber(id) or 0) end
+  return n .. ":" .. sum
+end
+
+local function valueKey(now)
+  if now - valueEpoch.at >= refreshSeconds() then valueEpoch.n, valueEpoch.at = valueEpoch.n + 1, now end
+  local setting = ns.Util.setting
+  local f = type(viewOpts.filter) == "table" and viewOpts.filter or {}
+  local q = {}
+  for i = 0, 7 do q[#q + 1] = type(f.qualities) == "table" and tostring(f.qualities[i]) or "-" end
+  local m = viewOpts.market
+  return table.concat({
+    valueEpoch.n, table.concat(q, ","), tostring(f.minValue), tostring(f.search),
+    listSig(viewOpts.ignored), tostring(viewOpts.hideWorthless), tostring(viewOpts.ahMinGain),
+    tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)), tostring(setting("scanPrice", nil)),
+    tostring(setting("ahCut", nil)), tostring(setting("destroyMode", nil)),
+    m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk) .. "/" .. tostring(m.soldHigh) .. "/"
+      .. tostring(m.soldMedium)) or "-",
+    tostring(ns.Demo and ns.Demo.active and ns.Demo.active() or false),
+  }, "|")
+end
+
 local function currentContext(now)
   local db = ns.db
   viewOpts.now = now
@@ -221,6 +255,9 @@ local function currentContext(now)
   viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
   viewOpts.kept = db and type(db.kept) == "table" and db.kept or nil
   viewOpts.goal = ns.Core and ns.Core.goalCopper and ns.Core.goalCopper() or nil
+  -- Set by the History tabs and the Daily farm for the entries they pass.
+  viewOpts.historyKey = nil
+  viewOpts.valueKey = valueKey(now)
   context.now = now
   context.env = _G
   context.session = ns.session
@@ -274,7 +311,9 @@ local function dailyFarm(now)
   end
   local key = farmKey(listKey, minutes)
   if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
+  viewOpts.historyKey = listKey
   local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)
+  viewOpts.historyKey = nil
   if not ok then
     reportOnce(farm)
     farm = nil
@@ -713,7 +752,10 @@ function Ledger.wantsItemInfo(itemID)
   if not ns.session then return false end
   local hasItem = ns.UI.Tabs.hasItemFn(Ledger.tab, Ledger.subtab)
   if not hasItem then return true end
-  return hasItem(itemID, currentContext(time())) and true or false
+  local wanted = hasItem(itemID, currentContext(time())) and true or false
+  -- Its name or quality may change what the History views count.
+  if wanted then Ledger.valuesChanged() end
+  return wanted
 end
 
 -- ---------------------------------------------------------------------------

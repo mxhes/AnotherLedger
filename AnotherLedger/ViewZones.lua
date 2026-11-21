@@ -249,6 +249,117 @@ local function maxSeen(rows)
   return seen
 end
 
+-- ---------------------------------------------------------------------------
+-- Cache over the saved History, for Zones, Mobs and the Daily farm. Needs
+-- both opts.historyKey (History.combine's key of the entries that are not
+-- `live`) and opts.valueKey (how items are valued now: Ledger.valueKey);
+-- without them nothing is cached (tests, the CSV export). The saved entries
+-- are added up once per History key; the running session's places and mobs
+-- are laid over that as copies each build (marked `fresh`). The sums of an
+-- untouched, closed place or mob (its item rows, unsorted, and their totals)
+-- are kept per value key, so a loot redraw only values what the session
+-- looted. A large History took most of a second per redraw before.
+local cache = { history = false, zones = false, quest = false, mobs = false, sums = {}, nSums = 0 }
+local MAX_VALUATIONS = 4 -- Zones, Mobs and the Daily farm, plus one spare
+
+local function cacheOn(opts)
+  local hk, vk = opts.historyKey, opts.valueKey
+  if type(hk) ~= "string" or type(vk) ~= "string" then return false end
+  if cache.history ~= hk then
+    cache.history, cache.zones, cache.quest, cache.mobs = hk, false, false, false
+    cache.sums, cache.nSums = {}, 0
+  end
+  return true
+end
+
+-- The kept sums of one valuation: { [slot or mob aggregate] = { rows, totals } }.
+local function sumsFor(valueKey)
+  local s = cache.sums[valueKey]
+  if not s then
+    if cache.nSums >= MAX_VALUATIONS then cache.sums, cache.nSums = {}, 0 end
+    s = setmetatable({}, { __mode = "k" })
+    cache.sums[valueKey], cache.nSums = s, cache.nSums + 1
+  end
+  return s
+end
+
+-- collect() of `items`, from `sums` when `owner` (a saved slot or mob) has
+-- them; `open` rows are always made (and sorted) fresh.
+local function sumsOf(sums, owner, items, opts, open)
+  if open or not sums or owner.fresh then return collect(items, opts, not open) end
+  local hit = sums[owner]
+  if not hit then
+    local rows, t = collect(items, opts, true)
+    hit = { rows, t }
+    sums[owner] = hit
+  end
+  return hit[1], hit[2]
+end
+
+local function splitLive(entries)
+  local saved, live = {}, {}
+  for _, e in ipairs(entries) do
+    if type(e) == "table" and e.live then live[#live + 1] = e else saved[#saved + 1] = e end
+  end
+  return saved, live
+end
+
+local function copyItems(items)
+  local out = {}
+  for key, it in pairs(items) do
+    out[key] = { id = it.id, key = it.key, link = it.link, price = it.price, qty = it.qty, lastSeen = it.lastSeen }
+  end
+  return out
+end
+
+local function addItems(dst, items)
+  for key, it in pairs(items) do addZoneItem(dst, it, key, it.qty) end
+end
+
+-- A saved slot plus the running session's (a new table: the saved one stays).
+local function mergeSlot(base, add)
+  local s = { time = base.time + add.time, gold = base.gold + add.gold, items = copyItems(base.items), pos = {},
+    fresh = true }
+  for _, src in ipairs({ base.pos, add.pos }) do
+    for mapID, p in pairs(src) do
+      local d = s.pos[mapID]
+      if not d then d = { x = 0, y = 0, n = 0 }; s.pos[mapID] = d end
+      d.x, d.y, d.n = d.x + p.x, d.y + p.y, d.n + p.n
+    end
+  end
+  addItems(s.items, add.items)
+  return s
+end
+
+-- aggregateZones over `entries`, through the cache when opts allow it.
+local function zonesOf(entries, opts)
+  if not cacheOn(opts) then return aggregateZones(entries, opts.isQuest) end
+  local saved, live = splitLive(entries)
+  if not cache.zones then cache.zones, cache.quest = aggregateZones(saved, opts.isQuest) end
+  if #live == 0 then return cache.zones, cache.quest end
+  local lz, lq = aggregateZones(live, opts.isQuest)
+  local zones = {}
+  for zone, subs in pairs(cache.zones) do
+    local copy = {}
+    for sub, s in pairs(subs) do copy[sub] = s end
+    zones[zone] = copy
+  end
+  for zone, subs in pairs(lz) do
+    local z = zones[zone]
+    if not z then z = {}; zones[zone] = z end
+    for sub, s in pairs(subs) do
+      s.fresh = true
+      z[sub] = z[sub] and mergeSlot(z[sub], s) or s
+    end
+  end
+  local quest = cache.quest
+  if next(lq) then
+    quest = copyItems(cache.quest)
+    addItems(quest, lq)
+  end
+  return zones, quest
+end
+
 -- `entries` = History entries plus, optionally, the running session as
 -- { live = true, items, zones = Session.zoneSnapshot(...), places, gold }.
 -- `open` = { zone, sub }: the opened zone lists its subzones, the opened subzone
@@ -263,7 +374,8 @@ function View.buildZones(entries, opts, open)
   local sort = placeSort(opts.sort)
   local pick = type(opts.dailyPick) == "table" and opts.dailyPick or NO_LOOKUP
   local unpricedNames = {}
-  local zones, quest = aggregateZones(entries, opts.isQuest)
+  local zones, quest = zonesOf(entries, opts)
+  local sums = cacheOn(opts) and sumsFor(opts.valueKey) or nil
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(opts.filter) }
   local goldSum, timeSum = 0, 0
   -- The listed places with recorded time: the footer's rates divide only
@@ -276,12 +388,12 @@ function View.buildZones(entries, opts, open)
       count = 0, timedValue = 0 }
     local subRows, subItems = {}, {}
     for sub, s in pairs(subs) do
-      local items, t = collect(s.items, opts)
-      local gold = withGold and s.gold or 0
-      zp.time, timeSum = zp.time + s.time, timeSum + s.time
       -- The opened subzone stays listed when the filter hides all its items
       -- (the Daily farm click opens it).
       local isOpen = open.zone == zone and open.sub == sub
+      local items, t = sumsOf(sums, s, s.items, opts, isOpen)
+      local gold = withGold and s.gold or 0
+      zp.time, timeSum = zp.time + s.time, timeSum + s.time
       if #items > 0 or gold > 0 or isOpen then
         local sp = { key = "s:" .. zone .. "\1" .. sub, zoneKey = zone, subKey = sub, time = s.time,
           gold = s.gold, value = t.best + gold, vendor = t.vendor, ah = t.ah, count = #items,
@@ -467,19 +579,9 @@ local function mobHint(fig, label, open)
   return tip
 end
 
-function View.buildMobs(entries, opts, openKey)
-  opts = opts or {}
-  if type(entries) ~= "table" then entries = {} end
-  local filter = opts.filter
-  local needle = searchNeedle(filter)
-  local minValue = type(filter) == "table" and num(filter.minValue) and filter.minValue or 0
-  local withGold = opts.includeGold ~= false
-  copyOpts(mobOpts, opts)
-  mobFilter.qualities = type(filter) == "table" and filter.qualities or nil
-  mobOpts.filter = mobFilter
-
-  -- Mobs added up over the entries; their items as Zones items.
-  local all = {}
+-- Adds the mobs of `entries` up into `all` ({ [mob key] = aggregate }); their
+-- items as Zones items.
+local function addMobs(all, entries)
   for _, e in ipairs(entries) do
     if type(e) == "table" and type(e.mobs) == "table" then
       for key, m in pairs(e.mobs) do
@@ -512,12 +614,67 @@ function View.buildMobs(entries, opts, openKey)
       end
     end
   end
+end
+
+local function copyMap(map)
+  if type(map) ~= "table" then return map end
+  local out = {}
+  for k, v in pairs(map) do out[k] = v end
+  return out
+end
+
+-- The mobs of `entries` added up, through the cache when opts allow it: the
+-- mobs the running session looted are copies of the saved ones (`fresh`).
+local function mobsOf(entries, opts)
+  if not cacheOn(opts) then
+    local all = {}
+    addMobs(all, entries)
+    return all
+  end
+  local saved, live = splitLive(entries)
+  if not cache.mobs then
+    cache.mobs = {}
+    addMobs(cache.mobs, saved)
+  end
+  if #live == 0 then return cache.mobs end
+  local all = {}
+  for key, a in pairs(cache.mobs) do all[key] = a end
+  for _, e in ipairs(live) do
+    for key in pairs(type(e.mobs) == "table" and e.mobs or NO_LOOKUP) do
+      local a = all[key]
+      if a and not a.fresh then
+        all[key] = { kind = a.kind, name = a.name, looted = a.looted, gold = a.gold, items = copyItems(a.items),
+          places = copyMap(a.places), seen = a.seen, drops = copyMap(a.drops), fresh = true }
+      end
+    end
+  end
+  addMobs(all, live)
+  -- Mobs only the running session has are new tables too.
+  for key, a in pairs(all) do
+    if cache.mobs[key] ~= a then a.fresh = true end
+  end
+  return all
+end
+
+function View.buildMobs(entries, opts, openKey)
+  opts = opts or {}
+  if type(entries) ~= "table" then entries = {} end
+  local filter = opts.filter
+  local needle = searchNeedle(filter)
+  local minValue = type(filter) == "table" and num(filter.minValue) and filter.minValue or 0
+  local withGold = opts.includeGold ~= false
+  copyOpts(mobOpts, opts)
+  mobFilter.qualities = type(filter) == "table" and filter.qualities or nil
+  mobOpts.filter = mobFilter
+
+  local all = mobsOf(entries, opts)
+  local sums = cacheOn(opts) and sumsFor(opts.valueKey) or nil
 
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) }
   local goldSum = 0
   local mobRows, opened, openedItems = {}, nil, nil
   for key, a in pairs(all) do
-    local items, t = collect(a.items, mobOpts)
+    local items, t = sumsOf(sums, a, a.items, mobOpts, key == openKey)
     for _, r in ipairs(items) do
       local n = a.drops and a.drops[r.key]
       if n then r.dropCount, r.dropSeen = n, a.seen end
@@ -624,12 +781,13 @@ function View.dailyFarm(entries, opts, minSeconds)
   local levelFits = type(opts.levelFits) == "function" and opts.levelFits or nil
 
   local places, rowsOf = {}, {}
-  local zones = aggregateZones(entries, opts.isQuest)
+  local zones = zonesOf(entries, opts)
+  local sums = cacheOn(opts) and sumsFor(opts.valueKey .. "\1farm") or nil
   for zone, subs in pairs(zones) do
     if zone ~= View.UNKNOWN_ZONE then
       for sub, s in pairs(subs) do
         if sub ~= View.NO_TIME_SUB and s.time > 0 and s.time >= minSeconds then
-          local rows, t = collect(s.items, farmOpts)
+          local rows, t = sumsOf(sums, s, s.items, farmOpts, false)
           local value = t.best + (withGold and s.gold or 0)
           local perHour = ns.History.perHour(value, s.time)
           -- A place that earned nothing is never worth going to (and its row

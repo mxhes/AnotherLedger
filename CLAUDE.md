@@ -32,6 +32,7 @@ Docs:
 - **Texts** go through `ns.L` (English text as key; `local L_X = L["Text"]` at file top). Add the German text to `Locales/deDE.lua`; `tests/test_locale.lua` fails on German keys the code no longer uses, so remove the German entry when you change an English text.
 - Money is always **copper**; format with `ns.Money` (it follows the coin-icon and large-amount options).
 - New `.lua` file: add it to the `.toc` (the wiring test loads from it) and the layout table in `docs/DEVELOPMENT.md`. A new named global frame goes in the `allowed` list of the "no unexpected globals leak" test.
+- History lists change only through `History` functions (or call `History.changed()` after an edit in place): Zones / Mobs / Daily farm cache over `History.version`.
 - Tests: `tests/test_*.lua` get the harness as `...` (`h.test`, `h.eq`, `h.near`, `h.load`). `tests/test_wiring.lua` boots the addon from the `.toc` against fake frames and drives real events; add a wiring test for anything that crosses files. Fake frames answer **any unset field with a no-op function**, so initialize optional fields to `false` and check tables with `type(x) == "table"`.
 - An unconfirmed client API gets an `UNVERIFIED (check in client)` comment and a line in `docs/CHECKLIST.md`; say in your report it was not run in the client. Remove both once the user confirms it.
 - Update the docs in the same change: player-visible behavior and option names in `README.md`, internals in `docs/DEVELOPMENT.md`, client checks in `docs/CHECKLIST.md`.

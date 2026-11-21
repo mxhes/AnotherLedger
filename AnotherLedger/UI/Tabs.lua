@@ -223,9 +223,14 @@ end
 
 -- Zones: every saved session (of every character with the option
 -- "accountZones", ctx.zoneHistory) plus the running one (with its open stretch).
+-- The saved part's change key goes to ctx.opts.historyKey (ViewZones.lua caches
+-- over it; nil without one).
 local function zoneEntries(ctx)
   local entries = {}
-  local saved = ctx.zoneHistory and ctx.zoneHistory() or savedHistory(ctx)
+  local saved, key
+  if ctx.zoneHistory then saved, key = ctx.zoneHistory() end
+  if type(saved) ~= "table" then saved, key = savedHistory(ctx), nil end
+  ctx.opts.historyKey = type(key) == "string" and key or nil
   for i, e in ipairs(saved) do entries[i] = e end
   local s = ctx.session
   if type(s) == "table" then

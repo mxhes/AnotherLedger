@@ -2134,6 +2134,7 @@ h.test("wiring: the strip click redraws once and scrolls the place into view", f
   local L = ctx.ns.UI.Ledger
   local zones = ctx.ns.chardb.history[1].zones
   for i = 1, 30 do zones["Zone" .. i] = { subs = { ["Sub" .. i] = { time = 60, gold = 100000, items = {} } } } end
+  ctx.ns.History.changed() -- an edit in place: caches over History must see it
   L.setTab("bags")
   local real, refreshes = L.refresh, 0
   L.refresh = function(...) refreshes = refreshes + 1; return real(...) end
@@ -4346,5 +4347,32 @@ h.test("wiring: a reagent link with a quality icon matches its sale mail by name
   fire(ctx, "MAIL_INBOX_UPDATE")
   local log, b = tradeLog(ctx)
   h.eq(log[1].name, "Ore"); h.eq(log[2].key, 8); h.eq(#b.posts, 0)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Zones keeps the saved History's sums and adds new loot and resets", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, ns = ctx.ns.UI.Ledger, ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset") -- one saved session
+  L.setTab("history")
+  L.setSubtab("zones")
+  L.refresh()
+  local saved = L.view.totals.best
+  h.eq(saved > 0, true)
+  h.eq(type(L.view.rows[1]), "table")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- the running session adds to it
+  L.refresh()
+  h.eq(L.view.totals.best, 2 * saved)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  L.refresh()
+  h.eq(L.view.totals.best, 3 * saved)
+  slash(ctx, "reset") -- saved now: three times the loot, nothing running
+  L.refresh()
+  h.eq(L.view.totals.best, 3 * saved)
+  ns.Core.deleteHistory(1)
+  L.refresh()
+  h.eq(L.view.totals.best, saved)
   h.eq(ctx.errors, {})
 end)

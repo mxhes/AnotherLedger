@@ -337,7 +337,9 @@ local function ignoredSet(opts)
   return type(opts.ignored) == "table" and opts.ignored or NO_LOOKUP
 end
 
-local function collect(items, opts)
+-- `unsorted`: the rows are only added up (a collapsed place or mob), so the
+-- sort is skipped; most of the time of a large History went there.
+local function collect(items, opts, unsorted)
   local filter = opts.filter
   local needle = searchNeedle(filter)
   local ignored = ignoredSet(opts)
@@ -365,8 +367,10 @@ local function collect(items, opts)
       end
     end
   end
-  local order = opts.sort ~= "perHour" and SORTS[opts.sort] or SORTS.ah
-  table.sort(rows, opts.unpricedFirst and unpricedFirst(order) or order)
+  if not unsorted then
+    local order = opts.sort ~= "perHour" and SORTS[opts.sort] or SORTS.ah
+    table.sort(rows, opts.unpricedFirst and unpricedFirst(order) or order)
+  end
 
   return rows, { vendor = vendor, ah = ah, best = best, unpriced = unpriced,
     unpricedNames = unpriced > 0 and unpricedNames or nil, filtered = View.isFiltered(filter) }

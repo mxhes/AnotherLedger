@@ -866,6 +866,7 @@ function Core.mergeHistory(index)
   if not merged then return nil end
   list[index] = merged
   table.remove(list, index + 1)
+  ns.History.changed()
   undoStack[#undoStack + 1] = { restore = { newer, older }, drop = merged }
   say(L["sessions merged. /al undo splits them again."])
   return merged

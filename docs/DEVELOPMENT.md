@@ -370,6 +370,20 @@ Each of these is one call in one place; the UI never names them.
   Ledger caches the pick until History, its options (including the price
   source and TSM price) or the price interval change. `DailyFarm.wire(button)`
   gives the strip and the compact line the same clicks, hover and drag.
+- **History cache** (`ViewZones.lua`): Zones, Mobs and the Daily farm add
+  up the saved History once per `opts.historyKey` (`History.combine`'s key,
+  which ends in `History.version`: every change through `History.add`,
+  `prune`, `remove`, `clear`, `restore`, `adopt` or `History.changed()`
+  counts it up, so code that edits a list in place must call
+  `History.changed()`). The running session (`live` entry) is laid over that
+  as copies of the places and mobs it looted (`fresh`). The item rows and
+  totals of a closed, saved place or mob are kept per `opts.valueKey`
+  (`Ledger.valueKey`: the options and lists that value items, the filter,
+  demo mode and an epoch that moves once per price refresh interval, on item
+  data for a listed item and on `Ledger.valuesChanged()`). Without both keys
+  nothing is cached (tests, CSV export). Only an opened place or mob sorts
+  its rows (`collect(items, opts, unsorted)`). `lua tests/bench_zones.lua
+  [sessions]` times the views over a made-up History (not part of the run).
 - **History prices**: an entry keeps the unit prices its totals were made of
   (`items[key].price`, archive time, loot time as fallback). An opened session
   lists its items at those (`opts.savedPrices`), so they add up to its row;
