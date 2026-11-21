@@ -1,5 +1,29 @@
 # AnotherLedger
 
+## v0.5.0
+
+- Watch list: right-click an item and pick "Watch this item", or type
+  `/al watch` with an item link, an item ID or part of a name
+  (`/al watch Pattern:`). Looting it plays the raid warning sound and shows a
+  line in the middle of the screen. `/al unwatch` and the option Watched items
+  take entries off.
+- Price trend in item tooltips: with TSM the market value against its 60 day
+  average, else your own scan's newest day against the days before (option
+  Price trend in tooltips).
+- Net worth now counts your bank (as of its last visit) and ignores the
+  filter. With more than one character, the Bags footer adds All characters,
+  and `/al worth` lists every character's net worth.
+- New languages: French, Spanish, Italian, Portuguese (Brazil) and Russian.
+  Corrections to the wording are welcome.
+- Buttons grow to fit their text in every language, and the window can't be
+  made so narrow that the Trade tab is cut off.
+- `/al stats` shows how much of the saved files each part takes; the option
+  Mob data kept trims old mob data.
+- The footer says "without AH price" and tells why in its tooltip; option
+  Hide Vendor tags; free bag slots turn orange (5 or fewer) and red (2 or
+  fewer); trade purchases show with a minus sign.
+- History Zones, Mobs and the Daily farm are much faster with a long History.
+
 ## v0.4.3
 
 - Looting in dungeons or in combat no longer raises a "secret string value"
