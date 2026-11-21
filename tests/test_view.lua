@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua" })
 local function tipText(row) return ns.Tooltip.text(row.hint) end
 local V = ns.View
 

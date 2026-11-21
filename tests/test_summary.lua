@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "View.lua", "UI/Summary.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua", "UI/Summary.lua" })
 local S = ns.UI.Summary
 local M = ns.Money
 

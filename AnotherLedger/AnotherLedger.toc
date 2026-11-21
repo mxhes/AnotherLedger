@@ -36,6 +36,8 @@ Inventory.lua
 Options.lua
 Profiles.lua
 View.lua
+ViewZones.lua
+ViewTrade.lua
 Waypoint.lua
 Slash.lua
 Demo.lua
@@ -59,3 +61,6 @@ UI\ScanButton.lua
 UI\TradePeriod.lua
 UI\Ledger.lua
 Core.lua
+CoreScan.lua
+CoreTrade.lua
+Boot.lua

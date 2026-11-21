@@ -19,7 +19,7 @@ Docs:
 
 - **Pure vs client code.** Files outside `UI/` are plain Lua; every client call is injected or looked up at call time, so tests load them with `h.load({...})`. Files in `UI/` touch WoW globals only **inside functions**, never at file load.
 - **Namespace.** Every file starts `local ADDON, ns = ...` and publishes one table (`ns.Options`, `ns.UI.Window`, ...). State: `ns.db` (`AnotherLedgerDB`, account), `ns.chardb` (`AnotherLedgerCharDB`), `ns.session`, `ns.prices`.
-- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Scan, Trade, Sources/*, Session, Mobs, History, Inventory, Options, Profiles, View, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/ScanButton, UI/TradePeriod, UI/Ledger, Core last. Core wires events at login (unknown events are skipped).
+- **Load order** (the `.toc`): embeds.xml, Util, Locale, Locales/*, Money, Theme, Tooltip, DB, LootParse, Prices, Scan, Trade, Sources/*, Session, Mobs, History, Inventory, Options, Profiles, View, ViewZones, ViewTrade, Waypoint, Slash, Demo, UI/Fonts, UI/Widgets ... UI/ItemTooltip, UI/ScanButton, UI/TradePeriod, UI/Ledger, Core, CoreScan, CoreTrade, Boot last. Boot calls `Core.init`, which wires every `Core.events` handler (unknown events are skipped).
 - **Data flow.** `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh` builds a view via the shown tab's `build` (`View.lua`, pure) -> each registered part draws it. Nothing redraws while the window is hidden.
 - **Registries** (add things in one place; UI code never names them): options `Options.define`, price sources `ns.Sources.register`, tabs `ns.UI.Tabs.define`, slash commands `ns.Slash.define`, window parts `ns.UI.Ledger.register`. Details in `docs/DEVELOPMENT.md`.
 - **Items** are keyed by `LootParse.itemKey(link)` (`"<id>:<bonus IDs>"` for variants); `item.id` stays numeric. A row's value is the best of vendor, AH and disenchant (`Prices.best`).
@@ -44,7 +44,7 @@ Docs:
 | a new setting | `Options.lua`, `DB.lua`, then the code that reads it via `Options.get` |
 | prices wrong / missing | `Prices.lua`, `Sources/`, `Core.buildPrices` |
 | loot or gold not captured | `LootParse.lua`, `Core.lua` (`CHAT_MSG_LOOT`, `CHAT_MSG_MONEY`) |
-| what a tab shows | `UI/Tabs.lua`, `View.lua` |
+| what a tab shows | `UI/Tabs.lua`, `View.lua` (Zones / Mobs / Daily: `ViewZones.lua`, Trade: `ViewTrade.lua`) |
 | window layout / sizes | `Theme.lua` (`sizes`), `UI/Window.lua`, `UI/Summary.lua`, `UI/Rows.lua` |
 | compact layout, header | `UI/Compact.lua`, `UI/Header.lua`, `View.buildCompact` |
 | Daily farm, waypoints | `View.dailyFarm`, `UI/DailyFarm.lua`, `Waypoint.lua` |
@@ -52,8 +52,8 @@ Docs:
 | fonts | `UI/Fonts.lua`, `Theme.fonts` |
 | translations | `Locale.lua`, `Locales/` |
 | History, Zones, CSV export | `History.lua`, `View.buildHistory`, `UI/Export.lua` |
-| own AH scan | `Scan.lua`, `Sources/Scan.lua`, `Core.lua` (scan section), `UI/ScanButton.lua` |
-| Trade tab, sales | `Trade.lua`, `Sources/Sales.lua`, `Core.lua` (trade section), `View.buildTradeItems` / `buildTradeLog` |
+| own AH scan | `Scan.lua`, `Sources/Scan.lua`, `CoreScan.lua`, `UI/ScanButton.lua` |
+| Trade tab, sales | `Trade.lua`, `Sources/Sales.lua`, `CoreTrade.lua`, `ViewTrade.lua` (`View.buildTradeItems` / `buildTradeLog`) |
 | Mobs tab, drop chances | `Mobs.lua`, `Core.snapshotLoot`, `View.buildMobs`, `UI/ItemTooltip.lua` |
 | profiles | `Profiles.lua` |
 | options window / minimap | `Options.lua`, `UI/OptionsPanel.lua`, `UI/Minimap.lua` |

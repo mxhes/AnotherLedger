@@ -42,7 +42,9 @@ only inside functions.
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
-| `View.lua` | the rows and totals a tab shows, History Zones, the Daily farm pick, the compact view |
+| `View.lua` | the rows and totals a tab shows (Session, Bags, Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
+| `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
+| `ViewTrade.lua` | the Trade tab's Items and Log views |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
 | `Slash.lua`, `Demo.lua` | slash commands, `/al demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
@@ -59,7 +61,10 @@ only inside functions.
 | `UI/TradePeriod.lua` | the Trade tab's 7 days / 30 days / All button (db.tradePeriod) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
-| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
+| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo; `Core.events` is the event table every Core file adds to |
+| `CoreScan.lua` | Core's AnotherLedger scan section: `/al scan`, the full read, the passive search results, the reminder |
+| `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
+| `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
 | `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
@@ -568,7 +573,7 @@ Each of these is one call in one place; the UI never names them.
   the preset's button edge color. Hover lightens both halves
   (`BUTTON_HOVER`) and uses the hover edge; OnMouseDown paints "pressed"
   (halves swapped), OnMouseUp hover or normal. Inputs keep the flat backdrop.
-- **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section,
+- **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section in `CoreTrade.lua`,
   the `trade` tab in `UI/Tabs.lua`, `View.buildTradeItems` /
   `View.buildTradeLog`, `UI/TradePeriod.lua`): per realm key
   (`Scan.currentRealmKey`), nothing is recorded while it is unknown. A client
@@ -611,7 +616,7 @@ Each of these is one call in one place; the UI never names them.
     `Trade.salePrice` the Own sales price (gold before the cut per unit,
     age of the newest sale) from an index built once per log change (not
     saved), which also answers `Trade.hasItemID`. Core signals `dataChanged("trade")`.
-- **AnotherLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
+- **AnotherLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section in `CoreScan.lua`,
   `UI/ScanButton.lua`): whenever the client has
   `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`), also next to TSM
   and Auctionator (Auto asks them first, so the scan answers what they lack).
