@@ -1,5 +1,14 @@
 # AnotherLedger
 
+## v0.6.0
+
+- Auction house purchases in the Trade tab: the Log shows what you
+  bought, Items shows the gold left after costs.
+- History > Totals: your sessions added up per week and month.
+- Compact: optional item icons before the last drops; the quantity is
+  dimmer so names stand out.
+- Languages: English and German only (the others were dropped).
+
 ## v0.5.0
 
 - Watch list: `/al watch` or right-click an item; a sound and a
