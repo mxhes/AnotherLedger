@@ -275,6 +275,14 @@ Each of these is one call in one place; the UI never names them.
   `Ledger.mobOpen` is the opened mob. A mob row's `hint` builds its tooltip on
   hover (looted, value, gold, per loot, its top 3 places, its best drops). The
   view has no rates, so the footer shows no per hour column.
+- **Price trend** (`itemTooltipTrend`, `UI/ItemTooltip.lua`): `Core.priceTrend`
+  asks `TSM.trend` (DBMarket against DBHistorical) first, else
+  `Scan.trendOf` on this realm's scan bucket: the newest day's value (`m` /
+  `l` by the Scan price option) against the weighted average of the days
+  before (`am` / `al`), only while the newest is at most
+  `Scan.TREND_MAX_AGE` (3 days) old. `ItemTooltip.trendLine` words and colors
+  it (`TREND_COLOR_FROM`, 5%: `marketGood` / `marketBad`). The ledger rows
+  show the game's item tooltip, so they get the line from the same hook.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its

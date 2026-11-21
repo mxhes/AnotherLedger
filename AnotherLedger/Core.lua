@@ -281,6 +281,26 @@ function Core.destroyAllowed(env, db, mode, itemID, link)
   return ns.Prices.destroyAllowed(mode, kind, own, all)
 end
 
+-- The price trend of an item (the item tooltips): TSM's market value against
+-- its 60 day average when TSM answers, else the newest day of this realm's
+-- AnotherLedger scan against the days before. Returns change (a fraction,
+-- +0.12 = 12% up) and source ("tsm" / "scan"), or nil.
+function Core.priceTrend(env, db, itemID, link, now)
+  local TSM = ns.Sources and ns.Sources.TSM
+  if TSM and TSM.trend then
+    local ok, change = pcall(TSM.trend, env, itemID, link)
+    if ok and change then return change, "tsm" end
+  end
+  local Scan = ns.Scan
+  local bucket = Scan and Scan.currentRealmKey and Scan.bucket(db, Scan.currentRealmKey())
+  if bucket then
+    local kind = ns.Util.setting("scanPrice", "market") == "lowest" and "lowest" or "market"
+    local change = Scan.trendOf(bucket.items, itemID, link, kind, now)
+    if change then return change, "scan" end
+  end
+  return nil
+end
+
 -- Price lookup that never errors: nil before login is done or when a source
 -- fails. `link` (optional) prices the exact item variant.
 function Core.lookupPrice(itemID, link)

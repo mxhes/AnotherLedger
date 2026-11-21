@@ -249,3 +249,16 @@ h.test("ScanButton text: ready, reading, waiting", function()
   h.eq(T({ running = false, fraction = 1, waitLeft = 760 }), "AnotherLedger scan 12:40")
   h.eq(T({ running = false, fraction = 1, waitLeft = 5 }), "AnotherLedger scan 0:05")
 end)
+
+h.test("Scan.trend: the newest day against the days before, only while current", function()
+  local items = {}
+  local DAY = ns.Scan.DAY
+  ns.Scan.record(items, 5, 1000, 800, 10 * DAY)
+  h.eq(ns.Scan.trend(items, 5, "market", 10 * DAY), nil) -- one day: no trend
+  ns.Scan.record(items, 5, 1200, 600, 11 * DAY)
+  h.near(ns.Scan.trend(items, 5, "market", 11 * DAY), 0.2)
+  h.near(ns.Scan.trend(items, 5, "lowest", 11 * DAY), -0.25)
+  h.eq(ns.Scan.trend(items, 5, "market", 11 * DAY + ns.Scan.TREND_MAX_AGE + 1), nil)
+  h.eq(ns.Scan.trend(items, 6, "market", 11 * DAY), nil)
+  h.near(ns.Scan.trendOf(items, 5, nil, "market", 11 * DAY), 0.2)
+end)

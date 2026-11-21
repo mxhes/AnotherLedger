@@ -276,6 +276,13 @@ Auctionator:
   no price for (or for everything, if you pick **AnotherLedger scan** as the
   AH price source).
 
+**Price trend**: every item tooltip in the game (and the rows of the ledger)
+shows how the item's price moves, e.g. `AnotherLedger price trend +12% vs 60
+days`: with TSM its market value against its 60 day average, else the newest
+day of your own scans against the days before (it needs two days with a
+scan, the newer one at most three days old). Rises of 5% or more show green,
+drops red. **Price trend in tooltips** turns it off.
+
 The order of auction prices is TSM, then Auctionator, then AnotherLedger scan,
 then your own sales (Trade tab), then the last price seen earlier. If the
 **AH price source** names an addon that isn't loaded, it shows as
@@ -296,7 +303,7 @@ History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |

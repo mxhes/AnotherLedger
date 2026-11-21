@@ -31,19 +31,57 @@ function ItemTooltip.index()
   return cache.index
 end
 
--- Adds the lines for the item with `link` to `tooltip`. Returns whether it did.
+local L = ns.L
+local L_TREND = L["AnotherLedger price trend"]
+local L_TREND_TSM = L["%s vs 60 days"]
+local L_TREND_SCAN = L["%s vs earlier days"]
+
+-- A change of this fraction or more is colored (up green, down red).
+ItemTooltip.TREND_COLOR_FROM = 0.05
+
+-- Pure. The trend line for `change` (a fraction, +0.12 = 12% up) from
+-- `source` ("tsm" or "scan"): left text, right text, Theme.colors key.
+function ItemTooltip.trendLine(change, source)
+  local pct = math.floor(math.abs(change) * 100 + 0.5)
+  local sign = pct == 0 and "" or (change > 0 and "+" or "-")
+  local text = string.format(source == "tsm" and L_TREND_TSM or L_TREND_SCAN, sign .. pct .. "%")
+  local color = "tipValue"
+  if change >= ItemTooltip.TREND_COLOR_FROM then
+    color = "marketGood"
+  elseif change <= -ItemTooltip.TREND_COLOR_FROM then
+    color = "marketBad"
+  end
+  return L_TREND, text, color
+end
+
+local function option(key)
+  return ns.db and ns.Options and ns.Options.get(ns.db, key) and true or false
+end
+
+-- Adds the lines for the item with `link` to `tooltip`: the price trend
+-- (option "itemTooltipTrend") and the drop chances (option
+-- "itemTooltipDrops"). Returns whether it added any.
 function ItemTooltip.add(tooltip, link)
-  if not (ns.db and ns.Options and ns.Options.get(ns.db, "itemTooltipDrops")) then return false end
+  if not (ns.db and ns.Options) then return false end
   if type(tooltip) ~= "table" or type(tooltip.AddLine) ~= "function" then return false end
   local id = ns.LootParse.itemID(link)
   if not id then return false end
   local ignored = type(ns.db.ignored) == "table" and ns.db.ignored or {}
   if ignored[id] then return false end
-  local lines = ns.View.dropTooltipLines(ItemTooltip.index(), id)
-  if not lines then return false end
+  local change, source
+  if option("itemTooltipTrend") and ns.Core and ns.Core.priceTrend then
+    change, source = ns.Core.priceTrend(_G, ns.db, id, link, time())
+  end
+  local lines = option("itemTooltipDrops") and ns.View.dropTooltipLines(ItemTooltip.index(), id) or nil
+  if not (change or lines) then return false end
   local C = ns.Theme.colors
   tooltip:AddLine(" ")
-  for _, l in ipairs(lines) do
+  if change then
+    local left, right, color = ItemTooltip.trendLine(change, source)
+    local c = C[color] or C.tipValue
+    tooltip:AddDoubleLine(left, right, C.tipLabel[1], C.tipLabel[2], C.tipLabel[3], c[1], c[2], c[3])
+  end
+  for _, l in ipairs(lines or {}) do
     if l.heading then
       tooltip:AddLine(l.left, C.tipSection[1], C.tipSection[2], C.tipSection[3])
     elseif l.more then

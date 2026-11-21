@@ -709,6 +709,11 @@ Options.define({
   tooltip = L["Adds to every item tooltip which mobs and nodes drop it and how often (History > Mobs data: the sessions Zones counts and the running one)."],
 })
 
+Options.define({
+  key = "itemTooltipTrend", category = "display", type = "checkbox", label = L["Price trend in tooltips"],
+  tooltip = L["Adds the price trend to every item tooltip: with TSM its market value against its 60 day average, else the newest day of your own auction house scan against the days before."],
+})
+
 -- Daily farm strip at the top of the window (View.dailyFarm): the saved place
 -- with the best gold per hour; only places with this much recorded time count.
 Options.define({

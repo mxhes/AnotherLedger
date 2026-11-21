@@ -4422,3 +4422,39 @@ h.test("wiring: Hide Vendor tags blanks only the Vendor tag", function()
   h.eq(R.rowText(ahRow).hideTag, false)
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: item tooltips show the price trend from TSM, else from the scan", function()
+  local ctx = boot()
+  local onItem
+  ctx.env.Enum = { TooltipDataType = { Item = 0 } }
+  ctx.env.TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
+    if kind == 0 then onItem = fn end
+  end }
+  local tsm = { DBMarket = 1120, DBHistorical = 1000 }
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src) return tsm[src] end }
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local function tooltipFor(link)
+    local tip = { lines = {} }
+    function tip:GetItem() return "Linen Cloth", link end
+    function tip:AddLine(t) self.lines[#self.lines + 1] = t end
+    function tip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = l .. " = " .. r end
+    function tip:Show() end
+    onItem(tip)
+    return table.concat(tip.lines, "\n")
+  end
+  h.eq(tooltipFor(LINK):find("AnotherLedger price trend = +12% vs 60 days", 1, true) ~= nil, true)
+  -- Without TSM: the scan's newest day against the one before.
+  ctx.env.TSM_API = nil
+  h.eq(tooltipFor(LINK), "")
+  local bucket = ns.Scan.bucket(ns.db, ns.Scan.currentRealmKey(), true)
+  h.eq(type(bucket), "table")
+  ctx.now = 20 * 86400
+  ns.Scan.record(bucket.items, 2589, 1000, 900, ctx.now - 86400)
+  ns.Scan.record(bucket.items, 2589, 900, 900, ctx.now)
+  h.eq(tooltipFor(LINK):find("AnotherLedger price trend = -10% vs earlier days", 1, true) ~= nil, true)
+  ns.Options.set(ns.db, "itemTooltipTrend", false)
+  h.eq(tooltipFor(LINK), "")
+  h.eq(ctx.errors, {})
+end)

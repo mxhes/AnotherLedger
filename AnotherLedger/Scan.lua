@@ -134,6 +134,33 @@ function Scan.price(items, key, kind, now)
   return math.floor(value), math.max(0, now - e.t)
 end
 
+-- Price trend: how the newest day's price of `key` compares with the average
+-- of the days before, as a fraction (+0.12 = 12% up), or nil without an
+-- earlier day or when the newest is older than TREND_MAX_AGE (no current
+-- trend).
+Scan.TREND_MAX_AGE = 3 * 86400
+
+function Scan.trend(items, key, kind, now)
+  if type(items) ~= "table" then return nil end
+  local e = Scan.unpack(items[key])
+  if not (e and e.am) or now - e.t > Scan.TREND_MAX_AGE then return nil end
+  local today, before = e.m, e.am
+  if kind == "lowest" then today, before = e.l, e.al end
+  if not (before and before > 0) then return nil end
+  return (today - before) / before
+end
+
+-- Scan.trend of an item by its link's key, else its item ID (like lookup).
+function Scan.trendOf(items, itemID, link, kind, now)
+  if type(items) ~= "table" or itemID == Scan.PET_CAGE then return nil end
+  local key = ns.LootParse and type(link) == "string" and ns.LootParse.itemKey(link) or nil
+  if key ~= nil then
+    local v = Scan.trend(items, key, kind, now)
+    if v then return v end
+  end
+  return Scan.trend(items, itemID, kind, now)
+end
+
 -- Drops unreadable and too old entries; returns how many.
 function Scan.prune(items, now)
   if type(items) ~= "table" then return 0 end
