@@ -15,6 +15,7 @@ embeds.xml
 Util.lua
 Locale.lua
 Locales\deDE.lua
+Locales\frFR.lua
 Money.lua
 Theme.lua
 Tooltip.lua

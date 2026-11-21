@@ -14,8 +14,9 @@ h.test("Locale.register only takes the client language", function()
   h.eq(ns.L["x"], "x")
 end)
 
--- Every German entry translates a text the addon really uses.
-h.test("Locale: deDE has no keys the code does not use", function()
+-- Every entry of every language translates a text the addon really uses,
+-- with the same %s / %d placeholders in the same order (string.format).
+h.test("Locale: no language has keys the code does not use or other placeholders", function()
   local used = {}
   local isWindows = package.config:sub(1, 1) == "\\"
   local cmd = isWindows and "dir /s /b AnotherLedger\\*.lua" or "find AnotherLedger -name '*.lua'"
@@ -31,13 +32,32 @@ h.test("Locale: deDE has no keys the code does not use", function()
     end
   end
   pipe:close()
-  local captured
-  local fake = { Locale = { register = function(_, strings) captured = strings end } }
-  assert(loadfile("AnotherLedger/Locales/deDE.lua"))("AnotherLedger", fake)
-  local unknown = {}
-  for key in pairs(captured) do
-    if not used[key] then unknown[#unknown + 1] = key end
+  local function placeholders(s)
+    local out = {}
+    for p in s:gmatch("%%[-%d.]*[%a%%]") do out[#out + 1] = p end
+    return table.concat(out, " ")
+  end
+  local files = {}
+  local list = assert(io.popen(isWindows and "dir /b AnotherLedger\\Locales\\*.lua" or "ls AnotherLedger/Locales"))
+  for name in list:lines() do
+    name = name:gsub("\r", "")
+    if name:match("%.lua$") then files[#files + 1] = name end
+  end
+  list:close()
+  h.eq(#files >= 2, true)
+  local unknown, wrong = {}, {}
+  for _, name in ipairs(files) do
+    local captured
+    local fake = { Locale = { register = function(_, strings) captured = strings end } }
+    assert(loadfile("AnotherLedger/Locales/" .. name))("AnotherLedger", fake)
+    for key, text in pairs(captured) do
+      if not used[key] then unknown[#unknown + 1] = name .. ": " .. key end
+      -- the date format may reorder its fields (os.date, not string.format)
+      if key ~= "%Y-%m-%d" and placeholders(key) ~= placeholders(text) then wrong[#wrong + 1] = name .. ": " .. key end
+    end
   end
   table.sort(unknown)
+  table.sort(wrong)
   h.eq(unknown, {})
+  h.eq(wrong, {})
 end)
