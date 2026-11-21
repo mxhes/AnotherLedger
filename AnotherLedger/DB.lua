@@ -115,6 +115,14 @@ DB.defaults = {
     -- Colors ("rrggbb", Options COLOR_OPTIONS): text, titles / totals, hints,
     -- the Vendor / Auction / Destroy sources, tooltip labels, window background
     -- and border, button fill. They match Theme.colors.
+    -- Skin (Theme.skins) and its parts; the parts' defaults are Classic's
+    -- (Options.defaultFor gives the chosen skin's part).
+    skin = "classic",
+    skinBorder = "round",
+    skinBackground = "flat",
+    skinButtons = "bronze",
+    skinLines = "gold",
+    skinListBox = false,
     colorPreset = "anotherledger",
     colorText = "ffffff",
     colorTitles = "ffd100",

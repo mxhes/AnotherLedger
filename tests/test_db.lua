@@ -15,6 +15,8 @@ h.test("DB.defaults shape", function()
     zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true,
     goalGold = 0, goalMinutes = 0, unitPrice = false, hideVendorTag = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, scanPrice = "market", scanReminder = true, soldHigh = 100, soldMedium = 10,
+    skin = "classic", skinBorder = "round", skinBackground = "flat", skinButtons = "bronze", skinLines = "gold",
+    skinListBox = false,
     colorPreset = "anotherledger", colorText = "ffffff", colorTitles = "ffd100", colorHints = "ada18c", colorVendor = "eddeb8",
     colorAuction = "80d1ff", colorDestroy = "b3b3b3", colorTipLabels = "ccbd9e", colorBackground = "261a0f",
     colorBorder = "8c6b3d", colorButtons = "1a120a" })

@@ -113,6 +113,13 @@ end
 -- preset `settings.colorPreset` (default: the active settings, ns.db), so
 -- right-click "default" and the export compare against the chosen preset.
 function Options.defaultFor(key, settings)
+  local part = Options.skinTargets and Options.skinTargets[key]
+  if part then
+    if type(settings) ~= "table" then settings = ns.db and ns.db.settings end
+    local T = ns.Theme
+    local skin = T.skin(type(settings) == "table" and settings.skin or nil) or T.skins[1]
+    return skin[part]
+  end
   if Options.colorTargets and Options.colorTargets[key] then
     if type(settings) ~= "table" then settings = ns.db and ns.db.settings end
     local hex = Options.presetColor(type(settings) == "table" and settings.colorPreset or nil, key)
@@ -1239,6 +1246,97 @@ function Options.deleteColorPreset(id)
   end
   table.remove(ns.db.colorPresets, index)
   return true
+end
+
+-- ---------------------------------------------------------------------------
+-- Skins (category "look", before the colors): the shape of the border,
+-- background, buttons and lines (Theme.skins). A skin writes its five parts
+-- when picked; each part sets Theme.style and redraws (Widgets.applySkin).
+-- Skins never change colors.
+
+-- option key, Theme.style part
+Options.SKIN_PARTS = {
+  { "skinBorder", "border" }, { "skinBackground", "background" }, { "skinButtons", "buttons" },
+  { "skinLines", "lines" }, { "skinListBox", "listBox" },
+}
+Options.skinTargets = {}
+for _, p in ipairs(Options.SKIN_PARTS) do Options.skinTargets[p[1]] = p[2] end
+
+local SKIN_LABELS = { classic = L["Classic"], forge = L["Forge"], slate = L["Slate"], gilded = L["Gilded"] }
+local STYLE_LABELS = {
+  round = L["Round"], bevel = L["Bevel"], thin = L["Thin"], gilded = L["Gilded"],
+  flat = L["Flat"], grain = L["Grain"], leather = L["Leather"],
+  bronze = L["Bronze"], raised = L["Raised"],
+  gold = L["Gold"], groove = L["Groove"], plain = L["Plain"], dotted = L["Dotted"],
+}
+
+-- Any part differs from the skin `settings.skin`.
+function Options.skinEdited(settings)
+  if type(settings) ~= "table" then return false end
+  for _, p in ipairs(Options.SKIN_PARTS) do
+    local spec = Options.byKey[p[1]]
+    if spec and Options.normalize(spec, settings[p[1]]) ~= Options.defaultFor(p[1], settings) then return true end
+  end
+  return false
+end
+
+local function applySkin()
+  local W = ns.UI and ns.UI.Widgets
+  if W and W.applySkin then W.applySkin() end
+end
+
+Options.define({
+  key = "skin", category = "look", type = "dropdown", label = L["Skin"],
+  tooltip = L["Sets the border, background, buttons, lines and list box at once. Colors stay as they are. You can change single parts afterwards."],
+  choices = function()
+    local out = {}
+    for _, s in ipairs(ns.Theme.skins) do out[#out + 1] = { value = s.id, label = SKIN_LABELS[s.id] or s.label } end
+    return out
+  end,
+  format = function(v)
+    local s = ns.Theme.skin(v)
+    local text = s and (SKIN_LABELS[s.id] or s.label) or tostring(v)
+    if ns.db and Options.skinEdited(ns.db.settings) then text = text .. L[" (edited)"] end
+    return text
+  end,
+  picked = function(db, v)
+    local s = ns.Theme.skin(v)
+    if s then
+      for _, p in ipairs(Options.SKIN_PARTS) do Options.set(db, p[1], s[p[2]]) end
+    end
+    refreshPanel()
+  end,
+})
+
+local SKIN_TOOLTIPS = {
+  border = L["Frame of the window and the options. Round has rounded corners and tabs; the others are square."],
+  background = L["Surface of the window. Grain and Leather add a fine texture; the background color and Opacity still apply."],
+  buttons = L["Shape of every button: Bronze is shaded, Raised has a light top and a dark bottom edge, Flat is one color with a thin edge."],
+  lines = L["Lines between the rows, under the tabs and above Top finds."],
+}
+local SKIN_PART_LABELS = { border = L["Border"], background = L["Background"], buttons = L["Buttons"], lines = L["Lines"] }
+
+for _, p in ipairs(Options.SKIN_PARTS) do
+  local key, part = p[1], p[2]
+  local spec = { key = key, category = "look",
+    apply = function(v)
+      ns.Theme.setStyle(part, v)
+      applySkin()
+    end,
+    -- The skin dropdown shows "(edited)" from now on.
+    picked = function() refreshPanel() end }
+  if part == "listBox" then
+    spec.type, spec.label = "checkbox", L["Sunken list"]
+    spec.tooltip = L["Draws a darker sunken box behind the list rows."]
+  else
+    spec.type, spec.label, spec.tooltip = "dropdown", SKIN_PART_LABELS[part], SKIN_TOOLTIPS[part]
+    spec.choices = function()
+      local out = {}
+      for _, v in ipairs(ns.Theme.skinParts[part]) do out[#out + 1] = { value = v, label = STYLE_LABELS[v] or v } end
+      return out
+    end
+  end
+  Options.define(spec)
 end
 
 -- Color preset: first in Colors so Options.applyAll sets the whole palette
