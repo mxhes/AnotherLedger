@@ -66,7 +66,7 @@ end
 -- Hooks every item tooltip once (login). The retail engine's
 -- TooltipDataProcessor covers all tooltips; without it, the OnTooltipSetItem
 -- script of the game's item tooltips.
--- UNVERIFIED (check in client): TooltipDataProcessor.AddTooltipPostCall with
+-- Client API: TooltipDataProcessor.AddTooltipPostCall with
 -- Enum.TooltipDataType.Item, and tooltip:GetItem() returning the link there.
 local hooked = false
 

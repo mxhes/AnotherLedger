@@ -84,7 +84,7 @@ end
 -- Reads every slot of the given containers through C_Container. A missing API
 -- or a failing call gives an empty / partial result, never an error.
 -- C_Container.GetContainerItemInfo returns { itemID, stackCount, hyperlink,
--- isBound } (UNVERIFIED (check in client): isBound on Forever).
+-- isBound }.
 function Inventory.scan(env, containerIDs, now)
   local api = env.C_Container
   if type(api) ~= "table" or type(api.GetContainerNumSlots) ~= "function"

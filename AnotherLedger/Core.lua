@@ -78,7 +78,7 @@ end
 
 -- Region/game-mode cache key, or nil while either part is not known yet (the
 -- call fails or answers nothing; asked again later). A client without one of
--- the calls (UNVERIFIED (check in client): both exist on Forever) uses
+-- the calls (both exist on Forever) uses
 -- Core.NO_KEY_PART for it, so the price cache, the scan and the Trade log
 -- still work there instead of waiting for good.
 Core.NO_KEY_PART = "any"
@@ -1338,7 +1338,7 @@ function Core.startScan()
   local now = time()
   local left = ns.Scan.waitLeft(ns.chardb.scanAt, now)
   if left > 0 then return false, "wait", left end
-  -- UNVERIFIED (check in client): C_AuctionHouse.ReplicateItems, answered by
+  -- Client API: C_AuctionHouse.ReplicateItems, answered by
   -- REPLICATE_ITEM_LIST_UPDATE; the game allows one call per 15 minutes.
   if not pcall(C_AuctionHouse.ReplicateItems) then return false, "refused" end
   local previous = ns.chardb.scanAt
@@ -1371,7 +1371,7 @@ function Core.scanCommand()
   return false
 end
 
--- UNVERIFIED (check in client): GetNumReplicateItems, GetReplicateItemInfo
+-- Client API: GetNumReplicateItems, GetReplicateItemInfo
 -- (0-based index; count 3rd, buyout 10th, itemID 17th return) and
 -- GetReplicateItemLink (may be nil for items the client has not loaded: the
 -- reader then keys the entry by its item ID).
@@ -1406,7 +1406,7 @@ local function passiveOn()
   return tradeWindows.AUCTION_HOUSE and Core.scanAvailable(_G)
 end
 
--- UNVERIFIED (check in client): HasFullCommoditySearchResults,
+-- Client API: HasFullCommoditySearchResults,
 -- GetNumCommoditySearchResults, GetCommoditySearchResultInfo (1-based;
 -- unitPrice, quantity).
 function events.COMMODITY_SEARCH_RESULTS_UPDATED(itemID)
@@ -1425,7 +1425,7 @@ function events.COMMODITY_SEARCH_RESULTS_UPDATED(itemID)
   recordSets(#list > 0 and { [itemID] = list } or {})
 end
 
--- UNVERIFIED (check in client): HasFullItemSearchResults,
+-- Client API: HasFullItemSearchResults,
 -- GetNumItemSearchResults, GetItemSearchResultInfo (1-based; buyoutAmount,
 -- quantity, itemLink). Grouped by variant (LootParse.itemKey of the link).
 function events.ITEM_SEARCH_RESULTS_UPDATED(itemKey)
@@ -1557,7 +1557,7 @@ local function addPost(link, quantity, unit)
   recorded()
 end
 
--- UNVERIFIED (check in client): C_AuctionHouse.PostItem(itemLocation,
+-- Client API: C_AuctionHouse.PostItem(itemLocation,
 -- duration, quantity, bid, buyout), PostCommodity(itemLocation, duration,
 -- quantity, unitPrice) and CancelAuction(auctionID) are what the auction
 -- house UI calls; C_Item.GetItemLink(itemLocation) gives the link; the owned
@@ -1611,7 +1611,7 @@ function Core.hookAuctionCalls()
   end
 end
 
--- UNVERIFIED (check in client): CHAT_MSG_SYSTEM carries ERR_AUCTION_SOLD_S
+-- Client API: CHAT_MSG_SYSTEM carries ERR_AUCTION_SOLD_S
 -- ("A buyer has been found for your auction of %s.") with the item name.
 events.CHAT_MSG_SYSTEM = function(text)
   local pattern = Core.formatPattern(ERR_AUCTION_SOLD_S)
@@ -1622,7 +1622,7 @@ events.CHAT_MSG_SYSTEM = function(text)
   ns.Trade.markSold(bucket, name, time(), Core.marketAt(idOfName(name)))
 end
 
--- UNVERIFIED (check in client): GetInboxHeaderInfo(i) gives sender 3rd,
+-- Client API: GetInboxHeaderInfo(i) gives sender 3rd,
 -- subject 4th, money 5th, daysLeft 7th; GetInboxInvoiceInfo(i) gives
 -- invoiceType ("seller" / "seller_temp_invoice"), itemName, playerName, bid,
 -- buyout, deposit, consignment, ..., count 11th; expired and cancelled mails
@@ -1667,7 +1667,7 @@ events.MAIL_INBOX_UPDATE = function()
   if #ns.Trade.recordInbox(bucket, mails, now, marketOf) > 0 then recorded() end
 end
 
--- UNVERIFIED (check in client): TRADE_ACCEPT_UPDATE fires when either side
+-- Client API: TRADE_ACCEPT_UPDATE fires when either side
 -- accepts; slots 1-6 are traded (GetTradePlayerItemLink / Info, count 3rd,
 -- and the Target versions); GetPlayerTradeMoney / GetTargetTradeMoney;
 -- UnitName("NPC") is the partner; UI_INFO_MESSAGE(type, ERR_TRADE_COMPLETE)
