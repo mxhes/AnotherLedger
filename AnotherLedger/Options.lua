@@ -70,7 +70,7 @@ Options.CATEGORIES = {
   { id = "display", label = L["List"] },
   { id = "session", label = L["Session"] },
   { id = "history", label = L["History"] },
-  { id = "look", label = L["Look"] },
+  { id = "look", label = L["Appearance"] },
   { id = "profiles", label = L["Profiles"] },
 }
 

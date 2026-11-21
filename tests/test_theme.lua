@@ -232,3 +232,54 @@ h.test("applyPreset changes colors in place and keeps alpha", function()
   T.applyPreset("nope") -- unknown: the AnotherLedger look
   h.eq(T.colorToHex(T.colors.panelTint), BEFORE.panelTint)
 end)
+
+h.test("Theme.skins: every skin names a valid choice for each part", function()
+  local ids = {}
+  for _, s in ipairs(T.skins) do
+    ids[#ids + 1] = s.id
+    for part, list in pairs(T.skinParts) do
+      local ok = false
+      for _, v in ipairs(list) do if v == s[part] then ok = true end end
+      h.eq(ok, true, s.id .. "." .. part)
+    end
+    h.eq(type(s.listBox), "boolean")
+  end
+  h.eq(ids, { "classic", "forge", "slate", "gilded" })
+  h.eq(T.skin("forge").border, "bevel"); h.eq(T.skin("nope"), nil)
+end)
+
+h.test("Theme.style starts as Classic; setStyle validates", function()
+  h.eq(T.style, { border = "round", background = "flat", buttons = "bronze", lines = "gold", listBox = false })
+  h.eq(T.setStyle("border", "bevel"), true); h.eq(T.style.border, "bevel")
+  h.eq(T.setStyle("border", "wavy"), false); h.eq(T.style.border, "bevel")
+  h.eq(T.setStyle("listBox", "yes"), false); h.eq(T.setStyle("listBox", true), true)
+  h.eq(T.setStyle("colour", "x"), false)
+  T.setStyle("border", "round"); T.setStyle("listBox", false)
+end)
+
+h.test("Theme.backdropSpec: round keeps today's edge, others have no edge file", function()
+  local r = T.backdropSpec("round", "flat")
+  h.eq(r.edgeFile, T.textures.frameBorder); h.eq(r.bgFile, T.textures.parchment)
+  h.eq(r.insets.left, T.sizes.backdropInset)
+  local b = T.backdropSpec("bevel", "grain")
+  h.eq(b.edgeFile, nil); h.eq(b.bgFile, T.textures.skinGrain); h.eq(b.tileSize, T.sizes.skinTile)
+  h.eq(T.backgroundTexture("leather"), T.textures.skinLeather)
+  h.eq(T.backgroundTexture("??"), T.textures.parchment)
+end)
+
+h.test("Theme.edgeRects / edgeStuds per border", function()
+  local d = T.skinScales.edgeDark
+  h.eq(T.edgeRects("round"), {})
+  h.eq(T.edgeRects("thin"), { { inset = 0, shade = d }, { inset = 1, shade = 1 } })
+  h.eq(#T.edgeRects("bevel"), 3); h.eq(T.edgeRects("gilded")[3].inset, 3)
+  h.eq(T.edgeStuds("gilded"), true); h.eq(T.edgeStuds("bevel"), false)
+end)
+
+h.test("Theme.lineColors: groove has two shades, plain loses the gold, alpha kept", function()
+  local c, panel = { 1, 0.82, 0.2, 0.2 }, T.colors.panelTint
+  local m, s = T.lineColors("gold", c, panel); h.eq(m, c); h.eq(s, nil)
+  m, s = T.lineColors("groove", c, panel)
+  h.eq(m[1] < c[1] and s[2] >= c[2], true); h.eq(m[4], 0.2); h.eq(s[4], 0.2)
+  m = T.lineColors("plain", c, panel)
+  h.eq(math.abs(m[1] - m[3]) < math.abs(c[1] - c[3]), true); h.eq(m[4], 0.2)
+end)

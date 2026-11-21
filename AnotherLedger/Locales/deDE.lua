@@ -96,7 +96,7 @@ ns.Locale.register("deDE", {
   ["Window"] = "Fenster",
   ["Prices"] = "Preise",
   ["List"] = "Liste",
-  ["Look"] = "Aussehen",
+  ["Appearance"] = "Darstellung",
   ["Other"] = "Sonstiges",
 
   -- Options
