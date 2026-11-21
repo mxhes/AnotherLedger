@@ -16,10 +16,10 @@ local L_VENDOR = L["Vendor: "]
 local L_AH = L["AH: "]
 local L_PER_HOUR = L["/h"]
 local L_PER_HOUR_TITLE = L["per hour"]
-local L_UNPRICED = L[" unpriced"]
+local L_UNPRICED = L[" without AH price"]
 local L_MARKED = L[" (marked ?)"]
 local L_MARKED_FIRST = L[" (marked ?, listed first)"]
-local L_CLICK_FIRST = L["Click: list the unpriced items first."]
+local L_CLICK_FIRST = L["Click: list the items without an AH price first."]
 local L_CLICK_BACK = L["Click: back to the chosen sort."]
 local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
@@ -31,7 +31,9 @@ local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
 local L_GOAL = L["Goal "]
 local L_GOAL_REACHED = L["Goal reached"]
-local L_UNPRICED_TITLE = L["Unpriced"]
+local L_UNPRICED_TITLE = L["Without AH price"]
+local L_WHY_NO_SOURCE = L["No TSM or Auctionator and no scan yet: open the auction house and type /al scan."]
+local L_WHY_NO_PRICE = L["Your price sources have no auction price for these items (yet)."]
 local L_AND_MORE = L["and %d more"]
 local L_MONEY = L["Gold on hand"]
 local L_WORTH = L["Net worth"]
@@ -191,6 +193,9 @@ function Summary.tooltipLines(view, formatMoney)
     for _, name in ipairs(names) do lines[#lines + 1] = { name, "" } end
     local more = (tonumber(totals.unpriced) or 0) - #names
     if more > 0 then lines[#lines + 1] = { string.format(L_AND_MORE, more), "" } end
+    -- Why: nothing gives auction prices yet (view.noAuctionPrices, set by the
+    -- Ledger), or the sources there are know nothing of these items.
+    lines[#lines + 1] = { view.noAuctionPrices and L_WHY_NO_SOURCE or L_WHY_NO_PRICE, "", wrap = true }
   end
   -- History: which sessions the table adds up (the tabs differ, see view.scope).
   if type(view.scope) == "string" then

@@ -114,7 +114,7 @@ clock is stopped).
   value, not in the rate); its hover says which sessions it counts. Mobs has
   no clock, so no per hour column. The option **Raw gold** decides whether
   the gold counts in the Total and whether it has its own row. Click
-  `N unpriced (marked ?)` under the table to list the items without an
+  `N without AH price (marked ?)` under the table to list the items without an
   auction price first; click again for the normal sort. Items that can't be
   sold on the auction house (soulbound, also gear bound by equipping it) and
   items nothing pays for are never marked or counted there.
@@ -139,7 +139,8 @@ items.
   for all characters; **Kept items** in the options lists it. The footer also
   shows **Gold on hand** and **Net worth** (items plus gold), its tooltip the
   **Sell split** (what the items not kept bring at the vendor, on the AH and
-  destroyed), and the header your free bag slots.
+  destroyed), and the header your free bag slots (orange at 5 or fewer, red
+  at 2 or fewer).
 - **Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once (until then the list says `Not scanned yet.` and the
   total shows `—`); after that the tab shows the last scan and its age.
@@ -175,7 +176,8 @@ items.
   places are listed, the Daily farm's place has the same star as the strip,
   and a dungeon's difficulty is shortened in the list (`Razorfen Downs (N)`;
   the tooltip has the full name). Hover the footer to see which items have no
-  auction price yet (`2 unpriced (marked ?)`).
+  auction price yet (`2 without AH price (marked ?)`); it also says why: no
+  price addon and no scan yet, or your price sources don't know those items.
 - **History > Mobs**: what each kind of mob and gathering node gave you, over
   the same sessions as Zones: how often you looted it, the value of its loot
   plus its gold, and the value per corpse or node looted. Sort by **Value**,
@@ -206,7 +208,8 @@ items.
     buyer). Sorts: Gold earned, Sold, Sell rate, vs market, Name.
   - **Log** lists every entry, newest first: Posted, Cancelled, Expired, Sold,
     Trade sale, Trade purchase and Trade, with the date, the other player and
-    your character. Sorts: Recent, Gold earned, Name.
+    your character; a trade purchase shows the gold you paid with a minus
+    sign. Sorts: Recent, Gold earned, Name.
   - The filter bar works on both: the search and the minimum value pick
     items or entries, the quality filter the items (a trade with a player
     has no quality and always stays).
@@ -293,7 +296,7 @@ History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
@@ -385,6 +388,9 @@ zone or instance or a fresh login would start a new one. After a login it
 runs again and counts from that day, even if you had stopped it. An empty
 session starts over as before. Reset always saves it; Off saves every
 session.
+
+**Hide Vendor tags** leaves the tag blank on rows that count at their vendor
+price, so the Auction and Destroy rows stand out (most Bags rows are Vendor).
 
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.

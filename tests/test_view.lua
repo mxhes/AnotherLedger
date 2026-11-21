@@ -1582,3 +1582,13 @@ h.test("View cache: a new value key or History key counts again", function()
   opts.historyKey = "h3"
   h.eq(V.buildZones(saved, opts, {}).rows[1].value, 1000)
 end)
+
+h.test("View.buildTradeLog: a trade purchase is gold paid out, the minimum value counts its amount", function()
+  local log = { { t = 1, kind = "tbuy", ["in"] = { { name = "Ore", n = 2 } }, out = {}, goldOut = 5000, goldIn = 0,
+    who = "Seller", char = "Me" } }
+  local v = V.buildTradeLog(log, {})
+  h.eq(v.rows[1].value, -5000)
+  h.eq(v.rows[1].bestLineTotal, -5000)
+  h.eq(#V.buildTradeLog(log, { filter = { minValue = 4000 } }).rows, 1)
+  h.eq(#V.buildTradeLog(log, { filter = { minValue = 6000 } }).rows, 0)
+end)

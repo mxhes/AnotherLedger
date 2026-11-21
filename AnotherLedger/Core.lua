@@ -187,6 +187,18 @@ end
 -- later brings the hint back once. Returns whether it printed.
 local L_NO_PRICE_ADDON = L["No auction price addon found: items count at their vendor price. Scan the auction house with /al scan, or install TSM or Auctionator."]
 
+-- Whether this realm has a scan price of AnotherLedger's own.
+local function hasScanPrices(db)
+  local bucket = ns.Scan and ns.Scan.currentRealmKey and ns.Scan.bucket(db, ns.Scan.currentRealmKey())
+  return bucket ~= nil and next(bucket.items) ~= nil
+end
+
+-- Whether anything gives auction prices: TSM, Auctionator or a scan of this
+-- realm (the footer tooltip says why items have no AH price).
+function Core.hasAuctionPrices(env, db)
+  return ns.Sources.anyPresent(env) or (type(db) == "table" and hasScanPrices(db))
+end
+
 function Core.priceAddonHint(env, db, say)
   if type(db) ~= "table" then return false end
   if ns.Sources.anyPresent(env) then
@@ -195,8 +207,7 @@ function Core.priceAddonHint(env, db, say)
   end
   if db.priceHintShown then return false end
   -- Prices from AnotherLedger's own scan for this realm: no hint needed.
-  local bucket = ns.Scan and ns.Scan.bucket(db, ns.Scan.currentRealmKey())
-  if bucket and next(bucket.items) ~= nil then return false end
+  if hasScanPrices(db) then return false end
   db.priceHintShown = true
   say(L_NO_PRICE_ADDON)
   return true

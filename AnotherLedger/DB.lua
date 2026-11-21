@@ -98,6 +98,7 @@ DB.defaults = {
     goalMinutes = 0,
     -- List rows show the value of one item instead of the stack.
     unitPrice = false,
+    hideVendorTag = false, -- the Vendor source tag stays blank (the others show)
     -- History Zones and the Daily farm use the History of every character.
     accountZones = true,
     -- Font size in px of the list text, the totals and the section titles (applied live).

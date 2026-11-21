@@ -149,7 +149,14 @@ Tabs.define({
     local free, total = ns.Inventory.freeSlots(ctx.env)
     if total > 0 then
       local count = ns.History.itemCount(#view.rows)
-      view.headerInfo = count .. " \194\183 " .. ns.History.freeCount(free)
+      local freeText = ns.History.freeCount(free)
+      -- Few free slots: orange, almost none: red.
+      local level = ns.Inventory.freeLevel(free)
+      if level then
+        local C = ns.Theme.colors
+        freeText = "|cff" .. ns.Theme.colorToHex(level == "low" and C.marketBad or C.stale) .. freeText .. "|r"
+      end
+      view.headerInfo = count .. " \194\183 " .. freeText
     end
     return view
   end,

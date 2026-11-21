@@ -172,3 +172,13 @@ h.test("Inventory.scan marks an item bound only while every stack of it is soulb
   h.eq(items[7].bound, true)
   h.eq(items[8].bound, nil)
 end)
+
+h.test("Inventory.freeLevel: orange at five free slots or fewer, red at two", function()
+  local I = ns.Inventory
+  h.eq(I.freeLevel(10), nil)
+  h.eq(I.freeLevel(5), "few")
+  h.eq(I.freeLevel(3), "few")
+  h.eq(I.freeLevel(2), "low")
+  h.eq(I.freeLevel(0), "low")
+  h.eq(I.freeLevel(nil), nil)
+end)

@@ -131,9 +131,10 @@ end
 
 -- The gold a log entry shows: earned for sales, paid for purchases, what
 -- came in for other trades; nothing for posts and returns.
+-- The gold of a Log entry; a trade purchase is gold paid out (negative).
 local function entryGold(e)
   if e.kind == "sale" or e.kind == "tsale" then return (e.gold or 0) - (e.cut or 0) end
-  if e.kind == "tbuy" then return e.goldOut or e.gold or 0 end
+  if e.kind == "tbuy" then return -(e.goldOut or e.gold or 0) end
   if e.kind == "trade" then return e.goldIn or 0 end
   return 0
 end
@@ -162,7 +163,11 @@ function View.buildTradeLog(log, opts)
       vendorTotal = 0, ahTotal = gold, bestLineTotal = gold, value = gold,
       icon = TRADE_ICON, lastSeen = e.t,
     }
-    if tradeVisible(row, filter, needle, not isTrade) then rows[#rows + 1] = row end
+    -- The minimum value picks by amount, paid out or earned.
+    row.value = math.abs(gold)
+    local shown = tradeVisible(row, filter, needle, not isTrade)
+    row.value = gold
+    if shown then rows[#rows + 1] = row end
   end
   table.sort(rows, TRADE_LOG_SORTS[opts.sort] or TRADE_LOG_SORTS.recent)
   local view = { rows = rows, top = {}, kind = "tradeLog", history = true,

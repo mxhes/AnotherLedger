@@ -767,6 +767,14 @@ Options.define({
   apply = refreshUI,
 })
 
+-- Most Bags rows count at their vendor price: their tag can stay blank, so
+-- the Auction and Destroy rows stand out (Rows.rowText hideTag).
+Options.define({
+  key = "hideVendorTag", category = "display", type = "checkbox", label = L["Hide Vendor tags"],
+  tooltip = L["Rows whose best value is the vendor price show no Vendor tag; Auction and Destroy tags stay. The ? mark of items without an auction price stays too."],
+  apply = refreshUI,
+})
+
 -- An item list of Core (ignored, kept) as a menu: a click takes an item off
 -- the list (or back on while the menu is open). `empty`: the chat line
 -- without any items.

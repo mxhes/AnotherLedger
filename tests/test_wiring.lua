@@ -1054,6 +1054,7 @@ h.test("wiring: hovering the footer table shows the vendor / AH tooltip", functi
     SetOwner = function() end, Show = function() end, Hide = function() end,
     SetText = function() end, IsOwned = function() return false end,
     AddDoubleLine = function(_, l, r) lines[#lines + 1] = { l, r } end,
+    AddLine = function(_, l) lines[#lines + 1] = { l } end,
   }
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
@@ -1061,10 +1062,12 @@ h.test("wiring: hovering the footer table shows the vendor / AH tooltip", functi
   tbl._scripts.OnEnter(tbl)
   h.eq(lines[1][1], "Items")
   h.eq(lines[2][1], "Vendor: ")
-  -- 8 value lines, then the unpriced Linen Cloth by name.
-  h.eq(#lines, 10)
-  h.eq(lines[9][1], "Unpriced")
+  -- 8 value lines, then the unpriced Linen Cloth by name and why (no price
+  -- addon, no scan in the stub client).
+  h.eq(#lines, 11)
+  h.eq(lines[9][1], "Without AH price")
   h.eq(lines[10][1]:find("Linen Cloth", 1, true) ~= nil and lines[10][1]:match(" x3$") ~= nil, true)
+  h.eq(lines[11][1]:find("/al scan", 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3279,6 +3282,11 @@ h.test("wiring: Bags shows free slots, gold on hand and net worth; Bank has no m
   h.eq(L.view.totals.money, 100)
   L.setTab("bank")
   h.eq(L.view.totals.money, nil)
+  -- Two free slots: the count turns red.
+  ctx.env.C_Container.GetContainerNumFreeSlots = function(bag) return bag == 0 and 2 or 0, 0 end
+  L.setTab("bags")
+  local red = ctx.ns.Theme.colorToHex(ctx.ns.Theme.colors.marketBad)
+  h.eq(L.view.headerInfo, "3 items \194\183 |cff" .. red .. "2 free|r")
   h.eq(ctx.errors, {})
 end)
 
@@ -4397,5 +4405,20 @@ h.test("wiring: /al stats prints the saved data parts, Mob data kept drops old m
   ns.Options.set(ns.db, "mobDataDays", 30)
   h.eq(e.mobs, nil)
   h.eq(#ns.chardb.history, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Hide Vendor tags blanks only the Vendor tag", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local R = ns.UI.Rows
+  local vendorRow = { name = "Cloth", quantity = 2, bestKind = "vendor", vendorEach = 5, value = 10 }
+  local ahRow = { name = "Ore", quantity = 1, bestKind = "ah", ahEach = 50, value = 50 }
+  h.eq(R.rowText(vendorRow).hideTag, false)
+  ns.Options.set(ns.db, "hideVendorTag", true)
+  h.eq(R.rowText(vendorRow).hideTag, true)
+  h.eq(R.rowText(vendorRow).source, "vendor")
+  h.eq(R.rowText(ahRow).hideTag, false)
   h.eq(ctx.errors, {})
 end)

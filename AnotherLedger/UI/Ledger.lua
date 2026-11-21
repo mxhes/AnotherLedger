@@ -333,6 +333,10 @@ function Ledger.buildView(now)
   local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, ctx)
   if type(view) == "table" then
     view.dailyFarm = farm
+    local totals = view.totals
+    if type(totals) == "table" and (tonumber(totals.unpriced) or 0) > 0 and ns.Core and ns.Core.hasAuctionPrices then
+      view.noAuctionPrices = not ns.Core.hasAuctionPrices(_G, ns.db)
+    end
     -- Compact mode draws its own unfiltered numbers and last drops.
     if Ledger.mode == "compact" then view.compact = ns.View.buildCompact(ns.session, viewOpts) end
   end
