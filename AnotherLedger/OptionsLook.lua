@@ -175,13 +175,13 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Skins (category "look", before the colors): the shape of the border,
--- background, buttons and lines (Theme.skins). A skin writes its five parts
+-- buttons and lines (Theme.skins). A skin writes its four parts
 -- when picked; each part sets Theme.style and redraws (Widgets.applySkin).
 -- Skins never change colors.
 
 -- option key, Theme.style part
 Options.SKIN_PARTS = {
-  { "skinBorder", "border" }, { "skinBackground", "background" }, { "skinButtons", "buttons" },
+  { "skinBorder", "border" }, { "skinButtons", "buttons" },
   { "skinLines", "lines" }, { "skinListBox", "listBox" },
 }
 Options.skinTargets = {}
@@ -190,8 +190,7 @@ for _, p in ipairs(Options.SKIN_PARTS) do Options.skinTargets[p[1]] = p[2] end
 local SKIN_LABELS = { classic = L["Classic"], forge = L["Forge"], slate = L["Slate"], gilded = L["Gilded"] }
 local STYLE_LABELS = {
   round = L["Round"], bevel = L["Bevel"], thin = L["Thin"], gilded = L["Gilded"],
-  flat = L["Flat"], grain = L["Grain"], leather = L["Leather"],
-  bronze = L["Bronze"], raised = L["Raised"],
+  flat = L["Flat"], bronze = L["Bronze"], raised = L["Raised"],
   gold = L["Gold"], groove = L["Groove"], plain = L["Plain"], dotted = L["Dotted"],
 }
 
@@ -212,7 +211,7 @@ end
 
 Options.define({
   key = "skin", category = "look", type = "dropdown", label = L["Skin"],
-  tooltip = L["Sets the border, background, buttons, lines and list box at once. Colors stay as they are. You can change single parts afterwards."],
+  tooltip = L["Sets the border, buttons, lines and list box at once. Colors stay as they are. You can change single parts afterwards."],
   choices = function()
     local out = {}
     for _, s in ipairs(ns.Theme.skins) do out[#out + 1] = { value = s.id, label = SKIN_LABELS[s.id] or s.label } end
@@ -235,11 +234,10 @@ Options.define({
 
 local SKIN_TOOLTIPS = {
   border = L["Frame of the window and the options. Round has rounded corners and tabs; the others are square."],
-  background = L["Surface of the window. Grain and Leather add a fine texture; the background color and Opacity still apply."],
   buttons = L["Shape of every button: Bronze is shaded, Raised has a light top and a dark bottom edge, Flat is one color with a thin edge."],
   lines = L["Lines between the rows, under the tabs and above Top finds."],
 }
-local SKIN_PART_LABELS = { border = L["Border"], background = L["Background"], buttons = L["Buttons"], lines = L["Lines"] }
+local SKIN_PART_LABELS = { border = L["Border"], buttons = L["Buttons"], lines = L["Lines"] }
 
 for _, p in ipairs(Options.SKIN_PARTS) do
   local key, part = p[1], p[2]

@@ -24,6 +24,11 @@ From the skins work (2026-11-21, profession window screenshot):
   headings, once the lists have headings. M
 - A title bar strip with the title centered and a red close button, as a
   Border option (needs header height room). M
+- Textured window backgrounds (Grain for Forge, Leather for Gilded) as a
+  Background skin part again. `tools/render_skins.py --backgrounds DIR`
+  draws them (512 x 512 on a 256 unit tile); the tint needs a lift
+  (`LIFT` there) because multiplying only darkens. Check the size in the
+  client: the first tries looked too coarse. M
 
 ## Already built
 

@@ -19,7 +19,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "showIcons", "unitPrice", "hideVendorTag", "ignoredItems", "keptItems", "watchedItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit", "tradeLogDays", "mobDataDays",
-    "skin", "skinBorder", "skinBackground", "skinButtons", "skinLines", "skinListBox",
+    "skin", "skinBorder", "skinButtons", "skinLines", "skinListBox",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors", "deleteColorPreset" })
   -- every option but a button has its default in DB.defaults.settings
@@ -675,8 +675,10 @@ end)
 
 h.test("skin options: applying a part sets Theme.style", function()
   local d = db()
-  O.set(d, "skinBackground", "leather")
-  h.eq(ns.Theme.style.background, "leather")
-  O.set(d, "skinBackground", "flat")
-  h.eq(ns.Theme.style.background, "flat")
+  O.set(d, "skinButtons", "raised")
+  h.eq(ns.Theme.style.buttons, "raised")
+  O.set(d, "skinButtons", "bronze")
+  h.eq(ns.Theme.style.buttons, "bronze")
+  -- No textured backgrounds yet: no Background option.
+  h.eq(O.byKey.skinBackground, nil)
 end)
