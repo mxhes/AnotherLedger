@@ -3290,6 +3290,48 @@ h.test("wiring: Bags shows free slots, gold on hand and net worth; Bank has no m
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: net worth adds the bank scan; all characters with an alt saved; logout and /al worth", function()
+  local alt = { bags = 1000, bank = 500, money = 2000, at = 10 }
+  local bankItems = { [2592] = { id = 2592, qty = 4, link = "|cffffffff|Hitem:2592::|h[Item2592]|h|r" } }
+  local ctx = boot({ db = { worth = { ["Alt-Realm"] = alt } }, chardb = { bank = { scannedAt = 50, items = bankItems } } })
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  bagEnv(ctx, { [0] = { n = 2, { 2589, 5 }, { 7910, 1 } } })
+  local money = 300
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bags")
+  local t = L.view.totals
+  h.eq(t.bank, 100) -- 4 x 25 vendor
+  h.eq(t.bagsWorth, 150)
+  h.eq(t.worth, 150 + 100 + 300)
+  h.eq(t.allWorth, 550 + 3500)
+  local db = ctx.env.AnotherLedgerDB
+  h.eq(db.worth["Me-Realm"].bags, 150)
+  -- the Bags filter hides rows but not the net worth
+  db.filter.search = "nothing matches"
+  L.refresh()
+  h.eq(#L.view.rows, 0)
+  h.eq(L.view.totals.worth, 550)
+  db.filter.search = ""
+  -- logout saves the new gold even without the Bags tab shown
+  L.setTab("session")
+  money = 1300
+  fire(ctx, "PLAYER_LOGOUT")
+  h.eq(db.worth["Me-Realm"].money, 1300)
+  ctx.printed = {}
+  slash(ctx, "worth")
+  local text = table.concat(ctx.printed, " ")
+  h.eq(text:find("Alt-Realm", 1, true) ~= nil, true)
+  h.eq(text:find("net worth of all characters", 1, true) ~= nil, true)
+  slash(ctx, "worth forget alt")
+  h.eq(db.worth["Alt-Realm"], nil)
+  L.setTab("bags")
+  h.eq(L.view.totals.allWorth, nil)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: History Sessions shows day headings; a click folds one", function()
   local ctx = boot()
   startWorld(ctx, false)

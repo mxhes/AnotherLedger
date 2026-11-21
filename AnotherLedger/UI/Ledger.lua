@@ -270,6 +270,13 @@ function Ledger.viewOptions()
   return currentContext(time()).opts
 end
 
+-- Saves this character's net worth for the all characters total (logout:
+-- Core; Tabs.noteWorth also runs while Bags is shown).
+function Ledger.noteWorth()
+  if not (ns.db and ns.UI.Tabs and ns.UI.Tabs.noteWorth) then return nil end
+  return ns.UI.Tabs.noteWorth(currentContext(time()))
+end
+
 -- ---------------------------------------------------------------------------
 -- Building and drawing
 

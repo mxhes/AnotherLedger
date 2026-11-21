@@ -139,10 +139,14 @@ items.
   gear sets: the row says `(kept)` and the footer splits the total into
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
   for all characters; **Kept items** in the options lists it. The footer also
-  shows **Gold on hand** and **Net worth** (items plus gold), its tooltip the
+  shows **Gold on hand** and **Net worth** (your bags, your bank as of its
+  last visit and your gold, whatever the filter shows), its tooltip the
   **Sell split** (what the items not kept bring at the vendor, on the AH and
   destroyed), and the header your free bag slots (orange at 5 or fewer, red
-  at 2 or fewer).
+  at 2 or fewer). Once you have logged in with a second character, the
+  footer adds **All characters**: every character's net worth as it was when
+  you last logged out with it (or looked at its Bags); the tooltip lists
+  them with their age.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once (until then the list says `Not scanned yet.` and the
   total shows `—`); after that the tab shows the last scan and its age.
@@ -439,6 +443,7 @@ clock and scanning the auction house.
 | `/al export session`, `/al export zones`, `/al export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
 | `/al undo` | take back the last merge or delete in History (or the cleared History) |
 | `/al watch <item \| text>`, `/al unwatch <item \| text>` | watch an item (link or ID) or every item whose name contains the text; `/al watch` alone lists them |
+| `/al worth`, `/al worth forget <name>` | every character's net worth; drop a deleted character from All characters |
 | `/al stats` | how much of the saved files each part takes (History, mob data, scan, Trade log, price cache) |
 | `/al demo` | sample loot and temporary sample prices, to look at the window |
 | `/al help` | list the commands |

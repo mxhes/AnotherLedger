@@ -46,6 +46,7 @@ only inside functions.
 | `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
 | `ViewTrade.lua` | the Trade tab's Items and Log views |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
+| `Worth.lua` | pure: every character's saved net worth (`AnotherLedgerDB.worth`), the list and sum for All characters, `/al worth forget` |
 | `Stats.lua` | `/al stats`, pure: the estimated saved-file size of each part (History and its mob data, scan, Trade log, price cache, the character file, the rest) |
 | `Slash.lua`, `Demo.lua` | slash commands, `/al demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
@@ -301,9 +302,20 @@ Each of these is one call in one place; the UI never names them.
   period. `Ledger.periodFold` holds the folded keys for the Lua session.
 - **Bags footer**: `buildInventory` sets `totals.sellSplit` (best value of
   the rows not kept, by `bestKind`; the footer tooltip's Sell split). The
-  Bags tab adds `View.addWorth(view, GetMoney())` (`totals.money`,
-  `totals.worth`: the Summary rows Gold on hand / Net worth) and the free
-  slots (`Inventory.freeSlots`) to the header; `PLAYER_MONEY` redraws it.
+  Bags tab adds `View.addWorth(view, money, bags, bank)` (`totals.money`,
+  `totals.bagsWorth`, `totals.bank`, `totals.worth`: the Summary rows Gold on
+  hand / Net worth) and the free slots (`Inventory.freeSlots`) to the
+  header; `PLAYER_MONEY` redraws it. Net worth is unfiltered:
+  `View.inventoryWorth` values the bag items and the last bank scan
+  (`chardb.bank`) without the filter (ignored items stay out).
+- **Net worth of all characters** (`Worth.lua`): `Tabs.noteWorth(ctx)` saves
+  `{ bags, bank, money, at }` (copper, valued then) under `Core.character` in
+  `AnotherLedgerDB.worth` while Bags is shown, and `Ledger.noteWorth` does it
+  at `PLAYER_LOGOUT` and for `/al worth` (not while the demo's prices are in).
+  With two or more saved, the Bags tab sets `totals.allWorth` (the Summary
+  row All characters) and `view.worthList` (the tooltip's per character
+  lines, with the age of other characters' snapshots). Alts are not valued
+  again with today's prices; `/al worth forget <name>` drops a character.
 - **Resting** (`cityPause`, `Core.checkRest` on `PLAYER_UPDATE_RESTING`):
   `Session.rest` keeps `running` true but folds the time into `elapsedBase`
   and stops the place time (`resting = true`); `Session.wake` restarts it.
@@ -716,7 +728,8 @@ saved variables per addon folder and the old file is never loaded.
   Sessions / Zones), `optionsWindow` (where the options panel was dragged to,
   `{ x, y }` from the screen center), `profileUsers`, `minimapIcon`
   (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep
-  list), `watched` / `watchedNames` (the watch list) and `histories` (every character's History, see "Account-wide
+  list), `watched` / `watchedNames` (the watch list), `worth` (every
+  character's net worth, Worth.lua) and `histories` (every character's History, see "Account-wide
   History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
   for the option Destroy values), `scan` (AnotherLedger scan: `[realm key] = {
   lastFull, items = { [itemKey] = packed } }`, see AnotherLedger scan), `trade`

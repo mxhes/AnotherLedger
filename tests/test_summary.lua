@@ -210,6 +210,23 @@ h.test("rowTexts / notesText: an unscanned bank shows a dash, no note", function
   h.eq(S.notesText(view), nil)
 end)
 
+h.test("tableLayout: Bags with more characters saved adds All characters; the tooltip lists them", function()
+  local view = { kind = "inventory", now = 3 * 86400,
+    totals = { best = 3, bagsWorth = 4, money = 5, worth = 9, allWorth = 29 },
+    worthList = { { key = "Alt-R", total = 20, at = 86400 }, { key = "Me-R", total = 9, own = true, at = 0 } } }
+  h.eq(S.tableLayout(view).rows, { "items", "money", "worth", "allWorth" })
+  h.eq(S.rowTexts(view, M.format).allWorth.value, M.format(29))
+  local lines = S.tooltipLines(view, M.format)
+  local byLeft = {}
+  for _, l in ipairs(lines) do byLeft[l[1]] = l[2] end
+  h.eq(byLeft["Bags: "], M.format(4))
+  h.eq(byLeft["Bank: "], "not scanned")
+  h.eq(byLeft["Gold: "], M.format(5))
+  h.eq(byLeft["Alt-R (2d)"], M.format(20))
+  h.eq(byLeft["Me-R"], M.format(9))
+  h.eq(byLeft["All characters"], "")
+end)
+
 h.test("tableLayout: Bags with gold on hand adds Gold on hand and Net worth; tooltip has the sell split", function()
   h.eq(S.tableLayout({ kind = "inventory", totals = { kept = 1, sellable = 2, money = 5, worth = 8 } }).rows,
     { "items", "kept", "sellable", "money", "worth" })

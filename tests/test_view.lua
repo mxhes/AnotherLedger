@@ -1217,6 +1217,24 @@ h.test("View.buildInventory: the sell split adds up what is not kept by best kin
   V.addWorth(v, 56200)
   h.eq(v.totals.money, 56200)
   h.eq(v.totals.worth, v.totals.best + 56200)
+  -- the unfiltered bags and the bank scan count too
+  V.addWorth(v, 100, 1000, 500)
+  h.eq(v.totals.bagsWorth, 1000); h.eq(v.totals.bank, 500); h.eq(v.totals.worth, 1600)
+  V.addWorth(v, 100, 1000, nil)
+  h.eq(v.totals.bank, nil); h.eq(v.totals.worth, 1100)
+end)
+
+h.test("View.inventoryWorth: every item's best value, unfiltered; ignored items stay out", function()
+  local items = {
+    [1] = { id = 1, link = link("A"), qty = 2 },
+    [2] = { id = 2, link = link("B"), qty = 1 },
+    [3] = { id = 3, link = link("C"), qty = 0 },
+  }
+  local prices = function(id) return ({ [1] = { vendor = 100 }, [2] = { vendor = 10, ah = 300 }, [3] = { vendor = 5 } })[id] end
+  local filter = { qualities = {}, minValue = 100000, search = "zzz" }
+  h.eq(V.inventoryWorth(items, { lookup = prices, filter = filter }), 500)
+  h.eq(V.inventoryWorth(items, { lookup = prices, ignored = { [2] = "B" } }), 200)
+  h.eq(V.inventoryWorth(nil, { lookup = prices }), 0)
 end)
 
 h.test("View.buildHistory: day headings over the sessions while sorted by Recent", function()

@@ -1527,6 +1527,9 @@ end
 
 function events.PLAYER_LOGOUT()
   if ns.Demo then ns.Demo.restoreCache(ns.db) end
+  -- This character's net worth for the all characters total (Worth.lua).
+  local ledger = ns.UI and ns.UI.Ledger
+  if ledger and ledger.noteWorth then pcall(ledger.noteWorth) end
   if ns.session then
     ns.Session.suspend(ns.session, time())
     ns.chardb.session = ns.session

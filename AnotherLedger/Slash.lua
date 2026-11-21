@@ -283,6 +283,48 @@ Slash.define({
   end,
 })
 
+local L_WORTH_LINE = L["%s: %s (bags %s, bank %s, gold %s)"]
+local L_WORTH_ALL = L["net worth of all characters: %s"]
+local L_WORTH_NONE = L["no net worth saved yet: open the Bags tab once."]
+local L_WORTH_NO_BANK = L["not scanned"]
+local L_WORTH_FORGOT = L["%s forgotten (net worth)."]
+local L_WORTH_UNKNOWN = L["no single saved character matches %s. /al worth lists them."]
+
+-- /al worth: every saved character's net worth (Worth.lua); /al worth forget
+-- <name> drops a deleted character.
+Slash.define({
+  name = "worth",
+  help = L["/al worth - net worth of every character; /al worth forget <name> drops one"],
+  run = function(arg)
+    local db, Worth = ns.db, ns.Worth
+    if not (db and Worth) then return end
+    local target = type(arg) == "string" and arg:match("^%s*forget%s+(.-)%s*$")
+    if target then
+      local key = Worth.find(db, target)
+      if key and Worth.forget(db, key) then
+        say(string.format(L_WORTH_FORGOT, key))
+        if ns.UI and ns.UI.Ledger then ns.UI.Ledger.refresh() end
+      else
+        say(string.format(L_WORTH_UNKNOWN, target))
+      end
+      return
+    end
+    -- The logged-in character's numbers are saved fresh first.
+    if ns.UI and ns.UI.Ledger and ns.UI.Ledger.noteWorth then pcall(ns.UI.Ledger.noteWorth) end
+    local list, sum = Worth.list(db, ns.Core and ns.Core.character)
+    if #list == 0 then
+      say(L_WORTH_NONE)
+      return
+    end
+    local fmt = ns.Money.formatColored
+    for _, c in ipairs(list) do
+      say(string.format(L_WORTH_LINE, c.key, fmt(c.total), fmt(c.bags or 0),
+        c.bank and fmt(c.bank) or L_WORTH_NO_BANK, fmt(c.money or 0)))
+    end
+    say(string.format(L_WORTH_ALL, fmt(sum)))
+  end,
+})
+
 Slash.define({ name = "help", needsSession = false, run = Slash.printHelp })
 
 ns.Slash = Slash

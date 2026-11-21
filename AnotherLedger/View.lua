@@ -435,12 +435,29 @@ function View.buildInventory(items, opts)
     headerInfo = #rows > 0 and ns.History.itemCount(#rows) or nil }
 end
 
--- Bags: the character's gold (`money`, copper) and the net worth (the bag
--- items' best value plus that gold).
-function View.addWorth(view, money)
+-- What `items` (bags or bank) are worth in all: the best value of every item,
+-- with no filter (ignored items stay out, like everywhere). Copper.
+function View.inventoryWorth(items, opts)
+  local ignored = ignoredSet(opts)
+  local sum = 0
+  for _, item in pairs(type(items) == "table" and items or NO_LOOKUP) do
+    if type(item) == "table" and num(item.id) and num(item.qty) and item.qty > 0 and not ignored[item.id] then
+      sum = sum + (makeRow(item, opts).bestTotal or 0)
+    end
+  end
+  return sum
+end
+
+-- Bags: the character's gold (`money`, copper) and the net worth: `bags` (the
+-- bag items unfiltered, View.inventoryWorth; nil: the listed total) plus
+-- `bank` (the last bank scan's worth; nil: not scanned) plus that gold.
+function View.addWorth(view, money, bags, bank)
   if not num(money) then return view end
-  view.totals.money = money
-  view.totals.worth = (view.totals.best or 0) + money
+  local totals = view.totals
+  totals.money = money
+  totals.bagsWorth = num(bags) and bags or (totals.best or 0)
+  totals.bank = num(bank) and bank or nil
+  totals.worth = totals.bagsWorth + (totals.bank or 0) + money
   return view
 end
 

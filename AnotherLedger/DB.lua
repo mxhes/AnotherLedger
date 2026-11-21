@@ -160,6 +160,9 @@ DB.defaults = {
   -- (Core.watchedItems, Core.watchedNames): a sound and a screen line on loot.
   watched = {},
   watchedNames = {},
+  -- Every character's net worth when last saved: { ["Name-Realm"] = { bags,
+  -- bank, money, at } } (Worth.lua; copper).
+  worth = {},
   -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
   histories = {},
   -- Destroy professions per character: { ["Name-Realm"] = { enchanting = true, ... } }

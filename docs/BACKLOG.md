@@ -14,8 +14,6 @@ Sizes: S = under an hour, M = a few hours, L = a bigger piece of work.
 
 From the fifth review (2026-11-19, screenshots of Bags and compact):
 
-- Net worth counts bags and gold only: add the last bank scan (and maybe
-  the alts' bags and banks), or rename it "Bags + gold". S-M
 - Compact: optional item icons in Last drops; a dimmer color for the
   quantity (`x47`) so names stand out. Decide whether compact drops show
   `?` like the list does. S
@@ -54,4 +52,6 @@ buttons, and the Trade tab (auction and trade recording, Items and Log, Own
 sales price source, Trade log kept).
 From the fifth review: "without AH price" with the reason in the footer
 tooltip, Hide Vendor tags, colored free bag slots and trade purchases with a
-minus sign. Also: `/al stats`, Mob data kept and the History cache.
+minus sign, net worth with the bank and all characters (`/al worth`). Also:
+`/al stats`, Mob data kept, the History cache, the price trend in item
+tooltips and the watch list.
