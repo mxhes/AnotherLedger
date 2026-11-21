@@ -3,13 +3,15 @@
 Writes into AnotherLedger/Media/Skins/ (uncompressed 32-bit TGA, bottom-left
 origin, like the logo):
 
-  Grain.tga    64 x 64  fine per-pixel noise, grey 200..255 (Background: Grain)
-  Leather.tga  64 x 64  soft blotchy leather grain, grey 170..255 (Background: Leather)
+  Grain.tga    64 x 64  fine per-pixel noise, grey 120..255 (Background: Grain)
+  Leather.tga  64 x 64  soft blotchy leather grain, grey 80..255 (Background: Leather)
   Stud.tga     16 x 16  a round bevelled stud, transparent around it (Border: Gilded)
   Dotted.tga    8 x 2   a dash: x 0..3 white, 4..7 transparent (Lines: Dotted)
 
 All are grey-scale: the game tints them with the theme colors (vertex color
-multiplies), so near-white keeps the color preset's own color. Backgrounds
+multiplies), so the lightest parts keep the color preset's own color.
+(The ranges are wide on purpose: on the dark presets a narrow one did not
+show in the client.) Backgrounds
 tile seamlessly. Fixed seed: a run gives the same files again.
 Run from the repo root: python tools/render_skins.py (Pillow only).
 Optional: --preview DIR also writes enlarged PNG previews there.
@@ -56,7 +58,7 @@ def stretch(img, lo, hi):
 
 def grain(rng):
     size = 64
-    return grey_rgba([rng.randint(200, 255) for _ in range(size * size)], size)
+    return grey_rgba([rng.randint(120, 255) for _ in range(size * size)], size)
 
 
 def leather(rng):
@@ -64,12 +66,12 @@ def leather(rng):
     # Soft blotches (large blur) plus a little fine pore noise.
     blot = Image.new("L", (size, size))
     blot.putdata([rng.randint(0, 255) for _ in range(size * size)])
-    blot = stretch(wrap_blur(blot, 2.2), 0, 255)
+    blot = stretch(wrap_blur(blot, 3.0), 0, 255)
     pores = Image.new("L", (size, size))
     pores.putdata([rng.randint(0, 255) for _ in range(size * size)])
     pores = wrap_blur(pores, 0.6)
     mixed = Image.blend(blot, pores, 0.25)
-    mixed = stretch(mixed, 170, 255)
+    mixed = stretch(mixed, 80, 255)
     return grey_rgba(list(mixed.getdata()), size)
 
 

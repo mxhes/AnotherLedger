@@ -521,9 +521,10 @@ Theme.skins = {
 -- How the styles shade the theme colors: the dark edge lines, the groove's
 -- dark / light line, the raised buttons' light / dark edge, how far Plain
 -- moves a line color toward grey and the panel, the Sunken list fill.
+-- Strong on purpose: the dark presets swallow small differences (client).
 Theme.skinScales = {
-  edgeDark = 0.25, grooveDark = 0.35, grooveLight = 1.6,
-  raisedLight = 1.8, raisedDark = 0.45, plainMix = 0.5, listBox = 0.6,
+  edgeDark = 0.2, edgeLight = 1.7, grooveDark = 0.3, grooveLight = 2.0,
+  raisedLight = 3.5, raisedDark = 0.3, plainMix = 0.5, listBox = 0.5,
 }
 
 -- The active picks; the options write them with Theme.setStyle.
@@ -577,14 +578,19 @@ end
 
 -- The line rectangles of a border: inset (px from the frame edge) and shade
 -- (a factor on the border color). Round has none (the backdrop edge).
+-- (Seen in the client: single 1 px lines in the border color barely show on
+-- the dark panel, so Bevel and Gilded use light highlight lines and are
+-- 5 / 6 px wide; all stay inside the 12 px content inset.)
 function Theme.edgeRects(border)
-  local d = Theme.skinScales.edgeDark
+  local d, l = Theme.skinScales.edgeDark, Theme.skinScales.edgeLight
   if border == "thin" then return { { inset = 0, shade = d }, { inset = 1, shade = 1 } } end
   if border == "bevel" then
-    return { { inset = 0, shade = d }, { inset = 1, shade = 1 }, { inset = 2, shade = d } }
+    return { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = 1 },
+      { inset = 3, shade = 1 }, { inset = 4, shade = d } }
   end
   if border == "gilded" then
-    return { { inset = 0, shade = d }, { inset = 1, shade = 1 }, { inset = 3, shade = 1 } }
+    return { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = d },
+      { inset = 3, shade = d }, { inset = 4, shade = l }, { inset = 5, shade = d } }
   end
   return {}
 end

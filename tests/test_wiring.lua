@@ -4611,7 +4611,7 @@ h.test("wiring: switching border restyles the window without stacking frames", f
   h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
   ns.Options.pick(ns.db, "skinBorder", "bevel")
   h.eq(win._backdrop.edgeFile, nil)
-  h.eq(#win.skinEdges, 3); h.eq(win.skinEdges[1].top:IsShown(), true)
+  h.eq(#win.skinEdges, 5); h.eq(win.skinEdges[1].top:IsShown(), true)
   local first = win.skinEdges[1].top
   ns.Options.pick(ns.db, "skinBorder", "round")
   h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)

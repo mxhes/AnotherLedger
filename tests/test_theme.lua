@@ -271,7 +271,13 @@ h.test("Theme.edgeRects / edgeStuds per border", function()
   local d = T.skinScales.edgeDark
   h.eq(T.edgeRects("round"), {})
   h.eq(T.edgeRects("thin"), { { inset = 0, shade = d }, { inset = 1, shade = 1 } })
-  h.eq(#T.edgeRects("bevel"), 3); h.eq(T.edgeRects("gilded")[3].inset, 3)
+  local l = T.skinScales.edgeLight
+  -- Bevel: dark outline, a light highlight, a 2 px body, a dark inner line.
+  h.eq(T.edgeRects("bevel"), { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = 1 },
+    { inset = 3, shade = 1 }, { inset = 4, shade = d } })
+  -- Gilded: two bright lines with a dark gap between them.
+  h.eq(T.edgeRects("gilded"), { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = d },
+    { inset = 3, shade = d }, { inset = 4, shade = l }, { inset = 5, shade = d } })
   h.eq(T.edgeStuds("gilded"), true); h.eq(T.edgeStuds("bevel"), false)
 end)
 
