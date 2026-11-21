@@ -40,7 +40,11 @@ against the test fakes):
    CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0), and no `docs/`,
    `tests/` or `CLAUDE.md`.
 5. Add the version's entry on top of `CHANGELOG.md` (merged into `main`):
-   the packager sends it to CurseForge as the release notes.
+   the packager sends it to CurseForge as the release notes. Keep it short
+   and precise: one bullet per player-visible change, one or two lines
+   each, about ten bullets at most, small fixes together in one "Fixes:"
+   bullet; no internals (refactors, tests, caches), no option details or
+   reasons (those go in `README.md`).
 6. Tag `main` with the version as a maintainer (`git tag -a v0.4.2 -m ...`,
    then `git push origin v0.4.2`). `v*` tags are protected tags (maintainers
    only), which is what gives the tag pipeline the protected, masked CI/CD
