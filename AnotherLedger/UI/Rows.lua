@@ -595,10 +595,8 @@ local function createRow(parent, owner)
   f.flash, f.flashGroup, f.flashFade = flash, ag, fade
 
   -- Separator inside the bottom pixel row (no extra height); hidden on the last row.
-  local sep = f:CreateTexture(nil, "BORDER")
-  sep:SetTexture(T.textures.rowHighlight)
-  local sc = T.colors.rowSeparator
-  sep:SetVertexColor(sc[1], sc[2], sc[3], sc[4])
+  -- A styled line (option "skinLines").
+  local sep = ns.UI.Widgets.rule(f, T.colors.rowSeparator, "BORDER")
   sep:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", T.sizes.rowSeparatorInset, 0)
   sep:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
   f.separator = sep
@@ -857,7 +855,7 @@ function Rows.attach(area, onMeasure)
       if f.rowKey ~= key then stopFlash(f) end
       f.rowKey = key
       fillRow(f, row)
-      f.separator:SetShown(self.offset + i < total)
+      ns.UI.Widgets.showRule(f.separator, self.offset + i < total)
       f:Show()
       cells[i] = f.amount
       if f.hasTag then

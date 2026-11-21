@@ -91,6 +91,27 @@ function Window.paintLook(frame)
   local bd = Window.scaledColor(T.scaleColor(T.colors.panelBorder, k), alpha)
   frame:SetBackdropBorderColor(bd[1], bd[2], bd[3], bd[4])
   ns.UI.Widgets.paintEdges(frame, bd)
+  local box = frame.listBox
+  if type(box) == "table" and type(box.edge) == "table" then
+    local scales = T.skinScales
+    local fill = Window.scaledColor(T.scaleColor(T.colors.panelTint, scales.listBox * k), alpha)
+    box.fill:SetVertexColor(fill[1], fill[2], fill[3], fill[4])
+    local dark = Window.scaledColor(T.scaleColor(T.colors.panelBorder, scales.edgeDark * k), alpha)
+    local px = ns.UI.Widgets.pixels(box, 1)
+    for side, c in pairs({ top = dark, left = dark, bottom = bd, right = bd }) do
+      if side == "top" or side == "bottom" then box.edge[side]:SetHeight(px) else box.edge[side]:SetWidth(px) end
+      box.edge[side]:SetVertexColor(c[1], c[2], c[3], c[4])
+    end
+  end
+end
+
+-- Option "skinListBox": the sunken box shows behind the list in the full
+-- layout only.
+function Window.applyListBox()
+  local frame = Window.frame
+  if not frame or type(frame.listBox) ~= "table" then return end
+  local full = Window.mode ~= "compact"
+  frame.listBox:SetShown(ns.Theme.style.listBox == true and full)
 end
 
 -- The ledger window and the options panel share one background look.
@@ -363,6 +384,30 @@ local function build(db)
   listArea:SetPoint("BOTTOMRIGHT", footer, "TOPRIGHT", 0, 0)
   listArea:SetClipsChildren(true)
 
+  -- Sunken list (option "skinListBox"): a darker box behind the list rows with
+  -- a sunken edge (dark top / left, light bottom / right). It reaches
+  -- listBoxPad into the side padding only, so no row moves.
+  local listBox = CreateFrame("Frame", nil, frame)
+  local pad = T.sizes.listBoxPad
+  listBox:SetPoint("TOPLEFT", listArea, "TOPLEFT", -pad, 0)
+  listBox:SetPoint("BOTTOMRIGHT", listArea, "BOTTOMRIGHT", pad, 0)
+  listBox:SetFrameLevel(frame:GetFrameLevel())
+  listBox:EnableMouse(false)
+  local function boxTex(layer)
+    local t = listBox:CreateTexture(nil, layer)
+    t:SetTexture(T.textures.rowHighlight)
+    return t
+  end
+  listBox.fill = boxTex("BACKGROUND")
+  listBox.fill:SetAllPoints(listBox)
+  local edge = { top = boxTex("BORDER"), left = boxTex("BORDER"), bottom = boxTex("BORDER"), right = boxTex("BORDER") }
+  edge.top:SetPoint("TOPLEFT", listBox, "TOPLEFT", 0, 0); edge.top:SetPoint("TOPRIGHT", listBox, "TOPRIGHT", 0, 0)
+  edge.bottom:SetPoint("BOTTOMLEFT", listBox, "BOTTOMLEFT", 0, 0); edge.bottom:SetPoint("BOTTOMRIGHT", listBox, "BOTTOMRIGHT", 0, 0)
+  edge.left:SetPoint("TOPLEFT", listBox, "TOPLEFT", 0, 0); edge.left:SetPoint("BOTTOMLEFT", listBox, "BOTTOMLEFT", 0, 0)
+  edge.right:SetPoint("TOPRIGHT", listBox, "TOPRIGHT", 0, 0); edge.right:SetPoint("BOTTOMRIGHT", listBox, "BOTTOMRIGHT", 0, 0)
+  listBox.edge = edge
+  listBox:Hide()
+
   -- Compact mode body (UI/Compact.lua): under the title row, hidden in full.
   local compactArea = CreateFrame("Frame", nil, frame)
   compactArea:SetPoint("TOPLEFT", header.row1, "BOTTOMLEFT", 0, -T.sizes.padding / 2)
@@ -401,6 +446,8 @@ local function build(db)
   frame.header = header
   frame.topBox = topBox
   frame.listArea = listArea
+  frame.listBox = listBox
+  ns.UI.Widgets.onSkin(Window.applyListBox)
   frame.footer = footer
   frame.grip = grip
   frame.compact = compactArea
@@ -624,6 +671,7 @@ function Window.applyMode(mode)
   frame.footer:SetShown(parts.footer)
   frame.topBox:SetShown(full and optionalRows.topBox)
   frame.compact:SetShown(parts.compact)
+  Window.applyListBox()
   applyHeaderHeight()
   ensureOnScreen(frame)
   save()

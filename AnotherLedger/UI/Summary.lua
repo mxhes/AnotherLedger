@@ -349,7 +349,7 @@ function Summary.attach(topBox, footer)
 
   -- Divider between the footer and the Top finds block: the top edge of the
   -- topBox, so it disappears together with a collapsed topBox.
-  local divider = W.line(topBox, T.colors.divider)
+  local divider = W.rule(topBox, T.colors.divider)
   divider:SetHeight(S.dividerHeight)
   divider:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, 0)

@@ -259,7 +259,7 @@ function Compact.attach(area)
   hover:SetScript("OnLeave", W.hideTooltip)
   Compact.hover = hover
 
-  local line = W.line(area, T.colors.divider)
+  local line = W.rule(area, T.colors.divider)
   line:SetHeight(1)
   line:SetPoint("TOPLEFT", area, "TOPLEFT", 0, -28)
   line:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -28)

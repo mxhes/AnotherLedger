@@ -4672,3 +4672,73 @@ h.test("wiring: styled lines follow the Lines pick", function()
   ns.Options.pick(ns.db, "skinLines", "gold")
   h.eq(r._texture, T.textures.rowHighlight)
 end)
+
+h.test("wiring: every skin applies with the window open, in both layouts", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  for _, s in ipairs(ns.Theme.skins) do
+    ns.Options.pick(ns.db, "skin", s.id)
+    h.eq(ns.Theme.style.border, s.border)
+    h.eq(ns.Theme.style.lines, s.lines)
+    slash(ctx, "compact"); slash(ctx, "compact")
+  end
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: row separators, dividers and tab lines follow the Lines pick", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  local W = ns.UI.Widgets
+  ns.Options.pick(ns.db, "skinLines", "groove")
+  local rules = 0
+  for region, t in pairs(W.tracked) do
+    if t[1] == "rule" then
+      rules = rules + 1
+      h.eq(region.groove ~= false, true)
+    end
+  end
+  h.eq(rules >= 4, true) -- separators, Top finds divider, compact divider, tab base lines
+end)
+
+h.test("wiring: square tabs on a non-round border, rounded on Round", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local tabs = ns.UI.Ledger.tabs
+  local b = tabs.buttons.session
+  h.eq(b.skin._backdrop.edgeFile, ns.Theme.textures.tabBorder)
+  ns.Options.pick(ns.db, "skinBorder", "bevel")
+  h.eq(b.skin._backdrop.edgeFile, ns.Theme.textures.rowHighlight)
+  ns.Options.pick(ns.db, "skinBorder", "round")
+  h.eq(b.skin._backdrop.edgeFile, ns.Theme.textures.tabBorder)
+end)
+
+h.test("wiring: sunken list shows in full only", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, win = ctx.ns, ctx.ns.UI.Window.frame
+  h.eq(win.listBox:IsShown(), false)
+  ns.Options.pick(ns.db, "skinListBox", true)
+  h.eq(win.listBox:IsShown(), true)
+  slash(ctx, "compact"); h.eq(win.listBox:IsShown(), false)
+  slash(ctx, "compact"); h.eq(win.listBox:IsShown(), true)
+  ns.Options.pick(ns.db, "skinListBox", false)
+  h.eq(win.listBox:IsShown(), false)
+end)
+
+h.test("wiring: a profile with another skin restyles at once", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Profiles.create(ns.db, "Forge", { skin = "forge", skinBorder = "bevel", skinBackground = "grain",
+    skinButtons = "raised", skinLines = "groove", skinListBox = true })
+  ns.Profiles.activate(ns.db, ns.chardb, "Forge")
+  h.eq(ns.Theme.style.buttons, "raised")
+  h.eq(ns.UI.Window.frame._backdrop.bgFile, ns.Theme.textures.skinGrain)
+  h.eq(ns.UI.Window.frame.listBox:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)

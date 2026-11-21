@@ -418,8 +418,36 @@ end
 
 -- Inset of the visible edge line inside the tab's frame (the edge texture
 -- draws its line a little inside its own square).
+-- Square tabs (any border but Round) draw their 1 px edge at the frame edge.
 local function edgeInset()
+  if ns.Theme.style.border ~= "round" then return 0 end
   return math.floor(ns.Theme.sizes.tabEdge / 4)
+end
+
+-- Pure. The tab edge backdrop for a border style: the rounded tooltip edge
+-- for Round, a square one-pixel edge for the others.
+function Tabs.edgeSpec(border)
+  local T = ns.Theme
+  if border == "round" then
+    local inset = math.floor(T.sizes.tabEdge / 4)
+    return { edgeFile = T.textures.tabBorder, edgeSize = T.sizes.tabEdge,
+      insets = { left = inset, right = inset, top = inset, bottom = inset } }
+  end
+  return { edgeFile = T.textures.rowHighlight, edgeSize = 1,
+    insets = { left = 0, right = 0, top = 0, bottom = 0 } }
+end
+
+-- Every strip made (Tabs.strip), restyled on a skin change.
+local strips = {}
+
+-- Edge and glow of one tab for the current border.
+local function shapeTab(b)
+  local inset = edgeInset()
+  b.skin:SetBackdrop(Tabs.edgeSpec(ns.Theme.style.border))
+  b.glow:ClearAllPoints()
+  b.glow:SetPoint("TOPLEFT", b.skin, "TOPLEFT", inset, -inset)
+  b.glow:SetPoint("TOPRIGHT", b.skin, "TOPRIGHT", -inset, -inset)
+  b:ApplyLook()
 end
 
 -- Pure. Width of a tab button: Theme.widths.tab, wider when the label needs it
@@ -445,17 +473,9 @@ local function makeTab(row, label)
   local skin = CreateFrame("Frame", nil, b, "BackdropTemplate")
   skin:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
   skin:EnableMouse(false)
-  local inset = edgeInset()
-  skin:SetBackdrop({
-    edgeFile = T.textures.tabBorder,
-    edgeSize = S.tabEdge,
-    insets = { left = inset, right = inset, top = inset, bottom = inset },
-  })
   b.skin = skin
   local glow = skin:CreateTexture(nil, "ARTWORK")
   glow:SetTexture(T.textures.rowHighlight)
-  glow:SetPoint("TOPLEFT", skin, "TOPLEFT", inset, -inset)
-  glow:SetPoint("TOPRIGHT", skin, "TOPRIGHT", -inset, -inset)
   glow:SetHeight(S.tabGlowHeight)
   setGlow(glow, T.colors.tabGlow)
   glow:Hide()
@@ -477,7 +497,7 @@ local function makeTab(row, label)
   end
   b:SetScript("OnEnter", function(self) self.isHovered = true; self:ApplyLook() end)
   b:SetScript("OnLeave", function(self) self.isHovered = false; self:ApplyLook() end)
-  b:ApplyLook()
+  shapeTab(b)
   return b
 end
 
@@ -520,7 +540,7 @@ function Tabs.strip(row, items, onSelect)
   tabs.lineFrame = lineFrame
 
   local function baseLine()
-    local l = W.line(lineFrame, T.colors.tabBorder, "OVERLAY")
+    local l = W.rule(lineFrame, T.colors.tabBorder, "OVERLAY")
     l:SetHeight(T.sizes.tabLine)
     return l
   end
@@ -558,7 +578,21 @@ function Tabs.strip(row, items, onSelect)
   end
   placeBase(nil)
 
+  -- Skin change: new edge shape, and the line's gap under the selected tab
+  -- follows the new edge inset.
+  function tabs:Reshape()
+    for _, b in pairs(self.buttons) do shapeTab(b) end
+    placeBase(self.selected and self.buttons[self.selected] or nil)
+  end
+  strips[#strips + 1] = tabs
+  if #strips == 1 then W.onSkin(Tabs.reshapeAll) end
+
   return tabs
+end
+
+-- Every tab strip takes the current border's shape (Widgets.onSkin hook).
+function Tabs.reshapeAll()
+  for _, s in ipairs(strips) do s:Reshape() end
 end
 
 -- Pure. Width a strip of tabs needs (px): the button widths and the gaps.
