@@ -391,7 +391,9 @@ local function build(db)
   local pad = T.sizes.listBoxPad
   listBox:SetPoint("TOPLEFT", listArea, "TOPLEFT", -pad, 0)
   listBox:SetPoint("BOTTOMRIGHT", listArea, "BOTTOMRIGHT", pad, 0)
-  listBox:SetFrameLevel(frame:GetFrameLevel())
+  -- Above the window's own background, below the list and its rows.
+  listBox:SetFrameLevel(frame:GetFrameLevel() + 1)
+  listArea:SetFrameLevel(frame:GetFrameLevel() + 3)
   listBox:EnableMouse(false)
   local function boxTex(layer)
     local t = listBox:CreateTexture(nil, layer)

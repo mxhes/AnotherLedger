@@ -26,14 +26,16 @@ local function copy(v)
 end
 
 -- The defaults a profile is filled with (for the few direct db.settings
--- reads). Not the single colors: their default is the profile's preset
--- (Options.defaultFor), so a missing color must stay missing.
+-- reads). Not the single colors and skin parts: their default is the
+-- profile's preset / skin (Options.defaultFor), so a missing one must stay
+-- missing.
 local function defaults()
   local all = ns.DB and ns.DB.defaults and ns.DB.defaults.settings or {}
-  local targets = ns.Options and ns.Options.colorTargets or {}
+  local colors = ns.Options and ns.Options.colorTargets or {}
+  local parts = ns.Options and ns.Options.skinTargets or {}
   local out = {}
   for k, v in pairs(all) do
-    if not targets[k] then out[k] = v end
+    if not colors[k] and not parts[k] then out[k] = v end
   end
   return out
 end

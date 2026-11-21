@@ -44,7 +44,9 @@ against the test fakes):
   rows (full layout only). Opacity and Brightness fade / lighten the edge
   lines and the list box like the window. Switching skin, a single part or the
   profile restyles at once without /reload; the options and export windows
-  follow too.
+  follow too. New `.tga` files need a client restart (a /reload does not
+  see them): check Forge / Gilded after a restart, and whether `SetTexture`
+  returns false for a missing file (the stud / dotted fallbacks rely on it).
 
 ## Release steps
 

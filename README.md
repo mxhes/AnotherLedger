@@ -360,7 +360,9 @@ a fine grain and a sunken list, like the game's profession windows.
 the corners and a leather surface; it looks best with the **Blizzard** color
 preset. **Border** also decides the tabs: **Round** gives rounded tabs, the
 others square ones. After a skin you can still change single parts; the skin
-then shows "(edited)". Opacity and Brightness work with every skin.
+then shows "(edited)". Opacity and Brightness work with every skin. After
+updating the addon, restart the game once (not just /reload) so it finds the
+new skin textures.
 
 **Color preset** changes the whole look at once: the window, the lines, the
 tabs, the buttons and the scrollbar. **AnotherLedger** is the dark leather look,
