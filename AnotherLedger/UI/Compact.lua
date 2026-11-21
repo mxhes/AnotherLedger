@@ -35,7 +35,7 @@ local MAX_DROPS = 4
 function Compact.dropText(row, formatMoney)
   local t = ns.UI.Rows.rowText(row, formatMoney)
   return { name = t.name, qty = t.qty, amount = t.amount, copper = t.copper, source = t.source,
-    sourceText = t.sourceText }
+    sourceText = t.sourceText, hideTag = t.hideTag }
 end
 
 -- Pure. Window height the compact body needs: chrome, the title row, the top
@@ -160,6 +160,7 @@ function part:Update(view)
       cells[#cells + 1] = w.amount
       -- The same framed tag as the list rows, lined up with the widest one.
       ns.UI.Rows.setSourceTag(w.tag, t.source, ns.UI.Rows.widestSource)
+      w.tag:SetAlpha(t.hideTag and 0 or 1)
       -- On whole screen pixels, so its frame is equally thin on every side.
       ns.UI.Widgets.snapPoint(w.tag, "RIGHT", w.frame, "RIGHT", 0, 0)
       w.frame:Show()

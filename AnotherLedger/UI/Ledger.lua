@@ -168,11 +168,12 @@ end
 local viewOpts = { lookup = lookupPrice, itemInfo = itemInfo, currencyInfo = currencyInfo, formatDate = formatDate,
   shortDate = shortDate, isQuest = isQuest }
 
--- The History that Zones reads (every character's with "accountZones").
+-- The History that Zones reads (every character's with "accountZones") and
+-- its change key (History.combine; nil without Core).
 local function zoneHistory()
   local Core = ns.Core
-  if Core and Core.zoneHistory then return (Core.zoneHistory()) end
-  return ns.chardb and ns.chardb.history or {}
+  if Core and Core.zoneHistory then return Core.zoneHistory() end
+  return ns.chardb and ns.chardb.history or {}, nil
 end
 
 local context = { opts = viewOpts, ledger = Ledger, zoneHistory = zoneHistory }
@@ -203,6 +204,39 @@ function Ledger.setSort(key)
   db.sorts[slot] = key
 end
 
+-- How History Zones, Mobs and the Daily farm value items now (ViewZones.lua
+-- keeps the sums of the saved History's places and mobs per key): the options
+-- and lists that value or pick items, the filter, and an epoch that moves on
+-- once per price refresh interval (prices may have changed), when item data
+-- arrives for a listed item (names, qualities) and on Ledger.valuesChanged.
+local valueEpoch = { n = 0, at = 0 }
+
+function Ledger.valuesChanged() valueEpoch.n = valueEpoch.n + 1 end
+
+local function listSig(list)
+  local n, sum = 0, 0
+  for id in pairs(type(list) == "table" and list or {}) do n, sum = n + 1, sum + (tonumber(id) or 0) end
+  return n .. ":" .. sum
+end
+
+local function valueKey(now)
+  if now - valueEpoch.at >= refreshSeconds() then valueEpoch.n, valueEpoch.at = valueEpoch.n + 1, now end
+  local setting = ns.Util.setting
+  local f = type(viewOpts.filter) == "table" and viewOpts.filter or {}
+  local q = {}
+  for i = 0, 7 do q[#q + 1] = type(f.qualities) == "table" and tostring(f.qualities[i]) or "-" end
+  local m = viewOpts.market
+  return table.concat({
+    valueEpoch.n, table.concat(q, ","), tostring(f.minValue), tostring(f.search),
+    listSig(viewOpts.ignored), tostring(viewOpts.hideWorthless), tostring(viewOpts.ahMinGain),
+    tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)), tostring(setting("scanPrice", nil)),
+    tostring(setting("ahCut", nil)), tostring(setting("destroyMode", nil)),
+    m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk) .. "/" .. tostring(m.soldHigh) .. "/"
+      .. tostring(m.soldMedium)) or "-",
+    tostring(ns.Demo and ns.Demo.active and ns.Demo.active() or false),
+  }, "|")
+end
+
 local function currentContext(now)
   local db = ns.db
   viewOpts.now = now
@@ -221,6 +255,9 @@ local function currentContext(now)
   viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
   viewOpts.kept = db and type(db.kept) == "table" and db.kept or nil
   viewOpts.goal = ns.Core and ns.Core.goalCopper and ns.Core.goalCopper() or nil
+  -- Set by the History tabs and the Daily farm for the entries they pass.
+  viewOpts.historyKey = nil
+  viewOpts.valueKey = valueKey(now)
   context.now = now
   context.env = _G
   context.session = ns.session
@@ -231,6 +268,13 @@ end
 -- The View options the window builds with now (the CSV export reuses them).
 function Ledger.viewOptions()
   return currentContext(time()).opts
+end
+
+-- Saves this character's net worth for the all characters total (logout:
+-- Core; Tabs.noteWorth also runs while Bags is shown).
+function Ledger.noteWorth()
+  if not (ns.db and ns.UI.Tabs and ns.UI.Tabs.noteWorth) then return nil end
+  return ns.UI.Tabs.noteWorth(currentContext(time()))
 end
 
 -- ---------------------------------------------------------------------------
@@ -274,7 +318,9 @@ local function dailyFarm(now)
   end
   local key = farmKey(listKey, minutes)
   if key == farmCache.key and now - farmCache.at < refreshSeconds() then return farmCache.value end
+  viewOpts.historyKey = listKey
   local ok, farm = pcall(ns.View.dailyFarm, history, viewOpts, minutes * 60)
+  viewOpts.historyKey = nil
   if not ok then
     reportOnce(farm)
     farm = nil
@@ -294,6 +340,10 @@ function Ledger.buildView(now)
   local view = ns.UI.Tabs.build(Ledger.tab, Ledger.subtab, ctx)
   if type(view) == "table" then
     view.dailyFarm = farm
+    local totals = view.totals
+    if type(totals) == "table" and (tonumber(totals.unpriced) or 0) > 0 and ns.Core and ns.Core.hasAuctionPrices then
+      view.noAuctionPrices = not ns.Core.hasAuctionPrices(_G, ns.db)
+    end
     -- Compact mode draws its own unfiltered numbers and last drops.
     if Ledger.mode == "compact" then view.compact = ns.View.buildCompact(ns.session, viewOpts) end
   end
@@ -334,6 +384,12 @@ end
 function Ledger.relayout()
   if not Ledger.frame then return end
   local window = ns.UI.Window
+  -- New fonts: the buttons fit their labels again, the header is measured again.
+  local okFit, errFit = pcall(function()
+    if ns.UI.Widgets.refitButtons then ns.UI.Widgets.refitButtons() end
+    Ledger.measureHeader()
+  end)
+  if not okFit then reportError(errFit) end
   if window and window.applySizes then
     local ok, err = pcall(window.applySizes)
     if not ok then reportError(err) end
@@ -608,6 +664,9 @@ local L_IGNORE = ns.L["Ignore this item"]
 local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, List, Ignored items takes it back."]
 local L_KEEP = ns.L["Keep (not for sale)"]
 local L_UNKEEP = ns.L["Sell again (not kept)"]
+local L_WATCH = ns.L["Watch this item"]
+local L_UNWATCH = ns.L["Stop watching it"]
+local L_WATCHING = ns.L["watching %s: you hear a sound and see a line when you loot it."]
 
 -- Deletes the History session at `index` (/al undo brings it back). The
 -- opened session stays open (its index moves when a newer one goes).
@@ -687,6 +746,18 @@ function Ledger.rowMenu(row)
       { text = row.name, title = true },
       { text = L_IGNORE, onClick = function() Ledger.ignoreItem(row) end },
     }
+    -- The watch list (a sound and a screen line when you loot it).
+    local C = ns.Core
+    if C and C.watchedItems then
+      if C.watchedItems()[row.id] ~= nil then
+        entries[#entries + 1] = { text = L_UNWATCH, onClick = function() C.unwatchItem(row.id) end }
+      else
+        entries[#entries + 1] = { text = L_WATCH, onClick = function()
+          C.watchItem(row.id, row.name)
+          ns.Util.say(string.format(L_WATCHING, row.link or row.name or tostring(row.id)))
+        end }
+      end
+    end
     -- Bags and Bank: the keep list (kept items count apart in the footer).
     local Core = ns.Core
     if Ledger.view and Ledger.view.kind == "inventory" and Core then
@@ -713,7 +784,10 @@ function Ledger.wantsItemInfo(itemID)
   if not ns.session then return false end
   local hasItem = ns.UI.Tabs.hasItemFn(Ledger.tab, Ledger.subtab)
   if not hasItem then return true end
-  return hasItem(itemID, currentContext(time())) and true or false
+  local wanted = hasItem(itemID, currentContext(time())) and true or false
+  -- Its name or quality may change what the History views count.
+  if wanted then Ledger.valuesChanged() end
+  return wanted
 end
 
 -- ---------------------------------------------------------------------------
@@ -732,6 +806,55 @@ local function attach(part, fn)
   if not part then return end
   local ok, err = pcall(fn)
   if not ok then reportError(err) end
+end
+
+-- Measures what the header rows need with the client's fonts (the widest
+-- window title, the fitted buttons, the tab and sub-tab strips) and raises
+-- the window's minimum width to it (Window.setHeaderWidth): no translation
+-- cuts off a tab or a button.
+function Ledger.measureHeader()
+  local UI, frame = ns.UI, Ledger.frame
+  if not (frame and frame.header and UI.Window and UI.Window.setHeaderWidth) then return nil end
+  local W, S = UI.Widgets, ns.Theme.sizes
+  local function width(f)
+    local w = f and f.GetWidth and f:GetWidth()
+    if type(w) == "number" and w == w and w > 0 then return w end
+    return nil
+  end
+  local function stripWidths(strip)
+    local out = {}
+    for i, b in ipairs(type(strip) == "table" and type(strip.order) == "table" and strip.order or {}) do
+      out[i] = width(b) or ns.Theme.widths.tab
+    end
+    return out
+  end
+  local need = 0
+  local title = frame.header.title
+  if title and UI.Header and UI.Header.rowNeed and UI.Tabs then
+    local shown = title.GetText and title:GetText()
+    local titleW = 0
+    for _, text in ipairs(UI.Tabs.titles()) do
+      title:SetText(text)
+      titleW = math.max(titleW, W.textWidth(title))
+    end
+    title:SetText(type(shown) == "string" and shown or "")
+    local h = UI.Header.instance
+    need = math.max(need, UI.Header.rowNeed(titleW, h and width(h.toggle), h and width(h.reset)))
+  end
+  if UI.FilterBar and UI.FilterBar.rowNeed then
+    need = math.max(need, UI.FilterBar.rowNeed(width(UI.FilterBar.qualityButton), width(UI.FilterBar.sortButton)))
+  end
+  if UI.Tabs then
+    need = math.max(need, UI.Tabs.rowNeed(stripWidths(Ledger.tabs)))
+    -- Sub-tabs, with the Trade period button at the right end of their row.
+    local period = UI.TradePeriod and width(UI.TradePeriod.button) or S.tradePeriodWidth
+    for _, strip in pairs(Ledger.subtabStrips or {}) do
+      need = math.max(need, UI.Tabs.rowNeed(stripWidths(strip)) + S.buttonGap * 3 + period)
+    end
+  end
+  local required = math.ceil(need + 2 * (S.padding + 4))
+  UI.Window.setHeaderWidth(required)
+  return required
 end
 
 function Ledger.init()
@@ -823,6 +946,9 @@ function Ledger.init()
   attach(UI.Compact, function()
     if frame.compact then UI.Compact.attach(frame.compact) end
   end)
+  -- Every header part is built: what the header needs raises the minimum width.
+  local okMeasure, errMeasure = pcall(Ledger.measureHeader)
+  if not okMeasure then reportError(errMeasure) end
   UI.Window.onTitleDoubleClick = Ledger.toggleMode
 
   -- OnUpdate only runs while the frame is shown.

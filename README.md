@@ -59,7 +59,8 @@ ElvUI, ...). It has two layouts; switch with the **arrow button** next to the
 gear, a double-click on the title, or `/al compact`. Each layout keeps its own
 size; the corner nearest to the screen edge where you last moved or resized
 the window stays where it is when you switch, so switching back puts it
-exactly where it was.
+exactly where it was. The full window can't be made narrower than its tabs
+and buttons need (in some languages a little wider), so nothing is cut off.
 
 **Compact** is for a glance between pulls: your gold per hour in large type,
 the session total (with a session goal: `Session 312g / 500g`, and a gold bar
@@ -101,7 +102,9 @@ clock is stopped).
   the item tooltip with all its values; Shift-click links the item in chat,
   Ctrl-click tries it on. Right-click an item to **ignore** it (a hearthstone,
   a quest item): it then counts nowhere, in no list, total, alert or goal, on
-  every character; **Ignored items** in the options takes it back. Top finds
+  every character; **Ignored items** in the options takes it back. Pick
+  **Watch this item** instead to hear a sound and see a line in the middle
+  of the screen whenever you loot it (see "Watch list"). Top finds
   work the same way. An empty list says why: no loot yet, the clock is
   stopped, or nothing matches the filters. Each tab keeps its scroll position
   until you log out.
@@ -114,7 +117,7 @@ clock is stopped).
   value, not in the rate); its hover says which sessions it counts. Mobs has
   no clock, so no per hour column. The option **Raw gold** decides whether
   the gold counts in the Total and whether it has its own row. Click
-  `N unpriced (marked ?)` under the table to list the items without an
+  `N without AH price (marked ?)` under the table to list the items without an
   auction price first; click again for the normal sort. Items that can't be
   sold on the auction house (soulbound, also gear bound by equipping it) and
   items nothing pays for are never marked or counted there.
@@ -137,9 +140,14 @@ items.
   gear sets: the row says `(kept)` and the footer splits the total into
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
   for all characters; **Kept items** in the options lists it. The footer also
-  shows **Gold on hand** and **Net worth** (items plus gold), its tooltip the
+  shows **Gold on hand** and **Net worth** (your bags, your bank as of its
+  last visit and your gold, whatever the filter shows), its tooltip the
   **Sell split** (what the items not kept bring at the vendor, on the AH and
-  destroyed), and the header your free bag slots.
+  destroyed), and the header your free bag slots (orange at 5 or fewer, red
+  at 2 or fewer). Once you have logged in with a second character, the
+  footer adds **All characters**: every character's net worth as it was when
+  you last logged out with it (or looked at its Bags); the tooltip lists
+  them with their age.
 - **Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once (until then the list says `Not scanned yet.` and the
   total shows `—`); after that the tab shows the last scan and its age.
@@ -175,7 +183,8 @@ items.
   places are listed, the Daily farm's place has the same star as the strip,
   and a dungeon's difficulty is shortened in the list (`Razorfen Downs (N)`;
   the tooltip has the full name). Hover the footer to see which items have no
-  auction price yet (`2 unpriced (marked ?)`).
+  auction price yet (`2 without AH price (marked ?)`); it also says why: no
+  price addon and no scan yet, or your price sources don't know those items.
 - **History > Mobs**: what each kind of mob and gathering node gave you, over
   the same sessions as Zones: how often you looted it, the value of its loot
   plus its gold, and the value per corpse or node looted. Sort by **Value**,
@@ -206,7 +215,8 @@ items.
     buyer). Sorts: Gold earned, Sold, Sell rate, vs market, Name.
   - **Log** lists every entry, newest first: Posted, Cancelled, Expired, Sold,
     Trade sale, Trade purchase and Trade, with the date, the other player and
-    your character. Sorts: Recent, Gold earned, Name.
+    your character; a trade purchase shows the gold you paid with a minus
+    sign. Sorts: Recent, Gold earned, Name.
   - The filter bar works on both: the search and the minimum value pick
     items or entries, the quality filter the items (a trade with a player
     has no quality and always stays).
@@ -225,6 +235,21 @@ items.
     after AnotherLedger scan: the average price you got per item.
   - **Trade log kept** (History options) sets how many days the Log keeps
     each entry (90 by default); the totals per item stay for **All**.
+
+## Watch list
+
+Put the drops you hope for on the watch list (a rare pet, a recipe, a
+mount): each time you loot one, chat names it, the raid warning sound plays
+and a gold line shows in the middle of the screen, also while the session
+clock is stopped.
+
+- Right-click an item in any list: **Watch this item** (or **Stop watching
+  it**).
+- `/al watch` with a shift-clicked item link or an item ID watches that
+  item; with a text of at least 3 letters it watches every item whose name
+  contains it (`/al watch Pattern:` for every pattern).
+- `/al watch` alone lists the watch list, `/al unwatch` takes an entry off,
+  and **Watched items** in the options (List) shows it to click entries off.
 
 ## Daily farm
 
@@ -273,6 +298,13 @@ Auctionator:
   no price for (or for everything, if you pick **AnotherLedger scan** as the
   AH price source).
 
+**Price trend**: every item tooltip in the game (and the rows of the ledger)
+shows how the item's price moves, e.g. `AnotherLedger price trend +12% vs 60
+days`: with TSM its market value against its 60 day average, else the newest
+day of your own scans against the days before (it needs two days with a
+scan, the newer one at most three days old). Rises of 5% or more show green,
+drops red. **Price trend in tooltips** turns it off.
+
 The order of auction prices is TSM, then Auctionator, then AnotherLedger scan,
 then your own sales (Trade tab), then the last price seen earlier. If the
 **AH price source** names an addon that isn't loaded, it shows as
@@ -293,9 +325,9 @@ History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Ignored items, Kept items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
-| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept |
+| History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
@@ -326,10 +358,16 @@ colors. Tooltips keep the game's dark tooltip on every preset.
 History: its length, main place, worth and gold per hour. **Reset: ask for a
 note** opens the note box for the saved session after Reset (Escape skips
 it). **History kept** counts per character and applies to all of them.
+**Mob data kept** (All by default) keeps what each mob and node dropped only
+for the sessions of the last 30, 90, 180 or 365 days: older sessions stay in
+History, but no longer count in History > Mobs and the drop chances. Picking
+a shorter time asks first. `/al stats` shows how much of the saved files
+History, its mob data, the auction house scan, the Trade log and the price
+cache take.
 
 **Profiles**: every option is part of a profile, except **History kept**,
-**Zones: all characters** and **Minimap button**, which count for the whole
-account. Each character picks its own profile; new characters use **Default**.
+**Trade log kept**, **Mob data kept**, **Zones: all characters** and
+**Minimap button**, which count for the whole account. Each character picks its own profile; new characters use **Default**.
 Hover **Profile** to see which characters use the chosen one. **New profile**
 starts from the defaults, **Copy profile** from the current one; Default can't
 be renamed or deleted. **Reset profile** sets every option of the current
@@ -380,6 +418,9 @@ runs again and counts from that day, even if you had stopped it. An empty
 session starts over as before. Reset always saves it; Off saves every
 session.
 
+**Hide Vendor tags** leaves the tag blank on rows that count at their vendor
+price, so the Auction and Destroy rows stand out (most Bags rows are Vendor).
+
 **Price per unit** shows the value of one item on a stack of several instead
 of the whole stack; totals and tooltips stay the same.
 
@@ -402,6 +443,9 @@ clock and scanning the auction house.
 | `/al export` | the History as CSV in a copy box |
 | `/al export session`, `/al export zones`, `/al export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
 | `/al undo` | take back the last merge or delete in History (or the cleared History) |
+| `/al watch <item \| text>`, `/al unwatch <item \| text>` | watch an item (link or ID) or every item whose name contains the text; `/al watch` alone lists them |
+| `/al worth`, `/al worth forget <name>` | every character's net worth; drop a deleted character from All characters |
+| `/al stats` | how much of the saved files each part takes (History, mob data, scan, Trade log, price cache) |
 | `/al demo` | sample loot and temporary sample prices, to look at the window |
 | `/al help` | list the commands |
 
@@ -423,8 +467,12 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   days ago it last saw the item, so its prices carry an age tag from the first
   day on. An AnotherLedger scan price's tag is the time since the item was
   last seen on the auction house.
-- **Languages**: English and German. Loot and money messages are read from the
-  game's own texts, so they work in every client language.
+- **Languages**: English, German, French, Spanish (Spain and Mexico),
+  Italian, Portuguese (Brazil) and Russian, picked from your client's
+  language. Loot and money messages are read from the game's own texts, so
+  they work in every client language (Korean and Chinese clients show the
+  English texts). Slash commands stay in English (`/al watch`, ...). Found a
+  clumsy translation? Open an issue with the better wording.
 - **Install**: unzip the release zip (it holds the libraries) into
   `World of Warcraft/<client>/Interface/AddOns/`, so the `.toc` ends up in
   `Interface/AddOns/AnotherLedger/`. From the source code, copy the

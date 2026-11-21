@@ -344,6 +344,50 @@ function Widgets.button(parent, label, width, opts)
   return b
 end
 
+-- Pure. Width of a text button that fits its widest label: `base` (the theme
+-- width), wider when one of `textWidths` (px) needs more with buttonTextPad on
+-- both sides. Longer translations widen the button instead of being cut off.
+function Widgets.fitWidth(base, textWidths)
+  local pad = ns.Theme.sizes.buttonTextPad
+  local w = tonumber(base) or 0
+  for _, tw in ipairs(type(textWidths) == "table" and textWidths or {}) do
+    if type(tw) == "number" and tw == tw and tw > 0 then w = math.max(w, math.ceil(tw + 2 * pad)) end
+  end
+  return w
+end
+
+-- The natural width of a FontString's text, also when its box is narrower.
+function Widgets.textWidth(fs)
+  local w = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+  if type(w) == "number" and w > 0 then return w end
+  w = fs.GetStringWidth and fs:GetStringWidth()
+  return type(w) == "number" and w or 0
+end
+
+-- Sizes text button `b` (Widgets.button) to its widest label of `texts`, at
+-- least `base` px; the shown text stays. Call again after a font change.
+function Widgets.fitButton(b, texts, base)
+  local fs = b and b.label
+  if not fs then return end
+  local shown = fs.GetText and fs:GetText()
+  local widths = {}
+  for i, text in ipairs(texts) do
+    fs:SetText(text)
+    widths[i] = Widgets.textWidth(fs)
+  end
+  fs:SetText(type(shown) == "string" and shown or "")
+  if not b.fitTexts then Widgets.fitted[#Widgets.fitted + 1] = b end
+  b.fitTexts, b.fitBase = texts, base
+  b:SetWidth(Widgets.fitWidth(base, widths))
+end
+
+-- Every button sized by fitButton, to fit again after a font change (Ledger.relayout).
+Widgets.fitted = {}
+
+function Widgets.refitButtons()
+  for _, b in ipairs(Widgets.fitted) do Widgets.fitButton(b, b.fitTexts, b.fitBase) end
+end
+
 -- Pure. SetTexCoord(ULx, ULy, LLx, LLy, URx, URy, LRx, LRy) that turns the
 -- right-pointing arrow texture (Theme.textures.arrow) to point "up" or "down".
 function Widgets.arrowCoords(direction)

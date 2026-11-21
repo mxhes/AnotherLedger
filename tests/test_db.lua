@@ -6,14 +6,14 @@ h.test("DB.defaults shape", function()
   local d = DB.defaults
   h.eq(d.version, 1)
   h.eq(d.cache, {})
-  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, tradeLogDays = 90, minimapButton = true,
+  h.eq(d.settings, { keepSession = false, tsmSource = "DBMarket", alpha = 1, brightness = 1, priceSource = "auto", combatHide = false, historyLimit = 50, tradeLogDays = 90, minimapButton = true, mobDataDays = 0,
     lockWindow = false, snapToGrid = true, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full", coinIcons = true,
     rawGold = "row", refreshSeconds = 30, staleHours = 12, ahCut = true, ahMinGain = 0, destroyMode = "always",
     alertGold = 0, alertSound = false,
     fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
-    countCrafted = false, showCurrencies = true, hideWorthless = false, itemTooltipDrops = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, resetNote = false, instanceSession = false,
+    countCrafted = false, showCurrencies = true, hideWorthless = false, itemTooltipDrops = true, itemTooltipTrend = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, compactDrops = 4, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, resetNote = false, instanceSession = false,
     zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true,
-    goalGold = 0, goalMinutes = 0, unitPrice = false, accountZones = true,
+    goalGold = 0, goalMinutes = 0, unitPrice = false, hideVendorTag = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, scanPrice = "market", scanReminder = true, soldHigh = 100, soldMedium = 10,
     colorPreset = "anotherledger", colorText = "ffffff", colorTitles = "ffd100", colorHints = "ada18c", colorVendor = "eddeb8",
     colorAuction = "80d1ff", colorDestroy = "b3b3b3", colorTipLabels = "ccbd9e", colorBackground = "261a0f",

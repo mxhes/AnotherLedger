@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "History.lua", "View.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "History.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua", "Waypoint.lua", "UI/Rows.lua", "UI/DailyFarm.lua", "UI/Compact.lua" })
 local DF = ns.UI.DailyFarm
 
 local function farm()

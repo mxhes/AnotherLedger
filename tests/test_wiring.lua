@@ -1047,6 +1047,27 @@ h.test("wiring: the item icon option hides the row icons live", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: a wide header (a long translation) raises the window's minimum width", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local L, W, FB = ns.UI.Ledger, ns.UI.Window, ns.UI.FilterBar
+  local S = ns.Theme.sizes
+  -- at startup the header is measured
+  h.eq(type(W.headerWidth), "number")
+  -- a sort button the font made 300 px wide
+  FB.sortButton.GetWidth = function() return 300 end
+  local need = L.measureHeader()
+  h.eq(need, math.ceil(FB.rowNeed(nil, 300) + 2 * (S.padding + 4)))
+  h.eq(W.headerWidth, need)
+  h.eq(need > ns.Theme.sizes.minWidth, true)
+  -- font changes measure again
+  FB.sortButton.GetWidth = function() return 78 end
+  L.relayout()
+  h.eq(W.headerWidth < need, true)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: hovering the footer table shows the vendor / AH tooltip", function()
   local ctx = boot()
   local lines = {}
@@ -1054,6 +1075,7 @@ h.test("wiring: hovering the footer table shows the vendor / AH tooltip", functi
     SetOwner = function() end, Show = function() end, Hide = function() end,
     SetText = function() end, IsOwned = function() return false end,
     AddDoubleLine = function(_, l, r) lines[#lines + 1] = { l, r } end,
+    AddLine = function(_, l) lines[#lines + 1] = { l } end,
   }
   startWorld(ctx, false)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
@@ -1061,10 +1083,12 @@ h.test("wiring: hovering the footer table shows the vendor / AH tooltip", functi
   tbl._scripts.OnEnter(tbl)
   h.eq(lines[1][1], "Items")
   h.eq(lines[2][1], "Vendor: ")
-  -- 8 value lines, then the unpriced Linen Cloth by name.
-  h.eq(#lines, 10)
-  h.eq(lines[9][1], "Unpriced")
+  -- 8 value lines, then the unpriced Linen Cloth by name and why (no price
+  -- addon, no scan in the stub client).
+  h.eq(#lines, 11)
+  h.eq(lines[9][1], "Without AH price")
   h.eq(lines[10][1]:find("Linen Cloth", 1, true) ~= nil and lines[10][1]:match(" x3$") ~= nil, true)
+  h.eq(lines[11][1]:find("/al scan", 1, true) ~= nil, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -2134,6 +2158,7 @@ h.test("wiring: the strip click redraws once and scrolls the place into view", f
   local L = ctx.ns.UI.Ledger
   local zones = ctx.ns.chardb.history[1].zones
   for i = 1, 30 do zones["Zone" .. i] = { subs = { ["Sub" .. i] = { time = 60, gold = 100000, items = {} } } } end
+  ctx.ns.History.changed() -- an edit in place: caches over History must see it
   L.setTab("bags")
   local real, refreshes = L.refresh, 0
   L.refresh = function(...) refreshes = refreshes + 1; return real(...) end
@@ -3278,6 +3303,53 @@ h.test("wiring: Bags shows free slots, gold on hand and net worth; Bank has no m
   h.eq(L.view.totals.money, 100)
   L.setTab("bank")
   h.eq(L.view.totals.money, nil)
+  -- Two free slots: the count turns red.
+  ctx.env.C_Container.GetContainerNumFreeSlots = function(bag) return bag == 0 and 2 or 0, 0 end
+  L.setTab("bags")
+  local red = ctx.ns.Theme.colorToHex(ctx.ns.Theme.colors.marketBad)
+  h.eq(L.view.headerInfo, "3 items \194\183 |cff" .. red .. "2 free|r")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: net worth adds the bank scan; all characters with an alt saved; logout and /al worth", function()
+  local alt = { bags = 1000, bank = 500, money = 2000, at = 10 }
+  local bankItems = { [2592] = { id = 2592, qty = 4, link = "|cffffffff|Hitem:2592::|h[Item2592]|h|r" } }
+  local ctx = boot({ db = { worth = { ["Alt-Realm"] = alt } }, chardb = { bank = { scannedAt = 50, items = bankItems } } })
+  ctx.env.UnitName = function() return "Me" end
+  ctx.env.GetRealmName = function() return "Realm" end
+  bagEnv(ctx, { [0] = { n = 2, { 2589, 5 }, { 7910, 1 } } })
+  local money = 300
+  ctx.env.GetMoney = function() return money end
+  startWorld(ctx, false)
+  local L = ctx.ns.UI.Ledger
+  L.setTab("bags")
+  local t = L.view.totals
+  h.eq(t.bank, 100) -- 4 x 25 vendor
+  h.eq(t.bagsWorth, 150)
+  h.eq(t.worth, 150 + 100 + 300)
+  h.eq(t.allWorth, 550 + 3500)
+  local db = ctx.env.AnotherLedgerDB
+  h.eq(db.worth["Me-Realm"].bags, 150)
+  -- the Bags filter hides rows but not the net worth
+  db.filter.search = "nothing matches"
+  L.refresh()
+  h.eq(#L.view.rows, 0)
+  h.eq(L.view.totals.worth, 550)
+  db.filter.search = ""
+  -- logout saves the new gold even without the Bags tab shown
+  L.setTab("session")
+  money = 1300
+  fire(ctx, "PLAYER_LOGOUT")
+  h.eq(db.worth["Me-Realm"].money, 1300)
+  ctx.printed = {}
+  slash(ctx, "worth")
+  local text = table.concat(ctx.printed, " ")
+  h.eq(text:find("Alt-Realm", 1, true) ~= nil, true)
+  h.eq(text:find("net worth of all characters", 1, true) ~= nil, true)
+  slash(ctx, "worth forget alt")
+  h.eq(db.worth["Alt-Realm"], nil)
+  L.setTab("bags")
+  h.eq(L.view.totals.allWorth, nil)
   h.eq(ctx.errors, {})
 end)
 
@@ -4346,5 +4418,150 @@ h.test("wiring: a reagent link with a quality icon matches its sale mail by name
   fire(ctx, "MAIL_INBOX_UPDATE")
   local log, b = tradeLog(ctx)
   h.eq(log[1].name, "Ore"); h.eq(log[2].key, 8); h.eq(#b.posts, 0)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Zones keeps the saved History's sums and adds new loot and resets", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local L, ns = ctx.ns.UI.Ledger, ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset") -- one saved session
+  L.setTab("history")
+  L.setSubtab("zones")
+  L.refresh()
+  local saved = L.view.totals.best
+  h.eq(saved > 0, true)
+  h.eq(type(L.view.rows[1]), "table")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT) -- the running session adds to it
+  L.refresh()
+  h.eq(L.view.totals.best, 2 * saved)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  L.refresh()
+  h.eq(L.view.totals.best, 3 * saved)
+  slash(ctx, "reset") -- saved now: three times the loot, nothing running
+  L.refresh()
+  h.eq(L.view.totals.best, 3 * saved)
+  ns.Core.deleteHistory(1)
+  L.refresh()
+  h.eq(L.view.totals.best, saved)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: /al stats prints the saved data parts, Mob data kept drops old mob data", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "reset")
+  local before = #ctx.printed
+  slash(ctx, "stats")
+  h.eq(#ctx.printed - before, 7)
+  h.eq(ctx.printed[before + 1]:find("Saved data: about", 1, true) ~= nil, true)
+  local all = table.concat(ctx.printed, "\n", before + 1)
+  h.eq(all:find("History: ", 1, true) ~= nil, true)
+  h.eq(all:find("sessions: 1,", 1, true) ~= nil, true)
+  -- Mob data kept: a session older than the cut loses its mob data, not itself.
+  local e = ns.chardb.history[1]
+  e.mobs = { ["npc:1"] = { kind = "npc", looted = 1, gold = 0, items = {} } }
+  e.startedAt = ctx.now - 40 * 86400
+  ns.Options.set(ns.db, "mobDataDays", 30)
+  h.eq(e.mobs, nil)
+  h.eq(#ns.chardb.history, 1)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: Hide Vendor tags blanks only the Vendor tag", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local R = ns.UI.Rows
+  local vendorRow = { name = "Cloth", quantity = 2, bestKind = "vendor", vendorEach = 5, value = 10 }
+  local ahRow = { name = "Ore", quantity = 1, bestKind = "ah", ahEach = 50, value = 50 }
+  h.eq(R.rowText(vendorRow).hideTag, false)
+  ns.Options.set(ns.db, "hideVendorTag", true)
+  h.eq(R.rowText(vendorRow).hideTag, true)
+  h.eq(R.rowText(vendorRow).source, "vendor")
+  h.eq(R.rowText(ahRow).hideTag, false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: item tooltips show the price trend from TSM, else from the scan", function()
+  local ctx = boot()
+  local onItem
+  ctx.env.Enum = { TooltipDataType = { Item = 0 } }
+  ctx.env.TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
+    if kind == 0 then onItem = fn end
+  end }
+  local tsm = { DBMarket = 1120, DBHistorical = 1000 }
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src) return tsm[src] end }
+  ctx.env.GetRealmName = function() return "Realm" end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local function tooltipFor(link)
+    local tip = { lines = {} }
+    function tip:GetItem() return "Linen Cloth", link end
+    function tip:AddLine(t) self.lines[#self.lines + 1] = t end
+    function tip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = l .. " = " .. r end
+    function tip:Show() end
+    onItem(tip)
+    return table.concat(tip.lines, "\n")
+  end
+  h.eq(tooltipFor(LINK):find("AnotherLedger price trend = +12% vs 60 days", 1, true) ~= nil, true)
+  -- Without TSM: the scan's newest day against the one before.
+  ctx.env.TSM_API = nil
+  h.eq(tooltipFor(LINK), "")
+  local bucket = ns.Scan.bucket(ns.db, ns.Scan.currentRealmKey(), true)
+  h.eq(type(bucket), "table")
+  ctx.now = 20 * 86400
+  ns.Scan.record(bucket.items, 2589, 1000, 900, ctx.now - 86400)
+  ns.Scan.record(bucket.items, 2589, 900, 900, ctx.now)
+  h.eq(tooltipFor(LINK):find("AnotherLedger price trend = -10% vs earlier days", 1, true) ~= nil, true)
+  ns.Options.set(ns.db, "itemTooltipTrend", false)
+  h.eq(tooltipFor(LINK), "")
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a watched item alerts on loot, also with the clock stopped", function()
+  local ctx = boot()
+  local played, screen = 0, {}
+  ctx.env.PlaySound = function() played = played + 1 end
+  ctx.env.SOUNDKIT = { RAID_WARNING = 8959 }
+  ctx.env.UIErrorsFrame = { AddMessage = function(_, text) screen[#screen + 1] = text end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  slash(ctx, "watch")
+  h.eq(ctx.printed[#ctx.printed]:find("watch list is empty", 1, true) ~= nil, true)
+  slash(ctx, "watch " .. LINK)
+  h.eq(ns.db.watched[2589] ~= nil, true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(played, 1)
+  h.eq(#screen, 1)
+  h.eq(screen[1]:find("watched item looted", 1, true) ~= nil, true)
+  -- by part of a name, with the clock stopped (the session does not count it)
+  slash(ctx, "unwatch 2589")
+  h.eq(ns.db.watched[2589], nil)
+  slash(ctx, "watch li")
+  h.eq(ctx.printed[#ctx.printed]:find("at least 3 letters", 1, true) ~= nil, true)
+  slash(ctx, "watch linen")
+  h.eq(ns.db.watchedNames.linen, "linen")
+  slash(ctx, "stop")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(played, 2)
+  slash(ctx, "watch")
+  h.eq(ctx.printed[#ctx.printed]:find("\"linen\"", 1, true) ~= nil, true)
+  slash(ctx, "unwatch Linen")
+  h.eq(ns.db.watchedNames.linen, nil)
+  -- the row menu adds and removes it
+  slash(ctx, "start")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local L = ns.UI.Ledger
+  L.setTab("session")
+  local menu = L.rowMenu(L.view.rows[1])
+  local watch
+  for _, e in ipairs(menu) do if e.text == "Watch this item" then watch = e end end
+  h.eq(watch ~= nil, true)
+  watch.onClick()
+  h.eq(ns.db.watched[2589] ~= nil, true)
   h.eq(ctx.errors, {})
 end)

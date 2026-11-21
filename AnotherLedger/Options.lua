@@ -556,8 +556,8 @@ Options.define({
   end,
   choices = {
     { value = "always", label = L["Always"] },
-    { value = "any", label = L["If one of my characters can"] },
-    { value = "self", label = L["If this character can"] },
+    { value = "any", label = L["If one of my characters can"], short = L["Any character"] },
+    { value = "self", label = L["If this character can"], short = L["This character"] },
     { value = "never", label = L["Never"] },
   },
   apply = refreshUI,
@@ -621,7 +621,7 @@ Options.define({
   choices = {
     { value = "row", label = L["In Total, own row"] },
     { value = "total", label = L["In Total only"] },
-    { value = "apart", label = L["Own row, not in Total"] },
+    { value = "apart", label = L["Own row, not in Total"], short = L["Own row only"] },
     { value = "off", label = L["Not counted"] },
   },
   apply = refreshUI,
@@ -709,6 +709,11 @@ Options.define({
   tooltip = L["Adds to every item tooltip which mobs and nodes drop it and how often (History > Mobs data: the sessions Zones counts and the running one)."],
 })
 
+Options.define({
+  key = "itemTooltipTrend", category = "display", type = "checkbox", label = L["Price trend in tooltips"],
+  tooltip = L["Adds the price trend to every item tooltip: with TSM its market value against its 60 day average, else the newest day of your own auction house scan against the days before."],
+})
+
 -- Daily farm strip at the top of the window (View.dailyFarm): the saved place
 -- with the best gold per hour; only places with this much recorded time count.
 Options.define({
@@ -767,6 +772,14 @@ Options.define({
   apply = refreshUI,
 })
 
+-- Most Bags rows count at their vendor price: their tag can stay blank, so
+-- the Auction and Destroy rows stand out (Rows.rowText hideTag).
+Options.define({
+  key = "hideVendorTag", category = "display", type = "checkbox", label = L["Hide Vendor tags"],
+  tooltip = L["Rows whose best value is the vendor price show no Vendor tag; Auction and Destroy tags stay. The ? mark of items without an auction price stays too."],
+  apply = refreshUI,
+})
+
 -- An item list of Core (ignored, kept) as a menu: a click takes an item off
 -- the list (or back on while the menu is open). `empty`: the chat line
 -- without any items.
@@ -808,6 +821,43 @@ Options.define({
   tooltip = L["Items you keep (right-click a row in Bags or Bank) are counted apart: the footer shows what is kept and what you can sell. Opens the list: click an item to sell it again."],
   action = function(button)
     itemListMenu(button, "kept", L["no kept items. Right-click an item in Bags or Bank to keep it."])
+  end,
+})
+
+-- The watch list (Core.watchedItems and the name texts, Core.watchedNames).
+Options.define({
+  key = "watchedItems", category = "display", type = "button", label = L["Watched items"],
+  tooltip = L["Items you watch (right-click a row, or /al watch with an item link, an item ID or part of a name) play a sound and show a line in the middle of the screen when you loot them. Opens the list: click an entry to stop watching it."],
+  action = function(button)
+    local Core, W = ns.Core, ns.UI and ns.UI.Widgets
+    if not (Core and W) then return end
+    local entries = {}
+    for _, item in ipairs(Core.watchedList()) do
+      entries[#entries + 1] = {
+        text = item.name,
+        isChecked = function() return Core.watchedItems()[item.id] ~= nil end,
+        onClick = function()
+          if Core.watchedItems()[item.id] ~= nil then Core.unwatchItem(item.id) else Core.watchItem(item.id, item.name) end
+        end,
+      }
+    end
+    local texts = {}
+    for key, text in pairs(Core.watchedNames()) do texts[#texts + 1] = { key = key, text = text } end
+    table.sort(texts, function(a, b) return a.key < b.key end)
+    for _, t in ipairs(texts) do
+      entries[#entries + 1] = {
+        text = "\"" .. t.text .. "\"",
+        isChecked = function() return Core.watchedNames()[t.key] ~= nil end,
+        onClick = function()
+          if Core.watchedNames()[t.key] ~= nil then Core.unwatchName(t.text) else Core.watchName(t.text) end
+        end,
+      }
+    end
+    if #entries == 0 then
+      ns.Util.say(L["the watch list is empty. /al watch <item link, item ID or part of a name> adds to it."])
+      return
+    end
+    W.openMenu(button, entries, "checkbox")
   end,
 })
 
@@ -977,6 +1027,41 @@ Options.define({
     { value = 180, label = L["180 days"] },
     { value = 365, label = L["365 days"] },
   },
+})
+
+-- How many days History keeps the mob data of a session (History > Mobs,
+-- drop chances); the session itself stays. Applied now (it asks first) and at
+-- every login. 0 keeps all of it.
+local MOB_DAY = 86400
+local function mobCutoff(v)
+  local now = type(time) == "function" and time() or os.time()
+  return num(v) and v > 0 and (now - v * MOB_DAY) or nil
+end
+Options.define({
+  key = "mobDataDays", account = true, category = "history", type = "dropdown",
+  label = L["Mob data kept"],
+  tooltip = L["How long History keeps what each mob and node dropped (History > Mobs and the drop chances). Older sessions stay, without their mob data. /al stats shows how much it takes."],
+  choices = {
+    { value = 0, label = L["All"] },
+    { value = 30, label = L["30 days"] },
+    { value = 90, label = L["90 days"] },
+    { value = 180, label = L["180 days"] },
+    { value = 365, label = L["365 days"] },
+  },
+  confirm = function(v)
+    local before = mobCutoff(v)
+    if not (before and ns.History) then return nil end
+    local n = 0
+    for _, list in ipairs(historyLists()) do n = n + ns.History.dropMobs(list, before, true) end
+    if n == 0 then return nil end
+    return string.format(L["Delete the mob data of %d older sessions? The sessions stay. This can't be undone."], n)
+  end,
+  apply = function(v)
+    local before = mobCutoff(v)
+    if not (before and ns.History) then return end
+    for _, list in ipairs(historyLists()) do ns.History.dropMobs(list, before) end
+    refreshUI()
+  end,
 })
 
 -- ---------------------------------------------------------------------------

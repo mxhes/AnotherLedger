@@ -130,6 +130,9 @@ function Rows.rowText(row, formatMoney, unitPrice)
     copper = copper,
     source = source,
     sourceText = source and SOURCE_TEXT[source] or nil,
+    -- Option "Hide Vendor tags": the tag keeps its room (the "?" and the
+    -- age tags stay lined up) but is not drawn.
+    hideTag = source == "vendor" and ns.Util.setting("hideVendorTag", false) == true,
     unpriced = isUnpriced(row),
     market = row.detail or Rows.marketText(row, ns.Theme and ns.Theme.colors),
     isDetail = row.detail ~= nil,
@@ -666,6 +669,7 @@ local function fillRow(f, row)
   -- Source tag: framed, in its source color, as wide as the widest tag (the
   -- boxes line up); hidden without a source.
   Rows.setSourceTag(f.srcBox, t.source, ((f.owner and f.owner.measured) or NONE).source)
+  f.srcBox:SetAlpha(t.hideTag and 0 or 1)
   -- After the tag: the age of a cached AH value, else "?" on an unpriced row.
   local tagText = t.tag or (t.unpriced and t.source and TEXT.UNPRICED) or nil
   f.tag:SetText(tagText or "")

@@ -148,6 +148,22 @@ function FilterBar.setSort(key)
   end
 end
 
+-- Every text the sort button can show ("Sort: Value", ...): it fits the widest.
+function FilterBar.sortTexts()
+  local out = {}
+  for i, key in ipairs(FilterBar.ALL_SORTS) do out[i] = L_SORT_PREFIX .. (SORT_LABELS[key] or key) end
+  return out
+end
+
+-- Pure. Width the filter row needs (px): the quality and sort buttons
+-- (`qualityW`, `sortW`), the min box, a search box of widths.filter.searchMin
+-- and the clear button, with the gaps FilterBar.attach puts between them.
+function FilterBar.rowNeed(qualityW, sortW)
+  local w, gap = widths(), ns.Theme.sizes.buttonGap
+  return (qualityW or w.quality) + gap + 4 + w.min + gap + 2 + w.searchMin + gap + 2 + w.clear + gap
+    + (sortW or w.sort)
+end
+
 local function sortText()
   return L_SORT_PREFIX .. FilterBar.sortLabel(FilterBar.getSort(), FilterBar.activeSorts)
 end
@@ -271,6 +287,8 @@ function FilterBar.attach(row, db, onChange, sortAccess)
   underline:Hide()
 
   local quality = makeButton(row, L_QUALITY, widths().quality)
+  ns.UI.Widgets.fitButton(quality, { L_QUALITY .. " 8/8" }, widths().quality)
+  FilterBar.qualityButton = quality
   quality:SetPoint("LEFT", row, "LEFT", 0, 0)
   quality:SetScript("OnClick", function(self)
     openQualityMenu(self, getFilter, changed)
@@ -280,6 +298,7 @@ function FilterBar.attach(row, db, onChange, sortAccess)
   minBox:SetPoint("LEFT", quality, "RIGHT", gap + 4, 0)
 
   local sort = makeButton(row, sortText(), widths().sort)
+  ns.UI.Widgets.fitButton(sort, FilterBar.sortTexts(), widths().sort)
   sort:SetPoint("RIGHT", row, "RIGHT", 0, 0)
   sort:SetScript("OnClick", function()
     FilterBar.setSort(FilterBar.nextSort(FilterBar.getSort(), FilterBar.activeSorts))

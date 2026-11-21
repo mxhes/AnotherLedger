@@ -22,6 +22,7 @@ DB.defaults = {
     -- Past sessions kept in History: 0 = none, -1 = unlimited.
     historyLimit = 50,
     tradeLogDays = 90, -- account-wide: days the Trade log keeps each entry
+    mobDataDays = 0, -- account-wide: days History keeps mob data (0 = all of it)
     -- Minimap button shown (account-wide, like historyLimit, tradeLogDays and accountZones:
     -- options with `account = true` are stored in AnotherLedgerDB.account; their
     -- defaults stay here).
@@ -53,6 +54,7 @@ DB.defaults = {
     showCurrencies = true,
     hideWorthless = false,
     itemTooltipDrops = true,
+    itemTooltipTrend = true, -- price trend line in the game's item tooltips
     -- Daily farm strip and the minimum recorded time of a place it may pick.
     dailyFarm = true,
     dailyFarmMinutes = 20,
@@ -97,6 +99,7 @@ DB.defaults = {
     goalMinutes = 0,
     -- List rows show the value of one item instead of the stack.
     unitPrice = false,
+    hideVendorTag = false, -- the Vendor source tag stays blank (the others show)
     -- History Zones and the Daily farm use the History of every character.
     accountZones = true,
     -- Font size in px of the list text, the totals and the section titles (applied live).
@@ -153,6 +156,13 @@ DB.defaults = {
   -- The keep list: { [itemID] = item name } (Core.keptItems): Bags and Bank
   -- split their total into kept and sellable.
   kept = {},
+  -- The watch list: { [itemID] = item name } and { [lower case text] = text }
+  -- (Core.watchedItems, Core.watchedNames): a sound and a screen line on loot.
+  watched = {},
+  watchedNames = {},
+  -- Every character's net worth when last saved: { ["Name-Realm"] = { bags,
+  -- bank, money, at } } (Worth.lua; copper).
+  worth = {},
   -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
   histories = {},
   -- Destroy professions per character: { ["Name-Realm"] = { enchanting = true, ... } }

@@ -369,3 +369,16 @@ h.test("History: an AH price after the 5% cut is marked per item, also through m
   h.eq(m.items[1].price.cut, nil) -- one of them was not cut
   h.eq(m.items[3].price.cut, true)
 end)
+
+h.test("History.dropMobs drops the mob data of older sessions only", function()
+  local list = { { startedAt = 300, mobs = { a = {} } }, { startedAt = 200, mobs = { b = {} } }, { startedAt = 100 } }
+  local v = ns.History.version
+  h.eq(ns.History.dropMobs(list, 250, true), 1)
+  h.eq(list[2].mobs ~= nil, true)
+  h.eq(ns.History.version, v)
+  h.eq(ns.History.dropMobs(list, 250), 1)
+  h.eq(list[2].mobs, nil)
+  h.eq(list[1].mobs ~= nil, true)
+  h.eq(ns.History.version, v + 1)
+  h.eq(ns.History.dropMobs(list, 250), 0)
+end)

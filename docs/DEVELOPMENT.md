@@ -29,7 +29,7 @@ only inside functions.
 | --- | --- |
 | `embeds.xml` | loads the libraries the packager puts in `Libs/` (LibStub, CallbackHandler, LibDataBroker, LibDBIcon); the addon works without them. Each library is also an `## OptionalDeps` entry (the standalone addon's folder name), so a copy the player installed loads first and LibStub keeps the newest one; `UI/Broker.lua` looks them up through LibStub at login, never from `Libs/` directly |
 | `Util.lua` | shared helpers (number checks, clamp, age text, chat output, `Util.setting(key, fallback)` for options read outside `Options.lua`) |
-| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key); `Locales/deDE.lua` is German |
+| `Locale.lua`, `Locales/` | translations (`ns.L`, English text as key): deDE, frFR, esES (also esMX), itIT, ptBR, ruRU |
 | `Money.lua` | coin text: letters or coin icons, colored, the "large amounts" style |
 | `Theme.lua` | look and feel: colors, fonts, sizes, textures |
 | `Tooltip.lua` | rich tooltips built as data (Daily, History, Zones, options) and rendered with the theme colors |
@@ -42,8 +42,12 @@ only inside functions.
 | `Session.lua`, `History.lua`, `Inventory.lua` | the running session, past sessions, bag and bank scans |
 | `Options.lua` | option registry and the built-in options |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
-| `View.lua` | the rows and totals a tab shows, History Zones, the Daily farm pick, the compact view |
+| `View.lua` | the rows and totals a tab shows (Session, Bags, Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
+| `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
+| `ViewTrade.lua` | the Trade tab's Items and Log views |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
+| `Worth.lua` | pure: every character's saved net worth (`AnotherLedgerDB.worth`), the list and sum for All characters, `/al worth forget` |
+| `Stats.lua` | `/al stats`, pure: the estimated saved-file size of each part (History and its mob data, scan, Trade log, price cache, the character file, the rest) |
 | `Slash.lua`, `Demo.lua` | slash commands, `/al demo` |
 | `UI/Fonts.lua` | the addon's own font objects: typeface, px sizes, the font list |
 | `UI/Widgets.lua` | two-tone buttons, icon buttons, texts, lines, tooltips, menus |
@@ -59,7 +63,10 @@ only inside functions.
 | `UI/TradePeriod.lua` | the Trade tab's 7 days / 30 days / All button (db.tradePeriod) |
 | `UI/Export.lua` | the copy box (CSV, `/way` line) |
 | `UI/Ledger.lua` | controller: builds the view of the shown tab and feeds the parts |
-| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo (loads last) |
+| `Core.lua` | events: login, loot capture, bank scan, redraw requests, session goals, ignore and keep lists, zone sessions, rate samples, History lists and undo; `Core.events` is the event table every Core file adds to |
+| `CoreScan.lua` | Core's AnotherLedger scan section: `/al scan`, the full read, the passive search results, the reminder |
+| `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
+| `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
 | `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
@@ -89,7 +96,7 @@ Each of these is one call in one place; the UI never names them.
   back to the default; `apply` runs on change and for the saved value at
   login. Read it with `Options.get(ns.db, key)`. Optional fields: `account =
   true` stores the value in `AnotherLedgerDB.account` (shared by every profile:
-  `historyLimit`, `tradeLogDays`, `accountZones`, `minimapButton`); `get` / `store` functions
+  `historyLimit`, `tradeLogDays`, `mobDataDays`, `accountZones`, `minimapButton`); `get` / `store` functions
   keep the value elsewhere (the profile choice) and `Options.applyAll` skips
   such an option; `picked(db, value)` runs only on a choice in the panel
   (`Options.pick`), not at login (the color preset writes the single colors
@@ -269,6 +276,14 @@ Each of these is one call in one place; the UI never names them.
   `Ledger.mobOpen` is the opened mob. A mob row's `hint` builds its tooltip on
   hover (looted, value, gold, per loot, its top 3 places, its best drops). The
   view has no rates, so the footer shows no per hour column.
+- **Price trend** (`itemTooltipTrend`, `UI/ItemTooltip.lua`): `Core.priceTrend`
+  asks `TSM.trend` (DBMarket against DBHistorical) first, else
+  `Scan.trendOf` on this realm's scan bucket: the newest day's value (`m` /
+  `l` by the Scan price option) against the weighted average of the days
+  before (`am` / `al`), only while the newest is at most
+  `Scan.TREND_MAX_AGE` (3 days) old. `ItemTooltip.trendLine` words and colors
+  it (`TREND_COLOR_FROM`, 5%: `marketGood` / `marketBad`). The ledger rows
+  show the game's item tooltip, so they get the line from the same hook.
 - **Automatic window** (`showOnLoot`, `showInInstance`, `hideInCities`):
   `Core.autoWindow` calls `Window.autoShow / autoHide(reason)`, which remember
   the reason (`shownBy` / `hiddenBy`); `autoUndo(reason)` reverses only its
@@ -287,9 +302,20 @@ Each of these is one call in one place; the UI never names them.
   period. `Ledger.periodFold` holds the folded keys for the Lua session.
 - **Bags footer**: `buildInventory` sets `totals.sellSplit` (best value of
   the rows not kept, by `bestKind`; the footer tooltip's Sell split). The
-  Bags tab adds `View.addWorth(view, GetMoney())` (`totals.money`,
-  `totals.worth`: the Summary rows Gold on hand / Net worth) and the free
-  slots (`Inventory.freeSlots`) to the header; `PLAYER_MONEY` redraws it.
+  Bags tab adds `View.addWorth(view, money, bags, bank)` (`totals.money`,
+  `totals.bagsWorth`, `totals.bank`, `totals.worth`: the Summary rows Gold on
+  hand / Net worth) and the free slots (`Inventory.freeSlots`) to the
+  header; `PLAYER_MONEY` redraws it. Net worth is unfiltered:
+  `View.inventoryWorth` values the bag items and the last bank scan
+  (`chardb.bank`) without the filter (ignored items stay out).
+- **Net worth of all characters** (`Worth.lua`): `Tabs.noteWorth(ctx)` saves
+  `{ bags, bank, money, at }` (copper, valued then) under `Core.character` in
+  `AnotherLedgerDB.worth` while Bags is shown, and `Ledger.noteWorth` does it
+  at `PLAYER_LOGOUT` and for `/al worth` (not while the demo's prices are in).
+  With two or more saved, the Bags tab sets `totals.allWorth` (the Summary
+  row All characters) and `view.worthList` (the tooltip's per character
+  lines, with the age of other characters' snapshots). Alts are not valued
+  again with today's prices; `/al worth forget <name>` drops a character.
 - **Resting** (`cityPause`, `Core.checkRest` on `PLAYER_UPDATE_RESTING`):
   `Session.rest` keeps `running` true but folds the time into `elapsedBase`
   and stops the place time (`resting = true`); `Session.wake` restarts it.
@@ -365,6 +391,20 @@ Each of these is one call in one place; the UI never names them.
   Ledger caches the pick until History, its options (including the price
   source and TSM price) or the price interval change. `DailyFarm.wire(button)`
   gives the strip and the compact line the same clicks, hover and drag.
+- **History cache** (`ViewZones.lua`): Zones, Mobs and the Daily farm add
+  up the saved History once per `opts.historyKey` (`History.combine`'s key,
+  which ends in `History.version`: every change through `History.add`,
+  `prune`, `remove`, `clear`, `restore`, `adopt` or `History.changed()`
+  counts it up, so code that edits a list in place must call
+  `History.changed()`). The running session (`live` entry) is laid over that
+  as copies of the places and mobs it looted (`fresh`). The item rows and
+  totals of a closed, saved place or mob are kept per `opts.valueKey`
+  (`Ledger.valueKey`: the options and lists that value items, the filter,
+  demo mode and an epoch that moves once per price refresh interval, on item
+  data for a listed item and on `Ledger.valuesChanged()`). Without both keys
+  nothing is cached (tests, CSV export). Only an opened place or mob sorts
+  its rows (`collect(items, opts, unsorted)`). `lua tests/bench_zones.lua
+  [sessions]` times the views over a made-up History (not part of the run).
 - **History prices**: an entry keeps the unit prices its totals were made of
   (`items[key].price`, archive time, loot time as fallback). An opened session
   lists its items at those (`opts.savedPrices`), so they add up to its row;
@@ -385,6 +425,15 @@ Each of these is one call in one place; the UI never names them.
   Zones place and the Daily farm leave them out; `Core.sessionValue`, the drop
   alert and the goals too. They stay recorded. History rows subtract them at
   their saved unit prices (`History.totals(e, ignored)`).
+- **Watch list** (`AnotherLedgerDB.watched` = `{ [itemID] = name }` like the
+  ignore list, `watchedNames` = `{ [lower case text] = text }`; Core
+  `watchItem` / `unwatchItem` / `watchName` / `unwatchName`):
+  `Core.recordLoot` calls `Core.watchAlert` before the stopped-clock check, so
+  it alerts with the clock stopped too (only real loot: `countsAsLoot` comes
+  first). `Core.watchMatch` (pure) matches the ID or a text in the link's
+  name. The alert is a chat line, `SOUNDKIT.RAID_WARNING` and
+  `UIErrorsFrame:AddMessage`. `/al watch` / `/al unwatch` (Slash.lua), the
+  row menu (`Ledger.rowMenu`) and the option button `watchedItems` edit it.
 - **Keep list** (`AnotherLedgerDB.kept`, Core `keepItem` / `unkeepItem` /
   `keptList`; both lists are made by `itemList(field)` in `Core.lua`):
   `opts.kept` makes `View.buildInventory` set `row.kept` and
@@ -542,8 +591,23 @@ Each of these is one call in one place; the UI never names them.
   frame's scale) and `Theme.sizes.gridSnapDistance`; each axis moves its
   nearest edge or center onto a line within that distance. Unknown spacing =
   no snap.
+- **Text fits** (long translations): text buttons built with
+  `Widgets.fitButton(b, texts, base)` (Start / Stop, Reset, Quality, Sort,
+  the Trade period, the AH scan button) are as wide as their widest label
+  (`Widgets.fitWidth`, measured with `GetUnboundedStringWidth`), at least
+  the theme width; `Widgets.refitButtons` runs again in `Ledger.relayout`.
+  `Ledger.measureHeader` adds up what header rows 1 to 4 need (the pure
+  `Header.rowNeed`, `FilterBar.rowNeed`, `Tabs.rowNeed` with the widest of
+  `Tabs.titles()`, the fitted buttons and the tab strips) and passes it to
+  `Window.setHeaderWidth`; the resize minimum is the largest of the theme's,
+  the rows' (`setMinWidth`) and the header's. `tests/test_overflow.lua` runs
+  the same functions with estimated widths (`Theme.sizes.charPx` /
+  `smallCharPx` per glyph) for English and every `Locales/` file: the header
+  fits the default window, option labels stay at 24 glyphs, option buttons
+  and closed dropdowns (a choice's `short` text) fit the 150 px control, and
+  the footer labels fit their columns.
 - **Anchor corner**: a layout switch (`Window.applyMode`), a wider minimum
-  (`setMinWidth`) and larger font sizes (`applySizes`) resize through
+  (`setMinWidth`, `setHeaderWidth`) and larger font sizes (`applySizes`) resize through
   `resizeKeepingCorner`, which keeps `db.window.corner` (`"TOPLEFT"`, ...)
   in place (`Window.keepCorner`). The corner is picked by `Window.cornerFor`
   (the one nearest the screen edges) only after a drag or a resize by the
@@ -568,7 +632,7 @@ Each of these is one call in one place; the UI never names them.
   the preset's button edge color. Hover lightens both halves
   (`BUTTON_HOVER`) and uses the hover edge; OnMouseDown paints "pressed"
   (halves swapped), OnMouseUp hover or normal. Inputs keep the flat backdrop.
-- **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section,
+- **Trade section** (`Trade.lua`, `Sources/Sales.lua`, Core's trade section in `CoreTrade.lua`,
   the `trade` tab in `UI/Tabs.lua`, `View.buildTradeItems` /
   `View.buildTradeLog`, `UI/TradePeriod.lua`): per realm key
   (`Scan.currentRealmKey`), nothing is recorded while it is unknown. A client
@@ -611,7 +675,7 @@ Each of these is one call in one place; the UI never names them.
     `Trade.salePrice` the Own sales price (gold before the cut per unit,
     age of the newest sale) from an index built once per log change (not
     saved), which also answers `Trade.hasItemID`. Core signals `dataChanged("trade")`.
-- **AnotherLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section,
+- **AnotherLedger scan** (`Scan.lua`, `Sources/Scan.lua`, Core's scan section in `CoreScan.lua`,
   `UI/ScanButton.lua`): whenever the client has
   `C_AuctionHouse.ReplicateItems` (`Core.scanAvailable`), also next to TSM
   and Auctionator (Auto asks them first, so the scan answers what they lack).
@@ -679,7 +743,8 @@ saved variables per addon folder and the old file is never loaded.
   Sessions / Zones), `optionsWindow` (where the options panel was dragged to,
   `{ x, y }` from the screen center), `profileUsers`, `minimapIcon`
   (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep
-  list) and `histories` (every character's History, see "Account-wide
+  list), `watched` / `watchedNames` (the watch list), `worth` (every
+  character's net worth, Worth.lua) and `histories` (every character's History, see "Account-wide
   History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
   for the option Destroy values), `scan` (AnotherLedger scan: `[realm key] = {
   lastFull, items = { [itemKey] = packed } }`, see AnotherLedger scan), `trade`
@@ -732,7 +797,17 @@ anything relying on an unconfirmed client API gets an
 Texts go through `ns.L` (English text as key). A language is one
 `Locales/<locale>.lua` with `ns.Locale.register("<locale>", { ["English"] =
 "translation" })`, listed in the `.toc` after `Locale.lua`.
-`tests/test_locale.lua` fails on a German entry the code no longer uses.
+`esES.lua` registers its table for `esMX` too. `tests/test_locale.lua` fails
+on an entry of any language that the code no longer uses or whose `%s` /
+`%d` placeholders differ from the English text (string.format has no
+positional arguments; only the date format `%Y-%m-%d` may reorder).
+`tests/test_overflow.lua` loads the addon in every language and checks the
+fixed spaces (see "Text fits"). Spaces at either end of a key are part of
+the text (`"Sort: "`, `" items"`): keep them in the translation. The
+languages other than German were written in one go; players' corrections
+are welcome. Korean and Chinese are not there yet: their glyphs are about
+twice as wide (the overflow test already counts them so) and need a check
+of the custom fonts (`fontFace`) in those clients.
 
 ## Packaging
 

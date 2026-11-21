@@ -84,7 +84,7 @@ end
 -- Reads every slot of the given containers through C_Container. A missing API
 -- or a failing call gives an empty / partial result, never an error.
 -- C_Container.GetContainerItemInfo returns { itemID, stackCount, hyperlink,
--- isBound } (UNVERIFIED (check in client): isBound on Forever).
+-- isBound }.
 function Inventory.scan(env, containerIDs, now)
   local api = env.C_Container
   if type(api) ~= "table" or type(api.GetContainerNumSlots) ~= "function"
@@ -121,6 +121,19 @@ function Inventory.freeSlots(env)
     if okSlots and num(slots) then total = total + slots end
   end
   return free, total
+end
+
+-- How the free bag slots read in the Bags header: "low" (red) at
+-- Inventory.FREE_LOW or fewer, "few" (orange) at Inventory.FREE_FEW or fewer,
+-- else nil.
+Inventory.FREE_FEW = 5
+Inventory.FREE_LOW = 2
+
+function Inventory.freeLevel(free)
+  if not num(free) then return nil end
+  if free <= Inventory.FREE_LOW then return "low" end
+  if free <= Inventory.FREE_FEW then return "few" end
+  return nil
 end
 
 function Inventory.scanBags(env, now)

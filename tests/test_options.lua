@@ -15,10 +15,10 @@ h.test("Options: the built-in options are registered in panel order", function()
     "goldDisplay", "coinIcons", "rawGold",
     "sessionChat", "resetNote", "afkPause", "cityPause", "instanceSession", "zoneSession", "zoneSessionMinutes", "minSessionMinutes",
     "alertGold", "alertSound", "goalGold", "goalMinutes",
-    "showCurrencies", "hideWorthless", "itemTooltipDrops", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "compactDrops",
-    "showIcons", "unitPrice", "ignoredItems", "keptItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
+    "showCurrencies", "hideWorthless", "itemTooltipDrops", "itemTooltipTrend", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "compactDrops",
+    "showIcons", "unitPrice", "hideVendorTag", "ignoredItems", "keptItems", "watchedItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
-    "exportHistory", "clearHistory", "historyLimit", "tradeLogDays",
+    "exportHistory", "clearHistory", "historyLimit", "tradeLogDays", "mobDataDays",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors", "deleteColorPreset" })
   -- every option but a button has its default in DB.defaults.settings

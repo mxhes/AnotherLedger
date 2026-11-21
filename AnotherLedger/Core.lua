@@ -27,6 +27,7 @@ local bankOpen = false
 -- Windows that put bought / traded / mailed items into the bags while open
 -- (their "You receive item" messages are not loot). [event base] = open.
 local tradeWindows = {}
+Core.tradeWindows = tradeWindows
 local lastInstance -- instance key of the last loading screen (option "instanceSession")
 local restingSeen = false -- the resting state Core.checkRest saw last (option "hideInCities")
 -- Mobs (Mobs.lua): the open loot window's slots, mob names seen this login
@@ -71,6 +72,9 @@ local function dataChanged(what)
   local ledger = ns.UI and ns.UI.Ledger
   if ledger and ledger.dataChanged(what) then requestRefresh() end
 end
+-- For CoreScan.lua / CoreTrade.lua.
+Core.dataChanged = dataChanged
+Core.requestRefresh = requestRefresh
 
 -- ---------------------------------------------------------------------------
 -- Price cache key and price lookup (take the global environment as a
@@ -78,7 +82,7 @@ end
 
 -- Region/game-mode cache key, or nil while either part is not known yet (the
 -- call fails or answers nothing; asked again later). A client without one of
--- the calls (UNVERIFIED (check in client): both exist on Forever) uses
+-- the calls (both exist on Forever) uses
 -- Core.NO_KEY_PART for it, so the price cache, the scan and the Trade log
 -- still work there instead of waiting for good.
 Core.NO_KEY_PART = "any"
@@ -183,6 +187,18 @@ end
 -- later brings the hint back once. Returns whether it printed.
 local L_NO_PRICE_ADDON = L["No auction price addon found: items count at their vendor price. Scan the auction house with /al scan, or install TSM or Auctionator."]
 
+-- Whether this realm has a scan price of AnotherLedger's own.
+local function hasScanPrices(db)
+  local bucket = ns.Scan and ns.Scan.currentRealmKey and ns.Scan.bucket(db, ns.Scan.currentRealmKey())
+  return bucket ~= nil and next(bucket.items) ~= nil
+end
+
+-- Whether anything gives auction prices: TSM, Auctionator or a scan of this
+-- realm (the footer tooltip says why items have no AH price).
+function Core.hasAuctionPrices(env, db)
+  return ns.Sources.anyPresent(env) or (type(db) == "table" and hasScanPrices(db))
+end
+
 function Core.priceAddonHint(env, db, say)
   if type(db) ~= "table" then return false end
   if ns.Sources.anyPresent(env) then
@@ -191,8 +207,7 @@ function Core.priceAddonHint(env, db, say)
   end
   if db.priceHintShown then return false end
   -- Prices from AnotherLedger's own scan for this realm: no hint needed.
-  local bucket = ns.Scan and ns.Scan.bucket(db, ns.Scan.currentRealmKey())
-  if bucket and next(bucket.items) ~= nil then return false end
+  if hasScanPrices(db) then return false end
   db.priceHintShown = true
   say(L_NO_PRICE_ADDON)
   return true
@@ -264,6 +279,26 @@ function Core.destroyAllowed(env, db, mode, itemID, link)
   end
   local all, own = professionSets(db, Core.character or Core.characterKey(env))
   return ns.Prices.destroyAllowed(mode, kind, own, all)
+end
+
+-- The price trend of an item (the item tooltips): TSM's market value against
+-- its 60 day average when TSM answers, else the newest day of this realm's
+-- AnotherLedger scan against the days before. Returns change (a fraction,
+-- +0.12 = 12% up) and source ("tsm" / "scan"), or nil.
+function Core.priceTrend(env, db, itemID, link, now)
+  local TSM = ns.Sources and ns.Sources.TSM
+  if TSM and TSM.trend then
+    local ok, change = pcall(TSM.trend, env, itemID, link)
+    if ok and change then return change, "tsm" end
+  end
+  local Scan = ns.Scan
+  local bucket = Scan and Scan.currentRealmKey and Scan.bucket(db, Scan.currentRealmKey())
+  if bucket then
+    local kind = ns.Util.setting("scanPrice", "market") == "lowest" and "lowest" or "market"
+    local change = Scan.trendOf(bucket.items, itemID, link, kind, now)
+    if change then return change, "scan" end
+  end
+  return nil
 end
 
 -- Price lookup that never errors: nil before login is done or when a source
@@ -443,7 +478,10 @@ function Core.recordLoot(link, qty, kind)
   local countCrafted = ns.Util.setting("countCrafted", false)
   if not Core.countsAsLoot(kind, countCrafted, tradeWindowOpen()) then return end
   local key, itemID = ns.LootParse.itemKey(link)
-  if not key or notCounted() then return end
+  if not key then return end
+  -- The watch list alerts even while the clock is stopped.
+  Core.watchAlert(link, qty, itemID)
+  if notCounted() then return end
   local added, item = ns.Session.add(ns.session, itemID, link, qty, time(), key)
   if not added then return end
   -- Option "showOnLoot": the session's first item opens the window.
@@ -617,6 +655,85 @@ end
 
 Core.ignoredItems, Core.ignoreItem, Core.unignoreItem, Core.ignoredList = itemList("ignored")
 Core.keptItems, Core.keepItem, Core.unkeepItem, Core.keptList = itemList("kept")
+-- The watch list: an item on it says so in chat, with a sound and a line in
+-- the middle of the screen, whenever you loot it (Core.watchAlert). By item ID
+-- (db.watched, like the ignore list) or by a text its name contains
+-- (db.watchedNames = { [lower case text] = text as typed }: "Pattern:").
+Core.watchedItems, Core.watchItem, Core.unwatchItem, Core.watchedList = itemList("watched")
+
+Core.WATCH_TEXT_MIN = 3 -- shorter texts would match nearly everything
+
+local function watchedNames()
+  local db = ns.db
+  if not db then return NO_ITEMS end
+  if type(db.watchedNames) ~= "table" then db.watchedNames = {} end
+  return db.watchedNames
+end
+Core.watchedNames = watchedNames
+
+-- Watches every item whose name contains `text` (case ignored). Returns
+-- whether it was added (false: too short, or no saved data yet).
+function Core.watchName(text)
+  if type(text) ~= "string" or not ns.db then return false end
+  text = text:match("^%s*(.-)%s*$")
+  if #text < Core.WATCH_TEXT_MIN then return false end
+  watchedNames()[text:lower()] = text
+  refreshUI()
+  return true
+end
+
+function Core.unwatchName(text)
+  if type(text) ~= "string" then return false end
+  local key = text:match("^%s*(.-)%s*$"):lower()
+  local names = watchedNames()
+  if names[key] == nil then return false end
+  names[key] = nil
+  refreshUI()
+  return true
+end
+
+-- Pure. Whether an item is watched: its ID is in `ids`, or its name contains
+-- one of the texts of `names` (keys in lower case).
+function Core.watchMatch(itemID, name, ids, names)
+  if type(ids) == "table" and itemID ~= nil and ids[itemID] ~= nil then return true end
+  if type(names) == "table" and type(name) == "string" and name ~= "" then
+    local lower = name:lower()
+    for text in pairs(names) do
+      if type(text) == "string" and text ~= "" and lower:find(text, 1, true) then return true end
+    end
+  end
+  return false
+end
+
+local L_WATCHED = L["watched item looted: %s%s"]
+
+local function watchNotice(text)
+  if type(PlaySound) == "function" and type(SOUNDKIT) == "table" then
+    local kit = SOUNDKIT.RAID_WARNING or SOUNDKIT.UI_EPICLOOT_TOAST
+    if kit then pcall(PlaySound, kit) end
+  end
+  -- UNVERIFIED (check in client): SOUNDKIT.RAID_WARNING plays the raid warning
+  -- sound; UIErrorsFrame:AddMessage(text, r, g, b) shows the line in the
+  -- middle of the screen for a few seconds.
+  local frame = _G.UIErrorsFrame
+  if type(frame) == "table" and type(frame.AddMessage) == "function" then
+    local c = ns.Theme and ns.Theme.colors.gold or { 1, 0.82, 0 }
+    pcall(frame.AddMessage, frame, text, c[1], c[2], c[3])
+  end
+end
+
+-- A watched item was looted (also while the clock is stopped): chat line,
+-- sound and screen line. Returns whether it alerted.
+function Core.watchAlert(link, qty, itemID)
+  local db = ns.db
+  if not db or type(link) ~= "string" then return false end
+  local name = link:match("%[(.-)%]")
+  if not Core.watchMatch(itemID, name, db.watched, db.watchedNames) then return false end
+  local text = string.format(L_WATCHED, link, (qty or 1) > 1 and (" x" .. qty) or "")
+  say(text)
+  watchNotice(text)
+  return true
+end
 
 -- Raw gold (looted or quest money), copper > 0. Redraws on success; gold that
 -- drops together with items shares their redraw.
@@ -862,6 +979,7 @@ function Core.mergeHistory(index)
   if not merged then return nil end
   list[index] = merged
   table.remove(list, index + 1)
+  ns.History.changed()
   undoStack[#undoStack + 1] = { restore = { newer, older }, drop = merged }
   say(L["sessions merged. /al undo splits them again."])
   return merged
@@ -1110,6 +1228,7 @@ end
 -- Events: one function per event, registered automatically by Core.init.
 
 local events = {}
+Core.events = events
 
 function events.ADDON_LOADED(name)
   -- The game's auction house UI loads on demand, possibly after the window's
@@ -1245,500 +1364,6 @@ end
 for _, base in ipairs({ "MERCHANT", "MAIL", "TRADE", "AUCTION_HOUSE" }) do
   events[base .. "_SHOW"] = function() tradeWindows[base] = true end
   events[base .. "_CLOSED"] = function() tradeWindows[base] = nil end
-end
-
--- ---------------------------------------------------------------------------
--- AnotherLedger scan (Scan.lua): a full auction house read on request and the
--- search results the player opens, also next to TSM and Auctionator (Auto asks
--- them first; the scan answers for items they have no price for).
-
-local L_SCAN_DONE = L["Scan done: %s items priced (%.1f s)."]
-local L_SCAN_STOPPED = L["Scan stopped: the auction house was closed. %s items priced."]
-local L_SCAN_WAIT = L["The game allows the next full scan in %s."]
-local L_SCAN_REFUSED = L["The game did not answer the scan. Try again later."]
-local L_SCAN_CLOSED = L["Open the auction house to scan."]
-local L_SCAN_OFF = L["The game offers no auction house scan."]
-local L_SCAN_NO_REALM = L["The realm is not known yet. Try again in a moment."]
-local L_SCAN_REMIND = L["Your last auction house scan is more than a day old: /al scan or the AnotherLedger scan button."]
-local SCAN_ANSWER_SECONDS = 60 -- no full read within this: the game refused it
-local SCAN_REMIND_AFTER = 86400
-
--- reader: the running Scan.newReader or false; pending: ReplicateItems sent,
--- its event not come yet; token: the pending request (its 60 s check).
-local scan = { reader = false, pending = false, token = 0, fraction = 0, reminded = false }
-Core.onScanChange = false -- set by UI/ScanButton.lua: called on every change
-
-local function scanChanged()
-  if Core.onScanChange then pcall(Core.onScanChange) end
-end
-
--- The realm key of the scan buckets (Scan.realmKey): price cache key + realm.
-local function currentRealmKey()
-  local realm
-  if type(GetRealmName) == "function" then
-    local ok, name = pcall(GetRealmName)
-    if ok then realm = name end
-  end
-  return ns.Scan.realmKey(Core.cacheKey(), realm)
-end
-if ns.Scan then ns.Scan.currentRealmKey = currentRealmKey end
-
-local function scanBucket(create)
-  return ns.Scan.bucket(ns.db, ns.Scan.currentRealmKey(), create)
-end
-
-local function clock()
-  return type(GetTime) == "function" and GetTime() or time()
-end
-
-function Core.auctionHouseOpen()
-  return tradeWindows.AUCTION_HOUSE == true
-end
-
--- Scanning is offered whenever the client has the auction house API, also
--- next to TSM and Auctionator.
-function Core.scanAvailable(env)
-  env = env or _G
-  local ah = env.C_AuctionHouse
-  return type(ah) == "table" and type(ah.ReplicateItems) == "function"
-end
-
--- For the scan button: { running, fraction (0..1), waitLeft (seconds) }.
-function Core.scanState()
-  return {
-    running = scan.reader ~= false or scan.pending,
-    fraction = scan.fraction,
-    waitLeft = ns.Scan.waitLeft(ns.chardb and ns.chardb.scanAt, time()),
-  }
-end
-
-local function finishScan(stats)
-  scan.reader = false
-  local bucket = scanBucket(true)
-  local priced = bucket and ns.Scan.commit(bucket, stats.sets, time()) or 0
-  if stats.stopped then
-    say(L_SCAN_STOPPED:format(priced))
-  else
-    if bucket then bucket.lastFull = time() end
-    say(L_SCAN_DONE:format(priced, math.max(0, clock() - (scan.startedAt or clock()))))
-  end
-  requestRefresh()
-  scanChanged()
-end
-
--- Starts a full read. Returns true, or false and why: "closed" (no auction
--- house), "unavailable" (no API), "realm" (the realm
--- key is not known yet: the read would have nowhere to go), "running",
--- "wait" (plus the seconds left) or "refused" (the call failed).
-function Core.startScan()
-  if not tradeWindows.AUCTION_HOUSE then return false, "closed" end
-  if not Core.scanAvailable(_G) then return false, "unavailable" end
-  if scan.reader or scan.pending then return false, "running" end
-  if ns.Scan.currentRealmKey() == nil then return false, "realm" end
-  local now = time()
-  local left = ns.Scan.waitLeft(ns.chardb.scanAt, now)
-  if left > 0 then return false, "wait", left end
-  -- UNVERIFIED (check in client): C_AuctionHouse.ReplicateItems, answered by
-  -- REPLICATE_ITEM_LIST_UPDATE; the game allows one call per 15 minutes.
-  if not pcall(C_AuctionHouse.ReplicateItems) then return false, "refused" end
-  local previous = ns.chardb.scanAt
-  ns.chardb.scanAt = now
-  scan.pending, scan.fraction, scan.startedAt = true, 0, clock()
-  scan.token = scan.token + 1
-  local token = scan.token
-  if C_Timer and C_Timer.After then
-    C_Timer.After(SCAN_ANSWER_SECONDS, function()
-      if not (scan.pending and scan.token == token) then return end
-      scan.pending = false
-      ns.chardb.scanAt = previous
-      say(L_SCAN_REFUSED)
-      scanChanged()
-    end)
-  end
-  scanChanged()
-  return true
-end
-
--- /al scan and the button: starts a scan and says why when it cannot.
-function Core.scanCommand()
-  local ok, why, left = Core.startScan()
-  if ok or why == "running" then return ok end
-  if why == "closed" then say(L_SCAN_CLOSED)
-  elseif why == "unavailable" then say(L_SCAN_OFF)
-  elseif why == "realm" then say(L_SCAN_NO_REALM)
-  elseif why == "wait" then say(L_SCAN_WAIT:format(ns.Util.shortAge(left)))
-  else say(L_SCAN_REFUSED) end
-  return false
-end
-
--- UNVERIFIED (check in client): GetNumReplicateItems, GetReplicateItemInfo
--- (0-based index; count 3rd, buyout 10th, itemID 17th return) and
--- GetReplicateItemLink (may be nil for items the client has not loaded: the
--- reader then keys the entry by its item ID).
-function events.REPLICATE_ITEM_LIST_UPDATE()
-  if not scan.pending then return end
-  scan.pending = false
-  local api = C_AuctionHouse
-  scan.reader = ns.Scan.newReader({
-    count = api.GetNumReplicateItems,
-    info = function(i)
-      local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID = api.GetReplicateItemInfo(i)
-      return count, buyout, itemID, api.GetReplicateItemLink(i)
-    end,
-    after = C_Timer.After,
-    onProgress = function(f)
-      scan.fraction = f
-      scanChanged()
-    end,
-    onDone = finishScan,
-  })
-  scan.reader:start()
-end
-
--- Passive recording: a full set of search results the player opened.
-local function recordSets(sets)
-  if not next(sets) then return end
-  local bucket = scanBucket(true)
-  if bucket and ns.Scan.commit(bucket, sets, time()) > 0 then requestRefresh() end
-end
-
-local function passiveOn()
-  return tradeWindows.AUCTION_HOUSE and Core.scanAvailable(_G)
-end
-
--- UNVERIFIED (check in client): HasFullCommoditySearchResults,
--- GetNumCommoditySearchResults, GetCommoditySearchResultInfo (1-based;
--- unitPrice, quantity).
-function events.COMMODITY_SEARCH_RESULTS_UPDATED(itemID)
-  if not passiveOn() or type(itemID) ~= "number" then return end
-  local api = C_AuctionHouse
-  local ok, full = pcall(api.HasFullCommoditySearchResults, itemID)
-  if not (ok and full) then return end
-  local list = {}
-  local okN, n = pcall(api.GetNumCommoditySearchResults, itemID)
-  for i = 1, okN and type(n) == "number" and n or 0 do
-    local got, r = pcall(api.GetCommoditySearchResultInfo, itemID, i)
-    if got and type(r) == "table" and num(r.unitPrice) and r.unitPrice > 0 and num(r.quantity) and r.quantity >= 1 then
-      list[#list + 1] = { unit = r.unitPrice, qty = r.quantity }
-    end
-  end
-  recordSets(#list > 0 and { [itemID] = list } or {})
-end
-
--- UNVERIFIED (check in client): HasFullItemSearchResults,
--- GetNumItemSearchResults, GetItemSearchResultInfo (1-based; buyoutAmount,
--- quantity, itemLink). Grouped by variant (LootParse.itemKey of the link).
-function events.ITEM_SEARCH_RESULTS_UPDATED(itemKey)
-  if not passiveOn() or type(itemKey) ~= "table" then return end
-  -- Battle pets all share the cage item ID: never priced.
-  if itemKey.itemID == ns.Scan.PET_CAGE then return end
-  if num(itemKey.battlePetSpeciesID) and itemKey.battlePetSpeciesID > 0 then return end
-  local api = C_AuctionHouse
-  local ok, full = pcall(api.HasFullItemSearchResults, itemKey)
-  if not (ok and full) then return end
-  local sets = {}
-  local okN, n = pcall(api.GetNumItemSearchResults, itemKey)
-  for i = 1, okN and type(n) == "number" and n or 0 do
-    local got, r = pcall(api.GetItemSearchResultInfo, itemKey, i)
-    if got and type(r) == "table" and num(r.buyoutAmount) and r.buyoutAmount > 0 then
-      local qty = num(r.quantity) and r.quantity >= 1 and r.quantity or 1
-      local key = ns.LootParse.itemKey(r.itemLink) or itemKey.itemID
-      if key ~= nil then
-        sets[key] = sets[key] or {}
-        local set = sets[key]
-        set[#set + 1] = { unit = math.floor(r.buyoutAmount / qty), qty = qty }
-      end
-    end
-  end
-  recordSets(sets)
-end
-
--- The reminder: once per login, when the last full scan is old or missing.
--- Not while TSM or Auctionator is loaded: they bring their own prices.
-local function scanReminder()
-  if scan.reminded or not Core.scanAvailable(_G) or ns.Sources.anyPresent(_G) then return end
-  if not ns.db or ns.Options.get(ns.db, "scanReminder") == false then return end
-  local bucket = scanBucket(false)
-  local last = bucket and bucket.lastFull
-  if num(last) and time() - last <= SCAN_REMIND_AFTER then return end
-  scan.reminded = true
-  say(L_SCAN_REMIND)
-end
-
--- Old scan prices only grow the saved file (login).
-function Core.pruneScan(db, now)
-  if type(db) ~= "table" or type(db.scan) ~= "table" then return end
-  for key, bucket in pairs(db.scan) do
-    if type(bucket) ~= "table" or type(bucket.items) ~= "table" then
-      db.scan[key] = nil
-    else
-      ns.Scan.prune(bucket.items, now)
-      if next(bucket.items) == nil then db.scan[key] = nil end
-    end
-  end
-end
-
-events.AUCTION_HOUSE_SHOW = function()
-  tradeWindows.AUCTION_HOUSE = true
-  scanReminder()
-  if ns.UI and ns.UI.ScanButton then ns.UI.ScanButton.show() end
-end
-
-events.AUCTION_HOUSE_CLOSED = function()
-  tradeWindows.AUCTION_HOUSE = nil
-  scan.pending = false
-  if scan.reader then scan.reader:stop() end
-  if ns.UI and ns.UI.ScanButton then ns.UI.ScanButton.hide() end
-end
-
--- ---------------------------------------------------------------------------
--- Trade section: auction posts and cancels (hooked calls), the "buyer found"
--- chat line, auction mails and finished player trades, recorded per realm
--- in Trade.lua. Nothing is recorded while the realm key is unknown.
-
-local trade = { hooked = false, snap = false }
-
--- The Trade bucket of the current realm (made when `create`), or nil.
-function Core.tradeBucket(create)
-  if not (ns.Trade and ns.Scan) then return nil end
-  return ns.Trade.bucket(ns.db, ns.Scan.currentRealmKey(), create)
-end
-
--- The market per unit of an item now, without the player's own sales.
-function Core.marketAt(itemID, link)
-  if not (ns.prices and ns.prices.marketPrice) or itemID == nil then return nil end
-  return ns.prices:marketPrice(itemID, link, L["Own sales"])
-end
-
-local function marketOf(key, id) return Core.marketAt(id) end
-
--- A client format string ("... of %s.") as a pattern capturing the %s part.
-function Core.formatPattern(fmt)
-  if type(fmt) ~= "string" then return nil end
-  local escaped = fmt:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")
-  return "^" .. escaped:gsub("%%%%s", "(.+)") .. "$"
-end
-
-local function playerName()
-  if type(UnitName) ~= "function" then return nil end
-  local ok, name = pcall(UnitName, "player")
-  return ok and name or nil
-end
-
--- { key, id, name } of an item link.
-local function itemOfLink(link)
-  if type(link) ~= "string" then return nil end
-  local id = ns.LootParse.itemID(link)
-  if not id then return nil end
-  -- A crafting reagent's name carries its quality icon (|A...|a) in the
-  -- link; mails name the item without it.
-  local name = link:match("%[(.-)%]")
-  if name then name = name:gsub("|A.-|a", ""):gsub("^%s+", ""):gsub("%s+$", "") end
-  return { key = ns.LootParse.itemKey(link) or id, id = id, name = name }
-end
-
--- The item ID the client knows for an item name (cached items only).
-local function idOfName(name)
-  local api = C_Item
-  if type(name) ~= "string" or type(api) ~= "table" or type(api.GetItemInfoInstant) ~= "function" then return nil end
-  local ok, id = pcall(api.GetItemInfoInstant, name)
-  return ok and type(id) == "number" and id or nil
-end
-
-local function recorded()
-  dataChanged("trade")
-end
-
-local function addPost(link, quantity, unit)
-  local bucket, item = Core.tradeBucket(true), itemOfLink(link)
-  if not (bucket and item) or type(quantity) ~= "number" or quantity <= 0 then return end
-  ns.Trade.addPost(bucket, { t = time(), key = item.key, id = item.id, name = item.name, n = quantity,
-    unit = type(unit) == "number" and unit or 0, char = playerName() })
-  recorded()
-end
-
--- UNVERIFIED (check in client): C_AuctionHouse.PostItem(itemLocation,
--- duration, quantity, bid, buyout), PostCommodity(itemLocation, duration,
--- quantity, unitPrice) and CancelAuction(auctionID) are what the auction
--- house UI calls; C_Item.GetItemLink(itemLocation) gives the link; the owned
--- auction of an ID (GetNumOwnedAuctions / GetOwnedAuctionInfo) still exists
--- when CancelAuction is called.
-local function linkOfLocation(loc)
-  local api = C_Item
-  if type(api) ~= "table" or type(api.GetItemLink) ~= "function" then return nil end
-  local ok, link = pcall(api.GetItemLink, loc)
-  return ok and link or nil
-end
-
-local function ownedAuction(auctionID)
-  local api = C_AuctionHouse
-  if type(api.GetNumOwnedAuctions) ~= "function" or type(api.GetOwnedAuctionInfo) ~= "function" then return nil end
-  for i = 1, api.GetNumOwnedAuctions() or 0 do
-    local info = api.GetOwnedAuctionInfo(i)
-    if type(info) == "table" and info.auctionID == auctionID then return info end
-  end
-  return nil
-end
-
-function Core.hookAuctionCalls()
-  if trade.hooked then return end
-  local api = C_AuctionHouse
-  if type(hooksecurefunc) ~= "function" or type(api) ~= "table" then return end
-  trade.hooked = true
-  if type(api.PostItem) == "function" then
-    hooksecurefunc(api, "PostItem", function(loc, duration, quantity, bid, buyout)
-      local total = (type(buyout) == "number" and buyout > 0) and buyout or bid
-      if type(quantity) == "number" and quantity > 0 and type(total) == "number" then
-        addPost(linkOfLocation(loc), quantity, math.floor(total / quantity))
-      end
-    end)
-  end
-  if type(api.PostCommodity) == "function" then
-    hooksecurefunc(api, "PostCommodity", function(loc, duration, quantity, unitPrice)
-      addPost(linkOfLocation(loc), quantity, unitPrice)
-    end)
-  end
-  if type(api.CancelAuction) == "function" then
-    hooksecurefunc(api, "CancelAuction", function(auctionID)
-      local ok, info = pcall(ownedAuction, auctionID)
-      local item = ok and info and itemOfLink(info.itemLink)
-      local bucket = item and Core.tradeBucket(true)
-      if not bucket then return end
-      ns.Trade.cancel(bucket, { t = time(), key = item.key, id = item.id, name = item.name,
-        n = info.quantity or 1, char = playerName() })
-      recorded()
-    end)
-  end
-end
-
--- UNVERIFIED (check in client): CHAT_MSG_SYSTEM carries ERR_AUCTION_SOLD_S
--- ("A buyer has been found for your auction of %s.") with the item name.
-events.CHAT_MSG_SYSTEM = function(text)
-  local pattern = Core.formatPattern(ERR_AUCTION_SOLD_S)
-  local name = pattern and type(text) == "string" and text:match(pattern)
-  if not name then return end
-  local bucket = Core.tradeBucket(true)
-  if not bucket then return end
-  ns.Trade.markSold(bucket, name, time(), Core.marketAt(idOfName(name)))
-end
-
--- UNVERIFIED (check in client): GetInboxHeaderInfo(i) gives sender 3rd,
--- subject 4th, money 5th, daysLeft 7th; GetInboxInvoiceInfo(i) gives
--- invoiceType ("seller" / "seller_temp_invoice"), itemName, playerName, bid,
--- buyout, deposit, consignment, ..., count 11th; expired and cancelled mails
--- have the subjects AUCTION_EXPIRED_MAIL_SUBJECT / AUCTION_REMOVED_MAIL_SUBJECT
--- and the item as attachment 1 (GetInboxItemLink, count 4th of GetInboxItem).
-local function readMail(i, now)
-  local _, _, sender, subject, money, _, daysLeft = GetInboxHeaderInfo(i)
-  if type(daysLeft) ~= "number" then return nil end
-  local m = { sender = sender, subject = subject, money = money, expires = now + daysLeft * ns.Trade.DAY,
-    char = playerName() }
-  if type(GetInboxInvoiceInfo) == "function" then
-    local kind, name, who, bid, _, _, cut, _, _, _, count = GetInboxInvoiceInfo(i)
-    if kind == "seller" or kind == "seller_temp_invoice" then
-      m.kind, m.name, m.who, m.gold, m.cut, m.n = "sale", name, who, bid or 0, cut or 0, count or 1
-      m.temp = kind == "seller_temp_invoice" or nil
-      m.id = idOfName(name) -- the post of that name gives the key (Trade.recordMail)
-      return m
-    end
-  end
-  for kind, fmt in pairs({ expire = AUCTION_EXPIRED_MAIL_SUBJECT, cancel = AUCTION_REMOVED_MAIL_SUBJECT }) do
-    local pattern = Core.formatPattern(fmt)
-    if pattern and type(subject) == "string" and subject:match(pattern) then
-      local item = itemOfLink(type(GetInboxItemLink) == "function" and GetInboxItemLink(i, 1) or nil)
-      if not item then return nil end
-      local count = type(GetInboxItem) == "function" and select(4, GetInboxItem(i, 1)) or 1
-      m.kind, m.key, m.id, m.name, m.n = kind, item.key, item.id, item.name, count or 1
-      return m
-    end
-  end
-  return nil
-end
-
-events.MAIL_INBOX_UPDATE = function()
-  if type(GetInboxNumItems) ~= "function" or type(GetInboxHeaderInfo) ~= "function" then return end
-  local bucket = Core.tradeBucket(true)
-  if not bucket then return end
-  local now, mails = time(), {}
-  for i = 1, GetInboxNumItems() or 0 do
-    local ok, m = pcall(readMail, i, now)
-    if ok and m then mails[#mails + 1] = m end
-  end
-  if #ns.Trade.recordInbox(bucket, mails, now, marketOf) > 0 then recorded() end
-end
-
--- UNVERIFIED (check in client): TRADE_ACCEPT_UPDATE fires when either side
--- accepts; slots 1-6 are traded (GetTradePlayerItemLink / Info, count 3rd,
--- and the Target versions); GetPlayerTradeMoney / GetTargetTradeMoney;
--- UnitName("NPC") is the partner; UI_INFO_MESSAGE(type, ERR_TRADE_COMPLETE)
--- comes once the trade went through.
-local function tradeSide(linkFn, infoFn)
-  local items = {}
-  if type(linkFn) ~= "function" or type(infoFn) ~= "function" then return items end
-  for i = 1, 6 do
-    local item = itemOfLink(linkFn(i))
-    if item then
-      item.n = select(3, infoFn(i)) or 1
-      items[#items + 1] = item
-    end
-  end
-  return items
-end
-
-events.TRADE_ACCEPT_UPDATE = function()
-  local ok, snap = pcall(function()
-    local partner = type(UnitName) == "function" and UnitName("NPC") or nil
-    return {
-      out = tradeSide(GetTradePlayerItemLink, GetTradePlayerItemInfo),
-      ["in"] = tradeSide(GetTradeTargetItemLink, GetTradeTargetItemInfo),
-      goldOut = type(GetPlayerTradeMoney) == "function" and GetPlayerTradeMoney() or 0,
-      goldIn = type(GetTargetTradeMoney) == "function" and GetTargetTradeMoney() or 0,
-      who = partner, char = playerName(),
-    }
-  end)
-  trade.snap = ok and snap or false
-end
-
-events.UI_INFO_MESSAGE = function(_, message)
-  if not trade.snap or message ~= ERR_TRADE_COMPLETE then return end
-  local snap = trade.snap
-  trade.snap = false
-  local bucket = Core.tradeBucket(true)
-  if not bucket then return end
-  ns.Trade.addTrade(bucket, snap, time(), marketOf)
-  recorded()
-end
-
--- A trade that closes without the "complete" message saved nothing; the
--- message can come just after TRADE_CLOSED, so the snapshot is dropped at
--- the next TRADE_SHOW (and by a later unrelated message only if a trade
--- went through).
-do
-  local show, closed = events.TRADE_SHOW, events.TRADE_CLOSED
-  events.TRADE_SHOW = function(...)
-    trade.snap = false
-    if show then return show(...) end
-  end
-  events.TRADE_CLOSED = function(...)
-    if closed then closed(...) end
-    if trade.snap and C_Timer and type(C_Timer.After) == "function" then
-      local snap = trade.snap
-      C_Timer.After(1, function() if trade.snap == snap then trade.snap = false end end)
-    end
-  end
-end
-
--- Old Trade log entries go at login (option Trade log kept); totals stay.
-function Core.pruneTrade(db, now)
-  if type(db) ~= "table" or type(db.trade) ~= "table" or not ns.Trade then return end
-  local days = ns.Options.get(db, "tradeLogDays")
-  for key, bucket in pairs(db.trade) do
-    if type(bucket) ~= "table" then
-      db.trade[key] = nil
-    else
-      ns.Trade.prune(ns.Trade.bucket(db, key, true), now, days)
-    end
-  end
 end
 
 -- Loot window (raw gold backstop). A window that opens before the last one
@@ -1902,6 +1527,9 @@ end
 
 function events.PLAYER_LOGOUT()
   if ns.Demo then ns.Demo.restoreCache(ns.db) end
+  -- This character's net worth for the all characters total (Worth.lua).
+  local ledger = ns.UI and ns.UI.Ledger
+  if ledger and ledger.noteWorth then pcall(ledger.noteWorth) end
   if ns.session then
     ns.Session.suspend(ns.session, time())
     ns.chardb.session = ns.session
@@ -1911,8 +1539,6 @@ function events.PLAYER_LOGOUT()
   -- The active profile is saved once, in AnotherLedgerDB.profiles.
   if ns.Profiles then ns.Profiles.beforeLogout(ns.db) end
 end
-
-Core.events = events
 
 function Core.init()
   local frame = CreateFrame("Frame")
@@ -1926,4 +1552,3 @@ function Core.init()
   if ns.Slash then ns.Slash.register() end
 end
 
-if type(_G.CreateFrame) == "function" then Core.init() end

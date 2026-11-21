@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "Prices.lua", "Session.lua", "History.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua" })
 local function tipText(row) return ns.Tooltip.text(row.hint) end
 local V = ns.View
 
@@ -1217,6 +1217,24 @@ h.test("View.buildInventory: the sell split adds up what is not kept by best kin
   V.addWorth(v, 56200)
   h.eq(v.totals.money, 56200)
   h.eq(v.totals.worth, v.totals.best + 56200)
+  -- the unfiltered bags and the bank scan count too
+  V.addWorth(v, 100, 1000, 500)
+  h.eq(v.totals.bagsWorth, 1000); h.eq(v.totals.bank, 500); h.eq(v.totals.worth, 1600)
+  V.addWorth(v, 100, 1000, nil)
+  h.eq(v.totals.bank, nil); h.eq(v.totals.worth, 1100)
+end)
+
+h.test("View.inventoryWorth: every item's best value, unfiltered; ignored items stay out", function()
+  local items = {
+    [1] = { id = 1, link = link("A"), qty = 2 },
+    [2] = { id = 2, link = link("B"), qty = 1 },
+    [3] = { id = 3, link = link("C"), qty = 0 },
+  }
+  local prices = function(id) return ({ [1] = { vendor = 100 }, [2] = { vendor = 10, ah = 300 }, [3] = { vendor = 5 } })[id] end
+  local filter = { qualities = {}, minValue = 100000, search = "zzz" }
+  h.eq(V.inventoryWorth(items, { lookup = prices, filter = filter }), 500)
+  h.eq(V.inventoryWorth(items, { lookup = prices, ignored = { [2] = "B" } }), 200)
+  h.eq(V.inventoryWorth(nil, { lookup = prices }), 0)
 end)
 
 h.test("View.buildHistory: day headings over the sessions while sorted by Recent", function()
@@ -1535,4 +1553,60 @@ h.test("View: the Trade tab follows the filter bar and Log sorts", function()
   h.eq(V.buildTradeLog(log, { sort = "gold" }).rows[1].name, "Bolt")
   h.eq(V.buildTradeLog(log, { sort = "name" }).rows[1].name, "Alt")
   h.eq(V.buildTradeLog(log, {}).rows[1].name, "Alt") -- newest first
+end)
+
+-- ---------------------------------------------------------------------------
+-- The History cache (opts.historyKey / opts.valueKey, ViewZones.lua)
+
+local function zoneSums(v)
+  local out = {}
+  for _, r in ipairs(v.rows) do out[#out + 1] = tostring(r.key) .. "=" .. tostring(r.value) end
+  return table.concat(out, ",")
+end
+
+local function liveZone(qty)
+  return { live = true, gold = 0, items = { [1] = { id = 1, key = 1, link = link("I1"), qty = qty, lastSeen = 9 } },
+    zones = { Z = { subs = { A = zsub(600, { [1] = qty }) } } },
+    mobs = { ["npc:1"] = mob(0, 1, 0, { [1] = qty }, nil, "Kobold") } }
+end
+
+h.test("View cache: Zones and Mobs match the uncached views and follow the running session", function()
+  local saved = twoZones()
+  saved[1].mobs = { ["npc:1"] = mob(0, 2, 10, { [1] = 2 }, nil, "Kobold") }
+  local plain = { lookup = zlookup, sort = "ah" }
+  local cached = { lookup = zlookup, sort = "ah", historyKey = "h1", valueKey = "v1" }
+  for qty = 1, 3 do
+    local entries = { saved[1], saved[2], liveZone(qty) }
+    h.eq(zoneSums(V.buildZones(entries, cached, { zone = "Z" })), zoneSums(V.buildZones(entries, plain, { zone = "Z" })))
+    h.eq(zoneSums(V.buildMobs(entries, cached)), zoneSums(V.buildMobs(entries, plain)))
+  end
+  -- Z: 4 + 3 of item 1 at 100 each.
+  h.eq(V.buildZones({ saved[1], saved[2], liveZone(3) }, cached, {}).rows[1].value, 700)
+  -- The saved aggregates were not changed by the running session's loot.
+  h.eq(V.buildZones(saved, cached, {}).rows[1].value, 400)
+end)
+
+h.test("View cache: a new value key or History key counts again", function()
+  local saved = twoZones()
+  local prices = { [1] = { ah = 100 } }
+  local opts = { lookup = function(id) return prices[id] end, sort = "ah", historyKey = "h2", valueKey = "a" }
+  h.eq(V.buildZones(saved, opts, {}).rows[1].value, 400)
+  prices[1] = { ah = 200 }
+  -- Same keys: the kept sums.
+  h.eq(V.buildZones(saved, opts, {}).rows[1].value, 400)
+  opts.valueKey = "b"
+  h.eq(V.buildZones(saved, opts, {}).rows[1].value, 800)
+  saved[#saved + 1] = zentry({ [1] = 1 }, { Z = { subs = { A = zsub(60, { [1] = 1 }) } } })
+  opts.historyKey = "h3"
+  h.eq(V.buildZones(saved, opts, {}).rows[1].value, 1000)
+end)
+
+h.test("View.buildTradeLog: a trade purchase is gold paid out, the minimum value counts its amount", function()
+  local log = { { t = 1, kind = "tbuy", ["in"] = { { name = "Ore", n = 2 } }, out = {}, goldOut = 5000, goldIn = 0,
+    who = "Seller", char = "Me" } }
+  local v = V.buildTradeLog(log, {})
+  h.eq(v.rows[1].value, -5000)
+  h.eq(v.rows[1].bestLineTotal, -5000)
+  h.eq(#V.buildTradeLog(log, { filter = { minValue = 4000 } }).rows, 1)
+  h.eq(#V.buildTradeLog(log, { filter = { minValue = 6000 } }).rows, 0)
 end)

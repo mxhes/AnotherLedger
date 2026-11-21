@@ -208,6 +208,123 @@ Slash.define({
   run = function() ns.Core.undoDelete() end,
 })
 
+local L_WATCH_USAGE = L["usage: /al watch <item link, item ID or part of a name>; /al unwatch <the same>"]
+local L_WATCHING = L["watching %s: you hear a sound and see a line when you loot it."]
+local L_WATCH_SHORT = L["give at least 3 letters of the name, an item link or an item ID."]
+local L_UNWATCHED = L["no longer watching %s."]
+local L_NOT_WATCHED = L["%s is not on the watch list."]
+local L_WATCH_LIST = L["watch list: %s"]
+local L_WATCH_EMPTY = L["the watch list is empty. /al watch <item link, item ID or part of a name> adds to it."]
+
+-- The item of a /al watch argument: an item link or an item ID gives
+-- (itemID, its name or nil); else nil (a name text).
+local function watchTarget(arg)
+  local key, itemID = ns.LootParse.itemKey(arg)
+  if key and itemID then return itemID, arg:match("%[(.-)%]") end
+  local id = tonumber(arg)
+  if id and id > 0 and id == math.floor(id) then return id, nil end
+  return nil
+end
+
+local function watchListText()
+  local Core = ns.Core
+  local parts = {}
+  for _, item in ipairs(Core.watchedList()) do parts[#parts + 1] = item.name end
+  local texts = {}
+  for _, text in pairs(Core.watchedNames()) do texts[#texts + 1] = "\"" .. text .. "\"" end
+  table.sort(texts)
+  for _, t in ipairs(texts) do parts[#parts + 1] = t end
+  return #parts > 0 and table.concat(parts, ", ") or nil
+end
+
+Slash.define({
+  name = "watch",
+  help = L["/al watch <item | part of a name> - sound and screen line when you loot it; /al watch lists them"],
+  run = function(arg)
+    local Core = ns.Core
+    if not arg or arg:match("^%s*$") then
+      local list = watchListText()
+      say(list and string.format(L_WATCH_LIST, list) or L_WATCH_EMPTY)
+      return
+    end
+    local id, name = watchTarget(arg)
+    if id then
+      Core.watchItem(id, name)
+      say(string.format(L_WATCHING, arg))
+    elseif Core.watchName(arg) then
+      say(string.format(L_WATCHING, "\"" .. arg:match("^%s*(.-)%s*$") .. "\""))
+    else
+      say(L_WATCH_SHORT)
+    end
+  end,
+})
+
+Slash.define({
+  name = "unwatch",
+  run = function(arg)
+    local Core = ns.Core
+    if not arg or arg:match("^%s*$") then
+      say(L_WATCH_USAGE)
+      return
+    end
+    local id = watchTarget(arg)
+    local done
+    if id then done = Core.unwatchItem(id) else done = Core.unwatchName(arg) end
+    say(string.format(done and L_UNWATCHED or L_NOT_WATCHED, arg))
+  end,
+})
+
+Slash.define({
+  name = "stats",
+  help = L["/al stats - how much of the saved files each part takes"],
+  run = function()
+    if not ns.Stats then return end
+    for _, line in ipairs(ns.Stats.lines(ns.Stats.collect(ns.db, ns.chardb))) do say(line) end
+  end,
+})
+
+local L_WORTH_LINE = L["%s: %s (bags %s, bank %s, gold %s)"]
+local L_WORTH_ALL = L["net worth of all characters: %s"]
+local L_WORTH_NONE = L["no net worth saved yet: open the Bags tab once."]
+local L_WORTH_NO_BANK = L["not scanned"]
+local L_WORTH_FORGOT = L["%s forgotten (net worth)."]
+local L_WORTH_UNKNOWN = L["no single saved character matches %s. /al worth lists them."]
+
+-- /al worth: every saved character's net worth (Worth.lua); /al worth forget
+-- <name> drops a deleted character.
+Slash.define({
+  name = "worth",
+  help = L["/al worth - net worth of every character; /al worth forget <name> drops one"],
+  run = function(arg)
+    local db, Worth = ns.db, ns.Worth
+    if not (db and Worth) then return end
+    local target = type(arg) == "string" and arg:match("^%s*forget%s+(.-)%s*$")
+    if target then
+      local key = Worth.find(db, target)
+      if key and Worth.forget(db, key) then
+        say(string.format(L_WORTH_FORGOT, key))
+        if ns.UI and ns.UI.Ledger then ns.UI.Ledger.refresh() end
+      else
+        say(string.format(L_WORTH_UNKNOWN, target))
+      end
+      return
+    end
+    -- The logged-in character's numbers are saved fresh first.
+    if ns.UI and ns.UI.Ledger and ns.UI.Ledger.noteWorth then pcall(ns.UI.Ledger.noteWorth) end
+    local list, sum = Worth.list(db, ns.Core and ns.Core.character)
+    if #list == 0 then
+      say(L_WORTH_NONE)
+      return
+    end
+    local fmt = ns.Money.formatColored
+    for _, c in ipairs(list) do
+      say(string.format(L_WORTH_LINE, c.key, fmt(c.total), fmt(c.bags or 0),
+        c.bank and fmt(c.bank) or L_WORTH_NO_BANK, fmt(c.money or 0)))
+    end
+    say(string.format(L_WORTH_ALL, fmt(sum)))
+  end,
+})
+
 Slash.define({ name = "help", needsSession = false, run = Slash.printHelp })
 
 ns.Slash = Slash

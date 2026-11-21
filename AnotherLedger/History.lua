@@ -16,7 +16,13 @@ local History = {
   DEFAULT_LIMIT = 50,
   UNLIMITED = -1,
   MAX_PLACES = 5,
+  -- Counts every change of a History list made through this file (add, prune,
+  -- remove, clear, restore, adopt) or noted with History.changed; part of the
+  -- History.combine key, so caches over History never miss one.
+  version = 0,
 }
+
+function History.changed() History.version = History.version + 1 end
 
 local num, nonNeg = ns.Util.isNumber, ns.Util.nonNegative
 
@@ -135,6 +141,7 @@ end
 -- Drops the oldest entries beyond `limit` (negative = unlimited).
 function History.prune(list, limit)
   if type(list) ~= "table" or not num(limit) or limit < 0 then return end
+  if #list > limit then History.changed() end
   while #list > limit do table.remove(list) end
 end
 
@@ -144,14 +151,32 @@ function History.add(list, entry, limit)
   if not num(limit) then limit = History.DEFAULT_LIMIT end
   if limit == 0 then return false end
   table.insert(list, 1, entry)
+  History.changed()
   History.prune(list, limit)
   return true
+end
+
+-- Drops the mob data (History > Mobs, drop chances) of the entries started
+-- before `before` (option "Mob data kept"); `dry` only counts them. Returns
+-- how many entries had some.
+function History.dropMobs(list, before, dry)
+  if type(list) ~= "table" or not num(before) then return 0 end
+  local n = 0
+  for _, e in ipairs(list) do
+    if type(e) == "table" and e.mobs ~= nil and num(e.startedAt) and e.startedAt < before then
+      n = n + 1
+      if not dry then e.mobs = nil end
+    end
+  end
+  if n > 0 and not dry then History.changed() end
+  return n
 end
 
 -- Removes the entry at `index` (1 = newest). Returns whether one was removed.
 function History.remove(list, index)
   if type(list) ~= "table" or not num(index) or not list[index] then return false end
   table.remove(list, index)
+  History.changed()
   return true
 end
 
@@ -159,6 +184,7 @@ end
 function History.clear(list)
   if type(list) ~= "table" then return end
   for i = #list, 1, -1 do list[i] = nil end
+  History.changed()
 end
 
 -- Whether a saved entry is usable (the list lives in saved variables).
@@ -242,6 +268,7 @@ function History.restore(list, entries)
   if type(list) ~= "table" or type(entries) ~= "table" then return 0 end
   for _, e in ipairs(entries) do list[#list + 1] = e end
   table.sort(list, newerFirst)
+  History.changed()
   return #entries
 end
 
@@ -420,6 +447,7 @@ function History.adopt(histories, name, own)
       if type(e) == "table" and not seen[tostring(e.startedAt)] then list[#list + 1] = e end
     end
     table.sort(list, newerFirst)
+    History.changed()
   end
   return list
 end
@@ -441,6 +469,7 @@ function History.combine(histories)
     key[#key + 1] = name .. "=" .. tostring(list) .. "#" .. #list .. "@"
       .. tostring(type(first) == "table" and first.startedAt)
   end
+  key[#key + 1] = "v" .. History.version
   return out, table.concat(key, ";")
 end
 

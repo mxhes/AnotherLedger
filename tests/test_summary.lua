@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "View.lua", "UI/Summary.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "View.lua", "ViewZones.lua", "ViewTrade.lua", "UI/Summary.lua" })
 local S = ns.UI.Summary
 local M = ns.Money
 
@@ -89,13 +89,13 @@ h.test("notesText: markers and bank note on one line", function()
   h.eq(S.notesText({ totals = {} }), nil)
   h.eq(S.notesText(nil), nil)
   local text, orange = S.notesText({ totals = { filtered = true, unpriced = 3 } })
-  h.eq(text, "filtered \194\183 3 unpriced (marked ?)")
+  h.eq(text, "filtered \194\183 3 without AH price (marked ?)")
   h.eq(orange, true)
   text, orange = S.notesText({ kind = "inventory", totals = {}, note = "Scanned 3h ago" })
   h.eq(text, "Scanned 3h ago")
   h.eq(orange, false)
   text, orange = S.notesText({ totals = { unpriced = 2 }, note = "Scanned 2d ago", noteStale = true })
-  h.eq(text, "2 unpriced (marked ?) \194\183 Scanned 2d ago")
+  h.eq(text, "2 without AH price (marked ?) \194\183 Scanned 2d ago")
   h.eq(orange, true)
 end)
 
@@ -122,12 +122,12 @@ h.test("table worst case fits the minimum window width", function()
 end)
 
 h.test("notesText: says when the unpriced items are listed first", function()
-  h.eq(S.notesText({ totals = { unpriced = 2 } }, true), "2 unpriced (marked ?, listed first)")
-  h.eq(S.notesText({ totals = { unpriced = 2 } }, false), "2 unpriced (marked ?)")
+  h.eq(S.notesText({ totals = { unpriced = 2 } }, true), "2 without AH price (marked ?, listed first)")
+  h.eq(S.notesText({ totals = { unpriced = 2 } }, false), "2 without AH price (marked ?)")
 end)
 
 h.test("notesText: Zones and Mobs say where the unpriced items are, like Bags", function()
-  h.eq(S.notesText({ history = true, kind = "zones", totals = { unpriced = 2 } }), "2 unpriced (marked ?)")
+  h.eq(S.notesText({ history = true, kind = "zones", totals = { unpriced = 2 } }), "2 without AH price (marked ?)")
 end)
 
 h.test("tooltipLines end with what a History view counts, as a wrapping line", function()
@@ -196,15 +196,35 @@ h.test("tooltipLines: lists the unpriced items and how many more", function()
   local l = S.tooltipLines({ history = true, totals = { vendor = 1, ah = 2, best = 2, unpriced = 3,
     unpricedNames = { "Ore x2" } } }, M.format)
   local n = #l
-  h.eq(l[n - 2][1], "Unpriced")
-  h.eq(l[n - 1][1], "Ore x2")
-  h.eq(l[n][1], "and 2 more")
+  h.eq(l[n - 3][1], "Without AH price")
+  h.eq(l[n - 2][1], "Ore x2")
+  h.eq(l[n - 1][1], "and 2 more")
+  h.eq(l[n][1]:find("no auction price", 1, true) ~= nil, true)
+  l = S.tooltipLines({ noAuctionPrices = true, totals = { unpriced = 1, unpricedNames = { "Ore x1" } } }, M.format)
+  h.eq(l[#l][1]:find("/al scan", 1, true) ~= nil, true)
 end)
 
 h.test("rowTexts / notesText: an unscanned bank shows a dash, no note", function()
   local view = { kind = "inventory", unscanned = true, totals = { best = 0 } }
   h.eq(S.rowTexts(view, M.format).items.value, "\226\128\148")
   h.eq(S.notesText(view), nil)
+end)
+
+h.test("tableLayout: Bags with more characters saved adds All characters; the tooltip lists them", function()
+  local view = { kind = "inventory", now = 3 * 86400,
+    totals = { best = 3, bagsWorth = 4, money = 5, worth = 9, allWorth = 29 },
+    worthList = { { key = "Alt-R", total = 20, at = 86400 }, { key = "Me-R", total = 9, own = true, at = 0 } } }
+  h.eq(S.tableLayout(view).rows, { "items", "money", "worth", "allWorth" })
+  h.eq(S.rowTexts(view, M.format).allWorth.value, M.format(29))
+  local lines = S.tooltipLines(view, M.format)
+  local byLeft = {}
+  for _, l in ipairs(lines) do byLeft[l[1]] = l[2] end
+  h.eq(byLeft["Bags: "], M.format(4))
+  h.eq(byLeft["Bank: "], "not scanned")
+  h.eq(byLeft["Gold: "], M.format(5))
+  h.eq(byLeft["Alt-R (2d)"], M.format(20))
+  h.eq(byLeft["Me-R"], M.format(9))
+  h.eq(byLeft["All characters"], "")
 end)
 
 h.test("tableLayout: Bags with gold on hand adds Gold on hand and Net worth; tooltip has the sell split", function()

@@ -61,7 +61,10 @@ local function compact() return Window.mode == "compact" end
 
 local function minWidth()
   if compact() then return theme().sizes.compactMinWidth end
-  return Window.effectiveMinWidth(theme().sizes.minWidth, Window.requiredWidth)
+  local need = Window.requiredWidth
+  local header = Window.headerWidth
+  if type(header) == "number" and header == header and (type(need) ~= "number" or header > need) then need = header end
+  return Window.effectiveMinWidth(theme().sizes.minWidth, need)
 end
 
 local function minHeight()
@@ -514,6 +517,14 @@ function Window.setMinWidth(required)
     ensureOnScreen(frame)
     save()
   end
+end
+
+-- The header rows' measured need (Ledger.measureHeader, window chrome
+-- included) also raises the minimum: long translations never clip a tab or
+-- a button.
+function Window.setHeaderWidth(required)
+  Window.headerWidth = required
+  Window.setMinWidth(Window.requiredWidth)
 end
 
 -- Theme.sizes changed (font size options): new resize bounds, and a window

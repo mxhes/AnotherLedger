@@ -16,10 +16,10 @@ local L_VENDOR = L["Vendor: "]
 local L_AH = L["AH: "]
 local L_PER_HOUR = L["/h"]
 local L_PER_HOUR_TITLE = L["per hour"]
-local L_UNPRICED = L[" unpriced"]
+local L_UNPRICED = L[" without AH price"]
 local L_MARKED = L[" (marked ?)"]
 local L_MARKED_FIRST = L[" (marked ?, listed first)"]
-local L_CLICK_FIRST = L["Click: list the unpriced items first."]
+local L_CLICK_FIRST = L["Click: list the items without an AH price first."]
 local L_CLICK_BACK = L["Click: back to the chosen sort."]
 local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
@@ -31,10 +31,18 @@ local L_VALUE = L["Value"]
 local L_BEST = L["Best: "]
 local L_GOAL = L["Goal "]
 local L_GOAL_REACHED = L["Goal reached"]
-local L_UNPRICED_TITLE = L["Unpriced"]
+local L_UNPRICED_TITLE = L["Without AH price"]
+local L_WHY_NO_SOURCE = L["No TSM or Auctionator and no scan yet: open the auction house and type /al scan."]
+local L_WHY_NO_PRICE = L["Your price sources have no auction price for these items (yet)."]
 local L_AND_MORE = L["and %d more"]
 local L_MONEY = L["Gold on hand"]
 local L_WORTH = L["Net worth"]
+local L_ALL_WORTH = L["All characters"]
+local L_WORTH_BAGS = L["Bags: "]
+local L_WORTH_BANK = L["Bank: "]
+local L_WORTH_GOLD = L["Gold: "]
+local L_WORTH_NO_BANK = L["not scanned"]
+local L_WORTH_SAVED = L["Saved at logout and while Bags is shown; /al worth lists them."]
 local L_SELL_SPLIT = L["Sell split"]
 local L_DESTROY = L["Destroy: "]
 local DASH = "\226\128\148" -- em dash (UTF-8)
@@ -61,9 +69,9 @@ end
 -- ---------------------------------------------------------------------------
 -- Value table (rows Items / Raw gold / Total, columns Value and per hour)
 
-Summary.ROWS = { "items", "gold", "total", "kept", "sellable", "money", "worth" }
+Summary.ROWS = { "items", "gold", "total", "kept", "sellable", "money", "worth", "allWorth" }
 local ROW_LABELS = { items = L_LABEL_ITEMS, gold = L_LABEL_GOLD, total = L_TOTAL, kept = L_KEPT,
-  sellable = L_SELLABLE, money = L_MONEY, worth = L_WORTH }
+  sellable = L_SELLABLE, money = L_MONEY, worth = L_WORTH, allWorth = L_ALL_WORTH }
 local SEP = " \194\183 " -- middle dot
 
 -- One line of notes under the table: the filtered / unpriced markers and the
@@ -112,10 +120,12 @@ function Summary.tableLayout(view)
     -- With kept items in the list: what is kept and what is left to sell.
     local totals = view.totals or NONE
     layout.rows = totals.kept and { "items", "kept", "sellable" } or { "items" }
-    -- Bags: the character's gold and the net worth (items + gold).
+    -- Bags: the character's gold and the net worth (bags + bank + gold), and
+    -- with more than one character saved, all of theirs (Worth.lua).
     if totals.money ~= nil then
       layout.rows[#layout.rows + 1] = "money"
       layout.rows[#layout.rows + 1] = "worth"
+      if totals.allWorth ~= nil then layout.rows[#layout.rows + 1] = "allWorth" end
     end
   elseif view.noCombined then
     layout.rows = goldRow and { "items", "gold" } or { "items" }
@@ -149,6 +159,7 @@ function Summary.rowTexts(view, formatMoney)
     sellable = row(totals.sellable, nil),
     money = row(totals.money, nil),
     worth = row(totals.worth, nil),
+    allWorth = row(totals.allWorth, nil),
   }
 end
 
@@ -183,14 +194,35 @@ function Summary.tooltipLines(view, formatMoney)
     lines[#lines + 1] = { L_AH, amountText(split.ah, formatMoney), "ah" }
     lines[#lines + 1] = { L_DESTROY, amountText(split.de, formatMoney), "de" }
   end
-  -- The unpriced items by name (the notes line only counts them).
+  -- Bags: what the net worth adds up, and every saved character's.
   local totals = view.totals or NONE
+  if view.kind == "inventory" and totals.worth ~= nil then
+    lines[#lines + 1] = { L_WORTH, "" }
+    lines[#lines + 1] = { L_WORTH_BAGS, amountText(totals.bagsWorth, formatMoney) }
+    lines[#lines + 1] = { L_WORTH_BANK, totals.bank ~= nil and amountText(totals.bank, formatMoney) or L_WORTH_NO_BANK }
+    lines[#lines + 1] = { L_WORTH_GOLD, amountText(totals.money, formatMoney) }
+    if type(view.worthList) == "table" and totals.allWorth ~= nil then
+      lines[#lines + 1] = { L_ALL_WORTH, "" }
+      for _, c in ipairs(view.worthList) do
+        local label = c.key
+        if not c.own and type(view.now) == "number" and type(c.at) == "number" and c.at > 0 then
+          label = label .. " (" .. ns.Util.shortAge(math.max(0, view.now - c.at)) .. ")"
+        end
+        lines[#lines + 1] = { label, amountText(c.total, formatMoney) }
+      end
+      lines[#lines + 1] = { L_WORTH_SAVED, "", wrap = true }
+    end
+  end
+  -- The unpriced items by name (the notes line only counts them).
   local names = type(totals.unpricedNames) == "table" and totals.unpricedNames or NONE
   if #names > 0 then
     lines[#lines + 1] = { L_UNPRICED_TITLE, "" }
     for _, name in ipairs(names) do lines[#lines + 1] = { name, "" } end
     local more = (tonumber(totals.unpriced) or 0) - #names
     if more > 0 then lines[#lines + 1] = { string.format(L_AND_MORE, more), "" } end
+    -- Why: nothing gives auction prices yet (view.noAuctionPrices, set by the
+    -- Ledger), or the sources there are know nothing of these items.
+    lines[#lines + 1] = { view.noAuctionPrices and L_WHY_NO_SOURCE or L_WHY_NO_PRICE, "", wrap = true }
   end
   -- History: which sessions the table adds up (the tabs differ, see view.scope).
   if type(view.scope) == "string" then

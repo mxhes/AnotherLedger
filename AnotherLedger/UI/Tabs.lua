@@ -132,29 +132,6 @@ Tabs.define({
 
 -- Bags: live bag contents, scanned again only after the bags changed.
 local bagItems
-Tabs.define({
-  key = "bags", label = L["Bags"], title = L["Bag Ledger"],
-  watches = "bags",
-  invalidate = function() bagItems = nil end,
-  build = function(ctx)
-    if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
-    local view = ns.View.buildInventory(bagItems, ctx.opts)
-    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
-    -- Gold on hand and net worth rows; free slots next to the item count.
-    local getMoney = ctx.env.GetMoney
-    if type(getMoney) == "function" then
-      local ok, money = pcall(getMoney)
-      if ok then ns.View.addWorth(view, money) end
-    end
-    local free, total = ns.Inventory.freeSlots(ctx.env)
-    if total > 0 then
-      local count = ns.History.itemCount(#view.rows)
-      view.headerInfo = count .. " \194\183 " .. ns.History.freeCount(free)
-    end
-    return view
-  end,
-  hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
-})
 
 -- Bank: the last saved scan (Core scans while the bank window is open).
 local function savedBank(ctx)
@@ -167,6 +144,62 @@ end
 local function wasScanned(bank)
   return bank ~= nil and ns.Util.isNumber(bank.scannedAt) and bank.scannedAt > 0
 end
+
+-- This character's net worth parts (Worth.lua): the bag items and the last
+-- bank scan unfiltered (bank nil: never scanned) and the gold, or nil without
+-- GetMoney. Saved for the all characters total unless the demo's prices are in.
+function Tabs.noteWorth(ctx)
+  local getMoney = ctx.env.GetMoney
+  if type(getMoney) ~= "function" then return nil end
+  local ok, money = pcall(getMoney)
+  if not (ok and ns.Util.isNumber(money)) then return nil end
+  if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
+  local bank = savedBank(ctx)
+  local snap = {
+    bags = ns.View.inventoryWorth(bagItems, ctx.opts),
+    bank = wasScanned(bank) and ns.View.inventoryWorth(bank.items, ctx.opts) or nil,
+    money = money,
+    at = ctx.now,
+  }
+  local key = ns.Core and ns.Core.character
+  if key and ns.db and not (ns.Demo and ns.Demo.active()) then ns.Worth.note(ns.db, key, snap) end
+  return snap
+end
+Tabs.define({
+  key = "bags", label = L["Bags"], title = L["Bag Ledger"],
+  watches = "bags",
+  invalidate = function() bagItems = nil end,
+  build = function(ctx)
+    if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
+    local view = ns.View.buildInventory(bagItems, ctx.opts)
+    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
+    -- Gold on hand and net worth rows (bags + bank + gold), all characters'
+    -- with more than one saved; free slots next to the item count.
+    local snap = Tabs.noteWorth(ctx)
+    if snap then
+      ns.View.addWorth(view, snap.money, snap.bags, snap.bank)
+      local list, sum = ns.Worth.list(ns.db, ns.Core and ns.Core.character)
+      if #list > 1 then
+        view.totals.allWorth, view.worthList, view.now = sum, list, ctx.now
+      end
+    end
+    local free, total = ns.Inventory.freeSlots(ctx.env)
+    if total > 0 then
+      local count = ns.History.itemCount(#view.rows)
+      local freeText = ns.History.freeCount(free)
+      -- Few free slots: orange, almost none: red.
+      local level = ns.Inventory.freeLevel(free)
+      if level then
+        local C = ns.Theme.colors
+        freeText = "|cff" .. ns.Theme.colorToHex(level == "low" and C.marketBad or C.stale) .. freeText .. "|r"
+      end
+      view.headerInfo = count .. " \194\183 " .. freeText
+    end
+    return view
+  end,
+  hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
+})
+
 
 Tabs.define({
   key = "bank", label = L["Bank"], title = L["Bank Ledger"],
@@ -223,9 +256,14 @@ end
 
 -- Zones: every saved session (of every character with the option
 -- "accountZones", ctx.zoneHistory) plus the running one (with its open stretch).
+-- The saved part's change key goes to ctx.opts.historyKey (ViewZones.lua caches
+-- over it; nil without one).
 local function zoneEntries(ctx)
   local entries = {}
-  local saved = ctx.zoneHistory and ctx.zoneHistory() or savedHistory(ctx)
+  local saved, key
+  if ctx.zoneHistory then saved, key = ctx.zoneHistory() end
+  if type(saved) ~= "table" then saved, key = savedHistory(ctx), nil end
+  ctx.opts.historyKey = type(key) == "string" and key or nil
   for i, e in ipairs(saved) do entries[i] = e end
   local s = ctx.session
   if type(s) == "table" then
@@ -457,6 +495,8 @@ function Tabs.strip(row, items, onSelect)
       if onSelect and key ~= tabs.selected then onSelect(key) end
     end)
     tabs.buttons[key] = b
+    tabs.order = tabs.order or {}
+    tabs.order[#tabs.order + 1] = b
     previous = b
   end
 
@@ -509,6 +549,26 @@ function Tabs.strip(row, items, onSelect)
   placeBase(nil)
 
   return tabs
+end
+
+-- Pure. Width a strip of tabs needs (px): the button widths and the gaps.
+function Tabs.rowNeed(buttonWidths)
+  local w, n = 0, 0
+  for _, bw in ipairs(buttonWidths) do w, n = w + bw, n + 1 end
+  return w + math.max(0, n - 1) * ns.Theme.sizes.buttonGap
+end
+
+-- Every window title a tab can show (the tabs' and sub-tabs'), for the
+-- header's width (Ledger.measureHeader).
+function Tabs.titles()
+  local out = {}
+  for _, key in ipairs(Tabs.KEYS) do
+    out[#out + 1] = Tabs.get(key).title
+    for _, sub in ipairs(Tabs.subtabs(key) or {}) do
+      if sub.title then out[#out + 1] = sub.title end
+    end
+  end
+  return out
 end
 
 -- The ledger's tab buttons (header row 3): one per defined tab.

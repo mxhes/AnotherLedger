@@ -46,11 +46,17 @@ function part:Update(view)
   if shown then b:SetText(TradePeriod.label(TradePeriod.current(ns.db))) end
 end
 
+-- Every label the button can show (it fits the widest).
+function TradePeriod.labels()
+  return { LABELS["7"], LABELS["30"], LABELS.all }
+end
+
 -- Builds the button on `row` (the window's sub-tab row) and registers it.
 function TradePeriod.attach(row)
   if TradePeriod.button or not row then return end
   local T = ns.Theme
   local b = ns.UI.Widgets.button(row, TradePeriod.label(TradePeriod.current(ns.db)), T.sizes.tradePeriodWidth)
+  ns.UI.Widgets.fitButton(b, TradePeriod.labels(), T.sizes.tradePeriodWidth)
   b:SetPoint("RIGHT", row, "RIGHT", 0, 0)
   b:SetScript("OnClick", function(self) openMenu(self) end)
   b:Hide()

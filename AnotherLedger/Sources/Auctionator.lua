@@ -25,7 +25,7 @@ end
 
 -- Age in seconds of Auctionator's price: GetAuctionAge* answer whole days
 -- since that price was last scanned (0 = today, nil = unknown).
--- UNVERIFIED (check in client): Auctionator.API.v1.GetAuctionAgeByItemLink /
+-- Client API: Auctionator.API.v1.GetAuctionAgeByItemLink /
 -- GetAuctionAgeByItemID (callerID, link / itemID) -> days or nil.
 local function ageOf(v1, name, arg)
   local days = ask(v1, name, arg)
@@ -54,7 +54,7 @@ end
 -- Disenchant value of an item from Auctionator (nil when it cannot be
 -- disenchanted or nothing is known). It needs a link: without one, the item's
 -- own link from C_Item.GetItemInfo.
--- UNVERIFIED (check in client): Auctionator.API.v1.GetDisenchantPriceByItemLink
+-- Client API: Auctionator.API.v1.GetDisenchantPriceByItemLink
 -- (callerID, link) -> copper or nil.
 function Auctionator.disenchant(env)
   local function get(itemID, link)
