@@ -1,5 +1,10 @@
 # AnotherLedger
 
+## v0.7.1
+
+- Skins: the Grain and Leather window backgrounds and the Background
+  option are removed for now; every skin uses the flat background.
+
 ## v0.7.0
 
 - Skins: Classic, Forge, Slate and Gilded change the window's border,
