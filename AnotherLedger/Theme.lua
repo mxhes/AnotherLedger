@@ -33,6 +33,12 @@ Theme.textures = {
   arrow = "Interface\\ChatFrame\\ChatFrameExpandArrow",
   -- Thin rounded edge of the tab buttons (tinted with colors.tabBorder*).
   tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
+  -- Skins (Theme.skins): the addon's own textures, drawn by
+  -- tools/render_skins.py; grey-scale, tinted with the theme colors.
+  skinGrain = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Grain",
+  skinLeather = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Leather",
+  skinStud = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Stud",
+  skinDotted = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Dotted",
 }
 
 Theme.fonts = {
@@ -392,6 +398,12 @@ Theme.sizes = {
   backdropTile = 16,
   backdropEdge = 16,
   backdropInset = 5,
+  -- Skins: tile size of the Grain / Leather backgrounds (their texture size),
+  -- the Gilded corner studs, and how far the Sunken list box reaches past the
+  -- list (inside the window padding).
+  skinTile = 64,
+  studSize = 10,
+  listBoxPad = 3,
 }
 
 -- Button / box widths of the header rows. Row 1 at the 350 px minimum is
@@ -479,6 +491,132 @@ function Theme.applyPreset(id)
     if c then changed[c] = true end
   end
   return changed
+end
+
+-- ---------------------------------------------------------------------------
+-- Skins (options "skin", "skinBorder", ...): the shape of the window border,
+-- the background surface, the buttons and the lines, and the Sunken list box.
+-- They never change colors: every style is tinted with Theme.colors.
+
+-- The choices of each part, in option order.
+Theme.skinParts = {
+  border = { "round", "bevel", "thin", "gilded" },
+  background = { "flat", "grain", "leather" },
+  buttons = { "bronze", "raised", "flat" },
+  lines = { "gold", "groove", "plain", "dotted" },
+}
+
+-- Classic is today's look and the default.
+Theme.skins = {
+  { id = "classic", label = "Classic", border = "round", background = "flat", buttons = "bronze",
+    lines = "gold", listBox = false },
+  { id = "forge", label = "Forge", border = "bevel", background = "grain", buttons = "raised",
+    lines = "groove", listBox = true },
+  { id = "slate", label = "Slate", border = "thin", background = "flat", buttons = "flat",
+    lines = "plain", listBox = false },
+  { id = "gilded", label = "Gilded", border = "gilded", background = "leather", buttons = "bronze",
+    lines = "dotted", listBox = false },
+}
+
+-- How the styles shade the theme colors: the dark edge lines, the groove's
+-- dark / light line, the raised buttons' light / dark edge, how far Plain
+-- moves a line color toward grey and the panel, the Sunken list fill.
+-- Strong on purpose: the dark presets swallow small differences (client).
+Theme.skinScales = {
+  edgeDark = 0.2, edgeLight = 1.7, grooveDark = 0.3, grooveLight = 2.0,
+  raisedLight = 3.5, raisedDark = 0.3, plainMix = 0.5, listBox = 0.5,
+}
+
+-- The active picks; the options write them with Theme.setStyle.
+Theme.style = { border = "round", background = "flat", buttons = "bronze", lines = "gold", listBox = false }
+
+function Theme.skin(id)
+  for _, s in ipairs(Theme.skins) do
+    if s.id == id then return s end
+  end
+  return nil
+end
+
+-- Stores one pick; false (nothing stored) for an unknown part or value.
+function Theme.setStyle(part, value)
+  if part == "listBox" then
+    if type(value) ~= "boolean" then return false end
+    Theme.style.listBox = value
+    return true
+  end
+  local list = Theme.skinParts[part]
+  if not list then return false end
+  for _, v in ipairs(list) do
+    if v == value then
+      Theme.style[part] = value
+      return true
+    end
+  end
+  return false
+end
+
+local BACKGROUNDS = { flat = "parchment", grain = "skinGrain", leather = "skinLeather" }
+function Theme.backgroundTexture(name)
+  return Theme.textures[BACKGROUNDS[name] or "parchment"]
+end
+
+-- The SetBackdrop table of the window: Round keeps the tooltip edge; the
+-- other borders are drawn as lines (Theme.edgeRects), so the fill reaches
+-- the frame's edge.
+function Theme.backdropSpec(border, background)
+  local S = Theme.sizes
+  local bg = Theme.backgroundTexture(background)
+  local tileSize = background == "flat" and S.backdropTile or S.skinTile
+  if border == "round" then
+    local inset = S.backdropInset
+    return { bgFile = bg, edgeFile = Theme.textures.frameBorder, tile = true, tileSize = tileSize,
+      edgeSize = S.backdropEdge, insets = { left = inset, right = inset, top = inset, bottom = inset } }
+  end
+  return { bgFile = bg, tile = true, tileSize = tileSize,
+    insets = { left = 0, right = 0, top = 0, bottom = 0 } }
+end
+
+-- The line rectangles of a border: inset (px from the frame edge) and shade
+-- (a factor on the border color). Round has none (the backdrop edge).
+-- (Seen in the client: single 1 px lines in the border color barely show on
+-- the dark panel, so Bevel and Gilded use light highlight lines and are
+-- 5 / 6 px wide; all stay inside the 12 px content inset.)
+function Theme.edgeRects(border)
+  local d, l = Theme.skinScales.edgeDark, Theme.skinScales.edgeLight
+  if border == "thin" then return { { inset = 0, shade = d }, { inset = 1, shade = 1 } } end
+  if border == "bevel" then
+    return { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = 1 },
+      { inset = 3, shade = 1 }, { inset = 4, shade = d } }
+  end
+  if border == "gilded" then
+    return { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = d },
+      { inset = 3, shade = d }, { inset = 4, shade = l }, { inset = 5, shade = d } }
+  end
+  return {}
+end
+
+function Theme.edgeStuds(border)
+  return border == "gilded"
+end
+
+-- Pure. `a` moved toward `b` by t (0..1); alpha of `a`.
+function Theme.mix(a, b, t)
+  local function m(i) return a[i] + (b[i] - a[i]) * t end
+  return { m(1), m(2), m(3), a[4] or 1 }
+end
+
+-- The colors of a styled line (Widgets.rule) in `lines` style: the main line
+-- and, for Groove, the light line under it. Plain takes the line color halfway
+-- to grey (losing the gold) and then halfway to the panel. Alpha kept.
+local GREY = { 0.5, 0.5, 0.5 }
+function Theme.lineColors(lines, color, panel)
+  local k = Theme.skinScales
+  if lines == "groove" then
+    return Theme.scaleColor(color, k.grooveDark), Theme.scaleColor(color, k.grooveLight)
+  elseif lines == "plain" then
+    return Theme.mix(Theme.mix(color, GREY, k.plainMix), panel, k.plainMix), nil
+  end
+  return color, nil
 end
 
 -- The color of a value source ("vendor" / "ah" / "de"), or nil.

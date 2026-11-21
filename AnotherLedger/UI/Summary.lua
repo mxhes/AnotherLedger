@@ -25,6 +25,9 @@ local L_FILTERED = L["filtered"]
 local L_LABEL_ITEMS = L["Items"]
 local L_LABEL_GOLD = L["Raw gold"]
 local L_TOTAL = L["Total"]
+local L_EARNED = L["Earned"]
+local L_SPENT = L["Spent"]
+local L_NET = L["Net"]
 local L_KEPT = L["Kept"]
 local L_SELLABLE = L["Sellable"]
 local L_VALUE = L["Value"]
@@ -69,9 +72,13 @@ end
 -- ---------------------------------------------------------------------------
 -- Value table (rows Items / Raw gold / Total, columns Value and per hour)
 
-Summary.ROWS = { "items", "gold", "total", "kept", "sellable", "money", "worth", "allWorth" }
+Summary.ROWS = { "items", "gold", "total", "kept", "sellable", "money", "worth", "allWorth", "earned", "spent", "net" }
 local ROW_LABELS = { items = L_LABEL_ITEMS, gold = L_LABEL_GOLD, total = L_TOTAL, kept = L_KEPT,
-  sellable = L_SELLABLE, money = L_MONEY, worth = L_WORTH, allWorth = L_ALL_WORTH }
+  sellable = L_SELLABLE, money = L_MONEY, worth = L_WORTH, allWorth = L_ALL_WORTH,
+  earned = L_EARNED, spent = L_SPENT, net = L_NET }
+
+-- The Trade tab's views: gold earned, spent and the difference, no clock.
+local function isTrade(view) return view.kind == "tradeItems" or view.kind == "tradeLog" end
 local SEP = " \194\183 " -- middle dot
 
 -- One line of notes under the table: the filtered / unpriced markers and the
@@ -113,7 +120,7 @@ function Summary.tableLayout(view)
   local s = ns.Theme.sizes
   local inventory = view.kind == "inventory"
   -- Mobs has no clock to divide by: no per hour column.
-  local layout = { rates = not inventory and view.kind ~= "mobs", titles = not inventory }
+  local layout = { rates = not inventory and view.kind ~= "mobs" and not isTrade(view), titles = not inventory }
   -- Option "rawGold": its own Raw gold row or not (Total follows the counting).
   local _, goldRow = ns.Util.rawGold()
   if inventory then
@@ -127,6 +134,8 @@ function Summary.tableLayout(view)
       layout.rows[#layout.rows + 1] = "worth"
       if totals.allWorth ~= nil then layout.rows[#layout.rows + 1] = "allWorth" end
     end
+  elseif isTrade(view) then
+    layout.rows = { "earned", "spent", "net" }
   elseif view.noCombined then
     layout.rows = goldRow and { "items", "gold" } or { "items" }
   else
@@ -160,6 +169,9 @@ function Summary.rowTexts(view, formatMoney)
     money = row(totals.money, nil),
     worth = row(totals.worth, nil),
     allWorth = row(totals.allWorth, nil),
+    earned = row(totals.earned, nil),
+    spent = row(totals.spent, nil),
+    net = row(totals.best, nil),
   }
 end
 
@@ -170,6 +182,8 @@ function Summary.tooltipLines(view, formatMoney)
   view = view or NONE
   local layout = Summary.tableLayout(view)
   local lines = {}
+  -- Trade: the footer rows say it all (no vendor / AH split).
+  if isTrade(view) then return lines end
   local function section(title, t)
     t = t or NONE
     lines[#lines + 1] = { title, "" }
@@ -349,7 +363,7 @@ function Summary.attach(topBox, footer)
 
   -- Divider between the footer and the Top finds block: the top edge of the
   -- topBox, so it disappears together with a collapsed topBox.
-  local divider = W.line(topBox, T.colors.divider)
+  local divider = W.rule(topBox, T.colors.divider)
   divider:SetHeight(S.dividerHeight)
   divider:SetPoint("TOPLEFT", topBox, "TOPLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", topBox, "TOPRIGHT", 0, 0)
@@ -434,9 +448,12 @@ function Summary.attach(topBox, footer)
   -- Hover: vendor / AH / best of the last view.
   tbl:SetScript("OnEnter", function(self)
     if not GameTooltip then return end
+    local lines = Summary.tooltipLines(summary.view)
+    local graph = summary.view and summary.view.graph
+    if #lines == 0 and not graph then return end -- Trade: the rows say it all
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     local C = T.colors
-    for _, l in ipairs(Summary.tooltipLines(summary.view)) do
+    for _, l in ipairs(lines) do
       if l.wrap then
         GameTooltip:AddLine(l[1], C.tipLabel[1], C.tipLabel[2], C.tipLabel[3], true)
       else
@@ -445,7 +462,6 @@ function Summary.attach(topBox, footer)
       end
     end
     -- Session tab: the gold per hour graph under the values.
-    local graph = summary.view and summary.view.graph
     if graph then
       local tip = ns.Tooltip.new()
       ns.View.addRateGraph(tip, graph)

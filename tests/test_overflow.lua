@@ -22,8 +22,8 @@ local function locales()
 end
 
 local FILES = { "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua",
-  "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua",
-  "UI/Widgets.lua", "UI/Header.lua", "UI/FilterBar.lua", "UI/Tabs.lua", "UI/TradePeriod.lua", "UI/Summary.lua" }
+  "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua", "OptionsLook.lua",
+  "UI/Widgets.lua", "UI/Header.lua", "UI/FilterBar.lua", "UI/Tabs.lua", "UI/RowSwitch.lua", "UI/Summary.lua" }
 
 -- The addon loaded with the client language `loc`.
 local function loadAs(loc)
@@ -112,7 +112,7 @@ local function checkLocale(loc, problems)
   local labels = {}
   for i, key in ipairs(UI.Tabs.KEYS) do labels[i] = UI.Tabs.label(key) end
   rows.tabs = UI.Tabs.rowNeed(tabWidths(labels))
-  local period = fit(S.tradePeriodWidth, UI.TradePeriod.labels())
+  local period = math.max(fit(S.tradePeriodWidth, UI.TradePeriod.labels()), fit(S.tradePeriodWidth, UI.MobKind.labels()))
   for _, key in ipairs(UI.Tabs.KEYS) do
     local subs = UI.Tabs.subtabs(key)
     if subs then
@@ -130,7 +130,7 @@ local function checkLocale(loc, problems)
   -- (Summary.tableWorstWidth); Bags and Bank have no per hour column, so
   -- their labels also get its 14.
   local SUMMARY = S.summaryCharPx
-  for _, text in ipairs({ L["Items"], L["Raw gold"], L["Total"] }) do
+  for _, text in ipairs({ L["Items"], L["Raw gold"], L["Total"], L["Earned"], L["Spent"], L["Net"] }) do
     if glyphs(text) > 11 then fail(problems, loc, "footer label", text, est(text, SUMMARY), 11 * SUMMARY) end
   end
   for _, text in ipairs({ L["Kept"], L["Sellable"], L["Gold on hand"], L["Net worth"], L["All characters"] }) do

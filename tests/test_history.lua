@@ -159,6 +159,16 @@ h.test("History.setNote: trimmed, one line, cut by characters, empty removes", f
   h.eq(cut, string.rep("\195\164", ns.History.NOTE_MAX))
 end)
 
+h.test("History.setLabel: a session's own place name; the real place stays", function()
+  local e = { startedAt = 10, elapsed = 600, gold = 0, nItems = 0, vendor = 0, ah = 0, items = {}, places = { "Feralas" } }
+  h.eq(ns.History.setLabel(e, "  Woodpaw camp "), "Woodpaw camp")
+  h.eq(ns.History.label(e), "Woodpaw camp")
+  h.eq(ns.History.place(e), "Feralas")
+  h.eq(ns.History.setLabel(e, ""), nil)
+  h.eq(ns.History.label(e), nil)
+  h.eq(#ns.History.setLabel(e, string.rep("x", 50)), ns.History.LABEL_MAX)
+end)
+
 h.test("History.restore, adopt and combine", function()
   local list = { { startedAt = 5 }, { startedAt = 1 } }
   h.eq(ns.History.restore(list, { { startedAt = 3 } }), 1)

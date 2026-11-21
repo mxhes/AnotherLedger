@@ -69,6 +69,17 @@ h.test("tableLayout: session, inventory, noCombined", function()
   h.eq(S.tableLayout({ totals = { unpriced = 1 } }).notes, true)
 end)
 
+h.test("tableLayout: Trade shows Earned / Spent / Net without a per hour column or tooltip", function()
+  for _, kind in ipairs({ "tradeItems", "tradeLog" }) do
+    local v = { kind = kind, history = true, totals = { best = 550, earned = 950, spent = 400 } }
+    local layout = S.tableLayout(v)
+    h.eq(layout.rows, { "earned", "spent", "net" }); h.eq(layout.rates, false)
+    local t = S.rowTexts(v, ns.Money.format)
+    h.eq(t.earned.valueCopper, 950); h.eq(t.spent.valueCopper, 400); h.eq(t.net.valueCopper, 550)
+    h.eq(#S.tooltipLines(v), 0)
+  end
+end)
+
 h.test("rowTexts: best value and rate per row, em dash without a rate", function()
   local t = S.rowTexts({ totals = { best = 1000, bestPerHour = 300 }, gold = { total = 50 },
     combined = { best = 1050, bestPerHour = 320 } }, M.format)

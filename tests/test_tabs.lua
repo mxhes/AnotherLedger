@@ -89,3 +89,12 @@ h.test("Tabs: Trade comes after History with Items and Log", function()
   h.eq(T.subtabs("trade")[1].key, "items"); h.eq(T.subtabs("trade")[2].key, "log")
   h.eq(T.sorts("trade", "items"), { "gold", "sold", "rate", "vsMarket", "name" })
 end)
+
+h.test("Tabs.edgeSpec: rounded for Round, a square 1 px edge otherwise", function()
+  local Th = ns.Theme
+  h.eq(T.edgeSpec("round").edgeFile, Th.textures.tabBorder)
+  h.eq(T.edgeSpec("round").edgeSize, Th.sizes.tabEdge)
+  local sq = T.edgeSpec("bevel")
+  h.eq(sq.edgeFile, Th.textures.rowHighlight); h.eq(sq.edgeSize, 1)
+  h.eq(sq.insets.left, 0)
+end)

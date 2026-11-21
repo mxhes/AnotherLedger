@@ -1,6 +1,6 @@
 local h = ...
 local function load()
-  return h.load({ "Util.lua", "Money.lua", "Theme.lua", "DB.lua", "Sources/Sources.lua", "Options.lua",
+  return h.load({ "Util.lua", "Money.lua", "Theme.lua", "DB.lua", "Sources/Sources.lua", "Options.lua", "OptionsLook.lua",
     "UI/Summary.lua", "UI/Fonts.lua" })
 end
 

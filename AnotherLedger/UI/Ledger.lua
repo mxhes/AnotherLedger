@@ -209,9 +209,12 @@ end
 -- and lists that value or pick items, the filter, and an epoch that moves on
 -- once per price refresh interval (prices may have changed), when item data
 -- arrives for a listed item (names, qualities) and on Ledger.valuesChanged.
-local valueEpoch = { n = 0, at = 0 }
+-- Ledger.valuesChanged only marks the epoch due: a burst of item data
+-- (hundreds of events at login) moves it once, at the next build, so the
+-- cached sums are not dropped per event.
+local valueEpoch = { n = 0, at = 0, due = false }
 
-function Ledger.valuesChanged() valueEpoch.n = valueEpoch.n + 1 end
+function Ledger.valuesChanged() valueEpoch.due = true end
 
 local function listSig(list)
   local n, sum = 0, 0
@@ -220,7 +223,9 @@ local function listSig(list)
 end
 
 local function valueKey(now)
-  if now - valueEpoch.at >= refreshSeconds() then valueEpoch.n, valueEpoch.at = valueEpoch.n + 1, now end
+  if valueEpoch.due or now - valueEpoch.at >= refreshSeconds() then
+    valueEpoch.n, valueEpoch.at, valueEpoch.due = valueEpoch.n + 1, now, false
+  end
   local setting = ns.Util.setting
   local f = type(viewOpts.filter) == "table" and viewOpts.filter or {}
   local q = {}
@@ -255,6 +260,8 @@ local function currentContext(now)
   viewOpts.ignored = db and type(db.ignored) == "table" and db.ignored or nil
   viewOpts.kept = db and type(db.kept) == "table" and db.kept or nil
   viewOpts.goal = ns.Core and ns.Core.goalCopper and ns.Core.goalCopper() or nil
+  local goalMinutes = setting("goalMinutes", 0)
+  viewOpts.goalSeconds = ns.Util.isPositive(goalMinutes) and goalMinutes * 60 or nil
   -- Set by the History tabs and the Daily farm for the entries they pass.
   viewOpts.historyKey = nil
   viewOpts.valueKey = valueKey(now)
@@ -296,10 +303,11 @@ local function farmKey(listKey, minutes)
   for id in pairs(viewOpts.ignored or {}) do ignored, idSum = ignored + 1, idSum + (tonumber(id) or 0) end
   return table.concat({
     listKey, tostring(minutes), tostring(viewOpts.includeGold), ignored .. ":" .. idSum,
-    tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)),
+    tostring(setting("priceSource", nil)), tostring(setting("tsmSource", nil)), tostring(setting("scanPrice", nil)),
     tostring(setting("ahCut", nil)), tostring(setting("ahMinGain", nil)), tostring(setting("destroyMode", nil)),
     m and (tostring(m.rateGood) .. "/" .. tostring(m.rateOk)) or "-",
     tostring(setting("dailyFarmLevel", nil)), tostring(viewOpts.level),
+    tostring(ns.Demo and ns.Demo.active and ns.Demo.active() or false),
   }, "|")
 end
 
@@ -355,8 +363,28 @@ local function windowShown()
   return window ~= nil and window.isShown()
 end
 
+-- Ledger.batch: while it runs, refresh and relayout only note that they are
+-- due and run once at its end (Options.applyAll sets ~45 options at login).
+local batching, dueRefresh, dueRelayout = 0, false, false
+
+function Ledger.batch(fn)
+  batching = batching + 1
+  local ok, err = pcall(fn)
+  batching = batching - 1
+  if batching == 0 then
+    local relayout, refresh = dueRelayout, dueRefresh
+    dueRelayout, dueRefresh = false, false
+    if relayout then Ledger.relayout() elseif refresh then Ledger.refresh() end
+  end
+  if not ok then error(err, 0) end
+end
+
 -- Full redraw. Skipped (and remembered) while the window is hidden.
 function Ledger.refresh()
+  if batching > 0 then
+    dueRefresh = true
+    return
+  end
   if not list or not ns.session then return end
   if not windowShown() then
     stale = true
@@ -382,6 +410,10 @@ end
 -- icons): the window bounds first, then every part with a Relayout method,
 -- then a full redraw.
 function Ledger.relayout()
+  if batching > 0 then
+    dueRelayout = true
+    return
+  end
   if not Ledger.frame then return end
   local window = ns.UI.Window
   -- New fonts: the buttons fit their labels again, the header is measured again.
@@ -659,6 +691,9 @@ local L_ADD_NOTE = ns.L["Add note"]
 local L_EDIT_NOTE = ns.L["Edit note"]
 local L_MERGE = ns.L["Merge with the older session"]
 local L_NOTE_PROMPT = ns.L["Note for this session (empty removes it):"]
+local L_RENAME = ns.L["Rename"]
+local L_RENAME_PROMPT = ns.L["Name for this session's place (empty shows the real one):"]
+local L_DELETE_Q = ns.L["Delete the session %s? /al undo brings it back until you log out or reload."]
 local L_SAVE = ns.L["Save"]
 local L_IGNORE = ns.L["Ignore this item"]
 local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, List, Ignored items takes it back."]
@@ -692,6 +727,17 @@ function Ledger.mergeHistory(index)
     Ledger.historyIndex = open - 1
   end
   Ledger.refresh()
+end
+
+-- Asks for the place name of a History session (`entry`, the saved table).
+function Ledger.renameHistory(entry)
+  ns.UI.Widgets.prompt(L_RENAME_PROMPT, L_SAVE, ns.History.label(entry) or ns.History.place(entry) or "",
+    function(text)
+      -- The real place typed back in: no name of its own.
+      if text == ns.History.place(entry) then text = "" end
+      ns.History.setLabel(entry, text)
+      Ledger.refresh()
+    end)
 end
 
 -- Asks for the note of a History session (`entry`, the saved table).
@@ -733,12 +779,17 @@ function Ledger.rowMenu(row)
     local entries = {
       { text = (tostring(row.name or ""):gsub("^[%+%-] ", "")), title = true },
       { text = ns.History.note(entry) and L_EDIT_NOTE or L_ADD_NOTE, onClick = function() Ledger.editNote(entry) end },
+      { text = L_RENAME, onClick = function() Ledger.renameHistory(entry) end },
     }
     -- Merging always takes the next older session (by start), whatever the sort.
     if ns.Core and ns.Core.canMergeHistory(index) then
       entries[#entries + 1] = { text = L_MERGE, onClick = act(Ledger.mergeHistory) }
     end
-    entries[#entries + 1] = { text = L_DELETE, onClick = act(Ledger.deleteHistory) }
+    -- Delete asks first (/al undo still brings it back).
+    local title = entries[1].text
+    entries[#entries + 1] = { text = L_DELETE, onClick = function()
+      ns.UI.Widgets.confirm(string.format(L_DELETE_Q, title), L_DELETE, act(Ledger.deleteHistory))
+    end }
     return entries
   end
   if type(row.id) == "number" and row.id > 0 and not row.isCurrency and not row.zoneKey then
@@ -846,8 +897,11 @@ function Ledger.measureHeader()
   end
   if UI.Tabs then
     need = math.max(need, UI.Tabs.rowNeed(stripWidths(Ledger.tabs)))
-    -- Sub-tabs, with the Trade period button at the right end of their row.
-    local period = UI.TradePeriod and width(UI.TradePeriod.button) or S.tradePeriodWidth
+    -- Sub-tabs, with a switch (Trade period, Mobs kind) at the right end of their row.
+    local period = S.tradePeriodWidth
+    for _, switch in ipairs(UI.RowSwitch and UI.RowSwitch.all or {}) do
+      if switch.button then period = math.max(period, width(switch.button)) end
+    end
     for _, strip in pairs(Ledger.subtabStrips or {}) do
       need = math.max(need, UI.Tabs.rowNeed(stripWidths(strip)) + S.buttonGap * 3 + period)
     end
@@ -938,9 +992,9 @@ function Ledger.init()
     end
   end)
 
-  -- The Trade tab's period switch, at the right end of the sub-tab row.
-  attach(UI.TradePeriod, function()
-    UI.TradePeriod.attach(frame.header.row4)
+  -- The switches at the right end of the sub-tab row (Trade period, Mobs kind).
+  attach(UI.RowSwitch, function()
+    for _, switch in ipairs(UI.RowSwitch.all) do switch.attach(frame.header.row4) end
   end)
 
   attach(UI.Compact, function()

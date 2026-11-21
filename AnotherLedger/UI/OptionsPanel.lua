@@ -166,7 +166,7 @@ function Panel.WIDGETS.header(block, spec)
   local title = label(block, T.fonts.body, T.colors.gold)
   title:SetPoint("TOPLEFT", block, "TOPLEFT", 0, -2)
   title:SetText(spec.label)
-  local line = ns.UI.Widgets.line(block, T.colors.goldLine, "ARTWORK", 0.5)
+  local line = ns.UI.Widgets.rule(block, T.colors.goldLine, "ARTWORK", 0.5)
   line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", block, "BOTTOMLEFT", 0, 2)
   line:SetPoint("BOTTOMRIGHT", block, "BOTTOMRIGHT", 0, 2)
@@ -262,14 +262,12 @@ end
 function Panel.WIDGETS.color(block, spec)
   local T = theme()
   local W = ns.UI.Widgets
+  -- A wide chip with a light frame: a dark color on the dark panel still
+  -- reads as a color, not as an empty checkbox.
   local swatch = CreateFrame("Button", nil, block, "BackdropTemplate")
-  swatch:SetSize(sizes().swatch, sizes().swatch)
+  swatch:SetSize(2 * sizes().swatch, sizes().swatch)
   swatch:SetPoint("TOPLEFT", block, "TOPLEFT", 2, -3)
-  if swatch.SetBackdrop then
-    swatch:SetBackdrop({ edgeFile = T.textures.buttonEdge, edgeSize = 1 })
-    local e = T.colors.buttonEdgeHover
-    swatch:SetBackdropBorderColor(e[1], e[2], e[3], 1)
-  end
+  if swatch.SetBackdrop then swatch:SetBackdrop({ edgeFile = T.textures.buttonEdge, edgeSize = 1 }) end
   local fill = swatch:CreateTexture(nil, "ARTWORK")
   fill:SetTexture(T.textures.rowHighlight)
   fill:SetPoint("TOPLEFT", swatch, "TOPLEFT", 1, -1)
@@ -281,6 +279,9 @@ function Panel.WIDGETS.color(block, spec)
   -- The hex code after the label, quiet: a dark color on the dark panel still
   -- reads as a color, not as an empty checkbox.
   local function show(value)
+    -- The frame follows the Text color (set again on every refresh).
+    local e = T.colors.ink
+    if swatch.SetBackdropBorderColor then swatch:SetBackdropBorderColor(e[1], e[2], e[3], 0.8) end
     local r, g, b = T.hexToRGB(value)
     if r then fill:SetVertexColor(r, g, b, 1) end
     text:SetText(Panel.colorLabel(spec.label, value))
@@ -348,14 +349,11 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
   return widgets
 end
 
--- Pure. Height of the tabbed area: the tab row, the gap under it and the
--- tallest section laid out in `columns` (so switching tabs never resizes).
-function Panel.tabbedHeight(sections, columns)
-  local tallest = 0
-  for _, section in ipairs(sections) do
-    tallest = math.max(tallest, ns.Options.layout(section.specs, columns).height)
-  end
-  return theme().sizes.headerRowHeight + sizes().tabGap + tallest
+-- Pure. Height of the tabbed area for one section: the tab row, the gap
+-- under it and the section laid out in `columns`. The panel takes the shown
+-- tab's height (a short tab leaves no empty space under it).
+function Panel.tabbedHeight(section, columns)
+  return theme().sizes.headerRowHeight + sizes().tabGap + ns.Options.layout(section.specs, columns).height
 end
 
 -- The selected tab, shared by the panel and the options page and kept for the
@@ -365,7 +363,8 @@ Panel.tab = nil
 -- One tab per section (Options.sections) in `parent`, `pad` from the sides and
 -- `top` from the top: the tab row, and under it one page per section with its
 -- options in COLUMNS columns; only the selected tab's page is shown. Returns
--- { widgets = { [key] = widget }, select = function(id), height }.
+-- { widgets = { [key] = widget }, select = function(id), height (the shown
+-- tab's), heights = { [id] = height }, onResize = function(height) or nil }.
 function Panel.buildTabbed(parent, pad, top)
   local S = theme().sizes
   local O = sizes()
@@ -375,14 +374,16 @@ function Panel.buildTabbed(parent, pad, top)
   row:SetPoint("TOPLEFT", parent, "TOPLEFT", pad, -top)
   row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -pad, -top)
 
-  local tabbed = { widgets = {}, pages = {}, height = Panel.tabbedHeight(sections, COLUMNS) }
+  local tabbed = { widgets = {}, pages = {}, heights = {}, height = 0 }
   local items = {}
   for _, section in ipairs(sections) do
     items[#items + 1] = { key = section.id, label = section.label }
+    local height = Panel.tabbedHeight(section, COLUMNS)
+    tabbed.heights[section.id] = height
     local page = CreateFrame("Frame", nil, parent)
     page:SetPoint("TOPLEFT", row, "BOTTOMLEFT", -pad, -O.tabGap)
     page:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", pad, -O.tabGap)
-    page:SetHeight(tabbed.height - S.headerRowHeight - O.tabGap)
+    page:SetHeight(height - S.headerRowHeight - O.tabGap)
     page:Hide()
     local layout = ns.Options.layout(section.specs, COLUMNS)
     for key, w in pairs(Panel.populate(page, pad, 0, section.specs, layout, O.columnWidth)) do
@@ -398,6 +399,8 @@ function Panel.buildTabbed(parent, pad, top)
     Panel.tab = id
     for key, page in pairs(tabbed.pages) do page:SetShown(key == id) end
     if strip then strip:SetSelected(id) end
+    tabbed.height = tabbed.heights[id]
+    if tabbed.onResize then tabbed.onResize(tabbed.height) end
   end
   strip = ns.UI.Tabs.strip(row, items, tabbed.select)
   tabbed.strip = strip
@@ -432,7 +435,24 @@ local function build()
   local extent, n = 0, 0
   for _, b in pairs(tabbed.strip.buttons or {}) do extent, n = extent + b:GetWidth(), n + 1 end
   if n > 0 then width = math.max(width, 2 * pad + extent + (n - 1) * T.sizes.buttonGap) end
-  frame:SetSize(width, 2 * pad + O.titleHeight + tabbed.height)
+  frame:SetWidth(width)
+  -- The shown tab sets the height; the top edge stays where it is, so the
+  -- tab row never moves under the mouse.
+  function tabbed.onResize(height)
+    -- Any anchor but the top one (the default CENTER, or where a drag left
+    -- it) becomes TOP at the current spot first.
+    local point = frame:GetPoint(1)
+    if point and point ~= "TOP" and point ~= "TOPLEFT" and point ~= "TOPRIGHT" then
+      local fx, ftop = frame:GetCenter(), frame:GetTop()
+      local ux, utop = UIParent:GetCenter(), UIParent:GetTop()
+      if fx and ftop and ux and utop then
+        frame:ClearAllPoints()
+        frame:SetPoint("TOP", UIParent, "TOP", fx - ux, ftop - utop)
+      end
+    end
+    frame:SetHeight(2 * pad + O.titleHeight + height)
+  end
+  tabbed.onResize(tabbed.height)
   -- Same background as the ledger window: its opacity and brightness too.
   ns.UI.Widgets.applyBackdrop(frame)
   if ns.UI.Window and ns.UI.Window.paintLook then ns.UI.Window.paintLook(frame) end
@@ -469,21 +489,24 @@ function Panel.refreshAll()
   end
 end
 
--- Remembers where the panel was dragged to (db.optionsWindow, CENTER offset
--- from the screen center).
+-- Remembers where the panel was dragged to (db.optionsWindow: its top edge's
+-- middle as an offset from the screen's top middle; the height changes with
+-- the tab, the top stays).
 function Panel.savePosition(frame)
   if not ns.db then return end
-  local fx, fy = frame:GetCenter()
-  local ux, uy = UIParent:GetCenter()
-  if not (fx and ux) then return end
-  ns.db.optionsWindow = { x = fx - ux, y = fy - uy }
+  local fx, ftop = frame:GetCenter(), frame:GetTop()
+  local ux, utop = UIParent:GetCenter(), UIParent:GetTop()
+  if not (fx and ftop and ux and utop) then return end
+  ns.db.optionsWindow = { x = fx - ux, top = ftop - utop }
 end
 
--- Pure. Where the panel opens: { x, y } (CENTER offset) once it was dragged,
--- else nil (next to the ledger window).
+-- Pure. Where the panel opens once it was dragged, else nil (next to the
+-- ledger window): { x, top } (TOP offset), or { x, y } (CENTER offset, saved
+-- by versions before the height followed the tab).
 function Panel.savedPosition(db)
   local p = type(db) == "table" and db.optionsWindow
-  if type(p) == "table" and ns.Util.isNumber(p.x) and ns.Util.isNumber(p.y) then return p end
+  if type(p) ~= "table" or not ns.Util.isNumber(p.x) then return nil end
+  if ns.Util.isNumber(p.top) or ns.Util.isNumber(p.y) then return p end
   return nil
 end
 
@@ -500,7 +523,9 @@ function Panel.toggle()
   local saved = Panel.savedPosition(ns.db)
   local anchor = ns.UI.Window and ns.UI.Window.frame
   frame:ClearAllPoints()
-  if saved then
+  if saved and saved.top then
+    frame:SetPoint("TOP", UIParent, "TOP", saved.x, saved.top)
+  elseif saved then
     frame:SetPoint("CENTER", UIParent, "CENTER", saved.x, saved.y)
   elseif anchor then
     frame:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 4, 0)

@@ -36,6 +36,7 @@ Inventory.lua
 Worth.lua
 Stats.lua
 Options.lua
+OptionsLook.lua
 Profiles.lua
 View.lua
 ViewZones.lua
@@ -60,7 +61,7 @@ UI\Export.lua
 UI\Broker.lua
 UI\ItemTooltip.lua
 UI\ScanButton.lua
-UI\TradePeriod.lua
+UI\RowSwitch.lua
 UI\Ledger.lua
 Core.lua
 CorePrices.lua

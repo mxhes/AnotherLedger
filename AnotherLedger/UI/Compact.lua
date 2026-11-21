@@ -26,7 +26,7 @@ local L_GOLD_PER_HOUR = L["Gold per hour: "]
 local L_NO_RATE = L["Gold per hour shows after the first minute."]
 local L_BEST_FIND = L["Best find: "]
 local L_GOAL = L["Goal: "]
-local L_RECENT = L["15 min: "]
+local L_RECENT = L["Last 15 min: "]
 local L_RECENT_TIP = L["Last 15 minutes: "]
 local DASH = "\226\128\148" -- em dash (UTF-8)
 local MAX_DROPS = 4
@@ -84,17 +84,16 @@ function Compact.titleText(c)
 end
 
 -- Pure. The text right of the drops title: the gold per hour of the last 15
--- minutes ("15 min: 120g/h"), nil before the session is that old.
+-- minutes ("Last 15 min: 120g/h"), nil before the session is that old.
 function Compact.recentText(c, formatMoney)
   if not c.recent then return nil end
   return L_RECENT .. (formatMoney or ns.Money.format)(ns.Money.roundRate(c.recent)) .. L_PER_HOUR
 end
 
--- Pure. How much of the session goal is reached (0 to 1), nil without a goal.
+-- Pure. How much of the session goal is reached (0 to 1): the gold goal,
+-- else the minutes goal; nil without a goal.
 function Compact.goalFraction(c)
-  local g = c.goal
-  if type(g) ~= "table" or not (type(g.goal) == "number" and g.goal > 0) then return nil end
-  return math.max(0, math.min(1, (g.value or 0) / g.goal))
+  return ns.View.goalFraction(c.goal, c.elapsed, c.goalSeconds)
 end
 
 -- Pure. The hover breakdown of the rate and total (ns.Tooltip): the clock,
@@ -259,7 +258,7 @@ function Compact.attach(area)
   hover:SetScript("OnLeave", W.hideTooltip)
   Compact.hover = hover
 
-  local line = W.line(area, T.colors.divider)
+  local line = W.rule(area, T.colors.divider)
   line:SetHeight(1)
   line:SetPoint("TOPLEFT", area, "TOPLEFT", 0, -28)
   line:SetPoint("TOPRIGHT", area, "TOPRIGHT", 0, -28)

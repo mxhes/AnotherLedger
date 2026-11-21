@@ -338,6 +338,9 @@ h.test("Session.noteRecent keeps the last drops, newest first, capped", function
   h.eq(s.recent[4].key, 3)
   S.noteRecent(s, nil, 1, 1); S.noteRecent(s, 7, 0, 1)
   h.eq(s.recent[1].key, 6)
+  -- the same item again right after: one line, quantities added
+  S.noteRecent(s, 6, 1, 110)
+  h.eq(s.recent[1].qty, 61); h.eq(s.recent[1].at, 110); h.eq(s.recent[2].key, 5)
   S.reset(s, 200)
   h.eq(s.recent, {})
   local saved = S.new(0); saved.recent = "bad"

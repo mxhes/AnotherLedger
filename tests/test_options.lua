@@ -1,5 +1,5 @@
 local h = ...
-local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua" })
+local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua", "Sources/Auctionator.lua", "Sources/Scan.lua", "Options.lua", "OptionsLook.lua" })
 local O = ns.Options
 
 local function db(settings)
@@ -19,6 +19,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "showIcons", "unitPrice", "hideVendorTag", "ignoredItems", "keptItems", "watchedItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit", "tradeLogDays", "mobDataDays",
+    "skin", "skinBorder", "skinBackground", "skinButtons", "skinLines", "skinListBox",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors", "deleteColorPreset" })
   -- every option but a button has its default in DB.defaults.settings
@@ -193,6 +194,14 @@ h.test("Options.applyAll skips buttons", function()
   local d = db({})
   O.applyAll(d)
   h.eq(d.settings.minimapReset, nil)
+end)
+
+h.test("Options.applyAll leaves unsaved colors and skin parts unsaved", function()
+  local d = db({})
+  O.applyAll(d)
+  for key in pairs(O.colorTargets) do h.eq(d.settings[key], nil) end
+  for key in pairs(O.skinTargets) do h.eq(d.settings[key], nil) end
+  h.eq(d.settings.skin ~= nil, true) -- other options are stored
 end)
 
 h.test("Options: the window sliders cover 0..100 % (brightness 0..200 %)", function()
@@ -639,4 +648,35 @@ h.test("Options.inactive: price options without their addon say why", function()
     if line.kind == "warn" then warned = true end
   end
   h.eq(warned, true)
+end)
+
+h.test("skin options: picking a skin writes its parts and is not edited", function()
+  local saved = ns.db
+  ns.db = db()
+  O.pick(ns.db, "skin", "forge")
+  h.eq(O.get(ns.db, "skinBorder"), "bevel"); h.eq(O.get(ns.db, "skinLines"), "groove")
+  h.eq(O.get(ns.db, "skinListBox"), true)
+  h.eq(O.skinEdited(ns.db.settings), false)
+  O.pick(ns.db, "skinButtons", "flat")
+  h.eq(O.skinEdited(ns.db.settings), true)
+  h.eq(O.valueText(O.spec("skin"), "forge"):find("Forge", 1, true) ~= nil, true)
+  ns.db = saved
+end)
+
+h.test("skin options: bad saved values fall back to the skin's part", function()
+  local saved = ns.db
+  ns.db = db({ skin = "slate", skinBorder = "wavy", skinListBox = "yes" })
+  h.eq(O.get(ns.db, "skinBorder"), "thin")
+  h.eq(O.get(ns.db, "skinListBox"), false)
+  ns.db.settings.skin = "nope"
+  h.eq(O.get(ns.db, "skin"), "classic"); h.eq(O.get(ns.db, "skinBorder"), "round")
+  ns.db = saved
+end)
+
+h.test("skin options: applying a part sets Theme.style", function()
+  local d = db()
+  O.set(d, "skinBackground", "leather")
+  h.eq(ns.Theme.style.background, "leather")
+  O.set(d, "skinBackground", "flat")
+  h.eq(ns.Theme.style.background, "flat")
 end)

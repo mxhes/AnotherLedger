@@ -12,6 +12,8 @@ local L_CLICK_CLOSE = L["Click to collapse"]
 local L_CLICK_OPEN = L["Click to show the items"]
 local L_NO_HISTORY = L["No saved sessions yet. A session is saved when you reset it."]
 local L_NO_MOBS = L["No mob loot recorded yet. What you loot from mobs and nodes while the clock runs shows here."]
+local L_NO_NODES = L["No node loot recorded yet. What you gather while the clock runs shows here."]
+local L_NO_MOBS_ONLY = L["No mob loot recorded yet. Switch to All to see gathering nodes too."]
 local L_PER_HOUR = L["/h"]
 local NO_LOOKUP = I.NO_LOOKUP
 local SORTS = I.SORTS
@@ -205,7 +207,9 @@ local function placeHint(p, label, open, clickText)
   local tip = Tip.new(label)
   if p.time > 0 then Tip.pair(tip, L_TIME, ns.History.duration(p.time)) end
   Tip.money(tip, L_VALUE, p.value)
-  if p.gold > 0 then Tip.money(tip, L_RAW_GOLD, p.gold) end
+  -- Option "Raw gold" set to Not counted: no raw gold line either.
+  local counted, ownRow = ns.Util.rawGold()
+  if p.gold > 0 and (counted or ownRow) then Tip.money(tip, L_RAW_GOLD, p.gold) end
   if p.perHour then
     Tip.rate(tip, L_GOLD_PER_HOUR, p.perHour)
   elseif p.time == 0 and p.zoneKey ~= View.QUEST_ZONE then
@@ -471,6 +475,10 @@ end
 -- at `openKey` lists its items under it.
 
 local L_N_LOOTED = L[" looted"]
+local L_NODE = L["Node"]
+local L_ONE_NODE, L_N_NODES = L["1 node"], L[" nodes"]
+-- opts.mobKind (the Mobs switch): which kinds a row may have.
+local MOB_KINDS = { mobs = { npc = true }, nodes = { node = true } }
 local L_PER_LOOT = L[" per loot"]
 local L_NPC, L_OBJECT = L["NPC %s"], L["Object %s"] -- a mob or node never named
 local mobOpts, mobFilter = {}, {}
@@ -484,12 +492,17 @@ local function mobSort(key)
   return sortsLastAfter(MOB_SORTS[key] or MOB_SORTS.ah)
 end
 
+-- The item ID of an item key ("<id>" or "<id>:<bonus IDs>").
+local function idOfKey(key)
+  return tonumber(key) or tonumber(tostring(key):match("^(%d+)"))
+end
+
 -- The source item of `key` for a mob's loot: the entry's own item (its saved
 -- price), else a bare one priced live.
 local function mobItemSource(e, key)
   local src = type(e.items) == "table" and e.items[key]
   if type(src) == "table" and num(src.id) then return src end
-  local id = tonumber(key) or tonumber(tostring(key):match("^(%d+)"))
+  local id = idOfKey(key)
   if not id then return nil end
   return { id = id, key = key }
 end
@@ -656,6 +669,17 @@ local function mobsOf(entries, opts)
   return all
 end
 
+-- The mobs of `all` the Mobs switch lists (all of them without a kind).
+local function ofKind(all, mobKind)
+  local kinds = MOB_KINDS[mobKind]
+  if not kinds then return all end
+  local out = {}
+  for key, a in pairs(all) do
+    if kinds[a.kind == "node" and "node" or "npc"] then out[key] = a end
+  end
+  return out
+end
+
 function View.buildMobs(entries, opts, openKey)
   opts = opts or {}
   if type(entries) ~= "table" then entries = {} end
@@ -667,7 +691,7 @@ function View.buildMobs(entries, opts, openKey)
   mobFilter.qualities = type(filter) == "table" and filter.qualities or nil
   mobOpts.filter = mobFilter
 
-  local all = mobsOf(entries, opts)
+  local all = ofKind(mobsOf(entries, opts), opts.mobKind)
   local sums = cacheOn(opts) and sumsFor(opts.valueKey) or nil
 
   local totals = { vendor = 0, ah = 0, best = 0, unpriced = 0, filtered = View.isFiltered(filter) }
@@ -685,6 +709,7 @@ function View.buildMobs(entries, opts, openKey)
     local isOpen = key == openKey
     local perLoot = a.looted > 0 and value / a.looted or nil
     local parts = { a.looted .. L_N_LOOTED }
+    if a.kind == "node" then table.insert(parts, 1, L_NODE) end
     if perLoot then parts[#parts + 1] = ns.Money.format(math.floor(perLoot + 0.5)) .. L_PER_LOOT end
     local place = mainPlace(a.places)
     if place then parts[#parts + 1] = View.shortPlace(place) end
@@ -722,8 +747,11 @@ function View.buildMobs(entries, opts, openKey)
     if r ~= opened then rows[#rows + 1] = r end
   end
   local view = { rows = rows, top = {}, totals = totals, kind = "mobs", history = true,
-    empty = View.emptyText(rows, filter, L_NO_MOBS),
-    headerInfo = #mobRows > 0 and ns.History.mobCount(#mobRows) or nil }
+    empty = View.emptyText(rows, filter, (opts.mobKind == "nodes" and L_NO_NODES)
+      or (opts.mobKind == "mobs" and L_NO_MOBS_ONLY) or L_NO_MOBS),
+    headerInfo = #mobRows > 0 and (opts.mobKind == "nodes"
+      and (#mobRows == 1 and L_ONE_NODE or (#mobRows .. L_N_NODES))
+      or ns.History.mobCount(#mobRows)) or nil }
   addGold(view, goldSum, opts.includeGold)
   return View.applyRates(view, 0)
 end
@@ -865,10 +893,6 @@ end
 -- Drop chances for the game's item tooltips (UI/ItemTooltip.lua).
 
 -- The item ID of a drops key (an item ID, or "<id>:<bonus IDs>").
-local function idOfKey(key)
-  return tonumber(key) or tonumber(tostring(key):match("^(%d+)"))
-end
-
 -- Who drops what, over the Mobs entries (History plus the running session,
 -- like History > Mobs): { [itemID] = { { key, name, kind, n, seen }, ... } },
 -- `n` the corpses of that mob that had the item (variants of an item added

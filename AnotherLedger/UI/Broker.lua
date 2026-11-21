@@ -38,7 +38,7 @@ function Broker.summary(session, lookup, now, includeGold, ahMinGain)
   out.gold = view.gold.total or 0
   out.total = out.best + (includeGold == false and 0 or out.gold)
   out.elapsed = ns.Session.elapsed(session, now)
-  if out.elapsed >= ns.View.MIN_RATE_SECONDS then out.perHour = out.total * 3600 / out.elapsed end
+  if out.elapsed >= ns.View.MIN_RATE_SECONDS then out.perHour = ns.History.perHour(out.total, out.elapsed) end
   return out
 end
 

@@ -1,6 +1,6 @@
 local h = ...
 local ns = h.load({ "Util.lua", "Money.lua", "Theme.lua", "Tooltip.lua", "DB.lua", "Sources/Sources.lua", "Sources/TSM.lua",
-  "Sources/Auctionator.lua", "Options.lua", "Profiles.lua" })
+  "Sources/Auctionator.lua", "Options.lua", "OptionsLook.lua", "Profiles.lua" })
 local P, O = ns.Profiles, ns.Options
 
 local function fresh(settings, profile)

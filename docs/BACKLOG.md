@@ -18,6 +18,13 @@ From the fifth review (2026-11-19, screenshots of Bags and compact):
   rows whose best value is Vendor, skipping kept and ignored items, after a
   confirmation with count and total (buyback holds only the last 12). M
 
+From the skins work (2026-11-21, profession window screenshot):
+
+- Gold section bars (the profession window's "Reagents" headers) for list
+  headings, once the lists have headings. M
+- A title bar strip with the title centered and a red close button, as a
+  Border option (needs header height room). M
+
 ## Already built
 
 Session goal, session notes, ignore list, price per unit, compact breakdown

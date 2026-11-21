@@ -34,6 +34,8 @@ function methods.SetFrameLevel(self, l) self._level = l end
 function methods.GetFrameLevel(self) return self._level or 1 end
 function methods.SetClipsChildren(self, v) self._clips = v end
 function methods.SetTexture(self, t) self._texture = t end
+function methods.SetBackdrop(self, b) self._backdrop = b end
+function methods.SetVertexColor(self, r, g, b, a) self._vertex = { r, g, b, a } end
 for k, n in pairs(NUMBERS) do
   if not methods[k] then methods[k] = function() return n end end
 end
@@ -411,8 +413,10 @@ h.test("wiring: a History session's menu deletes it, /al undo brings it back", f
   h.eq(menu.anchor, "rowFrame")
   h.eq(menu[1].kind, "title")
   h.eq(menuItem(menu, L["Add note"]) ~= nil, true)
-  menuItem(menu, L["Delete"]).click() -- no popup: /al undo can bring it back
-  h.eq(#shown, 0)
+  h.eq(menuItem(menu, L["Rename"]) ~= nil, true)
+  menuItem(menu, L["Delete"]).click() -- asks first
+  h.eq(#shown, 1); h.eq(#history, 3)
+  shown[1].OnAccept()
   h.eq(#history, 2); h.eq(history[1].startedAt, 2)
   h.eq(Ledger.historyIndex, 2) -- still the same (oldest) session
   h.eq(ctx.printed[#ctx.printed]:find("/al undo", 1, true) ~= nil, true)
@@ -1232,14 +1236,19 @@ h.test("wiring: the options panel opens where it was dragged to", function()
   P.toggle()
   local frame = P.frame
   frame.GetCenter = function() return 120, -40 end -- UIParent's fake center is 0, 0
+  frame.GetTop = function() return 250 end -- UIParent's fake top is 300
   frame._scripts.OnDragStart(frame)
   frame._scripts.OnDragStop(frame)
-  h.eq(P.savedPosition(ctx.ns.db), { x = 120, y = -40 })
+  h.eq(P.savedPosition(ctx.ns.db), { x = 120, top = -50 })
   local placed
   frame.SetPoint = function(_, point, _, _, x, y) placed = { point, x, y } end
   P.toggle() -- closes
-  P.toggle() -- opens at the saved place
-  h.eq(placed, { "CENTER", 120, -40 })
+  P.toggle() -- opens at the saved place, by its top edge
+  h.eq(placed, { "TOP", 120, -50 })
+  -- A center saved by an older version still opens there.
+  ctx.ns.db.optionsWindow = { x = 10, y = 20 }
+  P.toggle(); P.toggle()
+  h.eq(placed, { "CENTER", 10, 20 })
   ctx.ns.db.optionsWindow = { x = "bad" }
   h.eq(P.savedPosition(ctx.ns.db), nil)
   h.eq(ctx.errors, {})
@@ -1293,10 +1302,14 @@ h.test("wiring: the options panel has a tab per category, one page shown at a ti
   local page = P.registerPage()
   page._scripts.OnShow(page)
   h.eq(page.tabbed.strip.selected, second)
-  -- the panel keeps its size whichever tab is shown
+  -- the panel is as tall as the shown tab needs
   local height = P.frame:GetHeight()
   tabbed.select(first)
-  h.eq(P.frame:GetHeight(), height)
+  local delta = tabbed.heights[first] - tabbed.heights[second]
+  h.eq(P.frame:GetHeight(), height + delta)
+  local look = 0
+  for _, s in ipairs(sections) do look = math.max(look, tabbed.heights[s.id]) end
+  h.eq(look > tabbed.heights[first], true) -- Appearance is the tallest, Window shorter
   h.eq(ctx.errors, {})
 end)
 
@@ -1790,6 +1803,12 @@ h.test("wiring: loot notes the place; a new session per instance with the option
   h.eq(hist[1].places, { "The Stonevault (Heroic)", "Dornogal" })
   h.eq(next(ns.session.items), nil)
   -- a loading screen inside the open world changes nothing
+  fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
+  h.eq(#hist, 1)
+  -- a stopped clock splits nothing (like Session per zone)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "stop")
+  where.instance = "The Stonevault"
   fire(ctx, "PLAYER_ENTERING_WORLD", false, false)
   h.eq(#hist, 1)
   h.eq(ctx.errors, {})
@@ -2495,7 +2514,30 @@ h.test("wiring: compact shows the goal bar with a session goal and the last 15 m
     ns.Core.heartbeat()
   end
   ns.UI.Ledger.refresh()
-  h.eq(C.recent:GetText():find(ns.L["15 min: "], 1, true) ~= nil, true)
+  h.eq(C.recent:GetText():find(ns.L["Last 15 min: "], 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: the full header shows the goal bar on the Session tab, minutes goal too", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local H = ns.UI.Header.instance
+  H.row._w = 300
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  ns.UI.Ledger.refresh()
+  h.eq(H.goalBar:IsShown(), false) -- no goal
+  ns.Options.set(ns.db, "goalMinutes", 10)
+  ctx.now = ctx.now + 300
+  ns.UI.Ledger.refresh()
+  h.eq(H.goalBar:IsShown(), true)
+  h.eq(H.goalBar._w, 150) -- 5 of 10 minutes
+  ns.UI.Ledger.setTab("bags")
+  ns.UI.Ledger.refresh()
+  h.eq(H.goalBar:IsShown(), false)
+  ns.UI.Ledger.setTab("session")
+  slash(ctx, "compact")
+  h.eq(H.goalBar:IsShown(), false) -- compact draws its own
   h.eq(ctx.errors, {})
 end)
 
@@ -2545,6 +2587,18 @@ h.test("wiring: switching while hidden draws the compact view when shown", funct
   slash(ctx, "show")
   ctx.ns.UI.Ledger.refresh() -- the client fires OnShow, which is hooked to this
   h.eq(ctx.ns.UI.Compact.drops[1].name:GetText():find("x3", 1, true) ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: applying every option redraws the window once", function()
+  local ctx = boot()
+  startWorld(ctx, true)
+  local ns = ctx.ns
+  local builds, original = 0, ns.UI.Ledger.buildView
+  ns.UI.Ledger.buildView = function(...) builds = builds + 1; return original(...) end
+  ns.Options.applyAll(ns.db)
+  ns.UI.Ledger.buildView = original
+  h.eq(builds <= 1, true)
   h.eq(ctx.errors, {})
 end)
 
@@ -3733,7 +3787,7 @@ h.test("wiring: History > Mobs lists the mobs of History and the running session
   h.eq(Ledger.currentSort(), "ah")
   h.eq(#Ledger.view.rows, 1)
   h.eq(Ledger.view.rows[1].mobKey, "npc:2546")
-  h.eq(Ledger.view.headerInfo, "1 mob")
+  h.eq(Ledger.view.headerInfo, "1 mob, all chars") -- Zones: all characters is on by default
   Ledger.list.onRowClick(Ledger.view.rows[1], "LeftButton", "f")
   h.eq(Ledger.mobOpen, "npc:2546")
   h.eq(Ledger.view.rows[2].id, 2589)
@@ -4426,6 +4480,24 @@ h.test("wiring: the Trade tab shows a recorded sale, the period hides old ones",
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: History > Mobs shows the Mobs / Nodes switch, the Trade period hides", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local Ledger, MK, TP = ctx.ns.UI.Ledger, ctx.ns.UI.MobKind, ctx.ns.UI.TradePeriod
+  Ledger.setTab("history")
+  Ledger.setSubtab("mobs")
+  Ledger.refresh()
+  h.eq(MK.button:IsShown(), true); h.eq(MK.button:GetText(), "All")
+  h.eq(TP.button:IsShown(), false)
+  MK.set("nodes")
+  h.eq(ctx.env.AnotherLedgerDB.mobKind, "nodes")
+  h.eq(MK.button:GetText(), "Nodes")
+  Ledger.setSubtab("sessions")
+  Ledger.refresh()
+  h.eq(MK.button:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: an auction won mail is a purchase in the Log and in Items, once", function()
   local ctx = tradeWorld()
   ctx.env.mails[1] = { sender = "Auction House", subject = "Auction won: Bolt", money = 0, daysLeft = 29.5,
@@ -4600,4 +4672,166 @@ h.test("wiring: a watched item alerts on loot, also with the clock stopped", fun
   watch.onClick()
   h.eq(ns.db.watched[2589] ~= nil, true)
   h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: switching border restyles the window without stacking frames", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, win = ctx.ns, ctx.ns.UI.Window.frame
+  h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
+  ns.Options.pick(ns.db, "skinBorder", "bevel")
+  h.eq(win._backdrop.edgeFile, nil)
+  h.eq(#win.skinEdges, 5); h.eq(win.skinEdges[1].top:IsShown(), true)
+  local first = win.skinEdges[1].top
+  ns.Options.pick(ns.db, "skinBorder", "round")
+  h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
+  h.eq(win.skinEdges[1].top:IsShown(), false)
+  ns.Options.pick(ns.db, "skinBorder", "gilded")
+  h.eq(win.skinEdges[1].top, first) -- reused, not stacked
+  h.eq(win.skinEdges[3].top:IsShown(), true)
+  h.eq(win.skinStuds[1]:IsShown(), true)
+  ns.Options.pick(ns.db, "skinBorder", "thin")
+  h.eq(win.skinEdges[3].top:IsShown(), false); h.eq(win.skinStuds[1]:IsShown(), false)
+  ns.Options.pick(ns.db, "skinBackground", "grain")
+  h.eq(win._backdrop.bgFile, ns.Theme.textures.skinGrain)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: opacity and brightness reach the edge lines", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Options.pick(ns.db, "skinBorder", "thin")
+  local top = ns.UI.Window.frame.skinEdges[2].top
+  h.eq(top._vertex[4], 1)
+  ns.Options.pick(ns.db, "alpha", 0)
+  h.eq(top._vertex[4], 0)
+  ns.Options.pick(ns.db, "alpha", 1)
+  local before = top._vertex[1]
+  ns.Options.pick(ns.db, "brightness", 2)
+  h.eq(top._vertex[1] > before, true)
+end)
+
+h.test("wiring: each button style shows its own parts", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local b = ns.UI.Widgets.button(ns.UI.Window.frame, "Test", 40)
+  h.eq(b.fill.top:IsShown(), true)
+  ns.Options.pick(ns.db, "skinButtons", "raised")
+  h.eq(b.fill.top:IsShown(), false); h.eq(b.raise.top:IsShown(), true)
+  h.eq(b.raise.top._vertex[1] > b.raise.bottom._vertex[1], true)
+  ns.Options.pick(ns.db, "skinButtons", "flat")
+  h.eq(b.fill.top:IsShown(), false); h.eq(b.raise.top:IsShown(), false)
+  h.eq(b.fill.inner:IsShown(), false)
+  ns.Options.pick(ns.db, "skinButtons", "bronze")
+  h.eq(b.fill.top:IsShown(), true); h.eq(b.fill.inner:IsShown(), true); h.eq(b.raise.top:IsShown(), false)
+end)
+
+h.test("wiring: styled lines follow the Lines pick", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local W, T = ns.UI.Widgets, ns.Theme
+  local r = W.rule(ns.UI.Window.frame, T.colors.rowSeparator, "BORDER")
+  h.eq(r._texture, T.textures.rowHighlight)
+  ns.Options.pick(ns.db, "skinLines", "groove")
+  h.eq(r.groove:IsShown(), true)
+  ns.Options.pick(ns.db, "skinLines", "dotted")
+  h.eq(r._texture, T.textures.skinDotted); h.eq(r.groove:IsShown(), false)
+  ns.Options.pick(ns.db, "skinLines", "gold")
+  h.eq(r._texture, T.textures.rowHighlight)
+end)
+
+h.test("wiring: every skin applies with the window open, in both layouts", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  for _, s in ipairs(ns.Theme.skins) do
+    ns.Options.pick(ns.db, "skin", s.id)
+    h.eq(ns.Theme.style.border, s.border)
+    h.eq(ns.Theme.style.lines, s.lines)
+    slash(ctx, "compact"); slash(ctx, "compact")
+  end
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: row separators, dividers and tab lines follow the Lines pick", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local ns = ctx.ns
+  local W = ns.UI.Widgets
+  ns.Options.pick(ns.db, "skinLines", "groove")
+  local rules = 0
+  for region, t in pairs(W.tracked) do
+    if t[1] == "rule" then
+      rules = rules + 1
+      h.eq(region.groove ~= false, true)
+    end
+  end
+  h.eq(rules >= 4, true) -- separators, Top finds divider, compact divider, tab base lines
+end)
+
+h.test("wiring: square tabs on a non-round border, rounded on Round", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local tabs = ns.UI.Ledger.tabs
+  local b = tabs.buttons.session
+  h.eq(b.skin._backdrop.edgeFile, ns.Theme.textures.tabBorder)
+  ns.Options.pick(ns.db, "skinBorder", "bevel")
+  h.eq(b.skin._backdrop.edgeFile, ns.Theme.textures.rowHighlight)
+  ns.Options.pick(ns.db, "skinBorder", "round")
+  h.eq(b.skin._backdrop.edgeFile, ns.Theme.textures.tabBorder)
+end)
+
+h.test("wiring: sunken list shows in full only", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns, win = ctx.ns, ctx.ns.UI.Window.frame
+  h.eq(win.listBox:IsShown(), false)
+  ns.Options.pick(ns.db, "skinListBox", true)
+  h.eq(win.listBox:IsShown(), true)
+  slash(ctx, "compact"); h.eq(win.listBox:IsShown(), false)
+  slash(ctx, "compact"); h.eq(win.listBox:IsShown(), true)
+  ns.Options.pick(ns.db, "skinListBox", false)
+  h.eq(win.listBox:IsShown(), false)
+end)
+
+h.test("wiring: a profile with another skin restyles at once", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Profiles.create(ns.db, "Forge", { skin = "forge", skinBorder = "bevel", skinBackground = "grain",
+    skinButtons = "raised", skinLines = "groove", skinListBox = true })
+  ns.Profiles.activate(ns.db, ns.chardb, "Forge")
+  h.eq(ns.Theme.style.buttons, "raised")
+  h.eq(ns.UI.Window.frame._backdrop.bgFile, ns.Theme.textures.skinGrain)
+  h.eq(ns.UI.Window.frame.listBox:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: an unedited skin survives export and import", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  ns.Options.pick(ns.db, "skin", "forge")
+  local line = ns.Profiles.encode(ns.db.settings)
+  local settings = ns.Profiles.decode(line)
+  ns.Profiles.create(ns.db, "Imported", settings)
+  ns.Profiles.activate(ns.db, ns.chardb, "Imported")
+  h.eq(ns.Options.get(ns.db, "skinBorder"), "bevel")
+  h.eq(ns.Options.get(ns.db, "skinListBox"), true)
+  h.eq(ns.Options.skinEdited(ns.db.settings), false)
+  h.eq(ns.Theme.style.buttons, "raised")
+end)
+
+h.test("wiring: the sunken list box sits above the window and below the list", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local win = ctx.ns.UI.Window.frame
+  h.eq(win.listBox:GetFrameLevel() > win:GetFrameLevel(), true)
+  h.eq(win.listArea:GetFrameLevel() > win.listBox:GetFrameLevel(), true)
 end)

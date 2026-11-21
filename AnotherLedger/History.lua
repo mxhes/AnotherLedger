@@ -236,21 +236,43 @@ function History.note(e)
   return nil
 end
 
+-- `text` trimmed, on one line and cut to `max` characters (never inside a
+-- UTF-8 sequence); nil when nothing is left.
+local function cleanText(text, max)
+  local t = type(text) == "string" and text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("[\r\n]+", " ") or ""
+  local out, n = {}, 0
+  for ch in t:gmatch("[\1-\127\194-\244][\128-\191]*") do
+    n = n + 1
+    if n > max then break end
+    out[n] = ch
+  end
+  t = table.concat(out)
+  return t ~= "" and t or nil
+end
+
 -- Sets (trimmed, at most NOTE_MAX characters) or, with an empty text, removes
 -- the note of `e`. Returns the stored note or nil.
 function History.setNote(e, text)
   if type(e) ~= "table" then return nil end
-  local t = type(text) == "string" and text:gsub("^%s+", ""):gsub("%s+$", ""):gsub("[\r\n]+", " ") or ""
-  -- Cut by characters, never inside a UTF-8 sequence.
-  local out, n = {}, 0
-  for ch in t:gmatch("[\1-\127\194-\244][\128-\191]*") do
-    n = n + 1
-    if n > History.NOTE_MAX then break end
-    out[n] = ch
-  end
-  t = table.concat(out)
-  e.note = t ~= "" and t or nil
+  e.note = cleanText(text, History.NOTE_MAX)
   return e.note
+end
+
+-- A session's own name for its place (right-click "Rename"): shown instead of
+-- the main place in the row's second line. Places and Zones keep the real ones.
+History.LABEL_MAX = 32 -- characters
+
+function History.label(e)
+  local label = type(e) == "table" and e.label
+  if type(label) == "string" and label ~= "" then return label end
+  return nil
+end
+
+-- Sets or, with an empty text, removes the name. Returns the stored one or nil.
+function History.setLabel(e, text)
+  if type(e) ~= "table" then return nil end
+  e.label = cleanText(text, History.LABEL_MAX)
+  return e.label
 end
 
 -- ---------------------------------------------------------------------------
@@ -425,6 +447,7 @@ function History.merge(a, b)
     if note and note ~= notes[1] then notes[#notes + 1] = note end
   end
   if #notes > 0 then History.setNote(merged, table.concat(notes, " / ")) end
+  merged.label = History.label(newer) or History.label(older)
   return merged
 end
 

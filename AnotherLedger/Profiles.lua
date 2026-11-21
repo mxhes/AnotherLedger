@@ -18,22 +18,19 @@ local Profiles = {}
 Profiles.DEFAULT = "Default"
 Profiles.MAX_NAME = 32
 
-local function copy(v)
-  if type(v) ~= "table" then return v end
-  local out = {}
-  for k, x in pairs(v) do out[k] = copy(x) end
-  return out
-end
+local copy = ns.Util.copy
 
 -- The defaults a profile is filled with (for the few direct db.settings
--- reads). Not the single colors: their default is the profile's preset
--- (Options.defaultFor), so a missing color must stay missing.
+-- reads). Not the single colors and skin parts: their default is the
+-- profile's preset / skin (Options.defaultFor), so a missing one must stay
+-- missing.
 local function defaults()
   local all = ns.DB and ns.DB.defaults and ns.DB.defaults.settings or {}
-  local targets = ns.Options and ns.Options.colorTargets or {}
+  local colors = ns.Options and ns.Options.colorTargets or {}
+  local parts = ns.Options and ns.Options.skinTargets or {}
   local out = {}
   for k, v in pairs(all) do
-    if not targets[k] then out[k] = v end
+    if not colors[k] and not parts[k] then out[k] = v end
   end
   return out
 end
@@ -337,18 +334,19 @@ local L_IMPORTED = L["Imported %d settings, skipped %d."]
 local L_EXPORT_TITLE = L["Profile export"]
 local L_IMPORT_TITLE = L["Profile import"]
 
-local function say(msg)
-  if ns.Util and ns.Util.say then ns.Util.say(msg) end
-end
+local function say(msg) ns.Util.say(msg) end
 
 local function widgets() return ns.UI and ns.UI.Widgets end
 
-local function refreshPanel()
-  local panel = ns.UI and ns.UI.OptionsPanel
-  if panel and panel.refreshAll then panel.refreshAll() end
-end
+local function refreshPanel() ns.Options.refreshPanel() end
 
 local function current() return Profiles.active(ns.chardb) end
+
+-- Switches this character to `name` and notes it for "Used by".
+local function switchTo(name)
+  Profiles.activate(ns.db, ns.chardb, name)
+  Profiles.noteUser(ns.db, ns.Core and ns.Core.character, current())
+end
 
 -- Asks for a name, then `fn(name)`; errors go to chat.
 local function askName(question, accept, initial, fn)
@@ -380,8 +378,7 @@ define({
   get = current,
   store = function(v)
     if not ns.db then return end
-    Profiles.activate(ns.db, ns.chardb, v)
-    Profiles.noteUser(ns.db, ns.Core and ns.Core.character, current())
+    switchTo(v)
   end,
   -- The tooltip lists the characters that use the chosen profile.
   tooltipExtra = function()
@@ -399,7 +396,7 @@ define({
     askName(L_NEW_NAME, L_CREATE, "", function(name)
       local trimmed = name:gsub("^%s+", ""):gsub("%s+$", "")
       local ok, err = Profiles.create(ns.db, trimmed)
-      if ok then Profiles.activate(ns.db, ns.chardb, trimmed) end
+      if ok then switchTo(trimmed) end
       done(ok, err)
     end)
   end,
@@ -412,7 +409,7 @@ define({
     askName(L_NEW_NAME, L_CREATE, "", function(name)
       local trimmed = name:gsub("^%s+", ""):gsub("%s+$", "")
       local ok, err = Profiles.create(ns.db, trimmed, ns.db.settings)
-      if ok then Profiles.activate(ns.db, ns.chardb, trimmed) end
+      if ok then switchTo(trimmed) end
       done(ok, err)
     end)
   end,
@@ -469,7 +466,7 @@ local function importAs(settings, taken, skipped, name)
     if not ok then return done(ok, err) end
     local Export = ns.UI and ns.UI.Export
     if Export and Export.hide then Export.hide() end
-    Profiles.activate(ns.db, ns.chardb, trimmed)
+    switchTo(trimmed)
     say(string.format(L_IMPORTED, taken, skipped))
     done(true)
   end
