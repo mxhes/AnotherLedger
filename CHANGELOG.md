@@ -1,5 +1,20 @@
 # AnotherLedger
 
+## v0.7.0
+
+- Skins: Classic, Forge, Slate and Gilded change the window's border,
+  background, buttons and lines (restart the game once after updating).
+- History > Mobs: gathering nodes are tagged, and a button lists all, only
+  mobs or only nodes.
+- History sessions: right-click Rename gives a session's place your own
+  name; Delete asks first.
+- Session goal bar under the title on the Session tab, for the gold or the
+  minutes goal.
+- Trade footer shows Earned, Spent and Net; the Log adds up its entries.
+- The options window is only as tall as the shown tab.
+- Fixes: Totals weeks over two months, "Session per instance" only in
+  dungeons and raids, profile "Used by", repeated drops merge in compact.
+
 ## v0.6.0
 
 - Auction house purchases in the Trade tab: the Log shows what you
