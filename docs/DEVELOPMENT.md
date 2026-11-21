@@ -75,12 +75,14 @@ only inside functions.
 | `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
 | `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
+| `Media/Skins/*.tga` | skin textures (Grain, Leather 64 x 64; Stud 16 x 16; Dotted 8 x 2), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
 | `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
 The logo is drawn by `tools/render_logo.py` (repo root, Pillow, not packaged):
 `python tools/render_logo.py` writes `AnotherLedger/Media/Logo.tga` and the
 512 px `docs/logo.png` used by the README. Change the shapes or colors there
-and run it again; don't edit the images by hand.
+and run it again; don't edit the images by hand. The skin textures come from
+`tools/render_skins.py` the same way (`--preview DIR` writes enlarged PNGs).
 
 Data flow: `Core` events -> `Session` / `Inventory` -> `UI.Ledger.refresh`
 builds a view with the shown tab's `build` (`View.lua`) -> every registered part
@@ -219,6 +221,23 @@ Each of these is one call in one place; the UI never names them.
   Destroy labels in tooltips use `Theme.sourceColor(source)`
   (`Tooltip.money(..., source)`, `Rows.tooltipLines`, `Summary.tooltipLines`).
   The swatch opens the game picker through `Widgets.pickColor`.
+- **Skins**: `Theme.skins` (Classic, Forge, Slate, Gilded) name one choice
+  per part of `Theme.skinParts` (border, background, buttons, lines) plus
+  `listBox`. The options `skinBorder` ... `skinListBox` (`Options.SKIN_PARTS`)
+  write `Theme.style` through `Theme.setStyle` and call
+  `Widgets.applySkin()`, which re-runs `applyBackdrop` (`Theme.backdropSpec`;
+  borders other than Round are line rectangles `frame.skinEdges` from
+  `Theme.edgeRects`, Gilded adds `frame.skinStuds`), repaints the buttons
+  (`paint`: Bronze bands, Raised edge lines `b.raise`, Flat), restyles every
+  `Widgets.rule` (styled dividers: row separators, the Top finds and compact
+  dividers, the tab base lines, option section lines; colors from
+  `Theme.lineColors`) and runs the `Widgets.onSkin` hooks (tab shape
+  `Tabs.reshapeAll`, the sunken list `Window.applyListBox`). Picking a skin
+  writes its five parts (`picked`); a part's default is the chosen skin's
+  (`Options.defaultFor`), so `Options.skinEdited` drives "(edited)".
+  `Window.paintLook` colors the edge lines and the list box with opacity and
+  brightness. Plain bars that are no dividers (goal bar, Top finds quality
+  edge, filter underline) stay `Widgets.line`.
 - **Footer**: History and Zones show the same table as the Session tab: the
   listed sessions (or places) added up, rates over their recorded time
   (Zones: only subzones with time count in the rate, `timedRates` in

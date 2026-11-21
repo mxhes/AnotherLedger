@@ -34,6 +34,18 @@ against the test fakes):
   `AnotherLedger price trend +N% vs 60 days` (TSM answers `DBHistorical`);
   without TSM, after scans on two days, `vs earlier days`.
 
+- Skins (UNVERIFIED): every skin with every color preset, at UI scale 0.64
+  and 1.0: Forge and Gilded show their Grain / Leather background (addon
+  `.tga` as tiled backdrop `bgFile`), the Bevel / Thin / Gilded edge lines are
+  one pixel and sharp, the Gilded studs sit on the corners, square tabs on
+  every border but Round, the Dotted lines are dashes (`SetHorizTile` in
+  `Widgets.rule`), Groove shows a light line under each separator, Raised
+  buttons light on top and pressed swap, the Sunken list box sits behind the
+  rows (full layout only). Opacity and Brightness fade / lighten the edge
+  lines and the list box like the window. Switching skin, a single part or the
+  profile restyles at once without /reload; the options and export windows
+  follow too.
+
 ## Release steps
 
 1. `main` is green: `lua tests/run.lua` passes locally and the `test` jobs
