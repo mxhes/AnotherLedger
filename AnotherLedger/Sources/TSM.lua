@@ -58,7 +58,6 @@ end
 
 -- Price trend from TSM: DBMarket against DBHistorical (TSM's 60 day
 -- average) as a fraction (+0.12 = 12% up), or nil without both.
--- UNVERIFIED (check in client): GetCustomPriceValue answers "DBHistorical".
 function TSM.trend(env, itemID, link)
   if type(env) ~= "table" then return nil end
   local api = env.TSM_API

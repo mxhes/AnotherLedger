@@ -111,8 +111,8 @@ local function watchNotice(text)
     local kit = SOUNDKIT.RAID_WARNING or SOUNDKIT.UI_EPICLOOT_TOAST
     if kit then pcall(PlaySound, kit) end
   end
-  -- UNVERIFIED (check in client): SOUNDKIT.RAID_WARNING plays the raid warning
-  -- sound; UIErrorsFrame:AddMessage(text, r, g, b) shows the line in the
+  -- SOUNDKIT.RAID_WARNING plays the raid warning sound;
+  -- UIErrorsFrame:AddMessage(text, r, g, b) shows the line in the
   -- middle of the screen for a few seconds.
   local frame = _G.UIErrorsFrame
   if type(frame) == "table" and type(frame.AddMessage) == "function" then

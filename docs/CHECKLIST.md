@@ -8,63 +8,7 @@ and remove both once it is confirmed.
 
 ## Open checks
 
-Everything up to v0.4.3 is confirmed in the client. New since then (only run
-against the test fakes):
-
-- Watch list (`Core.watchAlert`, UNVERIFIED): `/al watch` with a shift-clicked
-  item link, then loot it: a chat line, the raid warning sound
-  (`SOUNDKIT.RAID_WARNING`) and a gold line in the middle of the screen
-  (`UIErrorsFrame:AddMessage`); also with the clock stopped.
-- Buttons fit their labels (`Widgets.fitButton`, `Ledger.measureHeader`):
-  Start / Stop, Reset, Quality, Sort and the Trade period button are not cut
-  off (German: Zurücksetzen); the window can't be made narrower than the
-  five tabs need (about 390 px in English, the Trade tab was cut off below
-  that); after changing the font size the buttons fit again.
-- Auction purchases (`readMail` in `CoreTrade.lua`, UNVERIFIED): buy an
-  item and a commodity on the auction house, open the mailbox: Trade > Log
-  shows `Bought` with the seller and the price paid as a minus; Items shows
-  `N bought` and the gold earned less the cost; opening the mailbox again
-  adds nothing.
-- History > Totals: month headings with their weeks; a heading folds; Value
-  and Gold/h rank the weeks; German month names.
-- Compact: the drops' quantity in the quieter color; **Compact: item icons**
-  shows the icons and the names move right of them (and back when off).
-- The `lint` CI job installs luacheck and passes (first run).
-- Price trend (`TSM.trend`, UNVERIFIED): with TSM, an item tooltip shows
-  `AnotherLedger price trend +N% vs 60 days` (TSM answers `DBHistorical`);
-  without TSM, after scans on two days, `vs earlier days`.
-
-- Review fixes (only run against the test fakes):
-  - Options window: its height follows the shown tab (History and Profiles
-    short, Appearance tall), the top edge stays put; a dragged window opens
-    at its place again (saved by its top edge now).
-  - History > Mobs: the All / Mobs / Nodes button at the right of the
-    sub-tab row (German: Alle / Gegner / Vorkommen); nodes say `Node`.
-  - Trade footer: Earned / Spent / Net, no per hour column; the Log footer
-    adds up its entries.
-  - Session goal bar along the bottom of the title row (Session tab, full
-    layout), also for the minutes goal; hidden in compact and other tabs.
-  - History row menu: Rename, and Delete asks first.
-  - Totals tab: only the Sort button in the filter row.
-  - Color swatches are wide chips with a light frame; the hex code after the
-    label still fits (German labels).
-  - Zones / Mobs header: `9 places, all chars` fits next to the buttons.
-  - A battleground or arena no longer splits the session or opens the window
-    (Session per instance / Open in instances); a stopped clock no longer
-    splits on entering a dungeon.
-
-- Skins (UNVERIFIED): every skin with every color preset, at UI scale 0.64
-  and 1.0: the Bevel / Thin / Gilded edge lines are
-  one pixel and sharp, the Gilded studs sit on the corners, square tabs on
-  every border but Round, the Dotted lines are dashes (`SetHorizTile` in
-  `Widgets.rule`), Groove shows a light line under each separator, Raised
-  buttons light on top and pressed swap, the Sunken list box sits behind the
-  rows (full layout only). Opacity and Brightness fade / lighten the edge
-  lines and the list box like the window. Switching skin, a single part or the
-  profile restyles at once without /reload; the options and export windows
-  follow too. New `.tga` files need a client restart (a /reload does not
-  see them): check Gilded / Dotted after a restart, and whether `SetTexture`
-  returns false for a missing file (the stud / dotted fallbacks rely on it).
+Everything up to v0.7.1 is confirmed in the client.
 
 ## Release steps
 
