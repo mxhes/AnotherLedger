@@ -8,7 +8,8 @@
 package-as: AnotherLedger
 
 # Release notes for CurseForge: the hand-written CHANGELOG.md (newest version
-# on top) instead of a list of commit messages.
+# on top) instead of a list of commit messages. Keep each entry short (see
+# docs/CHECKLIST.md, release steps).
 manual-changelog:
   filename: CHANGELOG.md
   markup-type: markdown

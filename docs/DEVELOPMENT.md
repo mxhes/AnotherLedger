@@ -822,4 +822,5 @@ files in the job log. A tag uploads the zip to CurseForge (project 1817047,
 `## X-Curse-Project-ID` in the `.toc`) with the protected CI variable
 `CF_API_KEY`, which only pipelines of protected refs get: `v*` tags are
 protected tags (maintainers only). The release notes are the root `CHANGELOG.md` (`manual-changelog` in
-`.pkgmeta`). The release steps are in [CHECKLIST.md](CHECKLIST.md).
+`.pkgmeta`), kept short: one line or two per player-visible change, no
+internals. The release steps are in [CHECKLIST.md](CHECKLIST.md).
