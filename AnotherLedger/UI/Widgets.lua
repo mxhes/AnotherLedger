@@ -641,8 +641,7 @@ local function styleRule(tex)
   local main, second = T.lineColors(lines, color, T.colors.panelTint)
   local dotted = false
   if lines == "dotted" then
-    -- UNVERIFIED (check in client): an addon texture tiled along the line
-    -- with SetHorizTile.
+    -- An addon texture tiled along the line with SetHorizTile.
     dotted = tex:SetTexture(T.textures.skinDotted, "REPEAT", "CLAMP") ~= false
   end
   if not dotted then tex:SetTexture(T.textures.rowHighlight) end

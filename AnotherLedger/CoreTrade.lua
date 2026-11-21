@@ -157,9 +157,9 @@ local function readMail(i, now)
       m.id = idOfName(name) -- the post of that name gives the key (Trade.recordMail)
       return m
     end
-    -- UNVERIFIED (check in client): an auction won (also a commodity
-    -- purchase) has invoiceType "buyer", the seller as playerName and the
-    -- price paid as bid; the item is attachment 1.
+    -- An auction won (also a commodity purchase) has invoiceType "buyer",
+    -- the seller as playerName and the price paid as bid; the item is
+    -- attachment 1.
     if kind == "buyer" then
       local item = itemOfLink(type(GetInboxItemLink) == "function" and GetInboxItemLink(i, 1) or nil)
       m.kind, m.name, m.who, m.gold, m.n = "buy", name or (item and item.name), who, bid or 0, count or 1
