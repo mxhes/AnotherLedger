@@ -651,6 +651,9 @@ local L_IGNORE = ns.L["Ignore this item"]
 local L_IGNORED = ns.L["%s is ignored: it no longer counts anywhere. Options, List, Ignored items takes it back."]
 local L_KEEP = ns.L["Keep (not for sale)"]
 local L_UNKEEP = ns.L["Sell again (not kept)"]
+local L_WATCH = ns.L["Watch this item"]
+local L_UNWATCH = ns.L["Stop watching it"]
+local L_WATCHING = ns.L["watching %s: you hear a sound and see a line when you loot it."]
 
 -- Deletes the History session at `index` (/al undo brings it back). The
 -- opened session stays open (its index moves when a newer one goes).
@@ -730,6 +733,18 @@ function Ledger.rowMenu(row)
       { text = row.name, title = true },
       { text = L_IGNORE, onClick = function() Ledger.ignoreItem(row) end },
     }
+    -- The watch list (a sound and a screen line when you loot it).
+    local C = ns.Core
+    if C and C.watchedItems then
+      if C.watchedItems()[row.id] ~= nil then
+        entries[#entries + 1] = { text = L_UNWATCH, onClick = function() C.unwatchItem(row.id) end }
+      else
+        entries[#entries + 1] = { text = L_WATCH, onClick = function()
+          C.watchItem(row.id, row.name)
+          ns.Util.say(string.format(L_WATCHING, row.link or row.name or tostring(row.id)))
+        end }
+      end
+    end
     -- Bags and Bank: the keep list (kept items count apart in the footer).
     local Core = ns.Core
     if Ledger.view and Ledger.view.kind == "inventory" and Core then

@@ -156,6 +156,10 @@ DB.defaults = {
   -- The keep list: { [itemID] = item name } (Core.keptItems): Bags and Bank
   -- split their total into kept and sellable.
   kept = {},
+  -- The watch list: { [itemID] = item name } and { [lower case text] = text }
+  -- (Core.watchedItems, Core.watchedNames): a sound and a screen line on loot.
+  watched = {},
+  watchedNames = {},
   -- Every character's History: { ["Name-Realm"] = list } (Core.linkHistory).
   histories = {},
   -- Destroy professions per character: { ["Name-Realm"] = { enchanting = true, ... } }

@@ -8,7 +8,16 @@ and remove both once it is confirmed.
 
 ## Open checks
 
-None. Everything up to v0.4.3 is confirmed in the client.
+Everything up to v0.4.3 is confirmed in the client. New since then (only run
+against the test fakes):
+
+- Watch list (`Core.watchAlert`, UNVERIFIED): `/al watch` with a shift-clicked
+  item link, then loot it: a chat line, the raid warning sound
+  (`SOUNDKIT.RAID_WARNING`) and a gold line in the middle of the screen
+  (`UIErrorsFrame:AddMessage`); also with the clock stopped.
+- Price trend (`TSM.trend`, UNVERIFIED): with TSM, an item tooltip shows
+  `AnotherLedger price trend +N% vs 60 days` (TSM answers `DBHistorical`);
+  without TSM, after scans on two days, `vs earlier days`.
 
 ## Release steps
 

@@ -824,6 +824,43 @@ Options.define({
   end,
 })
 
+-- The watch list (Core.watchedItems and the name texts, Core.watchedNames).
+Options.define({
+  key = "watchedItems", category = "display", type = "button", label = L["Watched items"],
+  tooltip = L["Items you watch (right-click a row, or /al watch with an item link, an item ID or part of a name) play a sound and show a line in the middle of the screen when you loot them. Opens the list: click an entry to stop watching it."],
+  action = function(button)
+    local Core, W = ns.Core, ns.UI and ns.UI.Widgets
+    if not (Core and W) then return end
+    local entries = {}
+    for _, item in ipairs(Core.watchedList()) do
+      entries[#entries + 1] = {
+        text = item.name,
+        isChecked = function() return Core.watchedItems()[item.id] ~= nil end,
+        onClick = function()
+          if Core.watchedItems()[item.id] ~= nil then Core.unwatchItem(item.id) else Core.watchItem(item.id, item.name) end
+        end,
+      }
+    end
+    local texts = {}
+    for key, text in pairs(Core.watchedNames()) do texts[#texts + 1] = { key = key, text = text } end
+    table.sort(texts, function(a, b) return a.key < b.key end)
+    for _, t in ipairs(texts) do
+      entries[#entries + 1] = {
+        text = "\"" .. t.text .. "\"",
+        isChecked = function() return Core.watchedNames()[t.key] ~= nil end,
+        onClick = function()
+          if Core.watchedNames()[t.key] ~= nil then Core.unwatchName(t.text) else Core.watchName(t.text) end
+        end,
+      }
+    end
+    if #entries == 0 then
+      ns.Util.say(L["the watch list is empty. /al watch <item link, item ID or part of a name> adds to it."])
+      return
+    end
+    W.openMenu(button, entries, "checkbox")
+  end,
+})
+
 -- Off: new loot only flashes its row when it is in view; the list stays put.
 Options.define({
   key = "followLoot", category = "display", type = "checkbox", label = L["Scroll to new loot"],

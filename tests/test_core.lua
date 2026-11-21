@@ -491,3 +491,10 @@ h.test("Core.levelFits: the map's level range against the player level", functio
   h.eq(Core.levelFits({}, 7, 42), nil)
   h.eq(Core.levelFits(env, 7, nil), nil)
 end)
+
+h.test("Core.watchMatch: by item ID or a text the name contains, case ignored", function()
+  h.eq(Core.watchMatch(5, "Copper Ore", { [5] = "Copper Ore" }, {}), true)
+  h.eq(Core.watchMatch(6, "Pattern: Mooncloth", {}, { ["pattern:"] = "Pattern:" }), true)
+  h.eq(Core.watchMatch(6, "Linen Cloth", { [5] = true }, { ["pattern:"] = "Pattern:" }), false)
+  h.eq(Core.watchMatch(nil, nil, nil, nil), false)
+end)

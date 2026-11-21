@@ -413,6 +413,15 @@ Each of these is one call in one place; the UI never names them.
   Zones place and the Daily farm leave them out; `Core.sessionValue`, the drop
   alert and the goals too. They stay recorded. History rows subtract them at
   their saved unit prices (`History.totals(e, ignored)`).
+- **Watch list** (`AnotherLedgerDB.watched` = `{ [itemID] = name }` like the
+  ignore list, `watchedNames` = `{ [lower case text] = text }`; Core
+  `watchItem` / `unwatchItem` / `watchName` / `unwatchName`):
+  `Core.recordLoot` calls `Core.watchAlert` before the stopped-clock check, so
+  it alerts with the clock stopped too (only real loot: `countsAsLoot` comes
+  first). `Core.watchMatch` (pure) matches the ID or a text in the link's
+  name. The alert is a chat line, `SOUNDKIT.RAID_WARNING` and
+  `UIErrorsFrame:AddMessage`. `/al watch` / `/al unwatch` (Slash.lua), the
+  row menu (`Ledger.rowMenu`) and the option button `watchedItems` edit it.
 - **Keep list** (`AnotherLedgerDB.kept`, Core `keepItem` / `unkeepItem` /
   `keptList`; both lists are made by `itemList(field)` in `Core.lua`):
   `opts.kept` makes `View.buildInventory` set `row.kept` and
@@ -707,7 +716,7 @@ saved variables per addon folder and the old file is never loaded.
   Sessions / Zones), `optionsWindow` (where the options panel was dragged to,
   `{ x, y }` from the screen center), `profileUsers`, `minimapIcon`
   (LibDBIcon), `cache` (prices), `ignored` (the ignore list), `kept` (the keep
-  list) and `histories` (every character's History, see "Account-wide
+  list), `watched` / `watchedNames` (the watch list) and `histories` (every character's History, see "Account-wide
   History"), `professions` (`"Name-Realm"` -> `{ enchanting = true, ... }`,
   for the option Destroy values), `scan` (AnotherLedger scan: `[realm key] = {
   lastFull, items = { [itemKey] = packed } }`, see AnotherLedger scan), `trade`

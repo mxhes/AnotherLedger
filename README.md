@@ -101,7 +101,9 @@ clock is stopped).
   the item tooltip with all its values; Shift-click links the item in chat,
   Ctrl-click tries it on. Right-click an item to **ignore** it (a hearthstone,
   a quest item): it then counts nowhere, in no list, total, alert or goal, on
-  every character; **Ignored items** in the options takes it back. Top finds
+  every character; **Ignored items** in the options takes it back. Pick
+  **Watch this item** instead to hear a sound and see a line in the middle
+  of the screen whenever you loot it (see "Watch list"). Top finds
   work the same way. An empty list says why: no loot yet, the clock is
   stopped, or nothing matches the filters. Each tab keeps its scroll position
   until you log out.
@@ -229,6 +231,21 @@ items.
   - **Trade log kept** (History options) sets how many days the Log keeps
     each entry (90 by default); the totals per item stay for **All**.
 
+## Watch list
+
+Put the drops you hope for on the watch list (a rare pet, a recipe, a
+mount): each time you loot one, chat names it, the raid warning sound plays
+and a gold line shows in the middle of the screen, also while the session
+clock is stopped.
+
+- Right-click an item in any list: **Watch this item** (or **Stop watching
+  it**).
+- `/al watch` with a shift-clicked item link or an item ID watches that
+  item; with a text of at least 3 letters it watches every item whose name
+  contains it (`/al watch Pattern:` for every pattern).
+- `/al watch` alone lists the watch list, `/al unwatch` takes an entry off,
+  and **Watched items** in the options (List) shows it to click entries off.
+
 ## Daily farm
 
 The gold strip above the tabs names the subzone from your History (of all your
@@ -303,7 +320,7 @@ History asks first.
 | --- | --- |
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
-| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Scroll to new loot |
+| List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Look | Font, Font outline, Font shadow, List text, Totals text, Section titles, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
@@ -421,6 +438,7 @@ clock and scanning the auction house.
 | `/al export` | the History as CSV in a copy box |
 | `/al export session`, `/al export zones`, `/al export mobs` | the session's items, every Zones place, or every mob and node, as CSV |
 | `/al undo` | take back the last merge or delete in History (or the cleared History) |
+| `/al watch <item \| text>`, `/al unwatch <item \| text>` | watch an item (link or ID) or every item whose name contains the text; `/al watch` alone lists them |
 | `/al stats` | how much of the saved files each part takes (History, mob data, scan, Trade log, price cache) |
 | `/al demo` | sample loot and temporary sample prices, to look at the window |
 | `/al help` | list the commands |

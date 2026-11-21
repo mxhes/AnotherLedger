@@ -4458,3 +4458,47 @@ h.test("wiring: item tooltips show the price trend from TSM, else from the scan"
   h.eq(tooltipFor(LINK), "")
   h.eq(ctx.errors, {})
 end)
+
+h.test("wiring: a watched item alerts on loot, also with the clock stopped", function()
+  local ctx = boot()
+  local played, screen = 0, {}
+  ctx.env.PlaySound = function() played = played + 1 end
+  ctx.env.SOUNDKIT = { RAID_WARNING = 8959 }
+  ctx.env.UIErrorsFrame = { AddMessage = function(_, text) screen[#screen + 1] = text end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  slash(ctx, "watch")
+  h.eq(ctx.printed[#ctx.printed]:find("watch list is empty", 1, true) ~= nil, true)
+  slash(ctx, "watch " .. LINK)
+  h.eq(ns.db.watched[2589] ~= nil, true)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(played, 1)
+  h.eq(#screen, 1)
+  h.eq(screen[1]:find("watched item looted", 1, true) ~= nil, true)
+  -- by part of a name, with the clock stopped (the session does not count it)
+  slash(ctx, "unwatch 2589")
+  h.eq(ns.db.watched[2589], nil)
+  slash(ctx, "watch li")
+  h.eq(ctx.printed[#ctx.printed]:find("at least 3 letters", 1, true) ~= nil, true)
+  slash(ctx, "watch linen")
+  h.eq(ns.db.watchedNames.linen, "linen")
+  slash(ctx, "stop")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(played, 2)
+  slash(ctx, "watch")
+  h.eq(ctx.printed[#ctx.printed]:find("\"linen\"", 1, true) ~= nil, true)
+  slash(ctx, "unwatch Linen")
+  h.eq(ns.db.watchedNames.linen, nil)
+  -- the row menu adds and removes it
+  slash(ctx, "start")
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  local L = ns.UI.Ledger
+  L.setTab("session")
+  local menu = L.rowMenu(L.view.rows[1])
+  local watch
+  for _, e in ipairs(menu) do if e.text == "Watch this item" then watch = e end end
+  h.eq(watch ~= nil, true)
+  watch.onClick()
+  h.eq(ns.db.watched[2589] ~= nil, true)
+  h.eq(ctx.errors, {})
+end)
