@@ -1,5 +1,12 @@
 # AnotherLedger
 
+## v0.7.2
+
+- Compact layout: hovering a drop shows its item tooltip.
+- Fixes: auction sales emptied with Open All now show in Trade; the
+  period and Mobs / Nodes switches mark the current choice and no longer
+  cause Lua warnings.
+
 ## v0.7.1
 
 - Skins: the Grain and Leather window backgrounds and the Background
