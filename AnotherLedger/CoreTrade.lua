@@ -144,9 +144,10 @@ end
 -- buyout, deposit, consignment, ..., count 11th; expired and cancelled mails
 -- have the subjects AUCTION_EXPIRED_MAIL_SUBJECT / AUCTION_REMOVED_MAIL_SUBJECT
 -- and the item as attachment 1 (GetInboxItemLink, count 4th of GetInboxItem).
+-- Returns the mail, nil for a mail of no interest, false for one not read yet.
 local function readMail(i, now)
   local _, _, sender, subject, money, _, daysLeft = GetInboxHeaderInfo(i)
-  if type(daysLeft) ~= "number" then return nil end
+  if type(daysLeft) ~= "number" then return false end
   local m = { sender = sender, subject = subject, money = money, expires = now + daysLeft * ns.Trade.DAY,
     char = playerName() }
   if type(GetInboxInvoiceInfo) == "function" then
@@ -167,6 +168,20 @@ local function readMail(i, now)
       return m
     end
   end
+  -- A sale mail not opened yet has no invoice (Open All empties it unread):
+  -- the subject names the item, with the amount sold in brackets.
+  -- UNVERIFIED (check in client): the "(4)" amount in the subject and that
+  -- an unopened sale mail gives no invoice.
+  local sold = Core.formatPattern(AUCTION_SOLD_MAIL_SUBJECT)
+  local soldName = sold and type(subject) == "string" and subject:match(sold)
+  if soldName then
+    soldName = soldName:gsub("|A.-|a", "")
+    local base, count = soldName:match("^(.-)%s*%((%d+)%)$")
+    local name = (base or soldName):gsub("^%s+", ""):gsub("%s+$", "")
+    m.kind, m.name, m.n, m.estimate = "sale", name, tonumber(count) or 1, true
+    m.id = idOfName(name)
+    return m
+  end
   for kind, fmt in pairs({ expire = AUCTION_EXPIRED_MAIL_SUBJECT, cancel = AUCTION_REMOVED_MAIL_SUBJECT }) do
     local pattern = Core.formatPattern(fmt)
     if pattern and type(subject) == "string" and subject:match(pattern) then
@@ -185,11 +200,20 @@ events.MAIL_INBOX_UPDATE = function()
   local bucket = Core.tradeBucket(true)
   if not bucket then return end
   local now, mails = time(), {}
-  for i = 1, GetInboxNumItems() or 0 do
+  -- Client API: GetInboxNumItems() gives the mails shown and all mails (more
+  -- wait on the server when the inbox is full). UNVERIFIED (check in client):
+  -- the second return.
+  local shown, total = GetInboxNumItems()
+  shown = type(shown) == "number" and shown or 0
+  local whole = type(total) ~= "number" or total <= shown
+  for i = 1, shown do
     local ok, m = pcall(readMail, i, now)
     if ok and m then mails[#mails + 1] = m end
+    if not ok or m == false then whole = false end
   end
-  if #ns.Trade.recordInbox(bucket, mails, now, marketOf) > 0 then recorded() end
+  -- A whole read lets the sale mails that left the inbox be forgotten.
+  local char = whole and playerName() or nil
+  if #ns.Trade.recordInbox(bucket, mails, now, marketOf, char) > 0 then recorded() end
 end
 
 -- Client API: TRADE_ACCEPT_UPDATE fires when either side
