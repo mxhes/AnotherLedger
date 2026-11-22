@@ -43,7 +43,9 @@ function RowSwitch.new(spec)
   local function openMenu(button)
     local entries = {}
     for _, v in ipairs(spec.order) do
-      entries[#entries + 1] = { text = spec.labels[v], onClick = function() S.set(v) end }
+      entries[#entries + 1] = { text = spec.labels[v],
+        isChecked = function() return S.current(ns.db) == v end,
+        onClick = function() S.set(v) end }
     end
     ns.UI.Widgets.openMenu(button, entries)
   end

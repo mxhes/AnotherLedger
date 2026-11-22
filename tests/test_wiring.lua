@@ -4498,6 +4498,30 @@ h.test("wiring: History > Mobs shows the Mobs / Nodes switch, the Trade period h
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: a row switch's menu marks the current choice and picks another", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local menus = captureMenus(ctx)
+  local Ledger, MK = ctx.ns.UI.Ledger, ctx.ns.UI.MobKind
+  Ledger.setTab("history")
+  Ledger.setSubtab("mobs")
+  Ledger.refresh()
+  MK.button._scripts.OnClick(MK.button)
+  local menu = menus[#menus]
+  h.eq(#menu, 3)
+  for _, it in ipairs(menu) do
+    h.eq(it.kind, "radio")
+    h.eq(type(it.checked), "function") -- the client menu calls it for every radio
+  end
+  h.eq(menuItem(menu, "All").checked(), true)
+  h.eq(menuItem(menu, "Nodes").checked(), false)
+  menuItem(menu, "Nodes").click()
+  h.eq(ctx.env.AnotherLedgerDB.mobKind, "nodes")
+  h.eq(menuItem(menu, "Nodes").checked(), true)
+  h.eq(MK.button:GetText(), "Nodes")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: an auction won mail is a purchase in the Log and in Items, once", function()
   local ctx = tradeWorld()
   ctx.env.mails[1] = { sender = "Auction House", subject = "Auction won: Bolt", money = 0, daysLeft = 29.5,
