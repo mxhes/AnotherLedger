@@ -377,6 +377,7 @@ end
 
 -- The item tooltip of the row, or its hint text (History rows) without an item.
 -- Item tooltip plus the row's values (Rows.tooltipLines), else the row hint.
+-- `f` carries tooltipLink, tooltipLines and tooltipText (also the compact drops).
 local function showTooltip(f)
   local W = ns.UI.Widgets
   if W.showItemTooltip(f, f.tooltipLink) then
@@ -390,6 +391,7 @@ local function showTooltip(f)
   end
   return W.showTextTooltip(f, f.tooltipText)
 end
+Rows.showTooltip = showTooltip
 
 -- A modified click (Shift: link in chat, Ctrl: try on, as the game's bags)
 -- on a real item or currency link. Returns whether the game handled it.

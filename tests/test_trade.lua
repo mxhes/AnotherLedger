@@ -145,8 +145,26 @@ h.test("Trade.recordMail: the item comes from the open post, parts of a stack sh
   T.addPost(b, { t = 1, key = 7, id = 7, name = "Bolt", n = 10, unit = 100 })
   local e = T.recordMail(b, saleMail(), 10, function() return 100 end)
   h.eq(e.key, 7); h.eq(b.posts[1].n, 6)
-  T.recordMail(b, saleMail({ who = "Other", expires = 30 * 86400 + 99 }), 20, function() return 100 end)
+  T.recordMail(b, saleMail({ who = "Other", expires = 30 * 86400 + 99, money = 390 }), 20, function() return 100 end)
   h.eq(b.posts[1].n, 2); h.eq(b.totals[7].sold, 8)
+end)
+
+h.test("Trade.recordInbox: a mail gone from a whole inbox read is forgotten, an equal later one counts", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  local first, second = saleMail(), saleMail({ expires = 30 * 86400 + 99 }) -- 87 s apart, same subject and money
+  h.eq(#T.recordInbox(b, { first }, 10, function() end, "Me"), 1)
+  h.eq(#T.recordInbox(b, {}, 20, function() end, "Me"), 0) -- taken
+  h.eq(#T.recordInbox(b, { second }, 110, function() end, "Me"), 1)
+  h.eq(#T.recordInbox(b, { second }, 120, function() end, "Me"), 0)
+  h.eq(#b.log, 2)
+end)
+
+h.test("Trade.recordInbox: a partial read or another character's read forgets nothing", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.recordInbox(b, { saleMail() }, 10, function() end, "Me")
+  T.recordInbox(b, {}, 20, function() end) -- not every mail could be read
+  T.recordInbox(b, {}, 30, function() end, "Alt")
+  h.eq(#T.recordInbox(b, { saleMail() }, 40, function() end, "Me"), 0)
 end)
 
 h.test("Trade.recordMail: the market from the chat mark wins over the mailbox day", function()
@@ -247,6 +265,45 @@ h.test("Trade.recordMail: a sale with only an item ID still takes the variant's 
   T.addPost(b, { t = 1, key = "9:100", id = 9, name = "Bracers", n = 1, unit = 5000 })
   local e = T.recordMail(b, saleMail({ name = "Bracers", n = 1, gold = 5000, id = 9 }), 10, function() end)
   h.eq(e.key, "9:100"); h.eq(#b.posts, 0)
-  local e2 = T.recordMail(b, saleMail({ name = "Bracers", who = "X", n = 1, gold = 4000, id = 9 }), 20, function() end)
+  local e2 = T.recordMail(b, saleMail({ name = "Bracers", who = "X", n = 1, gold = 4000, id = 9, money = 3800 }), 20,
+    function() end)
   h.eq(e2.key, 9)
+end)
+
+-- A sale mail not opened yet has no invoice: only its subject and money.
+local function unreadSale(over)
+  local m = { kind = "sale", subject = "Auction successful: Bolt (4)", sender = "AH", money = 380,
+    expires = 30 * 86400 + 12, name = "Bolt", n = 4, char = "Me", estimate = true }
+  for k, v in pairs(over or {}) do m[k] = v end
+  return m
+end
+
+h.test("Trade.recordMail: an unread sale mail prices the sale from its post, less the cut", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  T.addPost(b, { t = 1, key = 7, id = 7, name = "Bolt", n = 10, unit = 100 })
+  local e = T.recordMail(b, unreadSale(), 10, function() return 90 end)
+  h.eq(e.kind, "sale"); h.eq(e.key, 7); h.eq(e.n, 4); h.eq(e.gold, 400); h.eq(e.cut, 20)
+  h.eq(b.totals[7].sold, 4); h.eq(b.posts[1].n, 6)
+end)
+
+h.test("Trade.recordMail: an unread sale mail without a post counts the money received", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  local e = T.recordMail(b, unreadSale(), 10, function() end)
+  h.eq(e.gold, 380); h.eq(e.cut, 0)
+end)
+
+h.test("Trade.recordMail: a sale mail counts once, read before and after it was opened", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  h.eq(T.recordMail(b, unreadSale(), 10, function() end).kind, "sale")
+  -- Opened: the invoice now.
+  h.eq(T.recordMail(b, saleMail({ money = 380, subject = "Auction successful: Bolt (4)" }), 20, function() end), nil)
+  h.eq(#b.log, 1)
+end)
+
+h.test("Trade.recordMail: a sale mail recorded under the old mail key is not counted again", function()
+  local T, b = ns.Trade, ns.Trade.bucket({}, "r", true)
+  local m = saleMail({ money = 380 })
+  b.mails[T.legacyMailKey(m)] = { m.expires }
+  h.eq(T.recordMail(b, m, 20, function() end), nil)
+  h.eq(#b.log, 0)
 end)

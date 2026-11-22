@@ -873,10 +873,15 @@ local function entryKind(entry, kind)
   return entry.kind or kind
 end
 
+local function notChecked() return false end
+
 local function openModernMenu(anchor, entries, kind)
   MenuUtil.CreateContextMenu(anchor, function(_, root)
     for _, entry in ipairs(entries) do
       local k = entryKind(entry, kind)
+      -- The client menu calls isChecked for every radio / checkbox; a missing
+      -- one is a "call a nil value" warning per entry.
+      if type(entry.isChecked) ~= "function" then entry.isChecked = notChecked end
       if k == "title" then
         if root.CreateTitle then root:CreateTitle(entry.text) end
       elseif k == "checkbox" then
@@ -909,7 +914,7 @@ local function openLegacyMenu(anchor, entries, kind)
         info.notCheckable = true
         info.func = entry.onClick
       else
-        info.checked = entry.isChecked()
+        info.checked = type(entry.isChecked) == "function" and entry.isChecked() or false
         info.func = entry.onClick
         if k == "checkbox" then
           info.isNotRadio = true

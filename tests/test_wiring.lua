@@ -2404,6 +2404,27 @@ h.test("wiring: Compact: item icons puts the icon before each drop; the quantity
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: hovering a compact drop shows its item tooltip with the values", function()
+  local ctx = boot()
+  local ops = {}
+  ctx.env.GameTooltip = {
+    SetOwner = function(_, owner) ops.owner = owner end, Show = function() end, Hide = function() end,
+    ClearLines = function() end, SetText = function() end, IsOwned = function(_, f) return ops.owner == f end,
+    SetHyperlink = function(_, link) ops.link = link end,
+    AddLine = function(_, t) ops[#ops + 1] = t end, AddDoubleLine = function() end,
+  }
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  slash(ctx, "compact")
+  local f = ctx.ns.UI.Compact.drops[1].frame
+  h.eq(type(f._scripts.OnEnter), "function")
+  f._scripts.OnEnter(f)
+  h.eq(type(ops.link), "string"); h.eq(ops.link:find("item:") ~= nil, true)
+  h.eq(#ops >= 1, true) -- the values (Vendor / AH / Destroy) follow the item
+  h.eq(type(f._scripts.OnLeave), "function")
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: double-clicking the title toggles the mode", function()
   local ctx = boot()
   startWorld(ctx, false)
@@ -4340,6 +4361,7 @@ local function tradeWorld(withRealm)
   env.ERR_TRADE_COMPLETE = "Trade complete."
   env.ERR_AUCTION_SOLD_S = "A buyer has been found for your auction of %s."
   env.AUCTION_EXPIRED_MAIL_SUBJECT = "Auction expired: %s"
+  env.AUCTION_SOLD_MAIL_SUBJECT = "Auction successful: %s"
   env.AUCTION_REMOVED_MAIL_SUBJECT = "Auction cancelled: %s"
   env.mails = {}
   env.GetInboxNumItems = function() return #env.mails end
@@ -4376,6 +4398,27 @@ h.test("wiring: a sale mail is recorded once", function()
   h.eq(#log, 1)
   h.eq(log[1].kind, "sale"); h.eq(log[1].gold, 400); h.eq(log[1].cut, 20); h.eq(log[1].who, "Buyer")
   h.eq(log[1].id, 5); h.eq(log[1].n, 4)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a sale mail emptied unopened (Open All) is recorded from its subject, once", function()
+  local ctx = tradeWorld()
+  ctx.env.C_AuctionHouse.PostCommodity({ link = "|cffffffff|Hitem:5::::::::|h[Bolt]|h|r" }, 1, 10, 100)
+  -- Unopened: the client gives no invoice yet.
+  ctx.env.mails[1] = { sender = "Auction House", subject = "Auction successful: Bolt (4)", money = 380, daysLeft = 29.5 }
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local log = tradeLog(ctx)
+  h.eq(#log, 2); h.eq(log[2].kind, "sale"); h.eq(log[2].key, 5); h.eq(log[2].n, 4)
+  h.eq(log[2].gold, 400); h.eq(log[2].cut, 20)
+  -- Opened before it is emptied: the invoice comes, still one sale.
+  local m = ctx.env.mails[1]
+  m.invoice, m.name, m.who, m.bid, m.cut, m.count = "seller", "Bolt", "Buyer", 400, 20, 4
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  ctx.env.mails[1] = nil
+  fire(ctx, "MAIL_INBOX_UPDATE")
+  local _, b = tradeLog(ctx)
+  h.eq(#b.log, 2)
+  h.eq(next(b.mails), nil) -- taken: forgotten, so an equal later mail counts
   h.eq(ctx.errors, {})
 end)
 
@@ -4495,6 +4538,30 @@ h.test("wiring: History > Mobs shows the Mobs / Nodes switch, the Trade period h
   Ledger.setSubtab("sessions")
   Ledger.refresh()
   h.eq(MK.button:IsShown(), false)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a row switch's menu marks the current choice and picks another", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  local menus = captureMenus(ctx)
+  local Ledger, MK = ctx.ns.UI.Ledger, ctx.ns.UI.MobKind
+  Ledger.setTab("history")
+  Ledger.setSubtab("mobs")
+  Ledger.refresh()
+  MK.button._scripts.OnClick(MK.button)
+  local menu = menus[#menus]
+  h.eq(#menu, 3)
+  for _, it in ipairs(menu) do
+    h.eq(it.kind, "radio")
+    h.eq(type(it.checked), "function") -- the client menu calls it for every radio
+  end
+  h.eq(menuItem(menu, "All").checked(), true)
+  h.eq(menuItem(menu, "Nodes").checked(), false)
+  menuItem(menu, "Nodes").click()
+  h.eq(ctx.env.AnotherLedgerDB.mobKind, "nodes")
+  h.eq(menuItem(menu, "Nodes").checked(), true)
+  h.eq(MK.button:GetText(), "Nodes")
   h.eq(ctx.errors, {})
 end)
 

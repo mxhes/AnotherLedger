@@ -180,7 +180,13 @@ function part:Update(view)
       w.tag:SetAlpha(t.hideTag and 0 or 1)
       -- On whole screen pixels, so its frame is equally thin on every side.
       ns.UI.Widgets.snapPoint(w.tag, "RIGHT", w.frame, "RIGHT", 0, 0)
-      w.frame:Show()
+      -- Hover: the item tooltip and its values, as on the full window's rows.
+      local f = w.frame
+      f.row = row
+      f.tooltipLink = ns.UI.Rows.tooltipLink(row)
+      f.tooltipLines = ns.UI.Rows.tooltipLines(row)
+      if ns.UI.Widgets.tooltipOwnedBy(f) then ns.UI.Rows.showTooltip(f) end
+      f:Show()
     else
       w.frame:Hide()
     end
@@ -304,6 +310,18 @@ function Compact.attach(area)
     name:SetPoint("LEFT", f, "LEFT", 0, 0)
     name:SetPoint("RIGHT", amount, "LEFT", -S.rowNameGap, 0)
     if name.SetWordWrap then name:SetWordWrap(false) end
+    -- Hover: the item tooltip (Update sets its link and values); Shift /
+    -- Ctrl-click as on the list rows; still a drag handle.
+    f.row, f.tooltipLink, f.tooltipLines, f.tooltipText = false, false, false, false
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function() ns.UI.Window.beginDrag() end)
+    f:SetScript("OnDragStop", function() ns.UI.Window.endDrag() end)
+    f:SetScript("OnEnter", function(self) if self.tooltipLink then ns.UI.Rows.showTooltip(self) end end)
+    f:SetScript("OnLeave", W.hideTooltip)
+    f:SetScript("OnMouseUp", function(self)
+      if self.row then ns.UI.Rows.modifiedClick(self.row.link) end
+    end)
     f:Hide()
     Compact.drops[i] = { frame = f, name = name, amount = amount, tag = tag, icon = icon }
   end

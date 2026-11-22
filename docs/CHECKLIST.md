@@ -8,7 +8,19 @@ and remove both once it is confirmed.
 
 ## Open checks
 
-Everything up to v0.7.1 is confirmed in the client.
+Everything up to v0.7.1 is confirmed in the client, except:
+
+- Trade, unopened sale mails (`CoreTrade.lua` `readMail`): an "Auction
+  successful" mail not opened yet gives no invoice (`GetInboxInvoiceInfo`),
+  and its subject carries the amount sold as `Name (4)`. Check: sell a few
+  of a stack, empty the mails with Open All, the sales show in Trade > Log
+  with the right amount; open one sale mail by hand first, it still counts
+  once.
+- Trade, mails taken: after emptying the mailbox, a second equal sale
+  (same item, amount and price) arriving within a few minutes still counts
+  (`GetInboxNumItems` second return is the total in the inbox).
+- Compact drops: hovering a drop shows the item tooltip with its values;
+  Shift-click links it in chat; dragging a drop still moves the window.
 
 ## Release steps
 

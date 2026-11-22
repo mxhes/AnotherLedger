@@ -48,6 +48,6 @@ read_globals = {
   "UnitIsAFK", "UnitLevel", "UnitName", "UnitOnTaxi", "geterrorhandler",
   "hooksecurefunc",
   -- global strings
-  "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT",
+  "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT", "AUCTION_SOLD_MAIL_SUBJECT",
   "ERR_AUCTION_SOLD_S", "ERR_TRADE_COMPLETE",
 }

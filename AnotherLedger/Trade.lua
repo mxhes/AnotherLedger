@@ -194,11 +194,24 @@ local function part(v) return v == nil and "" or tostring(v) end
 
 -- The key of a mail: what does not change while it sits in the inbox, and
 -- whose inbox it is (each mail lives in one character's inbox). Copies with
--- the same key are told apart by their expiry (Trade.recordMail).
+-- the same key are told apart by their expiry (Trade.recordMail). A sale
+-- mail's key leaves out its invoice, which the client gives only once the
+-- mail was opened: read before and after, it is the same mail.
 function Trade.mailKey(m)
+  if m.kind == "sale" then
+    return table.concat({ part(m.char), "sale", part(m.subject), part(m.sender), part(m.money) }, "|")
+  end
+  return Trade.legacyMailKey(m)
+end
+
+-- The key every mail had before (sale mails with their invoice); sale mails
+-- recorded under it are still known (until they expire from the inbox).
+function Trade.legacyMailKey(m)
   return table.concat({ part(m.char), part(m.kind), part(m.subject), part(m.sender), part(m.money),
     part(m.name), part(m.who), part(m.gold), part(m.n) }, "|")
 end
+
+Trade.AH_CUT = 0.05 -- the auction house cut of a sale (estimate for unopened mails)
 
 -- The key of a sale: the same for its temporary and its final invoice.
 function Trade.saleKey(m)
@@ -238,6 +251,22 @@ local function seenBefore(bucket, key, expires, used)
   return false
 end
 
+-- Whether a sale mail was recorded under its old key (with the invoice);
+-- a match is used up like in seenBefore.
+local function seenUnderLegacyKey(bucket, m, expires, used)
+  if m.kind ~= "sale" or m.estimate then return false end
+  local list = bucket.mails[Trade.legacyMailKey(m)]
+  if type(list) ~= "table" then return false end
+  used[list] = used[list] or {}
+  for i, e in ipairs(list) do
+    if not used[list][i] and math.abs(e - expires) <= Trade.MAIL_DRIFT then
+      used[list][i] = true
+      return true
+    end
+  end
+  return false
+end
+
 -- The newest sale still waiting for its final invoice (temporary invoice
 -- recorded, `temp` = its sale key), or nil.
 local function waitingSale(bucket, saleKey)
@@ -250,7 +279,10 @@ end
 
 -- Records an auction mail once. m = { kind = "sale" / "buy" / "expire" / "cancel",
 -- subject, sender, money, expires, name, who, gold, cut, n, key, id, char,
--- temp } (temp: a temporary invoice, sent before the money). `marketAt(key,
+-- temp, estimate } (temp: a temporary invoice, sent before the money;
+-- estimate: a sale mail not opened yet, known only by subject and money: its
+-- gold is the open post's unit price x n less AH_CUT, else the money
+-- received). `marketAt(key,
 -- id)` gives the market per unit now, asked only when no "buyer found" mark
 -- has it. `used`: see seenBefore (one per inbox read; Trade.recordInbox).
 -- Returns the new entry, or nil when this copy is already recorded, for the
@@ -258,7 +290,9 @@ end
 -- mail (counted at the auction house already).
 function Trade.recordMail(bucket, m, now, marketAt, used)
   local expires = type(m.expires) == "number" and m.expires or now + 31 * Trade.DAY
-  if seenBefore(bucket, Trade.mailKey(m), expires, used or {}) then return nil end
+  used = used or {}
+  if seenUnderLegacyKey(bucket, m, expires, used) then return nil end
+  if seenBefore(bucket, Trade.mailKey(m), expires, used) then return nil end
   if m.kind == "cancel" then return nil end
 
   if m.kind == "expire" then
@@ -292,16 +326,45 @@ function Trade.recordMail(bucket, m, now, marketAt, used)
     -- too); else the item ID the client found for the name, if any.
     if post then key, id = post.key, post.id else key = id end
   end
+  local gold, cut = m.gold, m.cut
+  if m.estimate then
+    if post and (post.unit or 0) > 0 then
+      gold = post.unit * (m.n or 1)
+      cut = math.floor(gold * Trade.AH_CUT + 0.5)
+    else
+      gold, cut = m.money or 0, 0
+    end
+  end
   local _, market = takeMark(bucket, m.name)
   if market == nil and key ~= nil and type(marketAt) == "function" then market = marketAt(key, id) end
   return Trade.add(bucket, { t = now, kind = "sale", key = key, id = id, name = m.name, n = m.n,
-    gold = m.gold, cut = m.cut, market = market, who = m.who, char = m.char, temp = m.temp and saleKey or nil })
+    gold = gold, cut = cut, market = market, who = m.who, char = m.char, temp = m.temp and saleKey or nil })
+end
+
+-- After a read of the whole inbox of `char`: the remembered sale mails of
+-- that character not seen in it have left the inbox (taken or deleted) and
+-- are forgotten, so an equal sale mail that comes later counts. Only sale
+-- mails: they are always read (by invoice or subject); other mails can be
+-- unreadable for a moment.
+local function forgetGone(bucket, char, used)
+  local prefix = part(char) .. "|sale|"
+  for key, list in pairs(bucket.mails) do
+    if key:sub(1, #prefix) == prefix and type(list) == "table" then
+      local seen, kept = used[list] or {}, {}
+      for i, e in ipairs(list) do
+        if seen[i] then kept[#kept + 1] = e end
+      end
+      bucket.mails[key] = #kept > 0 and kept or nil
+    end
+  end
 end
 
 -- Records the mails of one inbox read (Core: MAIL_INBOX_UPDATE). Temporary
 -- invoices go first, so a final invoice read together with its temporary
--- one settles it. Returns the new entries.
-function Trade.recordInbox(bucket, mails, now, marketAt)
+-- one settles it. `wholeOf`: the character whose whole inbox this read was
+-- (every mail shown and read), nil for a partial read. Returns the new
+-- entries.
+function Trade.recordInbox(bucket, mails, now, marketAt, wholeOf)
   local ordered = {}
   for _, m in ipairs(mails) do if m.temp then ordered[#ordered + 1] = m end end
   for _, m in ipairs(mails) do if not m.temp then ordered[#ordered + 1] = m end end
@@ -310,6 +373,7 @@ function Trade.recordInbox(bucket, mails, now, marketAt)
     local e = Trade.recordMail(bucket, m, now, marketAt, used)
     if e then added[#added + 1] = e end
   end
+  if wholeOf ~= nil then forgetGone(bucket, wholeOf, used) end
   return added
 end
 

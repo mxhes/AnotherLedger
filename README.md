@@ -76,7 +76,8 @@ breakdown: time, items, raw gold, total, the best find, how far the goal is,
 the last 15 minutes' rate and, after a few minutes, a small graph of your gold
 per hour over the session (one bar per stretch of clock time) to see when a
 spot dries up. The same graph shows when you hover the totals of the Session
-tab. Click the clock to start or stop the session; a red `Paused` shows while
+tab. Hover a drop for its item tooltip with its vendor, auction and
+disenchant values, as in the full list; Shift-click links it in chat. Click the clock to start or stop the session; a red `Paused` shows while
 it is stopped. Before the first drop the list says so (or that the
 clock is stopped).
 
@@ -245,7 +246,10 @@ items.
   - Auctions you post or cancel are recorded at the auction house. Sales,
     expired auctions and auctions you won or bought are recorded from the
     mail, so they show once you open your mailbox; a sale mail counts once, also when you open it again or on
-    another character. When the "buyer found" line comes while you are
+    another character. Sale mails you empty without opening them (Open
+    All, or a mail addon) count too: the price then comes from your posted
+    price less the 5% auction house cut, or, if the addon did not see you
+    post it, from the gold the mail brought. When the "buyer found" line comes while you are
     online, that moment's market price is kept for the comparison.
   - A trade with another player counts as a sale only when you gave items
     and got only gold back (and as a purchase the other way round). Gifts,

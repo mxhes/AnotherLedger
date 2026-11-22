@@ -569,6 +569,9 @@ Each of these is one call in one place; the UI never names them.
   (`sizes.compactGoalBarHeight`) over the divider; it follows a resize on the
   next redraw. It also returns `items`, `gold`, `elapsed`, `top`, `goal` and
   `graph` for the hover breakdown (`Compact.hint`) over the rate and total.
+  Each drop row shows the list rows' item tooltip (`Rows.showTooltip` with
+  `Rows.tooltipLink` / `Rows.tooltipLines`, set in `part:Update`), takes
+  Shift / Ctrl-click (`Rows.modifiedClick`) and stays a drag handle.
   A drop's name carries its quantity in the hint color (`Compact.nameText`);
   an unpriced drop shows `?` like its list row (`Rows.rowText`). Option
   `compactIcons`: a texture before the name (`Rows.iconOf(row)`), the name
@@ -710,12 +713,21 @@ Each of these is one call in one place; the UI never names them.
     `seller_temp_invoice`) are sales, buyer invoices (auctions won and
     purchases, UNVERIFIED) are `buy` entries keyed by the attached item's
     link (else the item ID of the name), the expired / cancelled subjects
-    returns. `Trade.recordInbox` takes one inbox read (temporary invoices
+    returns. A sale mail not opened yet has no invoice (Open All empties it
+    unread): its subject (`AUCTION_SOLD_MAIL_SUBJECT`, the amount in
+    brackets, UNVERIFIED) makes it a sale marked `estimate`, priced from the
+    open post's unit price less `Trade.AH_CUT` (5%), else the money received.
+    `Trade.recordInbox` takes one inbox read (temporary invoices
     first) through `Trade.recordMail`: a mail key (character, subject,
-    sender, money, invoice fields) keeps the expiry of every copy seen, and a
-    copy counts as seen when a remembered expiry is within `MAIL_DRIFT`
-    (300 s) and not already matched in this read, so identical mails are
-    each counted once and a re-read never twice. A sale from a temporary
+    sender, money; other mails also the invoice fields, `Trade.legacyMailKey`,
+    which sale mails recorded before still match) keeps the expiry of every
+    copy seen, and a copy counts as seen when a remembered expiry is within
+    `MAIL_DRIFT` (300 s) and not already matched in this read, so identical
+    mails are each counted once and a re-read never twice; a sale mail is
+    the same mail opened or not. After a whole inbox read (every mail shown,
+    `GetInboxNumItems` shown >= total, and read) the character's remembered
+    sale mails not seen in it are forgotten, so an equal sale mail coming
+    later counts. A sale from a temporary
     invoice is marked `temp` (its `Trade.saleKey`); the final invoice of the
     same sale clears the mark instead of adding a sale. A sale takes the
     amount off the newest open post of that name (link names lose a
