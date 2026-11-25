@@ -300,3 +300,31 @@ h.test("Theme: every addon texture exists on disk", function()
     end
   end
 end)
+
+h.test("rgbToHsv / hsvToRgb round trip", function()
+  local function near3(r, g, b, er, eg, eb, what)
+    h.near(r, er, 1e-6, what .. " r"); h.near(g, eg, 1e-6, what .. " g"); h.near(b, eb, 1e-6, what .. " b")
+  end
+  local hh, s, v = T.rgbToHsv(1, 0, 0)
+  h.near(hh, 0, 1e-9); h.near(s, 1, 1e-9); h.near(v, 1, 1e-9)
+  hh, s, v = T.rgbToHsv(0.5, 0.5, 0.5)
+  h.near(hh, 0, 1e-9); h.near(s, 0, 1e-9); h.near(v, 0.5, 1e-9)
+  for _, c in ipairs({ { 0.2, 0.6, 0.4 }, { 0.9, 0.1, 0.7 }, { 0.3, 0.3, 0.8 }, { 1, 0.8, 0 }, { 0, 0, 0 } }) do
+    local r, g, b = T.hsvToRgb(T.rgbToHsv(c[1], c[2], c[3]))
+    near3(r, g, b, c[1], c[2], c[3], table.concat(c, ","))
+  end
+end)
+
+h.test("withSaturation keeps hue and value", function()
+  local r, g, b = T.withSaturation(1, 0, 0, 0)
+  h.near(r, 1, 1e-9); h.near(g, 1, 1e-9); h.near(b, 1, 1e-9)
+  r, g, b = T.withSaturation(0.5, 0.5, 0.5, 1)
+  h.near(r, 0.5, 1e-9); h.near(g, 0, 1e-9); h.near(b, 0, 1e-9)
+  r, g, b = T.withSaturation(0.5, 0.5, 0.5, 1, 1 / 3) -- a grey takes the given hue
+  h.near(r, 0, 1e-9); h.near(g, 0.5, 1e-9); h.near(b, 0, 1e-9)
+  local hh, s = T.rgbToHsv(T.withSaturation(0.2, 0.6, 0.4, 0.25))
+  local h0 = T.rgbToHsv(0.2, 0.6, 0.4)
+  h.near(hh, h0, 1e-6); h.near(s, 0.25, 1e-6)
+  r = T.withSaturation(1, 0, 0, 7) -- clamped
+  h.near(r, 1, 1e-9)
+end)

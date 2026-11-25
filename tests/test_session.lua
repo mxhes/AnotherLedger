@@ -370,7 +370,7 @@ h.test("Session.rest freezes the clock and place time, loot still counts; wake a
   local s = S.new(0)
   S.enterPlace(s, "Dornogal", nil, 0)
   S.rest(s, 100)
-  h.eq(s.resting, true)
+  h.eq(s.resting, "city")
   h.eq(s.running, true)
   h.eq(S.elapsed(s, 500), 100)
   S.rest(s, 300) -- already resting: no-op
@@ -399,7 +399,7 @@ h.test("Session.reset and resume keep a resting clock frozen", function()
   S.rest(s, 50)
   S.reset(s, 100)
   h.eq(S.elapsed(s, 400), 0)
-  h.eq(s.resting, true)
+  h.eq(s.resting, "city")
   S.resume(s, 500) -- login: the clock is woken by Core.checkRest
   h.eq(s.resting, nil)
   h.eq(S.elapsed(s, 510), 10)

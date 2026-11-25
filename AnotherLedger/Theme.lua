@@ -457,6 +457,48 @@ function Theme.colorToHex(c)
   return string.format("%02x%02x%02x", byte(c[1]), byte(c[2]), byte(c[3]))
 end
 
+-- Pure. r, g, b (0..1) -> hue, saturation, value (all 0..1). Greys have hue 0.
+function Theme.rgbToHsv(r, g, b)
+  local max, min = math.max(r, g, b), math.min(r, g, b)
+  local d = max - min
+  local s = max > 0 and d / max or 0
+  local h = 0
+  if d > 0 then
+    if max == r then
+      h = ((g - b) / d) % 6
+    elseif max == g then
+      h = (b - r) / d + 2
+    else
+      h = (r - g) / d + 4
+    end
+    h = h / 6
+  end
+  return h, s, max
+end
+
+-- Pure. hue, saturation, value (0..1; hue wraps) -> r, g, b (0..1).
+function Theme.hsvToRgb(h, s, v)
+  h = (h % 1) * 6
+  local i = math.floor(h)
+  local f = h - i
+  local p, q, t = v * (1 - s), v * (1 - s * f), v * (1 - s * (1 - f))
+  if i == 0 then return v, t, p end
+  if i == 1 then return q, v, p end
+  if i == 2 then return p, v, t end
+  if i == 3 then return p, q, v end
+  if i == 4 then return t, p, v end
+  return v, p, q
+end
+
+-- Pure. The color r, g, b with saturation `s` (0..1); hue and value kept.
+-- `hue` (optional) is used for greys, which have none of their own.
+function Theme.withSaturation(r, g, b, s, hue)
+  local h, old, v = Theme.rgbToHsv(r, g, b)
+  if old == 0 and hue then h = hue end
+  s = math.min(1, math.max(0, s or 0))
+  return Theme.hsvToRgb(h, s, v)
+end
+
 -- Sets the r, g, b of Theme.colors[key] from "rrggbb", in place (every UI part
 -- holding the table sees the new color; alpha kept). Returns the table, or
 -- nil for an unknown key or bad hex.

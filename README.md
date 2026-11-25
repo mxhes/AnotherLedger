@@ -99,7 +99,8 @@ clock is stopped).
 - **List**: one row per item: icon, name and quantity, and on the right its
   value with a tag saying where it comes from: `Vendor`, `Auction` or
   `Destroy` (disenchant, mill or prospect). With TSM, a second line says how
-  well it sells in your region.
+  well it sells in your region; the game's item tooltips show the same line
+  (`TSM sale info Sells okay, Low volume`).
   A price taken from the cache shows its age, e.g. `(3h)`, in orange once it
   is old; an item with no auction price is marked `?`. New loot flashes (and
   the Session list scrolls to it, see **Scroll to new loot**). Hover a row for
@@ -352,7 +353,7 @@ History asks first.
 | Window | Opacity, Brightness, Scale, Lock window, Snap to grid, Open on first loot, Open in instances, Hide in cities, Start hidden, Hide in combat, Minimap button, Reset minimap button |
 | Prices | AH price source, TSM price, Scan price, Scan reminder, TSM sale info, Sells well / okay from, High / Medium volume from, Price refresh, Old price after, AH cut (5%), Auction from, Destroy values |
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Compact: item icons, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
-| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Session per instance, Session per zone, Zone change delay, Min. session length |
+| Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Pause while traveling, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
 | Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Buttons, Lines, Sunken list, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
@@ -397,7 +398,9 @@ yours; the colors stay as they are. An exported profile that uses one of your
 presets carries its colors, so it looks the same on another account.
 
 **Colors**: click a swatch to pick a color in the game's color picker (the
-window changes while you pick, Cancel puts the old color back); right-click it
+window changes while you pick, Cancel puts the old color back). A
+**Saturation** slider under the picker makes the color paler or stronger
+without changing its hue or brightness. Right-click a swatch
 for the preset's color. **Reset colors** goes back to the chosen preset's
 colors. Tooltips keep the game's dark tooltip on every preset.
 
@@ -463,6 +466,10 @@ window in a dungeon or open it in a city and it stays that way.
 inn, so selling and mailing don't lower your gold per hour; loot and gold
 still count. The compact window says Resting. A clock you stopped yourself
 stays stopped when you leave.
+
+**Pause while traveling** (on by default) does the same on flight paths, boats
+and zeppelins; the compact window says Traveling. Flying on your own mount
+keeps the clock running.
 
 **Min. session length** (2 minutes by default) keeps very short sessions out
 of History: a session with loot shorter than that just continues when a new

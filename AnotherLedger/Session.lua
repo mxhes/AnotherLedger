@@ -308,13 +308,19 @@ end
 
 -- Option "cityPause": in a city (resting) the clock and the place time stand
 -- still while the session keeps running, so loot and gold still count.
-function Session.rest(session, now)
-  if not session.running or session.resting then return end
+-- `reason` ("city" or "travel", option "travelPause") is kept in
+-- session.resting for the header; a rest that only changes reason keeps it.
+function Session.rest(session, now, reason)
+  if not session.running then return end
+  if session.resting then
+    session.resting = reason or session.resting
+    return
+  end
   session.elapsedBase = Session.elapsed(session, now)
   closeStretch(session, now)
   if type(session.at) == "table" then session.at.since = nil end
   session.runningSince = nil
-  session.resting = true
+  session.resting = reason or "city"
 end
 
 function Session.wake(session, now)

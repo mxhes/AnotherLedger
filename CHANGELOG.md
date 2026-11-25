@@ -1,5 +1,12 @@
 # AnotherLedger
 
+## v0.8.0
+
+- Color picker: a Saturation slider under the game's picker.
+- Pause while traveling (on by default): the clock rests on flight paths,
+  boats and zeppelins; loot still counts.
+- Item tooltips show the TSM sale info (sells well / okay, volume).
+
 ## v0.7.2
 
 - Compact layout: hovering a drop shows its item tooltip.

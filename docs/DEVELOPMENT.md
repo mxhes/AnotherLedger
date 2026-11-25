@@ -358,8 +358,14 @@ Each of these is one call in one place; the UI never names them.
   again with today's prices; `/al worth forget <name>` drops a character.
 - **Resting** (`cityPause`, `Core.checkRest` on `PLAYER_UPDATE_RESTING`):
   `Session.rest` keeps `running` true but folds the time into `elapsedBase`
-  and stops the place time (`resting = true`); `Session.wake` restarts it.
+  and stops the place time (`resting = "city"`); `Session.wake` restarts it.
   Loot and gold still count. Stop, reset and login (`resume`) handle it.
+  `travelPause` rests it the same way with `resting = "travel"` (the header
+  says Traveling) while `Core.traveling()`: `UnitOnTaxi`, or the heartbeat's
+  position samples (`Core.sampleTravel`, `UnitPosition` / `GetUnitSpeed` /
+  `IsFalling`) show a transport ride (`Core.transportMoved`: at least
+  `TRANSPORT.MIN_EXTRA` yd/s faster than the own speed, at most
+  `TRANSPORT.MAX`). `PLAYER_CONTROL_LOST` / `GAINED` check it at once.
 - **Short sessions** (`minSessionMinutes`, `Core.isShort`): a session with
   loot shorter than that is not archived by Session per zone / instance; at
   login a short saved session with loot (its `elapsedBase`; demo sessions
