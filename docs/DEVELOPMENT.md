@@ -11,7 +11,6 @@ plans of each feature (history; not kept in sync with the code).
 - Repository: <https://github.com/mxhes/AnotherLedger> (GitHub, branch
   `main`; changes go in through pull requests).
   `git clone https://github.com/mxhes/AnotherLedger.git`
-  Backup: <https://gitlab.com/mhhenjes/lootledger> (remote `gitlab`).
 - Lua 5.1 (the client's version). Local tests may run on 5.4, so avoid 5.2+
   features (`goto`, `//`, `table.unpack`, integer-only APIs).
 - No build step: the client loads `AnotherLedger/*.lua` in the order of
