@@ -8,16 +8,18 @@ plans of each feature (history; not kept in sync with the code).
 
 ## Setup
 
-- Repository: <https://gitlab.com/mhhenjes/lootledger> (GitLab, branch
-  `main`; changes go in through merge requests).
-  `git clone https://gitlab.com/mhhenjes/lootledger.git`
+- Repository: <https://github.com/mxhes/AnotherLedger> (GitHub, branch
+  `main`; changes go in through pull requests).
+  `git clone https://github.com/mxhes/AnotherLedger.git`
+  Backup: <https://gitlab.com/mhhenjes/lootledger> (remote `gitlab`).
 - Lua 5.1 (the client's version). Local tests may run on 5.4, so avoid 5.2+
   features (`goto`, `//`, `table.unpack`, integer-only APIs).
 - No build step: the client loads `AnotherLedger/*.lua` in the order of
   `AnotherLedger/AnotherLedger.toc`. Copy or symlink `AnotherLedger/` into
   `World of Warcraft/<client>/Interface/AddOns/`.
 - Tests: `lua tests/run.lua` from the repo root (exit 1 on any failure).
-  GitLab CI (`.gitlab-ci.yml`) runs them under Lua 5.1 and 5.4 on every push.
+  GitHub Actions (`.github/workflows/ci.yml`) runs them under Lua 5.1 and
+  5.4 on every push to `main` and every pull request.
 - Lint: `luacheck AnotherLedger` (config `.luacheckrc`; CI job `lint`). It
   flags leaked or misspelled globals, unused variables and overwritten
   values. A WoW API the code starts to read goes in `read_globals`, a global
@@ -928,11 +930,10 @@ top directory) with the root `.pkgmeta`. It copies the repo to
 `.release/AnotherLedger/`, and `move-folders` makes the inner `AnotherLedger/` folder
 the one addon folder of the zip (the docs, tests and CI files are ignored). It
 fetches the libraries into `AnotherLedger/Libs/` (git-ignored) and fills in the
-`.toc` version from the git tag. CI builds the zip on every tag (job `package`)
-and offers a manual `package-dry-run` on any branch, which lists the zip's
-files in the job log. A tag uploads the zip to CurseForge (project 1817047,
-`## X-Curse-Project-ID` in the `.toc`) with the protected CI variable
-`CF_API_KEY`, which only pipelines of protected refs get: `v*` tags are
-protected tags (maintainers only). The release notes are the root `CHANGELOG.md` (`manual-changelog` in
+`.toc` version from the git tag. CI builds the zip on every `v*` tag (job `package`); run by hand, its
+`package-dry-run` job builds it without uploading and lists the zip's files in
+the job log. A tag uploads the zip to CurseForge (project 1817047,
+`## X-Curse-Project-ID` in the `.toc`) with the repository secret
+`CF_API_KEY`. The release notes are the root `CHANGELOG.md` (`manual-changelog` in
 `.pkgmeta`), kept short: one line or two per player-visible change, no
 internals. The release steps are in [CHECKLIST.md](CHECKLIST.md).

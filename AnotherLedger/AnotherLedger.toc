@@ -3,7 +3,7 @@
 ## Version: @project-version@
 ## Notes: Session ledger with the vendor, auction house and disenchant value of everything you loot.
 ## Author: Maximilian Henjes
-## X-Website: https://gitlab.com/mhhenjes/lootledger
+## X-Website: https://github.com/mxhes/AnotherLedger
 ## X-Curse-Project-ID: 1817047
 ## SavedVariables: AnotherLedgerDB
 ## SavedVariablesPerCharacter: AnotherLedgerCharDB

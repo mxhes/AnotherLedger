@@ -11,7 +11,7 @@ AnotherLedger was called LootLedger before (that name was taken). If you used
 the old version, remove its `LootLedger` addon folder. Settings and history
 from the old name don't carry over, and the slash command is now `/al`.
 
-- Source code and issues: <https://gitlab.com/mhhenjes/lootledger>
+- Source code and issues: <https://github.com/mxhes/AnotherLedger>
 - Developers: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - In-client checks and release steps: [docs/CHECKLIST.md](docs/CHECKLIST.md)
 
@@ -548,7 +548,7 @@ A `/reload` always keeps the session; a new login starts a fresh one unless
   `AnotherLedger/` folder of the repository there and add the libraries (see
   Requirements).
 - **Bugs and ideas**: open an issue at
-  <https://gitlab.com/mhhenjes/lootledger/-/issues>.
+  <https://github.com/mxhes/AnotherLedger/issues>.
 - **Coming from LootPrice** (the addon's old name): delete the old `LootPrice`
   folder. To keep your History, options and lists, rename the saved files
   `LootPrice.lua` to `AnotherLedger.lua` while the game is closed, in
