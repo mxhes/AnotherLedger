@@ -15,9 +15,8 @@
 - The options list their categories on the left, in every skin; Appearance
   is grouped under Fonts, Skin and Colors.
 - Window titles use the Titles color; History > Mobs values sit flush right.
-- Fixes: button text follows Font outline and Font shadow; the chosen pill
-  tab stands out more; fewer compact drops let the compact window shrink; no
-  more errors from chat lines the game hides from addons.
+- Fixes: button text follows the font outline and shadow; clearer chosen
+  pill tab; no errors from chat lines hidden from addons.
 
 ## v0.7.2
 
