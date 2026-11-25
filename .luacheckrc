@@ -1,4 +1,4 @@
--- luacheck config (https://github.com/lunarmodules/luacheck), run in GitLab CI
+-- luacheck config (https://github.com/lunarmodules/luacheck), run in GitHub Actions
 -- (job `lint`) and locally with `luacheck AnotherLedger`. It checks the addon
 -- code for leaked or misspelled globals, unused variables and overwritten
 -- values. A new WoW API the code reads goes in `read_globals`; a global the

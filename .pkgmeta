@@ -2,7 +2,7 @@
 #
 # Layout: the repo root is NOT the addon folder; the addon lives in AnotherLedger/.
 # The packager must run from the repo root (it needs the git checkout there,
-# see .gitlab-ci.yml) and copies it into .release/AnotherLedger/. move-folders
+# see .github/workflows/ci.yml) and copies it into .release/AnotherLedger/. move-folders
 # then makes the inner AnotherLedger/ folder (the .toc and the code) the one
 # addon folder of the zip; the externals land in its Libs/.
 package-as: AnotherLedger
@@ -31,4 +31,4 @@ ignore:
   - docs
   - tests
   - tools
-  - .gitlab-ci.yml
+  - .github
