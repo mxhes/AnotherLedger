@@ -540,7 +540,13 @@ Each of these is one call in one place; the UI never names them.
   right-click Rename, at most `History.LABEL_MAX`) replaces the main place in
   line 2 of the row only; `places`, Zones and the CSV keep the real ones. A
   merge keeps the newer session's label.
-- **Options window height**: `Panel.tabbedHeight(section, columns)` per tab;
+- **Options categories**: a list down the left side (`Panel.nav`, one button
+  per `Options.sections()` entry, colors from `Panel.navLook`: the chosen one
+  filled with a `tabBorderSelected` bar, the same for every skin), a divider,
+  then the section's options in two columns. The list is `Theme.options.navWidth`
+  wide or as wide as its longest label (`Panel.navWidth`).
+- **Options window height**: `Panel.tabbedHeight(section, columns, count)` per
+  section (at least the list's height);
   `tabbed.select` calls `tabbed.onResize`, which re-anchors a CENTER-placed
   panel by its TOP and sets the height. `db.optionsWindow` = `{ x, top }`
   (offset of the top edge's middle from the screen's top middle); an older

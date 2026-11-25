@@ -38,6 +38,14 @@ Everything up to v0.7.1 is confirmed in the client, except:
   underline; every other list row is shaded, no row lines; text is Inter
   (Font option lists Inter and Inter SemiBold); colors are Polaris. Header,
   option labels and footer fit in English and German with Inter.
+- Options categories on the left (`Panel.nav`): every category fits its
+  button in English and German, the chosen one is filled with a colored bar
+  on its left, hovering half fills the others; same in Esc > Options >
+  AddOns > AnotherLedger; the divider runs down to the bottom of the options.
+- Button text (`Widgets.button`, label no longer the button's own font
+  string): Font outline Thick outline outlines every button's text (Reset,
+  dropdowns, Start); Font shadow off removes its shadow; hover / disabled
+  colors still change.
 - Compact drops: hovering a drop shows the item tooltip with its values;
   Shift-click links it in chat; dragging a drop still moves the window.
 

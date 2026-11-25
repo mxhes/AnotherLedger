@@ -449,8 +449,14 @@ Theme.widths = {
 Theme.options = {
   columnWidth = 210,
   columnGap = 16,
-  titleHeight = 22, -- the window title above the tab row
-  tabGap = 8, -- between the tab row and the options
+  titleHeight = 22, -- the window title above the category list
+  -- The category list on the left (UI/OptionsPanel.lua Panel.nav)
+  navWidth = 120, -- at least; wider when a label needs it
+  navItemHeight = 24,
+  navItemGap = 2,
+  navBar = 2, -- the accent bar on the chosen category
+  navTextPad = 10,
+  navGap = 17, -- between the list and the options (the divider in its middle)
   control = 150, -- width of a button, dropdown or slider
   controlTop = 17, -- a control under its label
   checkbox = 20,

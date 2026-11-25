@@ -1026,6 +1026,14 @@ h.test("wiring: the font outline and shadow options restyle the text live and re
   h.eq(S.textOverhang, 0); h.eq(S.tagTextShift, 0); h.eq(S.tagPadExtra, 0)
   ns.Options.set(ns.db, "fontOutline", "bogus") -- refused: the saved value stays valid
   h.eq(ns.Options.get(ns.db, "fontOutline") ~= "bogus", true)
+  -- Button text is the button's plain label, never the game's own button
+  -- text (which the game redraws with its state fonts, without the outline)
+  local fontStrings = 0
+  methods.SetFontString = function() fontStrings = fontStrings + 1 end
+  local b = ns.UI.Widgets.button(ns.UI.Window.frame, "Reset")
+  methods.SetFontString = nil
+  b:SetText("Start")
+  h.eq(b.label:GetText(), "Start"); h.eq(b:GetText(), "Start"); h.eq(fontStrings, 0)
   L.relayout, F.applyStyle = realRelayout, realStyle
   h.eq(ctx.errors, {})
 end)
@@ -1282,7 +1290,7 @@ h.test("wiring: hovering an option shows its tooltip with the default", function
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: the options panel has a tab per category, one page shown at a time", function()
+h.test("wiring: the options panel lists the categories on the left, one page shown at a time", function()
   local ctx = boot()
   startWorld(ctx, false)
   local P, O = ctx.ns.UI.OptionsPanel, ctx.ns.Options
@@ -1290,19 +1298,19 @@ h.test("wiring: the options panel has a tab per category, one page shown at a ti
   local tabbed = P.frame.tabbed
   local sections = O.sections()
   local first, second = sections[1].id, sections[2].id
-  for _, s in ipairs(sections) do h.eq(tabbed.strip.buttons[s.id] ~= nil, true, s.id) end
+  for _, s in ipairs(sections) do h.eq(tabbed.nav.buttons[s.id] ~= nil, true, s.id) end
   h.eq(tabbed.pages[first]:IsShown(), true)
   h.eq(tabbed.pages[second]:IsShown(), false)
-  h.eq(tabbed.strip.selected, first)
+  h.eq(tabbed.nav.selected, first)
   -- clicking another tab shows its page only
-  tabbed.strip.buttons[second]._scripts.OnClick()
+  tabbed.nav.buttons[second]._scripts.OnClick()
   h.eq(tabbed.pages[first]:IsShown(), false)
   h.eq(tabbed.pages[second]:IsShown(), true)
   h.eq(P.tab, second)
   -- the options page in the game's window opens on the same tab
   local page = P.registerPage()
   page._scripts.OnShow(page)
-  h.eq(page.tabbed.strip.selected, second)
+  h.eq(page.tabbed.nav.selected, second)
   -- the panel is as tall as the shown tab needs
   local height = P.frame:GetHeight()
   tabbed.select(first)
@@ -3156,18 +3164,35 @@ h.test("wiring: import through the box creates and activates a profile", functio
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: the options window is wide enough for every tab", function()
+h.test("wiring: the options category list fits its labels; the chosen one is marked", function()
   local ctx = boot()
   startWorld(ctx, false)
   local ns = ctx.ns
-  ns.UI.OptionsPanel.toggle()
-  local frame = ns.UI.OptionsPanel.frame
-  local S = ns.Theme.sizes
-  local extent, n = 0, 0
-  for _, b in pairs(frame.tabbed.strip.buttons) do extent, n = extent + b:GetWidth(), n + 1 end
-  extent = extent + (n - 1) * S.buttonGap
+  local P = ns.UI.OptionsPanel
+  P.toggle()
+  local frame = P.frame
+  local O = ns.Theme.options
+  local n, first = 0, nil
+  for key, b in pairs(frame.tabbed.nav.buttons) do
+    n = n + 1
+    h.eq(b:GetWidth() >= O.navWidth, true)
+    first = first or key
+  end
   h.eq(n, #ns.Options.sections())
-  h.eq(frame:GetWidth() >= extent + 2 * (S.padding + 4), true)
+  h.eq(P.navWidth({ 500 }), 500 + 2 * O.navTextPad + O.navBar)
+  h.eq(P.navWidth({}), O.navWidth)
+  -- the window holds the list, the gap and the two option columns
+  h.eq(frame:GetWidth(), 2 * (ns.Theme.sizes.padding + 4) + frame.tabbed.width)
+  frame.tabbed.select(first)
+  local b = frame.tabbed.nav.buttons[first]
+  h.eq(b.bar:IsShown(), true)
+  for key, other in pairs(frame.tabbed.nav.buttons) do
+    if key ~= first then h.eq(other.bar:IsShown(), false) end
+  end
+  local c = ns.Theme.colors
+  h.eq(P.navLook(true, false), { fill = c.buttonFill, fillAlpha = 1, bar = c.tabBorderSelected, text = c.tabTextSelected })
+  h.eq(P.navLook(false, true).fillAlpha, 0.5)
+  h.eq(P.navLook(false, false), { fill = c.buttonFill, fillAlpha = 0, bar = false, text = c.tabText })
   h.eq(ctx.errors, {})
 end)
 

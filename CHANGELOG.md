@@ -10,6 +10,8 @@
   thin rounded edge, pill tabs, shaded rows, the Inter font and Polaris colors.
 - Picking Modern sets its font and colors too; existing setups keep their look.
 - Inter and Inter SemiBold are new Font choices, Polaris a new color preset.
+- The options list their categories on the left, in every skin.
+- Fixes: button text follows Font outline and Font shadow.
 
 ## v0.7.2
 

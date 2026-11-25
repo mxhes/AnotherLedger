@@ -340,7 +340,8 @@ then your own sales (Trade tab), then the last price seen earlier. If the
 ## Options
 
 Open them with the gear, a right-click on the minimap button, or Esc >
-Options > AddOns > AnotherLedger. Hover any option for what it does and its
+Options > AddOns > AnotherLedger. The categories are listed on the left; pick
+one to see its options. Hover any option for what it does and its
 default. Changes apply at once. Drag the options window to move it; it opens
 there from then on (until then, next to the ledger). **Opacity** and
 **Brightness** apply to the options window as well. **Lock window** also
