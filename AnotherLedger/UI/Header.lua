@@ -18,6 +18,7 @@ local L_TO_COMPACT = L["Compact window (or double-click the title)"]
 local L_TO_FULL = L["Full window (or double-click the title)"]
 local L_PAUSED = L["Paused"]
 local L_RESTING = L["Resting"]
+local L_TRAVELING = L["Traveling"]
 local L_CLOCK_HINT = L["Click: start / stop the session"]
 local L_RESET_CONFIRM = L["Reset the session? It is saved to History, then the loot and the clock start again from zero."]
 
@@ -201,10 +202,12 @@ function Header.attach(row, handlers)
     self.reset:SetShown(not compact and self.sessionShown)
     -- Stopped: compact shows the red Paused marker next to a dimmed clock; the
     -- full header has no room for the word, so the clock itself turns red.
-    -- Resting (Pause in cities): the same marker, saying Resting.
+    -- Resting (Pause in cities / while traveling): the same marker, saying
+    -- Resting or Traveling.
     local stopped = self.running == false
-    local resting = not stopped and self.resting == true
-    self.pausedText:SetText(resting and L_RESTING or L_PAUSED)
+    local resting = not stopped and (self.resting == "city" or self.resting == "travel")
+    local restText = self.resting == "travel" and L_TRAVELING or L_RESTING
+    self.pausedText:SetText(resting and restText or L_PAUSED)
     self.pausedText:SetShown(compact and (stopped or resting))
     local color = T.colors.ink
     if stopped or resting then color = compact and T.colors.buttonTextDisabled or T.colors.stale end
@@ -230,7 +233,7 @@ function Header.attach(row, handlers)
   -- The button only changes when the running state does.
   function header:SetRunning(running, resting)
     running = running and true or false
-    resting = resting and true or false
+    resting = resting == "travel" and "travel" or (resting and "city" or false)
     if running == self.running and resting == self.resting then return end
     self.running, self.resting = running, resting
     self.toggle:SetText(Header.toggleState(running).label)

@@ -46,7 +46,7 @@ read_globals = {
   "StaticPopup_Show", "ToggleDropDownMenu", "UIDropDownMenu_AddButton",
   "UIDropDownMenu_CreateInfo", "UIDropDownMenu_Initialize", "UnitGUID",
   "UnitIsAFK", "UnitLevel", "UnitName", "UnitOnTaxi", "geterrorhandler",
-  "hooksecurefunc",
+  "hooksecurefunc", "UnitPosition", "GetUnitSpeed", "IsFalling",
   -- global strings
   "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT", "AUCTION_SOLD_MAIL_SUBJECT",
   "ERR_AUCTION_SOLD_S", "ERR_TRADE_COMPLETE",

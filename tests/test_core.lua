@@ -500,3 +500,15 @@ h.test("Core.watchMatch: by item ID or a text the name contains, case ignored", 
   h.eq(Core.watchMatch(6, "Linen Cloth", { [5] = true }, { ["pattern:"] = "Pattern:" }), false)
   h.eq(Core.watchMatch(nil, nil, nil, nil), false)
 end)
+
+h.test("Core.transportMoved: carried faster than the own speed, not falling or teleporting", function()
+  local function at(x, y, t, map) return { x = x, y = y, t = t, map = map or 0 } end
+  h.eq(Core.transportMoved(at(0, 0, 0), at(60, 0, 5), 0, false), true) -- 12 yd/s standing on a boat
+  h.eq(Core.transportMoved(at(0, 0, 0), at(30, 40, 5), 7, false), true) -- 10 yd/s, walking 7: 3 more
+  h.eq(Core.transportMoved(at(0, 0, 0), at(35, 0, 5), 7, false), false) -- own running
+  h.eq(Core.transportMoved(at(0, 0, 0), at(60, 0, 5), 0, true), false) -- falling
+  h.eq(Core.transportMoved(at(0, 0, 0), at(1000, 0, 5), 0, false), false) -- teleport
+  h.eq(Core.transportMoved(at(0, 0, 0), at(60, 0, 5, 1), 0, false), false) -- another map
+  h.eq(Core.transportMoved(false, at(60, 0, 5), 0, false), false)
+  h.eq(Core.transportMoved(at(0, 0, 5), at(60, 0, 5), 0, false), false) -- no time passed
+end)

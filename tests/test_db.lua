@@ -12,7 +12,7 @@ h.test("DB.defaults shape", function()
     alertGold = 0, alertSound = false,
     fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
     countCrafted = false, showCurrencies = true, hideWorthless = false, itemTooltipDrops = true, itemTooltipTrend = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, compactDrops = 4, compactIcons = false, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, resetNote = false, instanceSession = false,
-    zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true,
+    zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true, travelPause = true,
     goalGold = 0, goalMinutes = 0, unitPrice = false, hideVendorTag = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, scanPrice = "market", scanReminder = true, soldHigh = 100, soldMedium = 10,
     skin = "classic", skinBorder = "round", skinButtons = "bronze", skinLines = "gold",

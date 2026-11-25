@@ -13,7 +13,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "keepSession", "countCrafted", "priceSource", "tsmSource", "scanPrice", "scanReminder", "showMarket", "saleRateGood", "saleRateOk",
     "soldHigh", "soldMedium", "refreshSeconds", "staleHours", "ahCut", "ahMinGain", "destroyMode", "defaultSort",
     "goldDisplay", "coinIcons", "rawGold",
-    "sessionChat", "resetNote", "afkPause", "cityPause", "instanceSession", "zoneSession", "zoneSessionMinutes", "minSessionMinutes",
+    "sessionChat", "resetNote", "afkPause", "cityPause", "travelPause", "instanceSession", "zoneSession", "zoneSessionMinutes", "minSessionMinutes",
     "alertGold", "alertSound", "goalGold", "goalMinutes",
     "showCurrencies", "hideWorthless", "itemTooltipDrops", "itemTooltipTrend", "dailyFarm", "dailyFarmMinutes", "dailyFarmLevel", "accountZones", "showTopFinds", "compactDrops", "compactIcons",
     "showIcons", "unitPrice", "hideVendorTag", "ignoredItems", "keptItems", "watchedItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",

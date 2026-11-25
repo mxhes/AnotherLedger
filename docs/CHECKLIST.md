@@ -19,6 +19,17 @@ Everything up to v0.7.1 is confirmed in the client, except:
 - Trade, mails taken: after emptying the mailbox, a second equal sale
   (same item, amount and price) arriving within a few minutes still counts
   (`GetInboxNumItems` second return is the total in the inbox).
+- Saturation slider (`UI/Widgets.lua` `saturationDock`): opening a color
+  swatch shows a Saturation slider under the game's color picker at the
+  color's saturation; dragging it changes the color live (hue and
+  brightness kept), dragging the wheel moves it, Cancel restores the color;
+  a picker opened by another addon or the game shows no slider.
+- Pause while traveling (`Core.sampleTravel`): on a flight path and while
+  standing on a boat / zeppelin the compact window says Traveling and the
+  clock stands; walking on the deck may wake it; running, flying on your own
+  mount, falling or a portal never rest it.
+- Item tooltips with TSM: the `TSM sale info` line shows the levels in their
+  colors.
 - Compact drops: hovering a drop shows the item tooltip with its values;
   Shift-click links it in chat; dragging a drop still moves the window.
 

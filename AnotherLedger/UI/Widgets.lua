@@ -763,12 +763,97 @@ end
 -- Cancel. Returns whether the picker opened (false without it, in the tests).
 -- SetupColorPickerAndShow and GetColorRGB; the legacy fields (func,
 -- cancelFunc) are the older fallback.
+-- Saturation slider docked under the picker (only while AnotherLedger opened
+-- it): moving it sets the color's saturation and keeps hue and brightness;
+-- moving the wheel moves the slider.
+-- UNVERIFIED (check in client): ColorPickerFrame.Content.ColorPicker (the
+-- ColorSelect; older clients: ColorPickerFrame itself) with SetColorRGB and an
+-- OnColorSelect script, and OptionsSliderTemplate parented to the picker.
+local L_SATURATION = ns.L["Saturation"]
+local satDock = false
+
+local function colorSelect(cp)
+  local content = type(cp.Content) == "table" and cp.Content or nil
+  local sel = content and type(content.ColorPicker) == "table" and content.ColorPicker or cp
+  if type(sel.SetColorRGB) ~= "function" then return nil end
+  return sel
+end
+
+local function saturationDock(cp)
+  if satDock then return satDock end
+  if type(CreateFrame) ~= "function" then return nil end
+  local sel = colorSelect(cp)
+  if not sel then return nil end
+  local T = ns.Theme
+  local dock = CreateFrame("Frame", nil, cp, "BackdropTemplate")
+  dock:SetSize(220, 44)
+  dock:SetPoint("TOP", cp, "BOTTOM", 0, 2)
+  if dock.SetBackdrop then
+    dock:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12,
+      insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    dock:SetBackdropColor(0, 0, 0, 0.9)
+  end
+  local slider = CreateFrame("Slider", nil, dock, "OptionsSliderTemplate")
+  slider:SetPoint("BOTTOM", dock, "BOTTOM", 0, 8)
+  slider:SetWidth(190)
+  slider:SetMinMaxValues(0, 100)
+  slider:SetValueStep(1)
+  if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
+  for _, part in ipairs({ "Low", "High" }) do
+    if type(slider[part]) == "table" and slider[part].SetText then slider[part]:SetText("") end
+  end
+  dock.slider, dock.syncing, dock.hue = slider, false, 0
+
+  local function show(pct)
+    if type(slider.Text) == "table" and slider.Text.SetText then
+      slider.Text:SetText(L_SATURATION .. ": " .. math.floor(pct + 0.5) .. "%")
+    end
+  end
+  -- The slider follows the picker's color (wheel, value bar, hex box).
+  function dock.sync()
+    local h, s = T.rgbToHsv(cp:GetColorRGB())
+    if s > 0 then dock.hue = h end
+    dock.syncing = true
+    slider:SetValue(s * 100)
+    dock.syncing = false
+    show(s * 100)
+  end
+  slider:SetScript("OnValueChanged", function(_, value)
+    show(value)
+    if dock.syncing or not dock:IsShown() then return end
+    local cr, cg, cb = cp:GetColorRGB()
+    local r, g, b = T.withSaturation(cr, cg, cb, value / 100, dock.hue)
+    dock.syncing = true
+    sel:SetColorRGB(r, g, b) -- fires OnColorSelect: the picker's swatchFunc runs
+    dock.syncing = false
+  end)
+  if type(sel.HookScript) == "function" then
+    sel:HookScript("OnColorSelect", function()
+      if dock:IsShown() and not dock.syncing then dock.sync() end
+    end)
+  end
+  if type(cp.HookScript) == "function" then
+    cp:HookScript("OnHide", function() dock:Hide() end)
+  end
+  dock:Hide()
+  satDock = dock
+  return dock
+end
+
 function Widgets.pickColor(hex, onChange)
   local cp = ColorPickerFrame
   if type(cp) ~= "table" or type(cp.GetColorRGB) ~= "function" then return false end
   local T = ns.Theme
   local r, g, b = T.hexToRGB(hex)
   if not r then r, g, b = 1, 1, 1 end
+  local function dock()
+    local d = saturationDock(cp)
+    if d then
+      d:Show()
+      d.sync()
+    end
+  end
   local function changed()
     local nr, ng, nb = cp:GetColorRGB()
     onChange(T.colorToHex({ nr, ng, nb }))
@@ -785,6 +870,7 @@ function Widgets.pickColor(hex, onChange)
     cp:Hide()
     cp:Show()
   end
+  dock()
   return true
 end
 

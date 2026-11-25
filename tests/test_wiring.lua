@@ -3339,7 +3339,7 @@ h.test("wiring: Pause in cities freezes the clock while resting, loot and quest 
   startWorld(ctx, false)
   local ns = ctx.ns
   h.eq(ns.Options.get(ns.db, "cityPause"), true)
-  h.eq(ns.session.resting, true) -- logged in inside a city
+  h.eq(ns.session.resting, "city") -- logged in inside a city
   ctx.now = ctx.now + 100
   h.eq(ns.Session.elapsed(ns.session, ctx.now), 0)
   fire(ctx, "CHAT_MSG_LOOT", LOOT)
@@ -3366,7 +3366,7 @@ h.test("wiring: Pause in cities freezes the clock while resting, loot and quest 
   -- Start inside a city: rests at once
   resting = true
   slash(ctx, "start")
-  h.eq(ns.session.resting, true)
+  h.eq(ns.session.resting, "city")
   -- Option off: the clock runs in the city
   ns.Options.set(ns.db, "cityPause", false)
   h.eq(ns.session.resting, nil)
@@ -4902,4 +4902,85 @@ h.test("wiring: the sunken list box sits above the window and below the list", f
   local win = ctx.ns.UI.Window.frame
   h.eq(win.listBox:GetFrameLevel() > win:GetFrameLevel(), true)
   h.eq(win.listArea:GetFrameLevel() > win.listBox:GetFrameLevel(), true)
+end)
+
+h.test("wiring: Pause while traveling rests the clock on flights and transports", function()
+  local ctx = boot()
+  local state = { taxi = false, x = 0, speed = 0 }
+  ctx.env.UnitOnTaxi = function() return state.taxi end
+  ctx.env.UnitPosition = function() return 0, state.x, 0, 1 end
+  ctx.env.GetUnitSpeed = function() return state.speed end
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local H = ns.UI.Header.instance
+  slash(ctx, "compact")
+  h.eq(ns.Options.get(ns.db, "travelPause"), true)
+  ns.Core.heartbeat()
+  h.eq(ns.session.resting, nil)
+  -- A flight path
+  state.taxi = true
+  fire(ctx, "PLAYER_CONTROL_LOST")
+  h.eq(ns.session.resting, "travel")
+  h.eq(H.pausedText:GetText(), ns.L["Traveling"])
+  ctx.now = ctx.now + 100
+  h.eq(ns.Session.elapsed(ns.session, ctx.now), 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589].qty, 3) -- loot still counts
+  state.taxi = false
+  fire(ctx, "PLAYER_CONTROL_GAINED")
+  h.eq(ns.session.resting, nil)
+  -- Standing on a boat: carried 60 yards in 5 seconds
+  ctx.now = ctx.now + 5
+  ns.Core.heartbeat()
+  state.x = 60
+  ctx.now = ctx.now + 5
+  ns.Core.heartbeat()
+  h.eq(ns.session.resting, "travel")
+  -- Arrived: standing still again
+  ctx.now = ctx.now + 5
+  ns.Core.heartbeat()
+  h.eq(ns.session.resting, nil)
+  -- Running on foot is no ride
+  state.speed = 7
+  state.x = 95
+  ctx.now = ctx.now + 5
+  ns.Core.heartbeat()
+  h.eq(ns.session.resting, nil)
+  -- A stopped clock stays stopped on a flight; option off: the flight counts
+  slash(ctx, "stop")
+  state.taxi = true
+  fire(ctx, "PLAYER_CONTROL_LOST")
+  h.eq(ns.session.running, false)
+  slash(ctx, "start")
+  h.eq(ns.session.resting, "travel")
+  ns.Options.set(ns.db, "travelPause", false)
+  h.eq(ns.session.resting, nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: item tooltips show the TSM sale info, off with TSM sale info", function()
+  local ctx = boot()
+  local onItem
+  ctx.env.Enum = { TooltipDataType = { Item = 0 } }
+  ctx.env.TooltipDataProcessor = { AddTooltipPostCall = function(kind, fn)
+    if kind == 0 then onItem = fn end
+  end }
+  local tsm = { ["DBRegionSaleRate * 1000"] = 250, ["DBRegionSoldPerDay * 100"] = 500, DBMarket = 900 }
+  ctx.env.TSM_API = { GetCustomPriceValue = function(src) return tsm[src] end }
+  startWorld(ctx, false)
+  local ns = ctx.ns
+  local function tooltipFor(link)
+    local tip = { lines = {} }
+    function tip:GetItem() return "Linen Cloth", link end
+    function tip:AddLine(t) self.lines[#self.lines + 1] = t end
+    function tip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = l .. " = " .. r end
+    function tip:Show() end
+    onItem(tip)
+    return (table.concat(tip.lines, " / "):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+  end
+  local text = tooltipFor(LINK)
+  h.eq(text:find(ns.L["TSM sale info"] .. " = Sells okay, Low volume", 1, true) ~= nil, true)
+  ns.Options.set(ns.db, "showMarket", false)
+  h.eq(tooltipFor(LINK):find(ns.L["TSM sale info"], 1, true), nil)
+  h.eq(ctx.errors, {})
 end)

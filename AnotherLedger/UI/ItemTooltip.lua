@@ -54,13 +54,33 @@ function ItemTooltip.trendLine(change, source)
   return L_TREND, text, color
 end
 
+local L_SALE = L["TSM sale info"]
+
+-- Pure. The sale info text of a price lookup `info` (saleRate, soldPerDay)
+-- with the level cutoffs `cutoffs` (UI.Ledger.marketCutoffs), e.g. "Sells
+-- okay, Low volume" in the level colors; nil without cutoffs or TSM data.
+function ItemTooltip.marketText(info, cutoffs, colors)
+  if type(info) ~= "table" or type(cutoffs) ~= "table" then return nil end
+  local rate, volume = ns.View.marketLevels(info.saleRate, info.soldPerDay, cutoffs)
+  if not (rate or volume) then return nil end
+  return ns.UI.Rows.marketText({ rateLevel = rate, volumeLevel = volume }, colors)
+end
+
+local function saleText(id, link)
+  local UI, Core = ns.UI, ns.Core
+  if not (UI.Ledger and UI.Ledger.marketCutoffs and UI.Rows and Core and Core.lookupPrice) then return nil end
+  local cutoffs = UI.Ledger.marketCutoffs(ns.db)
+  if not cutoffs then return nil end
+  return ItemTooltip.marketText(Core.lookupPrice(id, link), cutoffs, ns.Theme.colors)
+end
+
 local function option(key)
   return ns.db and ns.Options and ns.Options.get(ns.db, key) and true or false
 end
 
--- Adds the lines for the item with `link` to `tooltip`: the price trend
--- (option "itemTooltipTrend") and the drop chances (option
--- "itemTooltipDrops"). Returns whether it added any.
+-- Adds the lines for the item with `link` to `tooltip`: the TSM sale info
+-- (option "showMarket"), the price trend (option "itemTooltipTrend") and the
+-- drop chances (option "itemTooltipDrops"). Returns whether it added any.
 function ItemTooltip.add(tooltip, link)
   if not (ns.db and ns.Options) then return false end
   if type(tooltip) ~= "table" or type(tooltip.AddLine) ~= "function" then return false end
@@ -73,9 +93,14 @@ function ItemTooltip.add(tooltip, link)
     change, source = ns.Core.priceTrend(_G, ns.db, id, link, time())
   end
   local lines = option("itemTooltipDrops") and ns.View.dropTooltipLines(ItemTooltip.index(), id) or nil
-  if not (change or lines) then return false end
+  local sale = saleText(id, link)
+  if not (change or lines or sale) then return false end
   local C = ns.Theme.colors
   tooltip:AddLine(" ")
+  if sale then
+    tooltip:AddDoubleLine(L_SALE, sale, C.tipLabel[1], C.tipLabel[2], C.tipLabel[3],
+      C.tipValue[1], C.tipValue[2], C.tipValue[3])
+  end
   if change then
     local left, right, color = ItemTooltip.trendLine(change, source)
     local c = C[color] or C.tipValue
