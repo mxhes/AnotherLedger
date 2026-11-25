@@ -30,6 +30,14 @@ Everything up to v0.7.1 is confirmed in the client, except:
   mount, falling or a portal never rest it.
 - Item tooltips with TSM: the `TSM sale info` line shows the levels in their
   colors.
+- Modern skin (new installs; or pick Skin: Modern): the window edge is a thin
+  line with small rounded corners on all four sides and no fill outside the
+  corners (`Media/Skins/Rounded.tga`, top and bottom tiles of the backdrop
+  edge strip are rotated: a wrong side shows as a line on the inside of
+  that edge); tabs are flat pills, the chosen one filled with a blue
+  underline; every other list row is shaded, no row lines; text is Inter
+  (Font option lists Inter and Inter SemiBold); colors are Polaris. Header,
+  option labels and footer fit in English and German with Inter.
 - Compact drops: hovering a drop shows the item tooltip with its values;
   Shift-click links it in chat; dragging a drop still moves the window.
 

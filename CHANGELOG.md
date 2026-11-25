@@ -6,6 +6,10 @@
 - Pause while traveling (on by default): the clock rests on flight paths,
   boats and zeppelins; loot still counts.
 - Item tooltips show the TSM sale info (sells well / okay, volume).
+- New Modern skin, the look of new installations: flat navy window with a
+  thin rounded edge, pill tabs, shaded rows, the Inter font and Polaris colors.
+- Picking Modern sets its font and colors too; existing setups keep their look.
+- Inter and Inter SemiBold are new Font choices, Polaris a new color preset.
 
 ## v0.7.2
 

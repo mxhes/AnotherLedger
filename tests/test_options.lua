@@ -19,7 +19,7 @@ h.test("Options: the built-in options are registered in panel order", function()
     "showIcons", "unitPrice", "hideVendorTag", "ignoredItems", "keptItems", "watchedItems", "followLoot", "fontFace", "fontOutline", "fontShadow", "fontSizeRows", "fontSizeTotals",
     "fontSizeTitles", "minimapButton", "minimapReset",
     "exportHistory", "clearHistory", "historyLimit", "tradeLogDays", "mobDataDays",
-    "skin", "skinBorder", "skinButtons", "skinLines", "skinListBox",
+    "skin", "skinBorder", "skinButtons", "skinLines", "skinListBox", "skinTabs",
     "colorPreset", "colorText", "colorTitles", "colorHints", "colorVendor", "colorAuction", "colorDestroy", "colorTipLabels",
     "colorBackground", "colorBorder", "colorButtons", "resetColors", "deleteColorPreset" })
   -- every option but a button has its default in DB.defaults.settings
@@ -386,10 +386,10 @@ h.test("Options: color defaults match the theme colors they set", function()
   end
 end)
 
-h.test("Options: default colors are white text, cream vendor, blue AH, grey destroy", function()
+h.test("Options: default colors (Polaris) are white text, pale vendor, blue AH, grey destroy", function()
   local d = function(k) return O.defaultFor(k) end
   h.eq(d("colorText"), "ffffff")
-  h.eq(d("colorVendor"), "eddeb8")
+  h.eq(d("colorVendor"), "e0e6f0")
   h.eq(d("colorAuction"), "80d1ff")
   h.eq(d("colorDestroy"), "b3b3b3")
   h.eq(ns.Theme.colors.tipValue, { 1, 1, 1, 1 })
@@ -400,7 +400,7 @@ h.test("Options.normalize: a color takes rrggbb (any case, # allowed), else the 
   h.eq(O.normalize(spec, "FF8000"), "ff8000")
   h.eq(O.normalize(spec, " #00aaFF "), "00aaff")
   for _, bad in ipairs({ "fff", "zzzzzz", "ff80001", 5, false }) do
-    h.eq(O.normalize(spec, bad), "eddeb8", tostring(bad))
+    h.eq(O.normalize(spec, bad), "e0e6f0", tostring(bad))
   end
   h.eq(O.valueText(spec, "ff8000"), "#FF8000")
 end)
@@ -419,7 +419,7 @@ h.test("Options.set on a color changes the theme color in place, alpha kept", fu
   ns.db = db
   O.spec("resetColors").action()
   ns.db = saved
-  h.eq(db.settings.colorBackground, "261a0f")
+  h.eq(db.settings.colorBackground, "1c2234")
   h.eq(ns.Theme.colorToHex(ns.Theme.colors.ink), "ffffff")
 end)
 
@@ -428,7 +428,7 @@ end)
 local function hex(key) return ns.Theme.colorToHex(ns.Theme.colors[key]) end
 local function presetHex(id, key) return ns.Theme.preset(id).colors[key] end
 
-h.test("colorPreset is the first color option of Look: four presets and Save as preset", function()
+h.test("colorPreset is the first color option of Look: five presets and Save as preset", function()
   local first
   for _, s in ipairs(O.list()) do
     if s.category == "look" and s.key:match("^color") then first = s; break end
@@ -437,12 +437,12 @@ h.test("colorPreset is the first color option of Look: four presets and Save as 
   h.eq(first.type, "dropdown")
   local values = {}
   for _, c in ipairs(O.choices(first)) do values[#values + 1] = c.value end
-  h.eq(values, { "anotherledger", "blizzard", "midnight", "tsm", O.CUSTOM })
+  h.eq(values, { "anotherledger", "blizzard", "midnight", "polaris", "tsm", O.CUSTOM })
   h.eq(#first.label <= 24, true)
-  h.eq(O.defaultFor("colorPreset"), "anotherledger")
+  h.eq(O.defaultFor("colorPreset"), "polaris")
   -- The save entry is never a stored value; the removed Parchment neither.
-  h.eq(O.normalize(first, O.CUSTOM), "anotherledger")
-  h.eq(O.normalize(first, "parchment"), "anotherledger")
+  h.eq(O.normalize(first, O.CUSTOM), "polaris")
+  h.eq(O.normalize(first, "parchment"), "polaris")
 end)
 
 h.test("picking a preset writes the 11 colors", function()
@@ -473,7 +473,7 @@ h.test("own color preset: saved from the current colors, listed, picked back", f
   -- listed after the built-in ones, before the save entry
   local values = {}
   for _, c in ipairs(O.choices(O.spec("colorPreset"))) do values[#values + 1] = c.value end
-  h.eq(values, { "anotherledger", "blizzard", "midnight", "tsm", "user:Mine", O.CUSTOM })
+  h.eq(values, { "anotherledger", "blizzard", "midnight", "polaris", "tsm", "user:Mine", O.CUSTOM })
   -- another preset, then back: the own colors on the base's other colors
   O.pick(d, "colorPreset", "tsm")
   h.eq(d.settings.colorText, presetHex("tsm", "ink"))
@@ -531,7 +531,7 @@ h.test("Save as preset opens a name prompt and stores nothing itself", function(
   ns.db = d
   local asked, savedUI = nil, ns.UI
   ns.UI = { Widgets = { prompt = function(text, accept, initial, fn) asked = fn end } }
-  h.eq(O.pick(d, "colorPreset", O.CUSTOM), "anotherledger")
+  h.eq(O.pick(d, "colorPreset", O.CUSTOM), "polaris")
   h.eq(d.settings.colorPreset, nil)
   asked("Night")
   h.eq(d.settings.colorPreset, "user:Night")
@@ -669,7 +669,7 @@ h.test("skin options: bad saved values fall back to the skin's part", function()
   h.eq(O.get(ns.db, "skinBorder"), "thin")
   h.eq(O.get(ns.db, "skinListBox"), false)
   ns.db.settings.skin = "nope"
-  h.eq(O.get(ns.db, "skin"), "classic"); h.eq(O.get(ns.db, "skinBorder"), "round")
+  h.eq(O.get(ns.db, "skin"), "modern"); h.eq(O.get(ns.db, "skinBorder"), "rounded")
   ns.db = saved
 end)
 

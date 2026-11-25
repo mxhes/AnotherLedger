@@ -443,8 +443,12 @@ end
 -- Inset of the visible edge line inside the tab's frame (the edge texture
 -- draws its line a little inside its own square).
 -- Square tabs (any border but Round) draw their 1 px edge at the frame edge.
+local function pills()
+  return ns.Theme.style.tabs == "pills"
+end
+
 local function edgeInset()
-  if ns.Theme.style.border ~= "round" then return 0 end
+  if pills() or ns.Theme.style.border ~= "round" then return 0 end
   return math.floor(ns.Theme.sizes.tabEdge / 4)
 end
 
@@ -464,13 +468,49 @@ end
 -- Every strip made (Tabs.strip), restyled on a skin change.
 local strips = {}
 
--- Edge and glow of one tab for the current border.
+-- Pure. Tabs "pills" (option "skinTabs"): a flat fill (none when idle,
+-- half on hover, full on the selected tab) and an underline on the selected
+-- one. Returns { fill, fillAlpha, text, underline (color or false) }.
+function Tabs.pillLook(selected, hovered)
+  local c = ns.Theme.colors
+  if selected then
+    return { fill = c.buttonFill, fillAlpha = 1, text = c.tabTextSelected, underline = c.tabBorderSelected }
+  end
+  return { fill = c.buttonFill, fillAlpha = hovered and 0.5 or 0, text = hovered and c.tabTextSelected or c.tabText,
+    underline = false }
+end
+
+-- One solid color over the whole texture (the glow's gradient undone).
+local function setSolid(tex, c)
+  if tex.SetGradient and CreateColor then
+    tex:SetGradient("VERTICAL", CreateColor(c[1], c[2], c[3], 1), CreateColor(c[1], c[2], c[3], 1))
+  elseif tex.SetGradientAlpha then
+    tex:SetGradientAlpha("VERTICAL", c[1], c[2], c[3], 1, c[1], c[2], c[3], 1)
+  else
+    tex:SetVertexColor(c[1], c[2], c[3], 1)
+  end
+end
+
+-- Edge and glow of one tab for the current border; Pills: a fill the height
+-- of the button and the glow as the underline along its bottom.
 local function shapeTab(b)
-  local inset = edgeInset()
-  b.skin:SetBackdrop(Tabs.edgeSpec(ns.Theme.style.border))
+  local S = ns.Theme.sizes
   b.glow:ClearAllPoints()
-  b.glow:SetPoint("TOPLEFT", b.skin, "TOPLEFT", inset, -inset)
-  b.glow:SetPoint("TOPRIGHT", b.skin, "TOPRIGHT", -inset, -inset)
+  if pills() then
+    b.skin:SetBackdrop({ bgFile = ns.Theme.textures.rowHighlight })
+    b.skin:SetHeight(S.tabHeight)
+    -- Right above the line under the tabs (Tabs.strip), which is drawn over them.
+    b.glow:SetPoint("BOTTOMLEFT", b.skin, "BOTTOMLEFT", 0, S.tabLine)
+    b.glow:SetPoint("BOTTOMRIGHT", b.skin, "BOTTOMRIGHT", 0, S.tabLine)
+    b.glow:SetHeight(S.tabUnderline)
+  else
+    local inset = edgeInset()
+    b.skin:SetBackdrop(Tabs.edgeSpec(ns.Theme.style.border))
+    b.skin:SetHeight(S.tabHeight + S.tabEdge)
+    b.glow:SetPoint("TOPLEFT", b.skin, "TOPLEFT", inset, -inset)
+    b.glow:SetPoint("TOPRIGHT", b.skin, "TOPRIGHT", -inset, -inset)
+    b.glow:SetHeight(S.tabGlowHeight)
+  end
   b:ApplyLook()
 end
 
@@ -514,9 +554,18 @@ local function makeTab(row, label)
   b.isSelected, b.isHovered = false, false
 
   function b:ApplyLook()
+    if pills() then
+      local look = Tabs.pillLook(self.isSelected, self.isHovered)
+      self.skin:SetBackdropColor(look.fill[1], look.fill[2], look.fill[3], look.fillAlpha)
+      W.setTextColor(self.label, look.text)
+      if look.underline then setSolid(self.glow, look.underline) end
+      self.glow:SetShown(look.underline ~= false)
+      return
+    end
     local look = Tabs.look(self.isSelected, self.isHovered)
     self.skin:SetBackdropBorderColor(look.border[1], look.border[2], look.border[3], look.border[4])
     W.setTextColor(self.label, look.text)
+    setGlow(self.glow, ns.Theme.colors.tabGlow)
     self.glow:SetShown(look.glow)
   end
   b:SetScript("OnEnter", function(self) self.isHovered = true; self:ApplyLook() end)
@@ -576,7 +625,8 @@ function Tabs.strip(row, items, onSelect)
     left:ClearAllPoints()
     right:ClearAllPoints()
     right:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
-    if not selectedButton then
+    -- Pills: one line under every tab (the underline sits on it).
+    if not selectedButton or pills() then
       left:Hide()
       right:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
       return

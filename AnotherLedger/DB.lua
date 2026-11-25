@@ -107,8 +107,9 @@ DB.defaults = {
     -- History Zones and the Daily farm use the History of every character.
     accountZones = true,
     -- Font size in px of the list text, the totals and the section titles (applied live).
-    -- Typeface: "default" (the WoW font) or a font file path.
-    fontFace = "default",
+    -- Typeface: "default" (the WoW font) or a font file path; Inter, the
+    -- Modern skin's font (Theme.fontFiles.inter), for new profiles.
+    fontFace = "Interface\\AddOns\\AnotherLedger\\Media\\Fonts\\Inter-Regular.ttf",
     -- Outline ("none" / "OUTLINE" / "THICKOUTLINE") and shadow of all text.
     fontOutline = "none",
     fontShadow = true,
@@ -118,24 +119,27 @@ DB.defaults = {
     -- Colors ("rrggbb", Options COLOR_OPTIONS): text, titles / totals, hints,
     -- the Vendor / Auction / Destroy sources, tooltip labels, window background
     -- and border, button fill. They match Theme.colors.
-    -- Skin (Theme.skins) and its parts; the parts' defaults are Classic's
-    -- (Options.defaultFor gives the chosen skin's part).
-    skin = "classic",
-    skinBorder = "round",
-    skinButtons = "bronze",
-    skinLines = "gold",
-    skinListBox = false,
-    colorPreset = "anotherledger",
+    -- Skin (Theme.skins) and its parts; new profiles start on Modern with its
+    -- font and the Polaris colors (profiles saved before keep what they have:
+    -- DB.applyDefaults only fills missing keys). The parts' and colors'
+    -- defaults follow the chosen skin / preset (Options.defaultFor).
+    skin = "modern",
+    skinBorder = "rounded",
+    skinButtons = "flat",
+    skinLines = "zebra",
+    skinListBox = true,
+    skinTabs = "pills",
+    colorPreset = "polaris",
     colorText = "ffffff",
-    colorTitles = "ffd100",
-    colorHints = "ada18c",
-    colorVendor = "eddeb8",
+    colorTitles = "e6ba66",
+    colorHints = "9aa8bd",
+    colorVendor = "e0e6f0",
     colorAuction = "80d1ff",
     colorDestroy = "b3b3b3",
     colorTipLabels = "ccbd9e",
-    colorBackground = "261a0f",
-    colorBorder = "8c6b3d",
-    colorButtons = "1a120a",
+    colorBackground = "1c2234",
+    colorBorder = "3a4566",
+    colorButtons = "232a40",
   },
   -- Account-wide options (Options.define `account = true`): { [key] = value }.
   account = {},

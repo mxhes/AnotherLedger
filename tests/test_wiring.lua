@@ -1114,6 +1114,7 @@ end)
 h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local tabs = ctx.ns.UI.Ledger.tabs
   local bags = tabs.buttons.bags
   bags._scripts.OnClick(bags, "LeftButton")
@@ -4744,6 +4745,7 @@ end)
 h.test("wiring: switching border restyles the window without stacking frames", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns, win = ctx.ns, ctx.ns.UI.Window.frame
   h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
   ns.Options.pick(ns.db, "skinBorder", "bevel")
@@ -4781,6 +4783,7 @@ end)
 h.test("wiring: each button style shows its own parts", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns = ctx.ns
   local b = ns.UI.Widgets.button(ns.UI.Window.frame, "Test", 40)
   h.eq(b.fill.top:IsShown(), true)
@@ -4843,6 +4846,7 @@ end)
 h.test("wiring: square tabs on a non-round border, rounded on Round", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns = ctx.ns
   local tabs = ns.UI.Ledger.tabs
   local b = tabs.buttons.session
@@ -4856,6 +4860,7 @@ end)
 h.test("wiring: sunken list shows in full only", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns, win = ctx.ns, ctx.ns.UI.Window.frame
   h.eq(win.listBox:IsShown(), false)
   ns.Options.pick(ns.db, "skinListBox", true)
@@ -4982,5 +4987,57 @@ h.test("wiring: item tooltips show the TSM sale info, off with TSM sale info", f
   h.eq(text:find(ns.L["TSM sale info"] .. " = Sells okay, Low volume", 1, true) ~= nil, true)
   ns.Options.set(ns.db, "showMarket", false)
   h.eq(tooltipFor(LINK):find(ns.L["TSM sale info"], 1, true), nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a new player starts on Modern: rounded border, pill tabs, zebra rows, Inter, Polaris", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r.")
+  local ns, T = ctx.ns, ctx.ns.Theme
+  h.eq(ns.Options.get(ns.db, "skin"), "modern")
+  h.eq(T.style, { border = "rounded", buttons = "flat", lines = "zebra", listBox = true, tabs = "pills" })
+  h.eq(ns.Options.get(ns.db, "fontFace"), T.fontFiles.inter)
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "polaris")
+  h.eq(T.colorToHex(T.colors.panelTint), "1c2234")
+  local win = ns.UI.Window.frame
+  h.eq(win._backdrop.edgeFile, T.textures.skinRounded)
+  -- Pills: the selected tab has its underline, the line runs under every tab
+  local tabs = ns.UI.Ledger.tabs
+  h.eq(tabs.buttons.session.glow:IsShown(), true)
+  h.eq(tabs.buttons.bags.glow:IsShown(), false)
+  h.eq(tabs.baseLeft:IsShown(), false); h.eq(tabs.baseRight:IsShown(), true)
+  h.eq(tabs.buttons.session.skin._backdrop.edgeFile, nil)
+  -- Zebra: no separators, the second row striped
+  local pool = ns.UI.Ledger.list.pool
+  h.eq(pool[1].separator:IsShown(), false)
+  h.eq(pool[1].stripe:IsShown(), false)
+  h.eq(pool[2].stripe:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: picking Modern sets its font and colors; another skin keeps them", function()
+  -- A profile saved by an older version (no skinTabs yet); db.settings is
+  -- only the login alias of the active profile, so it is not seeded.
+  local ctx = boot({ db = { profilesMigrated = true, profiles = {
+    Default = { skin = "classic", colorPreset = "anotherledger", fontFace = "default" } } } })
+  startWorld(ctx, false)
+  local ns, T = ctx.ns, ctx.ns.Theme
+  -- a profile saved before keeps its look
+  h.eq(T.style.border, "round"); h.eq(T.style.tabs, "folder")
+  h.eq(ns.Options.get(ns.db, "fontFace"), "default")
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "anotherledger")
+  ns.Options.pick(ns.db, "colorText", "ff0000")
+  ns.Options.pick(ns.db, "skin", "modern")
+  h.eq(T.style.tabs, "pills"); h.eq(T.style.lines, "zebra")
+  h.eq(ns.Options.get(ns.db, "fontFace"), T.fontFiles.inter)
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "polaris")
+  h.eq(ns.Options.get(ns.db, "colorText"), "ffffff") -- the preset's colors, not the old edit
+  h.eq(T.colorToHex(T.colors.panelTint), "1c2234")
+  ns.Options.pick(ns.db, "skin", "slate")
+  h.eq(T.style.border, "thin"); h.eq(T.style.tabs, "folder")
+  h.eq(ns.Options.get(ns.db, "fontFace"), T.fontFiles.inter)
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "polaris")
   h.eq(ctx.errors, {})
 end)

@@ -37,6 +37,8 @@ Theme.textures = {
   -- tools/render_skins.py; grey-scale, tinted with the theme colors.
   skinStud = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Stud",
   skinDotted = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Dotted",
+  -- Backdrop edge strip of the Rounded border (1 unit line, rounded corners).
+  skinRounded = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Rounded",
 }
 
 Theme.fonts = {
@@ -67,9 +69,12 @@ Theme.fonts = {
 }
 
 -- Font objects pinned to one typeface whatever the "fontFace" option says
--- (the game's own file when the client refuses it).
+-- (the game's own file when the client refuses it), and the addon's own
+-- fonts (Media/Fonts; Inter is the Modern skin's font).
 Theme.fontFiles = {
   sourceTag = "Fonts\\ARIALN.TTF",
+  inter = "Interface\\AddOns\\AnotherLedger\\Media\\Fonts\\Inter-Regular.ttf",
+  interSemiBold = "Interface\\AddOns\\AnotherLedger\\Media\\Fonts\\Inter-SemiBold.ttf",
 }
 
 -- Dark leather look: a dark warm brown panel with light text and the real,
@@ -203,6 +208,21 @@ Theme.presets = {
     tabBorder = "4d6a91", tabBorderHover = "82a8d9", tabBorderSelected = "82c5ff", tabGlow = "4d9fff",
     tabText = "d0d8e4", tabTextSelected = "ffffff", scrollTrack = "c0d0e8", scrollThumb = "82a8d9",
   }) },
+  -- The Modern skin's colors: navy panel, amber titles, sky blue accents
+  -- (the Superdesign board "AnotherLedger Modern skin").
+  { id = "polaris", label = "Polaris", colors = withTips({
+    ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "e6ba66", dailyFarm = "e6ba66",
+    gold = "e6ba66", goldLine = "5f6f99", divider = "2e3650", rowSeparator = "2e3650",
+    flashNormal = "80d1ff", flashStrong = "4db8ff",
+    panelTint = "1c2234", panelBorder = "3a4566", hint = "9aa8bd", columnTitle = "9aa8bd",
+    marketGood = "73d959", marketOk = "f2cc66", marketBad = "f26152",
+    tagVendor = "e0e6f0", tagAh = "80d1ff", tagDe = "b3b3b3",
+    buttonFill = "232a40", buttonEdge = "2e3650", buttonEdgeHover = "80d1ff", buttonText = "ffffff",
+    buttonTextDisabled = "66758a", buttonWarnEdge = "9e3d2b", buttonWarnEdgeHover = "e65c42",
+    buttonWarnText = "ffb39e", inputFill = "161b2a",
+    tabBorder = "2e3650", tabBorderHover = "4d5a80", tabBorderSelected = "80d1ff", tabGlow = "80d1ff",
+    tabText = "9aa8bd", tabTextSelected = "ffffff", scrollTrack = "2e3650", scrollThumb = "4d5a80",
+  }, { tipTitle = "e6ba66", tipSection = "e6ba66", tipLabel = "ccbd9e" }) },
   { id = "tsm", label = "TSM-style", colors = withTips({
     ink = "ffffff", stale = "ff8a4a", sectionTitle = "ffffff", best = "f0b429", dailyFarm = "f0b429",
     gold = "f0b429", goldLine = "dbb431", divider = "dbb431", rowSeparator = "8fa3a8",
@@ -302,6 +322,7 @@ Theme.sizes = {
   tabHeight = 24,
   tabEdge = 12,
   tabGlowHeight = 12,
+  tabUnderline = 2, -- the selected tab's underline (tabs "pills")
   tabTextPad = 10, -- space left and right of a label wider than widths.tab
   tabLine = 1, -- the line under the tab row (open below the selected tab)
   buttonGap = 2,
@@ -400,6 +421,10 @@ Theme.sizes = {
   -- past the list (inside the window padding).
   studSize = 10,
   listBoxPad = 3,
+  -- Rounded border: edge size of the strip (4 unit corner radius) and the
+  -- fill inset under its 1 unit line.
+  roundedEdge = 8,
+  roundedInset = 1,
 }
 
 -- Button / box widths of the header rows. Row 1 at the 350 px minimum is
@@ -539,21 +564,27 @@ end
 
 -- The choices of each part, in option order.
 Theme.skinParts = {
-  border = { "round", "bevel", "thin", "gilded" },
+  border = { "rounded", "round", "bevel", "thin", "gilded" },
   buttons = { "bronze", "raised", "flat" },
-  lines = { "gold", "groove", "plain", "dotted" },
+  lines = { "zebra", "gold", "groove", "plain", "dotted" },
+  tabs = { "pills", "folder" },
 }
 
--- Classic is today's look and the default.
+-- Modern is the default of new profiles; Classic is the look before it.
+-- Modern also brings its font (option "fontFace") and color preset
+-- ("colorPreset"): `font` / `preset`, set when the skin is picked.
 Theme.skins = {
+  { id = "modern", label = "Modern", border = "rounded", buttons = "flat",
+    lines = "zebra", listBox = true, tabs = "pills",
+    font = Theme.fontFiles.inter, preset = "polaris" },
   { id = "classic", label = "Classic", border = "round", buttons = "bronze",
-    lines = "gold", listBox = false },
+    lines = "gold", listBox = false, tabs = "folder" },
   { id = "forge", label = "Forge", border = "bevel", buttons = "raised",
-    lines = "groove", listBox = true },
+    lines = "groove", listBox = true, tabs = "folder" },
   { id = "slate", label = "Slate", border = "thin", buttons = "flat",
-    lines = "plain", listBox = false },
+    lines = "plain", listBox = false, tabs = "folder" },
   { id = "gilded", label = "Gilded", border = "gilded", buttons = "bronze",
-    lines = "dotted", listBox = false },
+    lines = "dotted", listBox = false, tabs = "folder" },
 }
 
 -- How the styles shade the theme colors: the dark edge lines, the groove's
@@ -563,10 +594,12 @@ Theme.skins = {
 Theme.skinScales = {
   edgeDark = 0.2, edgeLight = 1.7, grooveDark = 0.3, grooveLight = 2.0,
   raisedLight = 3.5, raisedDark = 0.3, plainMix = 0.5, listBox = 0.5,
+  -- Zebra: every other row lifted toward the text color by this much.
+  zebra = 0.04,
 }
 
 -- The active picks; the options write them with Theme.setStyle.
-Theme.style = { border = "round", buttons = "bronze", lines = "gold", listBox = false }
+Theme.style = { border = "rounded", buttons = "flat", lines = "zebra", listBox = true, tabs = "pills" }
 
 function Theme.skin(id)
   for _, s in ipairs(Theme.skins) do
@@ -603,6 +636,15 @@ function Theme.backdropSpec(border)
     local inset = S.backdropInset
     return { bgFile = bg, edgeFile = Theme.textures.frameBorder, tile = true, tileSize = tileSize,
       edgeSize = S.backdropEdge, insets = { left = inset, right = inset, top = inset, bottom = inset } }
+  end
+  -- Rounded: the addon's edge strip; the fill starts under the line, so its
+  -- square corners stay inside the rounded ones.
+  -- UNVERIFIED (check in client): the tile order and rotation of the strip
+  -- (tools/render_skins.py rounded()) match the backdrop's edge drawing.
+  if border == "rounded" then
+    local inset = S.roundedInset
+    return { bgFile = bg, edgeFile = Theme.textures.skinRounded, tile = true, tileSize = tileSize,
+      edgeSize = S.roundedEdge, insets = { left = inset, right = inset, top = inset, bottom = inset } }
   end
   return { bgFile = bg, tile = true, tileSize = tileSize,
     insets = { left = 0, right = 0, top = 0, bottom = 0 } }
@@ -645,7 +687,7 @@ function Theme.lineColors(lines, color, panel)
   local k = Theme.skinScales
   if lines == "groove" then
     return Theme.scaleColor(color, k.grooveDark), Theme.scaleColor(color, k.grooveLight)
-  elseif lines == "plain" then
+  elseif lines == "plain" or lines == "zebra" then
     return Theme.mix(Theme.mix(color, GREY, k.plainMix), panel, k.plainMix), nil
   end
   return color, nil

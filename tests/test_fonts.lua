@@ -123,7 +123,7 @@ h.test("Fonts: choices offer the default and the fonts the client loads", functi
     -- the option accepts a listed font and falls back to the default for others
     ns.UI.Fonts.choices() -- cached
     h.eq(ns.Options.normalize(ns.Options.spec("fontFace"), "Fonts\\ARIALN.TTF"), "Fonts\\ARIALN.TTF")
-    h.eq(ns.Options.normalize(ns.Options.spec("fontFace"), "Fonts\\nope.ttf"), "default")
+    h.eq(ns.Options.normalize(ns.Options.spec("fontFace"), "Fonts\\nope.ttf"), ns.Theme.fontFiles.inter)
   end)
   _G.CreateFont = nil
   assert(ok, err)

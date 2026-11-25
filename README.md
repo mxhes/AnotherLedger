@@ -355,26 +355,32 @@ History asks first.
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Compact: item icons, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Pause while traveling, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
-| Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Buttons, Lines, Sunken list, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
+| Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Buttons, Lines, Sunken list, Tabs, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
-**Skin** changes the shape of the window at once: its border, buttons and
-lines, and whether the list sits in a darker sunken box. Skins
-never change colors, so every skin works with every color preset.
+**Skin** changes the shape of the window at once: its border, buttons,
+lines and tabs, and whether the list sits in a darker sunken box.
 
-| Skin | Border | Buttons | Lines | Sunken list |
-| --- | --- | --- | --- | --- |
-| Classic | Round | Bronze | Gold | off |
-| Forge | Bevel | Raised | Groove | on |
-| Slate | Thin | Flat | Plain | off |
-| Gilded | Gilded | Bronze | Dotted | off |
+| Skin | Border | Buttons | Lines | Tabs | Sunken list |
+| --- | --- | --- | --- | --- | --- |
+| Modern | Rounded | Flat | Zebra | Pills | on |
+| Classic | Round | Bronze | Gold | Folder | off |
+| Forge | Bevel | Raised | Groove | Folder | on |
+| Slate | Thin | Flat | Plain | Folder | off |
+| Gilded | Gilded | Bronze | Dotted | Folder | off |
 
-**Classic** is the look the addon always had. **Forge** has a carved frame
+**Modern** is the look a new installation starts with: a flat navy window
+with a thin rounded edge, flat buttons, pill tabs with a blue line under the
+chosen one, and every other list row shaded instead of lines between them.
+Picking Modern also sets the **Inter** font and the **Polaris** colors; the
+other skins keep your font and colors, so you can combine Modern's shapes or
+font or colors with anything else. If you used the addon before, your look
+stays as it was until you pick Modern. **Classic** is the look the addon had before. **Forge** has a carved frame
 and a sunken list, like the game's profession windows.
 **Slate** is plain and square. **Gilded** has a double frame with studs in
 the corners; it looks best with the **Blizzard** color
-preset. **Border** also decides the tabs: **Round** gives rounded tabs, the
-others square ones. After a skin you can still change single parts; the skin
+preset. With **Folder** tabs the **Border** decides their shape: **Round**
+gives rounded tabs, the others square ones. After a skin you can still change single parts; the skin
 then shows "(edited)". Opacity and Brightness work with every skin. After
 updating the addon, restart the game once (not just /reload) so it finds the
 new skin textures.
@@ -382,7 +388,8 @@ new skin textures.
 **Color preset** changes the whole look at once: the window, the lines, the
 tabs, the buttons and the scrollbar. **AnotherLedger** is the dark leather look,
 **Blizzard** is black and bronze with red buttons like the game's own
-windows, **Midnight** is dark blue and **TSM-style** is slate with a
+windows, **Midnight** is dark blue, **Polaris** is navy with amber titles and
+sky blue accents (the Modern skin's colors) and **TSM-style** is slate with a
 gold-orange accent. Item
 quality and coin colors always stay the game's own. Buttons are light on top
 and fade darker toward the bottom, with a thin gold line inside the edge;

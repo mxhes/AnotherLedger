@@ -182,14 +182,16 @@ end
 -- option key, Theme.style part
 Options.SKIN_PARTS = {
   { "skinBorder", "border" }, { "skinButtons", "buttons" },
-  { "skinLines", "lines" }, { "skinListBox", "listBox" },
+  { "skinLines", "lines" }, { "skinListBox", "listBox" }, { "skinTabs", "tabs" },
 }
 Options.skinTargets = {}
 for _, p in ipairs(Options.SKIN_PARTS) do Options.skinTargets[p[1]] = p[2] end
 
-local SKIN_LABELS = { classic = L["Classic"], forge = L["Forge"], slate = L["Slate"], gilded = L["Gilded"] }
+local SKIN_LABELS = { modern = L["Modern"], classic = L["Classic"], forge = L["Forge"], slate = L["Slate"],
+  gilded = L["Gilded"] }
 local STYLE_LABELS = {
-  round = L["Round"], bevel = L["Bevel"], thin = L["Thin"], gilded = L["Gilded"],
+  rounded = L["Rounded"], round = L["Round"], bevel = L["Bevel"], thin = L["Thin"], gilded = L["Gilded"],
+  zebra = L["Zebra"], pills = L["Pills"], folder = L["Folder"],
   flat = L["Flat"], bronze = L["Bronze"], raised = L["Raised"],
   gold = L["Gold"], groove = L["Groove"], plain = L["Plain"], dotted = L["Dotted"],
 }
@@ -211,7 +213,7 @@ end
 
 Options.define({
   key = "skin", category = "look", type = "dropdown", label = L["Skin"],
-  tooltip = L["Sets the border, buttons, lines and list box at once. Colors stay as they are. You can change single parts afterwards."],
+  tooltip = L["Sets the border, buttons, lines, tabs and list box at once. Modern also sets its font (Inter) and colors (Polaris); the others keep yours. You can change single parts afterwards."],
   choices = function()
     local out = {}
     for _, s in ipairs(ns.Theme.skins) do out[#out + 1] = { value = s.id, label = SKIN_LABELS[s.id] or s.label } end
@@ -223,10 +225,14 @@ Options.define({
     if ns.db and Options.skinEdited(ns.db.settings) then text = text .. L[" (edited)"] end
     return text
   end,
+  -- Modern also brings its font and color preset (as if picked by hand, so
+  -- the single colors follow the preset).
   picked = function(db, v)
     local s = ns.Theme.skin(v)
     if s then
       for _, p in ipairs(Options.SKIN_PARTS) do Options.set(db, p[1], s[p[2]]) end
+      if s.font then Options.set(db, "fontFace", s.font) end
+      if s.preset then Options.pick(db, "colorPreset", s.preset) end
     end
     refreshPanel()
   end,
@@ -235,9 +241,10 @@ Options.define({
 local SKIN_TOOLTIPS = {
   border = L["Frame of the window and the options. Round has rounded corners and tabs; the others are square."],
   buttons = L["Shape of every button: Bronze is shaded, Raised has a light top and a dark bottom edge, Flat is one color with a thin edge."],
-  lines = L["Lines between the rows, under the tabs and above Top finds."],
+  lines = L["Lines between the rows, under the tabs and above Top finds. Zebra shades every other row instead of lines between them."],
+  tabs = L["Shape of the tabs: Pills are flat with a line under the chosen tab, Folder tabs have an edge like the border."],
 }
-local SKIN_PART_LABELS = { border = L["Border"], buttons = L["Buttons"], lines = L["Lines"] }
+local SKIN_PART_LABELS = { border = L["Border"], buttons = L["Buttons"], lines = L["Lines"], tabs = L["Tabs"] }
 
 for _, p in ipairs(Options.SKIN_PARTS) do
   local key, part = p[1], p[2]

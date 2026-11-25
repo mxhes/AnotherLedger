@@ -86,7 +86,7 @@ h.test("activate applies the profile's options", function()
   P.activate(db, chardb, "Night")
   h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), ns.Theme.preset("midnight").colors.panelTint)
   P.activate(db, chardb, "Default")
-  h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), "261a0f")
+  h.eq(ns.Theme.colorToHex(ns.Theme.colors.panelTint), "1c2234")
   ns.db = nil
 end)
 

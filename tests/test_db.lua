@@ -10,16 +10,16 @@ h.test("DB.defaults shape", function()
     lockWindow = false, snapToGrid = true, windowScale = 1, startHidden = false, defaultSort = "ah", goldDisplay = "full", coinIcons = true,
     rawGold = "row", refreshSeconds = 30, staleHours = 12, ahCut = true, ahMinGain = 0, destroyMode = "always",
     alertGold = 0, alertSound = false,
-    fontFace = "default", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
+    fontFace = "Interface\\AddOns\\AnotherLedger\\Media\\Fonts\\Inter-Regular.ttf", fontOutline = "none", fontShadow = true, fontSizeRows = 12, fontSizeTotals = 12, fontSizeTitles = 16,
     countCrafted = false, showCurrencies = true, hideWorthless = false, itemTooltipDrops = true, itemTooltipTrend = true, dailyFarm = true, dailyFarmMinutes = 20, dailyFarmLevel = false, showOnLoot = false, showInInstance = false, hideInCities = false, showTopFinds = true, compactDrops = 4, compactIcons = false, showIcons = true, followLoot = true, afkPause = false, sessionChat = false, resetNote = false, instanceSession = false,
     zoneSession = false, zoneSessionMinutes = 2, minSessionMinutes = 2, cityPause = true, travelPause = true,
     goalGold = 0, goalMinutes = 0, unitPrice = false, hideVendorTag = false, accountZones = true,
     showMarket = true, saleRateGood = 0.5, saleRateOk = 0.1, scanPrice = "market", scanReminder = true, soldHigh = 100, soldMedium = 10,
-    skin = "classic", skinBorder = "round", skinButtons = "bronze", skinLines = "gold",
-    skinListBox = false,
-    colorPreset = "anotherledger", colorText = "ffffff", colorTitles = "ffd100", colorHints = "ada18c", colorVendor = "eddeb8",
-    colorAuction = "80d1ff", colorDestroy = "b3b3b3", colorTipLabels = "ccbd9e", colorBackground = "261a0f",
-    colorBorder = "8c6b3d", colorButtons = "1a120a" })
+    skin = "modern", skinBorder = "rounded", skinButtons = "flat", skinLines = "zebra",
+    skinListBox = true, skinTabs = "pills",
+    colorPreset = "polaris", colorText = "ffffff", colorTitles = "e6ba66", colorHints = "9aa8bd", colorVendor = "e0e6f0",
+    colorAuction = "80d1ff", colorDestroy = "b3b3b3", colorTipLabels = "ccbd9e", colorBackground = "1c2234",
+    colorBorder = "3a4566", colorButtons = "232a40" })
   h.eq(d.window, { point = "CENTER", x = 0, y = 0, width = 420, height = 440, hidden = false,
     compact = { width = 260, height = 210 } })
   h.eq(d.mode, "full")

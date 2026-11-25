@@ -340,6 +340,13 @@ function Rows.visibleCount(height, rowHeight)
 end
 
 -- Keeps a 0-based scroll offset inside [0, total - visible].
+-- Pure. Whether list row `index` (1 = the first of the whole list, so the
+-- stripes scroll with the rows) gets a stripe with Lines `lines`: every
+-- second row with "zebra".
+function Rows.striped(lines, index)
+  return lines == "zebra" and index % 2 == 0
+end
+
 function Rows.clampOffset(offset, total, visible)
   if type(offset) ~= "number" or offset ~= offset then return 0 end
   local maxOffset = math.max(0, total - visible)
@@ -598,6 +605,12 @@ local function createRow(parent, owner)
 
   -- Separator inside the bottom pixel row (no extra height); hidden on the last row.
   -- A styled line (option "skinLines").
+  -- Lines "zebra": no separators; every other row gets a faint stripe.
+  local stripe = f:CreateTexture(nil, "BACKGROUND")
+  stripe:SetAllPoints(f)
+  stripe:SetColorTexture(1, 1, 1, 1)
+  stripe:Hide()
+  f.stripe = stripe
   local sep = ns.UI.Widgets.rule(f, T.colors.rowSeparator, "BORDER")
   sep:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", T.sizes.rowSeparatorInset, 0)
   sep:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
@@ -857,7 +870,15 @@ function Rows.attach(area, onMeasure)
       if f.rowKey ~= key then stopFlash(f) end
       f.rowKey = key
       fillRow(f, row)
-      ns.UI.Widgets.showRule(f.separator, self.offset + i < total)
+      local zebra = T.style.lines == "zebra"
+      ns.UI.Widgets.showRule(f.separator, not zebra and self.offset + i < total)
+      if Rows.striped(T.style.lines, self.offset + i) then
+        local ink = T.colors.ink
+        f.stripe:SetVertexColor(ink[1], ink[2], ink[3], T.skinScales.zebra)
+        f.stripe:Show()
+      else
+        f.stripe:Hide()
+      end
       f:Show()
       cells[i] = f.amount
       if f.hasTag then

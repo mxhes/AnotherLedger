@@ -630,6 +630,8 @@ end
 -- Styled lines (option "skinLines"): dividers and separators that follow the
 -- Lines pick. Gold is one line in its color; Groove adds a light line right
 -- under it; Plain is greyed toward the panel; Dotted tiles a dash texture.
+-- Zebra draws its dividers like Plain; the list rows drop their separators
+-- for stripes (UI/Rows.lua).
 -- Plain lines and bars that are not dividers stay Widgets.line.
 
 local function styleRule(tex)
