@@ -528,7 +528,7 @@ ns.Locale.register("deDE", {
   ["Stops the clock while you are in a city or inn (resting), so time spent selling and mailing does not lower your gold per hour. Loot and gold still count."] = "Hält die Uhr an, solange du in einer Stadt oder einem Gasthaus bist (erholt), damit Zeit beim Verkaufen und Post nicht dein Gold pro Stunde senkt. Beute und Gold zählen weiter.",
   ["Resting"] = "Erholt",
   ["Pause while traveling"] = "Pause auf Reisen",
-  ["Stops the clock on flight paths, boats and zeppelins, so the ride does not lower your gold per hour. Your own mount keeps it running. Loot and gold still count."] = "Hält die Uhr auf Flugrouten, Schiffen und Zeppelinen an, damit die Reise nicht dein Gold pro Stunde senkt. Auf deinem eigenen Reittier läuft sie weiter. Beute und Gold zählen weiter.",
+  ["Stops the clock on flight paths, so the flight does not lower your gold per hour. Your own mount, boats and zeppelins keep it running. Loot and gold still count."] = "Hält die Uhr auf Flugrouten an, damit der Flug nicht dein Gold pro Stunde senkt. Auf deinem eigenen Reittier, Schiffen und Zeppelinen läuft sie weiter. Beute und Gold zählen weiter.",
   ["Traveling"] = "Reise",
   ["Saturation"] = "Sättigung",
   ["Min. session length"] = "Min. Sitzungsdauer",

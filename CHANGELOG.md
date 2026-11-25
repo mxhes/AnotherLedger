@@ -3,8 +3,8 @@
 ## v0.8.0
 
 - Color picker: a Saturation slider under the game's picker.
-- Pause while traveling (on by default): the clock rests on flight paths,
-  boats and zeppelins; loot still counts.
+- Pause while traveling (on by default): the clock rests on flight paths;
+  loot still counts.
 - Item tooltips show the TSM sale info (sells well / okay, volume).
 - New Modern skin, the look of new installations: flat navy window with a
   thin rounded edge, pill tabs, shaded rows, the Inter font and Polaris colors.

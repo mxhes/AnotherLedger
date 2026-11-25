@@ -680,9 +680,9 @@ Options.define({ key = "cityPause", category = "session", type = "checkbox", lab
   tooltip = L["Stops the clock while you are in a city or inn (resting), so time spent selling and mailing does not lower your gold per hour. Loot and gold still count."],
   apply = function() if ns.Core and ns.Core.checkRest then ns.Core.checkRest() end end })
 
--- Core.checkRest: the clock stands still on flight paths and transports.
+-- Core.checkRest: the clock stands still on flight paths.
 Options.define({ key = "travelPause", category = "session", type = "checkbox", label = L["Pause while traveling"],
-  tooltip = L["Stops the clock on flight paths, boats and zeppelins, so the ride does not lower your gold per hour. Your own mount keeps it running. Loot and gold still count."],
+  tooltip = L["Stops the clock on flight paths, so the flight does not lower your gold per hour. Your own mount, boats and zeppelins keep it running. Loot and gold still count."],
   apply = function() if ns.Core and ns.Core.checkRest then ns.Core.checkRest() end end })
 
 Options.define({

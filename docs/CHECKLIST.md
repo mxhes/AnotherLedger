@@ -24,10 +24,9 @@ Everything up to v0.7.1 is confirmed in the client, except:
   color's saturation; dragging it changes the color live (hue and
   brightness kept), dragging the wheel moves it, Cancel restores the color;
   a picker opened by another addon or the game shows no slider.
-- Pause while traveling (`Core.sampleTravel`): on a flight path and while
-  standing on a boat / zeppelin the compact window says Traveling and the
-  clock stands; walking on the deck may wake it; running, flying on your own
-  mount, falling or a portal never rest it.
+- Pause while traveling (`Core.traveling`, `UnitOnTaxi`): on a flight path
+  the compact window says Traveling and the clock stands; boats, zeppelins
+  and your own mount keep it running.
 - Item tooltips with TSM: the `TSM sale info` line shows the levels in their
   colors.
 - Modern skin (new installs; or pick Skin: Modern): the window edge is a thin

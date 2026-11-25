@@ -478,9 +478,9 @@ inn, so selling and mailing don't lower your gold per hour; loot and gold
 still count. The compact window says Resting. A clock you stopped yourself
 stays stopped when you leave.
 
-**Pause while traveling** (on by default) does the same on flight paths, boats
-and zeppelins; the compact window says Traveling. Flying on your own mount
-keeps the clock running.
+**Pause while traveling** (on by default) does the same on flight paths; the
+compact window says Traveling. Flying on your own mount, boats and zeppelins
+keep the clock running.
 
 **Min. session length** (2 minutes by default) keeps very short sessions out
 of History: a session with loot shorter than that just continues when a new

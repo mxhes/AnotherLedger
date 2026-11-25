@@ -348,7 +348,6 @@ end
 -- Every HEARTBEAT_SECONDS (a ticker set up at login).
 function Core.heartbeat()
   Core.checkGoals(false)
-  Core.sampleTravel(time())
   Core.checkRest()
   Core.checkZone()
   Core.sampleRate()
@@ -439,57 +438,16 @@ function Core.startSession()
 end
 
 -- ---------------------------------------------------------------------------
--- Option "travelPause": on a flight path, a boat or a zeppelin the clock rests.
-
--- A transport carries the player clearly faster than they move themselves
--- (yards per second); faster than MAX is a teleport, a portal or a loading
--- screen, not a ride.
-Core.TRANSPORT = { MIN_EXTRA = 3, MAX = 60 }
-
--- Pure. Whether the player rode a transport between two position samples
--- ({ x, y, t, map }; world yards, seconds, the instance / continent id):
--- moved faster than `ownSpeed` (their own speed, yards per second) allows,
--- not while falling.
-function Core.transportMoved(prev, cur, ownSpeed, falling)
-  if type(prev) ~= "table" or type(cur) ~= "table" or falling then return false end
-  if prev.map ~= cur.map then return false end
-  local dt = cur.t - prev.t
-  if dt <= 0 then return false end
-  local dx, dy = cur.x - prev.x, cur.y - prev.y
-  local rate = math.sqrt(dx * dx + dy * dy) / dt
-  local T = Core.TRANSPORT
-  return rate - (ownSpeed or 0) >= T.MIN_EXTRA and rate <= T.MAX
-end
-
-local travel = { last = false, riding = false }
-
--- The heartbeat's sample of the player's world position (Core.transportMoved).
--- UNVERIFIED (check in client): UnitPosition("player") gives world yards (y,
--- x, z, instance id) in the open world and on boats / zeppelins;
--- GetUnitSpeed("player") is the player's own speed, 0 while standing on a
--- moving transport.
-function Core.sampleTravel(now)
-  local cur = false
-  if type(UnitPosition) == "function" then
-    local y, x, _, map = UnitPosition("player")
-    if type(x) == "number" and type(y) == "number" then cur = { x = x, y = y, t = now, map = map } end
-  end
-  local speed = type(GetUnitSpeed) == "function" and GetUnitSpeed("player") or 0
-  local falling = type(IsFalling) == "function" and IsFalling() and true or false
-  travel.riding = Core.transportMoved(travel.last, cur, ns.Util.isNumber(speed) and speed or 0, falling)
-  travel.last = cur
-end
-
--- On a flight path, or the last samples showed a transport ride.
+-- Option "travelPause": on a flight path the clock rests.
 function Core.traveling()
-  if type(UnitOnTaxi) == "function" and UnitOnTaxi("player") then return true end
-  return travel.riding
+  return type(UnitOnTaxi) == "function" and UnitOnTaxi("player") and true or false
 end
 
+-- ---------------------------------------------------------------------------
 -- Option "cityPause": rests the clock while the player is resting (city, inn)
 -- and wakes it when they leave or the option is turned off. A stopped clock
 -- (by hand or AFK) is never started here. Option "travelPause" likewise on a
--- flight path or transport.
+-- flight path.
 function Core.checkRest()
   local session = ns.session
   if not (session and ns.db) then return end

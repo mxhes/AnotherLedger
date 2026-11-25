@@ -4966,12 +4966,10 @@ h.test("wiring: the sunken list box sits above the window and below the list", f
   h.eq(win.listArea:GetFrameLevel() > win.listBox:GetFrameLevel(), true)
 end)
 
-h.test("wiring: Pause while traveling rests the clock on flights and transports", function()
+h.test("wiring: Pause while traveling rests the clock on flight paths only", function()
   local ctx = boot()
-  local state = { taxi = false, x = 0, speed = 0 }
+  local state = { taxi = false }
   ctx.env.UnitOnTaxi = function() return state.taxi end
-  ctx.env.UnitPosition = function() return 0, state.x, 0, 1 end
-  ctx.env.GetUnitSpeed = function() return state.speed end
   startWorld(ctx, false)
   local ns = ctx.ns
   local H = ns.UI.Header.instance
@@ -4991,20 +4989,7 @@ h.test("wiring: Pause while traveling rests the clock on flights and transports"
   state.taxi = false
   fire(ctx, "PLAYER_CONTROL_GAINED")
   h.eq(ns.session.resting, nil)
-  -- Standing on a boat: carried 60 yards in 5 seconds
-  ctx.now = ctx.now + 5
-  ns.Core.heartbeat()
-  state.x = 60
-  ctx.now = ctx.now + 5
-  ns.Core.heartbeat()
-  h.eq(ns.session.resting, "travel")
-  -- Arrived: standing still again
-  ctx.now = ctx.now + 5
-  ns.Core.heartbeat()
-  h.eq(ns.session.resting, nil)
-  -- Running on foot is no ride
-  state.speed = 7
-  state.x = 95
+  -- The heartbeat alone (a boat, a zeppelin, riding) keeps the clock running
   ctx.now = ctx.now + 5
   ns.Core.heartbeat()
   h.eq(ns.session.resting, nil)

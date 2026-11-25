@@ -86,7 +86,7 @@ DB.defaults = {
     hideInCities = false,
     -- Stop the clock (not the loot) while resting in a city or inn.
     cityPause = true,
-    -- Stop the clock (not the loot) on flight paths, boats and zeppelins.
+    -- Stop the clock (not the loot) on flight paths.
     travelPause = true,
     -- A chat line with the length, place and worth of each saved session.
     sessionChat = false,
