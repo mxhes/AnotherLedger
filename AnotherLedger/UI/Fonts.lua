@@ -44,7 +44,6 @@ Fonts.DEFAULT_FACE = "default"
 -- Well-known game fonts, in every client since the first one; only the ones
 -- the client really loads are offered.
 -- The addon's own fonts (Media/Fonts, Theme.fontFiles) come first.
--- UNVERIFIED (check in client): the client loads the addon's Inter files.
 local BUILT_IN = {
   { "Inter", ns.Theme.fontFiles.inter },
   { "Inter SemiBold", ns.Theme.fontFiles.interSemiBold },

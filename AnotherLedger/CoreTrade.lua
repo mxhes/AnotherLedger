@@ -172,8 +172,6 @@ local function readMail(i, now)
   end
   -- A sale mail not opened yet has no invoice (Open All empties it unread):
   -- the subject names the item, with the amount sold in brackets.
-  -- UNVERIFIED (check in client): the "(4)" amount in the subject and that
-  -- an unopened sale mail gives no invoice.
   local sold = Core.formatPattern(AUCTION_SOLD_MAIL_SUBJECT)
   local soldName = sold and type(subject) == "string" and subject:match(sold)
   if soldName then
@@ -203,8 +201,7 @@ events.MAIL_INBOX_UPDATE = function()
   if not bucket then return end
   local now, mails = time(), {}
   -- Client API: GetInboxNumItems() gives the mails shown and all mails (more
-  -- wait on the server when the inbox is full). UNVERIFIED (check in client):
-  -- the second return.
+  -- wait on the server when the inbox is full).
   local shown, total = GetInboxNumItems()
   shown = type(shown) == "number" and shown or 0
   local whole = type(total) ~= "number" or total <= shown
