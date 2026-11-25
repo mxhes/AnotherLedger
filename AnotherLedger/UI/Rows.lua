@@ -246,17 +246,21 @@ end
 -- Theme fallbacks. The block's right edge is always contentWidth (flush right);
 -- it grows leftwards with longer amounts, but never so far that the name column
 -- drops below rowNameMin (then the amount clips on the right).
+-- `noSource`: no rendered row has a source tag (History > Mobs): no source
+-- column and no gap before it, so the amounts sit flush right.
 -- Returns {blockW, blockX, amountX, amountW, labelX (source tag), labelW,
 -- nameX, nameW, tagGap, tagW, rightEdge}.
-function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW)
+function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW, noSource)
   local S = ns.Theme.sizes
   local pad = S.rowMeasurePad
   local labelW = positive(sourceW) and sourceW + pad or S.rowSourceW
+  local labelGap = Rows.labelGap()
+  if noSource then labelW, labelGap = 0, 0 end
   local amountW = positive(amountMaxW) and amountMaxW + pad or S.rowVendorColW
   local hasTag = positive(tagMaxW)
   local tagW = hasTag and tagMaxW + pad or 0
   local tagGap = hasTag and S.rowTagGap or 0
-  local blockW = amountW + Rows.labelGap() + labelW + tagGap + tagW
+  local blockW = amountW + labelGap + labelW + tagGap + tagW
   local gap = S.rowNameGap
   local w = contentWidth
   if not positive(w) then w = S.rowNameMin + gap + blockW end
@@ -268,7 +272,7 @@ function Rows.blockLayout(contentWidth, sourceW, amountMaxW, tagMaxW)
     blockX = blockX,
     amountX = blockX,
     amountW = amountW,
-    labelX = blockX + amountW + Rows.labelGap(),
+    labelX = blockX + amountW + labelGap,
     labelW = labelW,
     nameX = 0,
     nameW = math.max(0, blockX - gap),
@@ -340,6 +344,13 @@ function Rows.visibleCount(height, rowHeight)
 end
 
 -- Keeps a 0-based scroll offset inside [0, total - visible].
+-- Pure. Whether list row `index` (1 = the first of the whole list, so the
+-- stripes scroll with the rows) gets a stripe with Lines `lines`: every
+-- second row with "zebra".
+function Rows.striped(lines, index)
+  return lines == "zebra" and index % 2 == 0
+end
+
 function Rows.clampOffset(offset, total, visible)
   if type(offset) ~= "number" or offset ~= offset then return 0 end
   local maxOffset = math.max(0, total - visible)
@@ -533,7 +544,7 @@ local function blockFor(owner, w)
   local m = owner.measured or NONE
   local bm = owner.blockMeasure or NONE
   return Rows.blockLayout(w - Rows.textLeft() - S.rowRightInset,
-    m.source, bm.amount, bm.tag)
+    m.source, bm.amount, bm.tag, bm.noSource)
 end
 
 -- Anchors `region` by one point at (x, y) from the same point of `f`.
@@ -598,6 +609,12 @@ local function createRow(parent, owner)
 
   -- Separator inside the bottom pixel row (no extra height); hidden on the last row.
   -- A styled line (option "skinLines").
+  -- Lines "zebra": no separators; every other row gets a faint stripe.
+  local stripe = f:CreateTexture(nil, "BACKGROUND")
+  stripe:SetAllPoints(f)
+  stripe:SetColorTexture(1, 1, 1, 1)
+  stripe:Hide()
+  f.stripe = stripe
   local sep = ns.UI.Widgets.rule(f, T.colors.rowSeparator, "BORDER")
   sep:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", T.sizes.rowSeparatorInset, 0)
   sep:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
@@ -675,6 +692,8 @@ local function fillRow(f, row)
   -- boxes line up); hidden without a source.
   Rows.setSourceTag(f.srcBox, t.source, ((f.owner and f.owner.measured) or NONE).source)
   f.srcBox:SetAlpha(t.hideTag and 0 or 1)
+  -- A hidden vendor tag still keeps its column (the other rows' tags line up).
+  f.hasSource = t.source ~= nil and SOURCE_TEXT[t.source] ~= nil
   -- After the tag: the age of a cached AH value, else "?" on an unpriced row.
   local tagText = t.tag or (t.unpriced and t.source and TEXT.UNPRICED) or nil
   f.tag:SetText(tagText or "")
@@ -848,7 +867,7 @@ function Rows.attach(area, onMeasure)
 
     -- Pass 1: fill the rows and find the widest age tag among them; the
     -- amounts are laid out together in coin columns (their width).
-    local tagMax = 0
+    local tagMax, anySource = 0, false
     local cells = {}
     for i = 1, filled do
       local f = rowFrame(i)
@@ -857,9 +876,18 @@ function Rows.attach(area, onMeasure)
       if f.rowKey ~= key then stopFlash(f) end
       f.rowKey = key
       fillRow(f, row)
-      ns.UI.Widgets.showRule(f.separator, self.offset + i < total)
+      local zebra = T.style.lines == "zebra"
+      ns.UI.Widgets.showRule(f.separator, not zebra and self.offset + i < total)
+      if Rows.striped(T.style.lines, self.offset + i) then
+        local ink = T.colors.ink
+        f.stripe:SetVertexColor(ink[1], ink[2], ink[3], T.skinScales.zebra)
+        f.stripe:Show()
+      else
+        f.stripe:Hide()
+      end
       f:Show()
       cells[i] = f.amount
+      if f.hasSource then anySource = true end
       if f.hasTag then
         local tw = f.tag:GetStringWidth() or 0
         if tw <= 0 then tw = T.sizes.rowTagW end
@@ -870,6 +898,7 @@ function Rows.attach(area, onMeasure)
     -- Pass 2: one shared block layout for every rendered row.
     local amountMax = ns.UI.Coins.align(cells)
     self.blockMeasure.amount, self.blockMeasure.tag = amountMax, tagMax
+    self.blockMeasure.noSource = filled > 0 and not anySource
     if filled > 0 then
       local w = self.pool[1]:GetWidth()
       local block = validWidth(w) and blockFor(self, w) or nil

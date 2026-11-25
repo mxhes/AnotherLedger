@@ -48,13 +48,23 @@ function Compact.nameText(t, hint)
 end
 
 -- Pure. Window height the compact body needs: chrome, the title row, the top
--- block, four drop rows and the Daily farm line (Theme.sizes.compactMinHeight
--- must not be smaller).
-function Compact.requiredHeight()
+-- block, `drops` drop rows (option "Compact: last drops", default four) and
+-- the Daily farm line (Theme.sizes.compactMinHeight must not be smaller than
+-- the four-drop height). Fewer drops let the window be resized smaller.
+function Compact.requiredHeight(drops)
   local S = ns.Theme.sizes
   local inset = S.padding + 4
+  drops = tonumber(drops) or MAX_DROPS
+  drops = math.max(0, math.min(MAX_DROPS, math.floor(drops)))
   return 2 * inset + S.headerRowHeight + S.padding / 2
-    + S.compactDropsTop + (MAX_DROPS + 1) * S.compactRowHeight + S.compactGap
+    + S.compactDropsTop + (drops + 1) * S.compactRowHeight + S.compactGap
+end
+
+-- The compact window's resize minimum for the current drop count.
+function Compact.minHeight()
+  local S = ns.Theme.sizes
+  local drops = ns.Util.setting("compactDrops", MAX_DROPS)
+  return math.min(S.compactMinHeight, math.ceil(Compact.requiredHeight(drops)))
 end
 
 -- Pure. The big number: gold per hour, or an em dash under a minute and

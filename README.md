@@ -85,17 +85,17 @@ clock is stopped).
 
 - **Header**: the session clock (red while stopped), **Start / Stop**,
   **Reset**, the layout arrow, the gear (options) and close. While the clock
-  is stopped, loot and gold are not counted; the chat says so once. On Bags
-  and Bank the header shows how many items are listed, on History how many
+  is stopped, loot and gold are not counted; the chat says so once. On
+  Inventory the header shows how many items are listed, on History how many
   sessions.
 - **Filter bar**: quality (the button shows how many are shown, e.g.
   `Quality 6/8`; the menu starts with one-click choices such as `Uncommon and
   better`), minimum value in gold, text search and the sort (Value, Vendor,
   Name, Recent). Filters are remembered; the small x next to the sort clears
-  them all. Session, Bags and Bank share one sort; History's Sessions and
+  them all. Session and Inventory share one sort; History's Sessions and
   Zones each keep their own (Sessions start newest first).
 - **Daily strip**: today's best farm (see below).
-- **Tabs**: Session, Bags, Bank, History and Trade (below).
+- **Tabs**: Session, Inventory (Bags and Bank), History and Trade (below).
 - **List**: one row per item: icon, name and quantity, and on the right its
   value with a tag saying where it comes from: `Vendor`, `Auction` or
   `Destroy` (disenchant, mill or prospect). With TSM, a second line says how
@@ -140,7 +140,9 @@ items.
 ## Tabs
 
 - **Session**: everything looted since the session started.
-- **Bags**: what is in your bags right now, valued the same way. Right-click
+- **Inventory** has two sub-tabs, **Bags** and **Bank**; it opens on the one
+  you used last.
+- **Inventory > Bags**: what is in your bags right now, valued the same way. Right-click
   an item and pick **Keep (not for sale)** for tools, consumables you use or
   gear sets: the row says `(kept)` and the footer splits the total into
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
@@ -153,7 +155,7 @@ items.
   footer adds **All characters**: every character's net worth as it was when
   you last logged out with it (or looked at its Bags); the tooltip lists
   them with their age.
-- **Bank**: your bank. The game only shows it to addons while it is open, so
+- **Inventory > Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once (until then the list says `Not scanned yet.` and the
   total shows `—`); after that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
@@ -340,7 +342,9 @@ then your own sales (Trade tab), then the last price seen earlier. If the
 ## Options
 
 Open them with the gear, a right-click on the minimap button, or Esc >
-Options > AddOns > AnotherLedger. Hover any option for what it does and its
+Options > AddOns > AnotherLedger. The categories are listed on the left; pick
+one to see its options. Appearance groups its options under Fonts, Skin and
+Colors. Hover any option for what it does and its
 default. Changes apply at once. Drag the options window to move it; it opens
 there from then on (until then, next to the ledger). **Opacity** and
 **Brightness** apply to the options window as well. **Lock window** also
@@ -355,26 +359,32 @@ History asks first.
 | List | Sort at login, Large amounts, Coin icons, Raw gold, Currencies, Hide worthless, Drop chance in tooltips, Price trend in tooltips, Top finds, Compact: last drops, Compact: item icons, Item icons, Price per unit, Hide Vendor tags, Ignored items, Kept items, Watched items, Scroll to new loot |
 | Session | Keep session, Crafted and bought, Drop alert (gold), Alert sound, Session goal (gold), Session goal (minutes), Session summary in chat, Reset: ask for a note, Pause when AFK, Pause in cities, Pause while traveling, Session per instance, Session per zone, Zone change delay, Min. session length |
 | History | Daily farm, Daily farm: min. time, Daily farm: my level, Zones: all characters, Export History, Clear History, History kept, Trade log kept, Mob data kept |
-| Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Buttons, Lines, Sunken list, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
+| Appearance | Font, Font outline, Font shadow, List text, Totals text, Section titles, Skin, Border, Buttons, Lines, Sunken list, Tabs, Color preset, Text, Titles and totals, Hints, Vendor, Auction, Destroy, Tooltip labels, Window background, Window border, Button background, Reset colors, Delete color preset |
 | Profiles | Profile, New profile, Copy profile, Rename profile, Delete profile, Reset profile, Export profile, Import profile |
 
-**Skin** changes the shape of the window at once: its border, buttons and
-lines, and whether the list sits in a darker sunken box. Skins
-never change colors, so every skin works with every color preset.
+**Skin** changes the shape of the window at once: its border, buttons,
+lines and tabs, and whether the list sits in a darker sunken box.
 
-| Skin | Border | Buttons | Lines | Sunken list |
-| --- | --- | --- | --- | --- |
-| Classic | Round | Bronze | Gold | off |
-| Forge | Bevel | Raised | Groove | on |
-| Slate | Thin | Flat | Plain | off |
-| Gilded | Gilded | Bronze | Dotted | off |
+| Skin | Border | Buttons | Lines | Tabs | Sunken list |
+| --- | --- | --- | --- | --- | --- |
+| Modern | Rounded | Flat | Zebra | Pills | on |
+| Classic | Round | Bronze | Gold | Folder | off |
+| Forge | Bevel | Raised | Groove | Folder | on |
+| Slate | Thin | Flat | Plain | Folder | off |
+| Gilded | Gilded | Bronze | Dotted | Folder | off |
 
-**Classic** is the look the addon always had. **Forge** has a carved frame
+**Modern** is the look a new installation starts with: a flat navy window
+with a thin rounded edge, flat buttons, pill tabs with a blue line under the
+chosen one, and every other list row shaded instead of lines between them.
+Picking Modern also sets the **Inter** font and the **Polaris** colors; the
+other skins keep your font and colors, so you can combine Modern's shapes or
+font or colors with anything else. If you used the addon before, your look
+stays as it was until you pick Modern. **Classic** is the look the addon had before. **Forge** has a carved frame
 and a sunken list, like the game's profession windows.
 **Slate** is plain and square. **Gilded** has a double frame with studs in
 the corners; it looks best with the **Blizzard** color
-preset. **Border** also decides the tabs: **Round** gives rounded tabs, the
-others square ones. After a skin you can still change single parts; the skin
+preset. With **Folder** tabs the **Border** decides their shape: **Round**
+gives rounded tabs, the others square ones. After a skin you can still change single parts; the skin
 then shows "(edited)". Opacity and Brightness work with every skin. After
 updating the addon, restart the game once (not just /reload) so it finds the
 new skin textures.
@@ -382,7 +392,8 @@ new skin textures.
 **Color preset** changes the whole look at once: the window, the lines, the
 tabs, the buttons and the scrollbar. **AnotherLedger** is the dark leather look,
 **Blizzard** is black and bronze with red buttons like the game's own
-windows, **Midnight** is dark blue and **TSM-style** is slate with a
+windows, **Midnight** is dark blue, **Polaris** is navy with amber titles and
+sky blue accents (the Modern skin's colors) and **TSM-style** is slate with a
 gold-orange accent. Item
 quality and coin colors always stay the game's own. Buttons are light on top
 and fade darker toward the bottom, with a thin gold line inside the edge;
@@ -467,9 +478,9 @@ inn, so selling and mailing don't lower your gold per hour; loot and gold
 still count. The compact window says Resting. A clock you stopped yourself
 stays stopped when you leave.
 
-**Pause while traveling** (on by default) does the same on flight paths, boats
-and zeppelins; the compact window says Traveling. Flying on your own mount
-keeps the clock running.
+**Pause while traveling** (on by default) does the same on flight paths; the
+compact window says Traveling. Flying on your own mount, boats and zeppelins
+keep the clock running.
 
 **Min. session length** (2 minutes by default) keeps very short sessions out
 of History: a session with loot shorter than that just continues when a new

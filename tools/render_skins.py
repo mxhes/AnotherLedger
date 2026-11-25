@@ -235,11 +235,87 @@ def dotted():
     return img
 
 
+ROUND_CELL = 16  # one tile of the backdrop edge strip
+ROUND_INNER = 14  # the part of a tile the game samples (texels 1..14)
+ROUND_RADIUS = 7.0  # corner radius in texels (edgeSize 8 -> 4 UI units)
+ROUND_LINE = 2.0  # line width in texels (about 1 UI unit)
+
+
+def rounded():
+    """Backdrop edge file of the Modern border (Border: Rounded).
+
+    128 x 16: eight 16 x 16 tiles left, right, top, bottom, top-left,
+    top-right, bottom-left, bottom-right; the game samples texels 1..14 of
+    each. Top and bottom are drawn rotated (screen top = the tile's left
+    column, screen bottom = its right column), so top looks like left and
+    bottom like right. White, tinted with the border color in the game.
+    """
+    img = Image.new("RGBA", (8 * ROUND_CELL, ROUND_CELL), (255, 255, 255, 0))
+    px = img.load()
+    n, r, t = ROUND_INNER, ROUND_RADIUS, ROUND_LINE
+    sub = 4  # supersampling per axis
+
+    def coverage(x, y, flip_x, flip_y, corner):
+        hits = 0
+        for i in range(sub):
+            for j in range(sub):
+                u = x + (i + 0.5) / sub
+                v = y + (j + 0.5) / sub
+                if flip_x:
+                    u = n - u
+                if flip_y:
+                    v = n - v
+                if corner:
+                    dx, dy = max(r - u, 0.0), max(r - v, 0.0)
+                    d = math.hypot(dx, dy)
+                    inside = d <= r and (dx > 0 or dy > 0 or True)
+                    # distance from the outer edge, measured along the arc
+                    edge = r - d if (dx > 0 and dy > 0) else min(u, v)
+                    if inside and edge < t:
+                        hits += 1
+                elif u < t:
+                    hits += 1
+        return hits / (sub * sub)
+
+    # tile index -> (flip_x, flip_y, corner)
+    tiles = {
+        0: (False, False, False),  # left: line at the left column
+        1: (True, False, False),   # right: line at the right column
+        2: (False, False, False),  # top (rotated): like left
+        3: (True, False, False),   # bottom (rotated): like right
+        4: (False, False, True),   # top-left
+        5: (True, False, True),    # top-right
+        6: (False, True, True),    # bottom-left
+        7: (True, True, True),     # bottom-right
+    }
+    for tile, (fx, fy, corner) in tiles.items():
+        inner = Image.new("L", (n, n), 0)
+        ip = inner.load()
+        for y in range(n):
+            for x in range(n):
+                ip[x, y] = int(coverage(x, y, fx, fy, corner) * 255 + 0.5)
+        # The 14 x 14 tile at texel 1, its border texels repeated (filtering).
+        padded = inner.resize((n, n))
+        cell = Image.new("L", (ROUND_CELL, ROUND_CELL), 0)
+        cell.paste(padded, (1, 1))
+        for k in range(ROUND_CELL):
+            cell.putpixel((0, k), cell.getpixel((1, min(max(k, 1), n))))
+            cell.putpixel((ROUND_CELL - 1, k), cell.getpixel((n, min(max(k, 1), n))))
+        for k in range(ROUND_CELL):
+            cell.putpixel((k, 0), cell.getpixel((k, 1)))
+            cell.putpixel((k, ROUND_CELL - 1), cell.getpixel((k, n)))
+        cp = cell.load()
+        for y in range(ROUND_CELL):
+            for x in range(ROUND_CELL):
+                px[tile * ROUND_CELL + x, y] = (255, 255, 255, cp[x, y])
+    return img
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out = os.path.join(root, "AnotherLedger", "Media", "Skins")
     os.makedirs(out, exist_ok=True)
-    images = {"Stud": stud(), "Dotted": dotted()}
+    images = {"Stud": stud(), "Dotted": dotted(), "Rounded": rounded()}
     for name, img in images.items():
         save_tga(img, os.path.join(out, name + ".tga"))
     if "--backgrounds" in sys.argv:

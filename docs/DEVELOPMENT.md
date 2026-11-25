@@ -47,7 +47,7 @@ only inside functions.
 | `Options.lua` | option registry and the built-in options |
 | `OptionsLook.lua` | Appearance options that set the look: single colors, color presets, skin and its parts |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
-| `View.lua` | the rows and totals a tab shows (Session, Bags, Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
+| `View.lua` | the rows and totals a tab shows (Session, Inventory's Bags and Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
 | `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
 | `ViewTrade.lua` | the Trade tab's Items and Log views |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
@@ -76,7 +76,8 @@ only inside functions.
 | `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
 | `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
-| `Media/Skins/*.tga` | skin textures (Stud 16 x 16; Dotted 8 x 2), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
+| `Media/Skins/*.tga` | skin textures (Stud 16 x 16; Dotted 8 x 2; Rounded 128 x 16 backdrop edge strip), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
+| `Media/Fonts/` | Inter Regular and SemiBold (SIL Open Font License, `Inter-LICENSE.txt`); `Theme.fontFiles.inter*`, offered by the Font option, Inter is the Modern skin's font |
 | `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
 The logo is drawn by `tools/render_logo.py` (repo root, Pillow, not packaged):
@@ -228,9 +229,18 @@ Each of these is one call in one place; the UI never names them.
   Destroy labels in tooltips use `Theme.sourceColor(source)`
   (`Tooltip.money(..., source)`, `Rows.tooltipLines`, `Summary.tooltipLines`).
   The swatch opens the game picker through `Widgets.pickColor`.
-- **Skins**: `Theme.skins` (Classic, Forge, Slate, Gilded) name one choice
-  per part of `Theme.skinParts` (border, buttons, lines) plus
-  `listBox`. The options `skinBorder` ... `skinListBox` (`Options.SKIN_PARTS`)
+- **Skins**: `Theme.skins` (Modern, Classic, Forge, Slate, Gilded) name one
+  choice per part of `Theme.skinParts` (border, buttons, lines, tabs) plus
+  `listBox`; Modern also names `font` and `preset`, which its `picked` sets
+  (`fontFace`, then `Options.pick` of `colorPreset`, so the single colors
+  follow). New profiles default to Modern (`DB.defaults.settings`); saved
+  profiles keep their stored skin, font and preset. Border Rounded is a
+  backdrop with the edge strip `Media/Skins/Rounded.tga`
+  (`Theme.sizes.roundedEdge` / `roundedInset`). Tabs Pills (`Tabs.pillLook`)
+  fill the selected tab with `buttonFill` and draw `tabBorderSelected` as a
+  `tabUnderline` line over one full base line. Lines Zebra draws dividers like
+  Plain and makes the list rows drop their separators for a stripe on every
+  second row (`Rows.striped`, `skinScales.zebra`). The options `skinBorder` ... `skinListBox` (`Options.SKIN_PARTS`)
   write `Theme.style` through `Theme.setStyle` and call
   `Widgets.applySkin()`, which re-runs `applyBackdrop` (`Theme.backdropSpec`;
   borders other than Round are line rectangles `frame.skinEdges` from
@@ -240,7 +250,7 @@ Each of these is one call in one place; the UI never names them.
   dividers, the tab base lines, option section lines; colors from
   `Theme.lineColors`) and runs the `Widgets.onSkin` hooks (tab shape
   `Tabs.reshapeAll`, the sunken list `Window.applyListBox`). Picking a skin
-  writes its five parts (`picked`); a part's default is the chosen skin's
+  writes its parts (`picked`); a part's default is the chosen skin's
   (`Options.defaultFor`), so `Options.skinEdited` drives "(edited)".
   `Window.paintLook` colors the edge lines and the list box with opacity and
   brightness. Plain bars that are no dividers (goal bar, Top finds quality
@@ -280,7 +290,10 @@ Each of these is one call in one place; the UI never names them.
   30 s (no tooltip for objects). Names, GUIDs and cast targets the client
   hands over as secret values (`issecretvalue`, in instances and combat) are
   dropped unread through `Util.isSecret` / `Util.plainString`: comparing one
-  errors and taints the addon. No name is saved without one:
+  errors and taints the addon. The chat texts of CHAT_MSG_LOOT / MONEY /
+  CURRENCY / SYSTEM and UI_INFO_MESSAGE go through `Util.plainString` too (a
+  secret one is skipped), and `Util.isNumber` is false for a secret number.
+  No name is saved without one:
   `View.buildMobs` shows "NPC 12345" / "Object 1731" and takes the newest
   saved name (the first History entry's, the running session's over all). Coin
   slots wait for `settleLoot`, which scales them (`Mobs.scaleMoney`) to the
@@ -361,11 +374,9 @@ Each of these is one call in one place; the UI never names them.
   and stops the place time (`resting = "city"`); `Session.wake` restarts it.
   Loot and gold still count. Stop, reset and login (`resume`) handle it.
   `travelPause` rests it the same way with `resting = "travel"` (the header
-  says Traveling) while `Core.traveling()`: `UnitOnTaxi`, or the heartbeat's
-  position samples (`Core.sampleTravel`, `UnitPosition` / `GetUnitSpeed` /
-  `IsFalling`) show a transport ride (`Core.transportMoved`: at least
-  `TRANSPORT.MIN_EXTRA` yd/s faster than the own speed, at most
-  `TRANSPORT.MAX`). `PLAYER_CONTROL_LOST` / `GAINED` check it at once.
+  says Traveling) while `Core.traveling()` (`UnitOnTaxi`: flight paths only;
+  boats and zeppelins are not detected). `PLAYER_CONTROL_LOST` / `GAINED`
+  check it at once.
 - **Short sessions** (`minSessionMinutes`, `Core.isShort`): a session with
   loot shorter than that is not archived by Session per zone / instance; at
   login a short saved session with loot (its `elapsedBase`; demo sessions
@@ -530,7 +541,22 @@ Each of these is one call in one place; the UI never names them.
   right-click Rename, at most `History.LABEL_MAX`) replaces the main place in
   line 2 of the row only; `places`, Zones and the CSV keep the real ones. A
   merge keeps the newer session's label.
-- **Options window height**: `Panel.tabbedHeight(section, columns)` per tab;
+- **Inventory tab**: key `inventory`, sub-tabs `bags` and `bank`; it
+  watches both data kinds (`watches = { bags = true, bank = true }`,
+  `Tabs.watches`). The old tab keys `bags` / `bank` are `Tabs.ALIASES`:
+  `Tabs.resolve` maps them to the tab and sub-tab, so `Ledger.setTab("bank")`
+  and a saved `db.tab` from before open the sub-tab (the login rewrites
+  `db.tab` / `db.subtab.inventory`).
+- **Option headings**: a spec's `heading` is drawn above it
+  (`Options.layout` returns `heads`); `newColumn` starts the next column, and
+  a section with one breaks its columns only there (Appearance: Colors).
+- **Options categories**: a list down the left side (`Panel.nav`, one button
+  per `Options.sections()` entry, colors from `Panel.navLook`: the chosen one
+  filled with a `tabBorderSelected` bar, the same for every skin), a divider,
+  then the section's options in two columns. The list is `Theme.options.navWidth`
+  wide or as wide as its longest label (`Panel.navWidth`).
+- **Options window height**: `Panel.tabbedHeight(section, columns, count)` per
+  section (at least the list's height);
   `tabbed.select` calls `tabbed.onResize`, which re-anchors a CENTER-placed
   panel by its TOP and sets the height. `db.optionsWindow` = `{ x, top }`
   (offset of the top edge's middle from the screen's top middle); an older

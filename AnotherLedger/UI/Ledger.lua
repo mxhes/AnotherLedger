@@ -552,9 +552,16 @@ end
 
 -- Tab and sub-tab state without a redraw (setTab / setSubtab / showFarm redraw).
 local function switchTab(key)
-  if not ns.UI.Tabs.valid(key) then key = ns.UI.Tabs.DEFAULT end
+  -- An old tab key that is now a sub-tab (Bank) opens that sub-tab.
+  local subKey
+  key, subKey = ns.UI.Tabs.resolve(key)
+  if not ns.UI.Tabs.valid(key) then key, subKey = ns.UI.Tabs.DEFAULT, nil end
   rememberScroll()
   Ledger.tab = key
+  if subKey and ns.db then
+    if type(ns.db.subtab) ~= "table" then ns.db.subtab = {} end
+    ns.db.subtab[key] = subKey
+  end
   Ledger.subtab = savedSubtab(key)
   Ledger.historyIndex = nil
   Ledger.zoneOpen = {}
@@ -827,7 +834,7 @@ end
 -- copy. Returns whether the shown tab needs a refresh for it.
 function Ledger.dataChanged(what)
   ns.UI.Tabs.invalidate(what)
-  return ns.UI.Tabs.get(Ledger.tab).watches == what
+  return ns.UI.Tabs.watches(Ledger.tab, what)
 end
 
 -- Item data arrived: only matters for an item listed on the current tab.
@@ -1017,8 +1024,15 @@ function Ledger.init()
   -- Catch up on everything that changed while the window was hidden.
   frame:HookScript("OnShow", Ledger.refresh)
 
-  local saved = ns.db and ns.db.tab
-  if UI.Tabs.valid(saved) then Ledger.tab = saved end
+  -- A tab saved under an old key (Bank) opens as its sub-tab now.
+  local saved, savedSub = UI.Tabs.resolve(ns.db and ns.db.tab)
+  if UI.Tabs.valid(saved) then
+    Ledger.tab = saved
+    if savedSub then
+      if type(ns.db.subtab) ~= "table" then ns.db.subtab = {} end
+      ns.db.subtab[saved], ns.db.tab = savedSub, saved
+    end
+  end
   Ledger.subtab = savedSubtab(Ledger.tab)
   applyTab(Ledger.tab)
 

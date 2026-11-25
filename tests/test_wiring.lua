@@ -864,10 +864,10 @@ h.test("wiring: bags tab lists the bag contents, footer shows only the items blo
   bagEnv(ctx, { [0] = { n = 3, { 2589, 5 }, { 2592, 2 }, { 2589, 15 } } })
   startWorld(ctx, false)
   local L = ctx.ns.UI.Ledger
-  L.setTab("bags")
+  L.setTab("bags") -- the old Bags tab key opens Inventory > Bags
   h.eq(ctx.errors, {})
-  h.eq(L.tab, "bags")
-  h.eq(ctx.env.AnotherLedgerDB.tab, "bags")
+  h.eq(L.tab, "inventory"); h.eq(L.subtab, "bags")
+  h.eq(ctx.env.AnotherLedgerDB.tab, "inventory")
   h.eq(#L.view.rows, 2)
   h.eq(L.view.kind, "inventory")
   -- a bag change marks the list dirty and shows up on the next refresh
@@ -926,11 +926,43 @@ end)
 h.test("wiring: the last tab survives a reload", function()
   local ctx = boot()
   startWorld(ctx, false)
-  ctx.ns.UI.Ledger.setTab("bags")
+  ctx.ns.UI.Ledger.setTab("bank")
   local reload = boot({ db = ctx.env.AnotherLedgerDB, chardb = ctx.env.AnotherLedgerCharDB, now = 2000 })
   startWorld(reload, true)
   h.eq(reload.errors, {})
-  h.eq(reload.ns.UI.Ledger.tab, "bags")
+  h.eq(reload.ns.UI.Ledger.tab, "inventory"); h.eq(reload.ns.UI.Ledger.subtab, "bank")
+end)
+
+h.test("wiring: a Bags or Bank tab saved by an older version opens as its Inventory sub-tab", function()
+  for _, old in ipairs({ "bags", "bank" }) do
+    local ctx = boot({ db = { tab = old } })
+    startWorld(ctx, false)
+    local L = ctx.ns.UI.Ledger
+    h.eq(L.tab, "inventory"); h.eq(L.subtab, old)
+    h.eq(ctx.ns.db.tab, "inventory"); h.eq(ctx.ns.db.subtab.inventory, old)
+    h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("inventory", old))
+    h.eq(ctx.errors, {})
+  end
+end)
+
+h.test("wiring: Inventory has Bags and Bank sub-tabs; a bank scan redraws either", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 1, { 2589, 5 } } })
+  startWorld(ctx, false)
+  local L, Tabs = ctx.ns.UI.Ledger, ctx.ns.UI.Tabs
+  h.eq(Tabs.KEYS, { "session", "inventory", "history", "trade" })
+  L.setTab("inventory")
+  h.eq(L.subtab, "bags")
+  h.eq(L.subtabStrips.inventory.frame:IsShown(), true)
+  L.setSubtab("bank")
+  h.eq(L.view.unscanned, true)
+  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), Tabs.title("inventory", "bank"))
+  h.eq(L.dataChanged("bank"), true); h.eq(L.dataChanged("bags"), true)
+  h.eq(L.dataChanged("trade"), false)
+  -- clicking the tab again comes back to the sub-tab used last
+  L.setTab("session"); L.setTab("inventory")
+  h.eq(L.subtab, "bank")
+  h.eq(ctx.errors, {})
 end)
 
 h.test("wiring: footer table height follows the tab and the raw gold option", function()
@@ -1026,6 +1058,14 @@ h.test("wiring: the font outline and shadow options restyle the text live and re
   h.eq(S.textOverhang, 0); h.eq(S.tagTextShift, 0); h.eq(S.tagPadExtra, 0)
   ns.Options.set(ns.db, "fontOutline", "bogus") -- refused: the saved value stays valid
   h.eq(ns.Options.get(ns.db, "fontOutline") ~= "bogus", true)
+  -- Button text is the button's plain label, never the game's own button
+  -- text (which the game redraws with its state fonts, without the outline)
+  local fontStrings = 0
+  methods.SetFontString = function() fontStrings = fontStrings + 1 end
+  local b = ns.UI.Widgets.button(ns.UI.Window.frame, "Reset")
+  methods.SetFontString = nil
+  b:SetText("Start")
+  h.eq(b.label:GetText(), "Start"); h.eq(b:GetText(), "Start"); h.eq(fontStrings, 0)
   L.relayout, F.applyStyle = realRelayout, realStyle
   h.eq(ctx.errors, {})
 end)
@@ -1114,11 +1154,12 @@ end)
 h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local tabs = ctx.ns.UI.Ledger.tabs
-  local bags = tabs.buttons.bags
+  local bags = tabs.buttons.inventory
   bags._scripts.OnClick(bags, "LeftButton")
-  h.eq(ctx.ns.UI.Ledger.tab, "bags")
-  h.eq(tabs.selected, "bags")
+  h.eq(ctx.ns.UI.Ledger.tab, "inventory")
+  h.eq(tabs.selected, "inventory")
   h.eq(bags.isSelected, true)
   h.eq(bags.glow:IsShown(), true)
   h.eq(tabs.buttons.session.isSelected, false)
@@ -1131,7 +1172,7 @@ h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
   h.eq(tabs.baseRight:IsShown(), true)
   -- the line is drawn on a frame above the tabs, so the tabs sit behind it
   h.eq(tabs.lineFrame ~= nil, true)
-  h.eq(tabs.lineFrame:GetFrameLevel() > tabs.buttons.bags:GetFrameLevel(), true)
+  h.eq(tabs.lineFrame:GetFrameLevel() > tabs.buttons.inventory:GetFrameLevel(), true)
   h.eq(ctx.errors, {})
 end)
 
@@ -1281,7 +1322,7 @@ h.test("wiring: hovering an option shows its tooltip with the default", function
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: the options panel has a tab per category, one page shown at a time", function()
+h.test("wiring: the options panel lists the categories on the left, one page shown at a time", function()
   local ctx = boot()
   startWorld(ctx, false)
   local P, O = ctx.ns.UI.OptionsPanel, ctx.ns.Options
@@ -1289,19 +1330,19 @@ h.test("wiring: the options panel has a tab per category, one page shown at a ti
   local tabbed = P.frame.tabbed
   local sections = O.sections()
   local first, second = sections[1].id, sections[2].id
-  for _, s in ipairs(sections) do h.eq(tabbed.strip.buttons[s.id] ~= nil, true, s.id) end
+  for _, s in ipairs(sections) do h.eq(tabbed.nav.buttons[s.id] ~= nil, true, s.id) end
   h.eq(tabbed.pages[first]:IsShown(), true)
   h.eq(tabbed.pages[second]:IsShown(), false)
-  h.eq(tabbed.strip.selected, first)
+  h.eq(tabbed.nav.selected, first)
   -- clicking another tab shows its page only
-  tabbed.strip.buttons[second]._scripts.OnClick()
+  tabbed.nav.buttons[second]._scripts.OnClick()
   h.eq(tabbed.pages[first]:IsShown(), false)
   h.eq(tabbed.pages[second]:IsShown(), true)
   h.eq(P.tab, second)
   -- the options page in the game's window opens on the same tab
   local page = P.registerPage()
   page._scripts.OnShow(page)
-  h.eq(page.tabbed.strip.selected, second)
+  h.eq(page.tabbed.nav.selected, second)
   -- the panel is as tall as the shown tab needs
   local height = P.frame:GetHeight()
   tabbed.select(first)
@@ -2653,7 +2694,7 @@ h.test("wiring: compact ticks the clock and shows the session title on any tab",
   L.tick()
   h.eq(H.timer:GetText() ~= before, true)
   slash(ctx, "compact")
-  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("bags"))
+  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("inventory", "bags"))
   h.eq(ctx.errors, {})
 end)
 
@@ -3155,18 +3196,35 @@ h.test("wiring: import through the box creates and activates a profile", functio
   h.eq(ctx.errors, {})
 end)
 
-h.test("wiring: the options window is wide enough for every tab", function()
+h.test("wiring: the options category list fits its labels; the chosen one is marked", function()
   local ctx = boot()
   startWorld(ctx, false)
   local ns = ctx.ns
-  ns.UI.OptionsPanel.toggle()
-  local frame = ns.UI.OptionsPanel.frame
-  local S = ns.Theme.sizes
-  local extent, n = 0, 0
-  for _, b in pairs(frame.tabbed.strip.buttons) do extent, n = extent + b:GetWidth(), n + 1 end
-  extent = extent + (n - 1) * S.buttonGap
+  local P = ns.UI.OptionsPanel
+  P.toggle()
+  local frame = P.frame
+  local O = ns.Theme.options
+  local n, first = 0, nil
+  for key, b in pairs(frame.tabbed.nav.buttons) do
+    n = n + 1
+    h.eq(b:GetWidth() >= O.navWidth, true)
+    first = first or key
+  end
   h.eq(n, #ns.Options.sections())
-  h.eq(frame:GetWidth() >= extent + 2 * (S.padding + 4), true)
+  h.eq(P.navWidth({ 500 }), 500 + 2 * O.navTextPad + O.navBar)
+  h.eq(P.navWidth({}), O.navWidth)
+  -- the window holds the list, the gap and the two option columns
+  h.eq(frame:GetWidth(), 2 * (ns.Theme.sizes.padding + 4) + frame.tabbed.width)
+  frame.tabbed.select(first)
+  local b = frame.tabbed.nav.buttons[first]
+  h.eq(b.bar:IsShown(), true)
+  for key, other in pairs(frame.tabbed.nav.buttons) do
+    if key ~= first then h.eq(other.bar:IsShown(), false) end
+  end
+  local c = ns.Theme.colors
+  h.eq(P.navLook(true, false), { fill = c.buttonFill, fillAlpha = 1, bar = c.tabBorderSelected, text = c.tabTextSelected })
+  h.eq(P.navLook(false, true).fillAlpha, 0.5)
+  h.eq(P.navLook(false, false), { fill = c.buttonFill, fillAlpha = 0, bar = false, text = c.tabText })
   h.eq(ctx.errors, {})
 end)
 
@@ -4486,6 +4544,27 @@ h.test("wiring: the sold chat line marks the sale", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: secret chat texts and numbers are skipped unread", function()
+  local ctx = tradeWorld()
+  local ns = ctx.ns
+  local SOLD = "A buyer has been found for your auction of Bolt."
+  local secret = { [SOLD] = true, [LOOT] = true, ["Trade complete."] = true, [7] = true }
+  ctx.env.issecretvalue = function(v) return secret[v] == true end
+  fire(ctx, "CHAT_MSG_SYSTEM", SOLD)
+  local _, b = tradeLog(ctx)
+  h.eq(#(b and b.pending or {}), 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589], nil)
+  fire(ctx, "CHAT_MSG_MONEY", LOOT); fire(ctx, "CHAT_MSG_CURRENCY", LOOT)
+  fire(ctx, "UI_INFO_MESSAGE", 0, "Trade complete.")
+  h.eq(ns.Util.isNumber(7), false); h.eq(ns.Util.isNumber(8), true)
+  -- readable again: counted as before
+  ctx.env.issecretvalue = nil
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589].qty, 3)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: nothing is recorded while the realm key is unknown", function()
   local ctx = tradeWorld(false)
   ctx.env.mails[1] = SALE_MAIL
@@ -4744,6 +4823,7 @@ end)
 h.test("wiring: switching border restyles the window without stacking frames", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns, win = ctx.ns, ctx.ns.UI.Window.frame
   h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
   ns.Options.pick(ns.db, "skinBorder", "bevel")
@@ -4781,6 +4861,7 @@ end)
 h.test("wiring: each button style shows its own parts", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns = ctx.ns
   local b = ns.UI.Widgets.button(ns.UI.Window.frame, "Test", 40)
   h.eq(b.fill.top:IsShown(), true)
@@ -4843,6 +4924,7 @@ end)
 h.test("wiring: square tabs on a non-round border, rounded on Round", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns = ctx.ns
   local tabs = ns.UI.Ledger.tabs
   local b = tabs.buttons.session
@@ -4856,6 +4938,7 @@ end)
 h.test("wiring: sunken list shows in full only", function()
   local ctx = boot()
   startWorld(ctx, false)
+  ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local ns, win = ctx.ns, ctx.ns.UI.Window.frame
   h.eq(win.listBox:IsShown(), false)
   ns.Options.pick(ns.db, "skinListBox", true)
@@ -4904,12 +4987,10 @@ h.test("wiring: the sunken list box sits above the window and below the list", f
   h.eq(win.listArea:GetFrameLevel() > win.listBox:GetFrameLevel(), true)
 end)
 
-h.test("wiring: Pause while traveling rests the clock on flights and transports", function()
+h.test("wiring: Pause while traveling rests the clock on flight paths only", function()
   local ctx = boot()
-  local state = { taxi = false, x = 0, speed = 0 }
+  local state = { taxi = false }
   ctx.env.UnitOnTaxi = function() return state.taxi end
-  ctx.env.UnitPosition = function() return 0, state.x, 0, 1 end
-  ctx.env.GetUnitSpeed = function() return state.speed end
   startWorld(ctx, false)
   local ns = ctx.ns
   local H = ns.UI.Header.instance
@@ -4929,20 +5010,7 @@ h.test("wiring: Pause while traveling rests the clock on flights and transports"
   state.taxi = false
   fire(ctx, "PLAYER_CONTROL_GAINED")
   h.eq(ns.session.resting, nil)
-  -- Standing on a boat: carried 60 yards in 5 seconds
-  ctx.now = ctx.now + 5
-  ns.Core.heartbeat()
-  state.x = 60
-  ctx.now = ctx.now + 5
-  ns.Core.heartbeat()
-  h.eq(ns.session.resting, "travel")
-  -- Arrived: standing still again
-  ctx.now = ctx.now + 5
-  ns.Core.heartbeat()
-  h.eq(ns.session.resting, nil)
-  -- Running on foot is no ride
-  state.speed = 7
-  state.x = 95
+  -- The heartbeat alone (a boat, a zeppelin, riding) keeps the clock running
   ctx.now = ctx.now + 5
   ns.Core.heartbeat()
   h.eq(ns.session.resting, nil)
@@ -4982,5 +5050,57 @@ h.test("wiring: item tooltips show the TSM sale info, off with TSM sale info", f
   h.eq(text:find(ns.L["TSM sale info"] .. " = Sells okay, Low volume", 1, true) ~= nil, true)
   ns.Options.set(ns.db, "showMarket", false)
   h.eq(tooltipFor(LINK):find(ns.L["TSM sale info"], 1, true), nil)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: a new player starts on Modern: rounded border, pill tabs, zebra rows, Inter, Polaris", function()
+  local ctx = boot()
+  startWorld(ctx, false)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  fire(ctx, "CHAT_MSG_LOOT", "You receive loot: |cffffffff|Hitem:2592::::::::60:::::::::|h[Wool Cloth]|h|r.")
+  local ns, T = ctx.ns, ctx.ns.Theme
+  h.eq(ns.Options.get(ns.db, "skin"), "modern")
+  h.eq(T.style, { border = "rounded", buttons = "flat", lines = "zebra", listBox = true, tabs = "pills" })
+  h.eq(ns.Options.get(ns.db, "fontFace"), T.fontFiles.inter)
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "polaris")
+  h.eq(T.colorToHex(T.colors.panelTint), "1c2234")
+  local win = ns.UI.Window.frame
+  h.eq(win._backdrop.edgeFile, T.textures.skinRounded)
+  -- Pills: the selected tab has its underline, the line runs under every tab
+  local tabs = ns.UI.Ledger.tabs
+  h.eq(tabs.buttons.session.glow:IsShown(), true)
+  h.eq(tabs.buttons.inventory.glow:IsShown(), false)
+  h.eq(tabs.baseLeft:IsShown(), false); h.eq(tabs.baseRight:IsShown(), true)
+  h.eq(tabs.buttons.session.skin._backdrop.edgeFile, nil)
+  -- Zebra: no separators, the second row striped
+  local pool = ns.UI.Ledger.list.pool
+  h.eq(pool[1].separator:IsShown(), false)
+  h.eq(pool[1].stripe:IsShown(), false)
+  h.eq(pool[2].stripe:IsShown(), true)
+  h.eq(ctx.errors, {})
+end)
+
+h.test("wiring: picking Modern sets its font and colors; another skin keeps them", function()
+  -- A profile saved by an older version (no skinTabs yet); db.settings is
+  -- only the login alias of the active profile, so it is not seeded.
+  local ctx = boot({ db = { profilesMigrated = true, profiles = {
+    Default = { skin = "classic", colorPreset = "anotherledger", fontFace = "default" } } } })
+  startWorld(ctx, false)
+  local ns, T = ctx.ns, ctx.ns.Theme
+  -- a profile saved before keeps its look
+  h.eq(T.style.border, "round"); h.eq(T.style.tabs, "folder")
+  h.eq(ns.Options.get(ns.db, "fontFace"), "default")
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "anotherledger")
+  ns.Options.pick(ns.db, "colorText", "ff0000")
+  ns.Options.pick(ns.db, "skin", "modern")
+  h.eq(T.style.tabs, "pills"); h.eq(T.style.lines, "zebra")
+  h.eq(ns.Options.get(ns.db, "fontFace"), T.fontFiles.inter)
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "polaris")
+  h.eq(ns.Options.get(ns.db, "colorText"), "ffffff") -- the preset's colors, not the old edit
+  h.eq(T.colorToHex(T.colors.panelTint), "1c2234")
+  ns.Options.pick(ns.db, "skin", "slate")
+  h.eq(T.style.border, "thin"); h.eq(T.style.tabs, "folder")
+  h.eq(ns.Options.get(ns.db, "fontFace"), T.fontFiles.inter)
+  h.eq(ns.Options.get(ns.db, "colorPreset"), "polaris")
   h.eq(ctx.errors, {})
 end)

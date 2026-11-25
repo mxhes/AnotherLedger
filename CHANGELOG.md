@@ -3,9 +3,20 @@
 ## v0.8.0
 
 - Color picker: a Saturation slider under the game's picker.
-- Pause while traveling (on by default): the clock rests on flight paths,
-  boats and zeppelins; loot still counts.
+- Pause while traveling (on by default): the clock rests on flight paths;
+  loot still counts.
 - Item tooltips show the TSM sale info (sells well / okay, volume).
+- New Modern skin, the look of new installations: flat navy window with a
+  thin rounded edge, pill tabs, shaded rows, the Inter font and Polaris colors.
+- Picking Modern sets its font and colors too; existing setups keep their look.
+- Inter and Inter SemiBold are new Font choices, Polaris a new color preset.
+- Bags and Bank are one tab, Inventory, with a sub-tab each: the window can
+  be narrower.
+- The options list their categories on the left, in every skin; Appearance
+  is grouped under Fonts, Skin and Colors.
+- Window titles use the Titles color; History > Mobs values sit flush right.
+- Fixes: button text follows the font outline and shadow; clearer chosen
+  pill tab; no errors from chat lines hidden from addons.
 
 ## v0.7.2
 

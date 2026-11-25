@@ -213,6 +213,15 @@ h.test("blockLayout: age tag gap and width only when a rendered row has one", fu
   checkBlock(tag, 500)
 end)
 
+h.test("blockLayout: no source column when no rendered row has a source tag", function()
+  local with = R.blockLayout(500, 50, 60, nil)
+  local without = R.blockLayout(500, 50, 60, nil, true)
+  h.eq(without.labelW, 0)
+  h.eq(without.blockW, 60 + P)
+  h.eq(without.amountX + without.amountW, 500) -- the amounts sit flush right
+  h.eq(without.blockW < with.blockW, true)
+end)
+
 h.test("blockLayout: nil / 0 measurements use the Theme fallbacks", function()
   local S = ns.Theme.sizes
   local c = R.blockLayout(500, nil, 0, nil)
@@ -323,4 +332,11 @@ h.test("Rows.tooltipLines: an AH value after the cut says so", function()
   local fm = ns.Money.format
   local lines = R.tooltipLines({ quantity = 1, ahTotal = 95, ahEach = 95, ahCut = true }, fm)
   h.eq(lines[1], "AH: " .. fm(95) .. " (after 5% AH cut)")
+end)
+
+h.test("Rows.striped: every second list row with Zebra lines, none otherwise", function()
+  h.eq(ns.UI.Rows.striped("zebra", 1), false)
+  h.eq(ns.UI.Rows.striped("zebra", 2), true)
+  h.eq(ns.UI.Rows.striped("zebra", 7), false)
+  h.eq(ns.UI.Rows.striped("gold", 2), false)
 end)

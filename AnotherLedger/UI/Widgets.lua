@@ -401,7 +401,12 @@ function Widgets.button(parent, label, width, opts)
   fs:SetPoint("LEFT", b, "LEFT", T.sizes.buttonTextPad, 0)
   fs:SetPoint("RIGHT", b, "RIGHT", -T.sizes.buttonTextPad, 0)
   fs:SetWordWrap(false)
-  if b.SetFontString then b:SetFontString(fs) end
+  -- The label is a plain FontString of the button, not the button's own
+  -- (SetFontString): the game redraws a button's own text with its state
+  -- fonts, which kept the label off the Font outline / shadow options.
+  -- UNVERIFIED (check in client): button text follows Font outline.
+  function b:SetText(text) fs:SetText(text) end
+  function b:GetText() return fs:GetText() end
   b.label, b.glyph, b.onEnter, b.onLeave = fs, false, false, false
   b.kind, b.warn = "bronze", (opts and opts.warn) and true or false
   b:SetText(label or "")
@@ -630,6 +635,8 @@ end
 -- Styled lines (option "skinLines"): dividers and separators that follow the
 -- Lines pick. Gold is one line in its color; Groove adds a light line right
 -- under it; Plain is greyed toward the panel; Dotted tiles a dash texture.
+-- Zebra draws its dividers like Plain; the list rows drop their separators
+-- for stripes (UI/Rows.lua).
 -- Plain lines and bars that are not dividers stay Widgets.line.
 
 local function styleRule(tex)

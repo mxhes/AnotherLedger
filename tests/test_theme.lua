@@ -173,7 +173,7 @@ h.test("every preset sets every color", function()
     end
     for key in pairs(p.colors) do h.eq(type(T.colors[key]), "table", p.id .. " unknown key " .. key) end
   end
-  h.eq(table.concat(ids, ","), "anotherledger,blizzard,midnight,tsm")
+  h.eq(table.concat(ids, ","), "anotherledger,blizzard,midnight,polaris,tsm")
 end)
 
 h.test("anotherledger preset is today's look", function()
@@ -244,12 +244,15 @@ h.test("Theme.skins: every skin names a valid choice for each part", function()
     end
     h.eq(type(s.listBox), "boolean")
   end
-  h.eq(ids, { "classic", "forge", "slate", "gilded" })
+  h.eq(ids, { "modern", "classic", "forge", "slate", "gilded" })
+  h.eq(T.skin("modern").font, T.fontFiles.inter); h.eq(T.skin("modern").preset, "polaris")
+  h.eq(T.preset("polaris") ~= nil, true)
   h.eq(T.skin("forge").border, "bevel"); h.eq(T.skin("nope"), nil)
 end)
 
-h.test("Theme.style starts as Classic; setStyle validates", function()
-  h.eq(T.style, { border = "round", buttons = "bronze", lines = "gold", listBox = false })
+h.test("Theme.style starts as Modern; setStyle validates", function()
+  h.eq(T.style, { border = "rounded", buttons = "flat", lines = "zebra", listBox = true, tabs = "pills" })
+  h.eq(T.setStyle("tabs", "folder"), true); h.eq(T.setStyle("tabs", "round"), false); T.setStyle("tabs", "pills")
   h.eq(T.setStyle("border", "bevel"), true); h.eq(T.style.border, "bevel")
   h.eq(T.setStyle("border", "wavy"), false); h.eq(T.style.border, "bevel")
   h.eq(T.setStyle("listBox", "yes"), false); h.eq(T.setStyle("listBox", true), true)

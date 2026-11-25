@@ -8,9 +8,9 @@ ns.UI = ns.UI or {}
 -- registered with Options.define (Options.lua). Client-only widgets; every WoW
 -- global is touched inside functions only.
 --
--- Expandability: the panel never names an option. It shows one tab per
--- section of Options.sections() (the option categories, tab buttons from
--- UI/Tabs.lua) and asks WIDGETS[spec.type] for a widget per option. A new option is one Options.define
+-- Expandability: the panel never names an option. It lists the sections of
+-- Options.sections() (the option categories) down the left side (Panel.nav)
+-- and asks WIDGETS[spec.type] for a widget per option. A new option is one Options.define
 -- call; a new kind of control is one entry in WIDGETS (plus its height in
 -- Options.HEIGHTS).
 local Panel = {}
@@ -334,6 +334,13 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
       block:SetSize(columnWidth, ns.Options.HEIGHTS[spec.type])
       local x = pad + ((layout.cols[spec.key] or 1) - 1) * (columnWidth + sizes().columnGap)
       block:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.tops[spec.key]))
+      -- The option's section heading right above it (Options.layout heads).
+      if spec.heading and layout.heads and layout.heads[spec.key] then
+        local head = CreateFrame("Frame", nil, parent)
+        head:SetSize(columnWidth, ns.Options.HEIGHTS.header)
+        head:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.heads[spec.key]))
+        Panel.WIDGETS.header(head, { label = spec.heading })
+      end
       local widget = factory(block, spec)
       widget.block = block
       -- Dimmed (still usable) while the option does nothing (Options.inactive).
@@ -349,61 +356,147 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
   return widgets
 end
 
--- Pure. Height of the tabbed area for one section: the tab row, the gap
--- under it and the section laid out in `columns`. The panel takes the shown
--- tab's height (a short tab leaves no empty space under it).
-function Panel.tabbedHeight(section, columns)
-  return theme().sizes.headerRowHeight + sizes().tabGap + ns.Options.layout(section.specs, columns).height
+-- Pure. Height of the options area for one section: the section laid out in
+-- `columns`, at least as tall as the category list of `count` entries. The
+-- panel takes the shown section's height (a short one leaves no empty space
+-- under it).
+function Panel.tabbedHeight(section, columns, count)
+  local O = sizes()
+  local listHeight = (count or 0) * (O.navItemHeight + O.navItemGap)
+  return math.max(listHeight, ns.Options.layout(section.specs, columns).height)
 end
 
--- The selected tab, shared by the panel and the options page and kept for the
--- session. A section id; an unknown one falls back to the first section.
+-- The selected section, shared by the panel and the options page and kept for
+-- the session. A section id; an unknown one falls back to the first section.
 Panel.tab = nil
 
--- One tab per section (Options.sections) in `parent`, `pad` from the sides and
--- `top` from the top: the tab row, and under it one page per section with its
--- options in COLUMNS columns; only the selected tab's page is shown. Returns
--- { widgets = { [key] = widget }, select = function(id), height (the shown
--- tab's), heights = { [id] = height }, onResize = function(height) or nil }.
-function Panel.buildTabbed(parent, pad, top)
-  local S = theme().sizes
-  local O = sizes()
-  local sections = ns.Options.sections()
-  local row = CreateFrame("Frame", nil, parent)
-  row:SetHeight(S.headerRowHeight)
-  row:SetPoint("TOPLEFT", parent, "TOPLEFT", pad, -top)
-  row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -pad, -top)
+-- Pure. Colors of a category in the list: { fill (color), fillAlpha, bar
+-- (the accent bar on its left, color or false), text }. The chosen one is
+-- filled and has the bar, hovering half fills the others. The same for every
+-- skin; the colors follow the color options.
+function Panel.navLook(selected, hovered)
+  local c = theme().colors
+  if selected then
+    return { fill = c.buttonFill, fillAlpha = 1, bar = c.tabBorderSelected, text = c.tabTextSelected }
+  end
+  return { fill = c.buttonFill, fillAlpha = hovered and 0.5 or 0, bar = false,
+    text = hovered and c.tabTextSelected or c.tabText }
+end
 
+-- Pure. Width of the category list: Theme.options.navWidth, wider when a
+-- label (`textWidths`, px) needs more with its padding and the bar.
+function Panel.navWidth(textWidths)
+  local O = sizes()
+  local w = O.navWidth
+  for _, tw in ipairs(type(textWidths) == "table" and textWidths or {}) do
+    if type(tw) == "number" and tw == tw then w = math.max(w, math.ceil(tw + 2 * O.navTextPad + O.navBar)) end
+  end
+  return w
+end
+
+-- The category list in `parent`: one button per item ({ key, label }) from
+-- the top down, `width` wide. Returns { buttons = { [key] = button },
+-- selected, SetSelected = function(self, key) }; a click calls onSelect(key).
+function Panel.nav(parent, items, width, onSelect)
+  local T, O = theme(), sizes()
+  local W = ns.UI.Widgets
+  local nav = { buttons = {}, selected = false }
+  local function paintItem(b)
+    local look = Panel.navLook(nav.selected == b.key, b.hovered)
+    W.setLineColor(b.fill, look.fill, look.fillAlpha)
+    if look.bar then W.setLineColor(b.bar, look.bar) end
+    b.bar:SetShown(look.bar and true or false)
+    W.setTextColor(b.text, look.text)
+  end
+  for i, item in ipairs(items) do
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(width, O.navItemHeight)
+    b:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(i - 1) * (O.navItemHeight + O.navItemGap))
+    b.key, b.hovered = item.key, false
+    b.fill = W.line(b, T.colors.buttonFill, "BACKGROUND", 0)
+    b.fill:SetAllPoints(b)
+    b.bar = W.line(b, T.colors.tabBorderSelected, "ARTWORK")
+    b.bar:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+    b.bar:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+    b.bar:SetWidth(O.navBar)
+    b.text = W.text(b, T.fonts.tab, T.colors.tabText)
+    b.text:SetPoint("LEFT", b, "LEFT", O.navBar + O.navTextPad, 0)
+    b.text:SetPoint("RIGHT", b, "RIGHT", -O.navTextPad, 0)
+    b.text:SetText(item.label)
+    b:SetScript("OnEnter", function() b.hovered = true; paintItem(b) end)
+    b:SetScript("OnLeave", function() b.hovered = false; paintItem(b) end)
+    b:SetScript("OnClick", function() onSelect(item.key) end)
+    nav.buttons[item.key] = b
+    paintItem(b)
+  end
+  function nav:SetSelected(key)
+    self.selected = key
+    for _, b in pairs(self.buttons) do paintItem(b) end
+  end
+  return nav
+end
+
+-- One page per section (Options.sections) in `parent`, `pad` from the left
+-- and `top` from the top: the category list on the left, a divider, and right
+-- of it the selected section's options in COLUMNS columns; only that page is
+-- shown. Returns { widgets = { [key] = widget }, select = function(id), nav,
+-- pages, width (of the whole area), height (the shown section's), heights =
+-- { [id] = height }, onResize = function(height) or nil }.
+function Panel.buildTabbed(parent, pad, top)
+  local T, O = theme(), sizes()
+  local W = ns.UI.Widgets
+  local sections = ns.Options.sections()
   local tabbed = { widgets = {}, pages = {}, heights = {}, height = 0 }
-  local items = {}
+
+  -- The list is as wide as its longest label needs (German).
+  local items, widths = {}, {}
+  local probe = W.text(parent, T.fonts.tab, T.colors.tabText)
+  for i, section in ipairs(sections) do
+    items[i] = { key = section.id, label = section.label }
+    probe:SetText(section.label)
+    widths[i] = W.textWidth(probe)
+  end
+  probe:SetText("")
+  probe:Hide()
+  local navWidth = Panel.navWidth(widths)
+  local left = navWidth + O.navGap
+  tabbed.width = left + COLUMNS * O.columnWidth + (COLUMNS - 1) * O.columnGap
+
+  local list = CreateFrame("Frame", nil, parent)
+  list:SetPoint("TOPLEFT", parent, "TOPLEFT", pad, -top)
+  list:SetSize(navWidth, 1)
+  local divider = W.line(parent, T.colors.divider)
+  divider:SetPoint("TOPLEFT", parent, "TOPLEFT", pad + navWidth + math.floor(O.navGap / 2), -top)
+  divider:SetWidth(1)
+  tabbed.divider = divider
+
   for _, section in ipairs(sections) do
-    items[#items + 1] = { key = section.id, label = section.label }
-    local height = Panel.tabbedHeight(section, COLUMNS)
+    local height = Panel.tabbedHeight(section, COLUMNS, #sections)
     tabbed.heights[section.id] = height
     local page = CreateFrame("Frame", nil, parent)
-    page:SetPoint("TOPLEFT", row, "BOTTOMLEFT", -pad, -O.tabGap)
-    page:SetPoint("TOPRIGHT", row, "BOTTOMRIGHT", pad, -O.tabGap)
-    page:SetHeight(height - S.headerRowHeight - O.tabGap)
+    page:SetPoint("TOPLEFT", parent, "TOPLEFT", pad + left, -top)
+    page:SetSize(tabbed.width - left, height)
     page:Hide()
     local layout = ns.Options.layout(section.specs, COLUMNS)
-    for key, w in pairs(Panel.populate(page, pad, 0, section.specs, layout, O.columnWidth)) do
+    for key, w in pairs(Panel.populate(page, 0, 0, section.specs, layout, O.columnWidth)) do
       tabbed.widgets[key] = w
     end
     tabbed.pages[section.id] = page
   end
 
-  local strip
+  local nav
   function tabbed.select(id)
     if not tabbed.pages[id] then id = sections[1] and sections[1].id end
     if not id then return end
     Panel.tab = id
     for key, page in pairs(tabbed.pages) do page:SetShown(key == id) end
-    if strip then strip:SetSelected(id) end
+    if nav then nav:SetSelected(id) end
     tabbed.height = tabbed.heights[id]
+    divider:SetHeight(tabbed.height)
     if tabbed.onResize then tabbed.onResize(tabbed.height) end
   end
-  strip = ns.UI.Tabs.strip(row, items, tabbed.select)
-  tabbed.strip = strip
+  nav = Panel.nav(list, items, navWidth, tabbed.select)
+  tabbed.nav = nav
   tabbed.select(Panel.tab)
   return tabbed
 end
@@ -412,7 +505,6 @@ local function build()
   local T = theme()
   local O = sizes()
   local pad = T.sizes.padding + 4
-  local width = 2 * pad + COLUMNS * O.columnWidth + (COLUMNS - 1) * O.columnGap
 
   local frame = CreateFrame("Frame", "AnotherLedgerOptions", UIParent, "BackdropTemplate")
   frame:SetFrameStrata("DIALOG")
@@ -431,13 +523,9 @@ local function build()
   end)
   local tabbed = Panel.buildTabbed(frame, pad, pad + O.titleHeight)
   frame.tabbed = tabbed
-  -- Wider than the two columns when the tab row needs it (six tabs, German).
-  local extent, n = 0, 0
-  for _, b in pairs(tabbed.strip.buttons or {}) do extent, n = extent + b:GetWidth(), n + 1 end
-  if n > 0 then width = math.max(width, 2 * pad + extent + (n - 1) * T.sizes.buttonGap) end
-  frame:SetWidth(width)
-  -- The shown tab sets the height; the top edge stays where it is, so the
-  -- tab row never moves under the mouse.
+  frame:SetWidth(2 * pad + tabbed.width)
+  -- The shown section sets the height; the top edge stays where it is, so
+  -- the category list never moves under the mouse.
   function tabbed.onResize(height)
     -- Any anchor but the top one (the default CENTER, or where a drag left
     -- it) becomes TOP at the current spot first.
@@ -551,7 +639,7 @@ local function buildPage()
   title:SetPoint("TOPLEFT", page, "TOPLEFT", pad, -pad)
   title:SetText(PAGE_NAME)
 
-  -- The tab row spans the two columns (the canvas may be wider).
+  -- The category list and the two columns (the canvas may be wider).
   local tabbed = Panel.buildTabbed(page, pad, pad + sizes().titleHeight)
   page.tabbed = tabbed
   page.widgets = tabbed.widgets

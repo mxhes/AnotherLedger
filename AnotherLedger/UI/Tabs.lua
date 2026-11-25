@@ -9,13 +9,14 @@ ns.UI = ns.UI or {}
 -- Tabs.define call:
 --
 --   Tabs.define({
---     key   = "bags",                -- saved in db.tab
+--     key   = "inventory",           -- saved in db.tab
 --     label = L["Bags"],                -- button text
 --     title = L["Bag Ledger"],          -- window title while selected
 --     build = function(ctx) return view end, -- see View.lua for the view shape
 --     sessionControls = false,       -- show the clock and Start / Stop / Reset
 --     ticks   = false,               -- per-hour rates change with the clock
 --     watches = "bags",              -- data kind whose change redraws the tab
+--                                    -- (or a set of kinds: { bags = true, bank = true })
 --     invalidate = function() end,   -- optional: drop cached data of `watches`
 --     hasItem = function(itemID, ctx) return bool end, -- is the item listed?
 --     sorts = { "ah", ... },         -- optional: the sorts the view offers; the
@@ -110,12 +111,31 @@ function Tabs.sortSlot(key, subKey)
   return slot, spec.defaultSort or spec.sorts[1]
 end
 
+-- Pure. Whether tab `key` watches data of kind `what`: its `watches` is that
+-- kind, or a set holding it ({ bags = true, bank = true }).
+function Tabs.watches(key, what)
+  local w = specs[key] and specs[key].watches
+  if type(w) == "table" then return w[what] == true end
+  return w ~= nil and w == what
+end
+
 -- Drops the cached data of every tab watching `what` ("bags", "bank", ...).
 function Tabs.invalidate(what)
   for _, key in ipairs(Tabs.KEYS) do
     local spec = specs[key]
-    if spec.watches == what and spec.invalidate then spec.invalidate() end
+    if Tabs.watches(key, what) and spec.invalidate then spec.invalidate() end
   end
+end
+
+-- Old tab keys that are now a sub-tab: { [old] = { tab, subtab } } (a saved
+-- db.tab from before, slash commands). Tabs.resolve maps them.
+Tabs.ALIASES = { bags = { tab = "inventory", subtab = "bags" }, bank = { tab = "inventory", subtab = "bank" } }
+
+-- Pure. The tab and sub-tab (nil: the saved one) that `key` stands for.
+function Tabs.resolve(key)
+  local alias = Tabs.ALIASES[key]
+  if alias then return alias.tab, alias.subtab end
+  return key, nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -165,63 +185,70 @@ function Tabs.noteWorth(ctx)
   if key and ns.db and not (ns.Demo and ns.Demo.active()) then ns.Worth.note(ns.db, key, snap) end
   return snap
 end
+
+local function buildBags(ctx)
+  if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
+  local view = ns.View.buildInventory(bagItems, ctx.opts)
+  view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
+  -- Gold on hand and net worth rows (bags + bank + gold), all characters'
+  -- with more than one saved; free slots next to the item count.
+  local snap = Tabs.noteWorth(ctx)
+  if snap then
+    ns.View.addWorth(view, snap.money, snap.bags, snap.bank)
+    local list, sum = ns.Worth.list(ns.db, ns.Core and ns.Core.character)
+    if #list > 1 then
+      view.totals.allWorth, view.worthList, view.now = sum, list, ctx.now
+    end
+  end
+  local free, total = ns.Inventory.freeSlots(ctx.env)
+  if total > 0 then
+    local count = ns.History.itemCount(#view.rows)
+    local freeText = ns.History.freeCount(free)
+    -- Few free slots: orange, almost none: red.
+    local level = ns.Inventory.freeLevel(free)
+    if level then
+      local C = ns.Theme.colors
+      freeText = "|cff" .. ns.Theme.colorToHex(level == "low" and C.marketBad or C.stale) .. freeText .. "|r"
+    end
+    view.headerInfo = count .. " \194\183 " .. freeText
+  end
+  return view
+end
+
+local function bagsHasItem(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end
+
+local function buildBank(ctx)
+  local bank = savedBank(ctx)
+  local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
+  -- Before the first scan: one message in the list and a dash in the
+  -- footer (no "0c" total, Summary.rowTexts).
+  view.unscanned = not wasScanned(bank)
+  if not view.unscanned then
+    local hours = ns.Util.setting("staleHours", nil)
+    view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank.scannedAt, hours and hours * 3600)
+  end
+  view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
+    view.unscanned and L["Not scanned yet. Open your bank once to scan it."] or L["Your bank is empty."])
+  return view
+end
+
+local function bankHasItem(itemID, ctx)
+  local bank = savedBank(ctx)
+  return bank ~= nil and ns.Session.hasItemID(bank.items, itemID)
+end
+
+-- Inventory: the bags and the last bank scan, one sub-tab each (the old Bank
+-- tab's key is an alias, Tabs.ALIASES).
 Tabs.define({
-  key = "bags", label = L["Bags"], title = L["Bag Ledger"],
-  watches = "bags",
+  key = "inventory", label = L["Inventory"], title = L["Bag Ledger"],
+  watches = { bags = true, bank = true },
   invalidate = function() bagItems = nil end,
-  build = function(ctx)
-    if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
-    local view = ns.View.buildInventory(bagItems, ctx.opts)
-    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
-    -- Gold on hand and net worth rows (bags + bank + gold), all characters'
-    -- with more than one saved; free slots next to the item count.
-    local snap = Tabs.noteWorth(ctx)
-    if snap then
-      ns.View.addWorth(view, snap.money, snap.bags, snap.bank)
-      local list, sum = ns.Worth.list(ns.db, ns.Core and ns.Core.character)
-      if #list > 1 then
-        view.totals.allWorth, view.worthList, view.now = sum, list, ctx.now
-      end
-    end
-    local free, total = ns.Inventory.freeSlots(ctx.env)
-    if total > 0 then
-      local count = ns.History.itemCount(#view.rows)
-      local freeText = ns.History.freeCount(free)
-      -- Few free slots: orange, almost none: red.
-      local level = ns.Inventory.freeLevel(free)
-      if level then
-        local C = ns.Theme.colors
-        freeText = "|cff" .. ns.Theme.colorToHex(level == "low" and C.marketBad or C.stale) .. freeText .. "|r"
-      end
-      view.headerInfo = count .. " \194\183 " .. freeText
-    end
-    return view
-  end,
-  hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
-})
-
-
-Tabs.define({
-  key = "bank", label = L["Bank"], title = L["Bank Ledger"],
-  watches = "bank",
-  build = function(ctx)
-    local bank = savedBank(ctx)
-    local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
-    -- Before the first scan: one message in the list and a dash in the
-    -- footer (no "0c" total, Summary.rowTexts).
-    view.unscanned = not wasScanned(bank)
-    if not view.unscanned then
-      local hours = ns.Util.setting("staleHours", nil)
-      view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank.scannedAt, hours and hours * 3600)
-    end
-    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
-      view.unscanned and L["Not scanned yet. Open your bank once to scan it."] or L["Your bank is empty."])
-    return view
-  end,
-  hasItem = function(itemID, ctx)
-    local bank = savedBank(ctx)
-    return bank ~= nil and ns.Session.hasItemID(bank.items, itemID)
-  end,
+  build = buildBags,
+  hasItem = bagsHasItem,
+  subtabs = {
+    { key = "bags", label = L["Bags"], title = L["Bag Ledger"], build = buildBags, hasItem = bagsHasItem },
+    { key = "bank", label = L["Bank"], title = L["Bank Ledger"], build = buildBank, hasItem = bankHasItem },
+  },
 })
 
 -- History: archived sessions; the opened one (ledger.historyIndex) lists its items.
@@ -443,8 +470,12 @@ end
 -- Inset of the visible edge line inside the tab's frame (the edge texture
 -- draws its line a little inside its own square).
 -- Square tabs (any border but Round) draw their 1 px edge at the frame edge.
+local function pills()
+  return ns.Theme.style.tabs == "pills"
+end
+
 local function edgeInset()
-  if ns.Theme.style.border ~= "round" then return 0 end
+  if pills() or ns.Theme.style.border ~= "round" then return 0 end
   return math.floor(ns.Theme.sizes.tabEdge / 4)
 end
 
@@ -464,13 +495,50 @@ end
 -- Every strip made (Tabs.strip), restyled on a skin change.
 local strips = {}
 
--- Edge and glow of one tab for the current border.
+-- Pure. Tabs "pills" (option "skinTabs"): a flat fill (none when idle,
+-- half on hover, a lifted one on the selected tab, Theme.skinScales.pillSelected)
+-- and an underline on the selected one. Returns { fill, fillAlpha, text, underline (color or false) }.
+function Tabs.pillLook(selected, hovered)
+  local c = ns.Theme.colors
+  if selected then
+    return { fill = ns.Theme.scaleColor(c.buttonFill, ns.Theme.skinScales.pillSelected), fillAlpha = 1,
+      text = c.tabTextSelected, underline = c.tabBorderSelected }
+  end
+  return { fill = c.buttonFill, fillAlpha = hovered and 0.5 or 0, text = hovered and c.tabTextSelected or c.tabText,
+    underline = false }
+end
+
+-- One solid color over the whole texture (the glow's gradient undone).
+local function setSolid(tex, c)
+  if tex.SetGradient and CreateColor then
+    tex:SetGradient("VERTICAL", CreateColor(c[1], c[2], c[3], 1), CreateColor(c[1], c[2], c[3], 1))
+  elseif tex.SetGradientAlpha then
+    tex:SetGradientAlpha("VERTICAL", c[1], c[2], c[3], 1, c[1], c[2], c[3], 1)
+  else
+    tex:SetVertexColor(c[1], c[2], c[3], 1)
+  end
+end
+
+-- Edge and glow of one tab for the current border; Pills: a fill the height
+-- of the button and the glow as the underline along its bottom.
 local function shapeTab(b)
-  local inset = edgeInset()
-  b.skin:SetBackdrop(Tabs.edgeSpec(ns.Theme.style.border))
+  local S = ns.Theme.sizes
   b.glow:ClearAllPoints()
-  b.glow:SetPoint("TOPLEFT", b.skin, "TOPLEFT", inset, -inset)
-  b.glow:SetPoint("TOPRIGHT", b.skin, "TOPRIGHT", -inset, -inset)
+  if pills() then
+    b.skin:SetBackdrop({ bgFile = ns.Theme.textures.rowHighlight })
+    b.skin:SetHeight(S.tabHeight)
+    -- Right above the line under the tabs (Tabs.strip), which is drawn over them.
+    b.glow:SetPoint("BOTTOMLEFT", b.skin, "BOTTOMLEFT", 0, S.tabLine)
+    b.glow:SetPoint("BOTTOMRIGHT", b.skin, "BOTTOMRIGHT", 0, S.tabLine)
+    b.glow:SetHeight(S.tabUnderline)
+  else
+    local inset = edgeInset()
+    b.skin:SetBackdrop(Tabs.edgeSpec(ns.Theme.style.border))
+    b.skin:SetHeight(S.tabHeight + S.tabEdge)
+    b.glow:SetPoint("TOPLEFT", b.skin, "TOPLEFT", inset, -inset)
+    b.glow:SetPoint("TOPRIGHT", b.skin, "TOPRIGHT", -inset, -inset)
+    b.glow:SetHeight(S.tabGlowHeight)
+  end
   b:ApplyLook()
 end
 
@@ -514,9 +582,18 @@ local function makeTab(row, label)
   b.isSelected, b.isHovered = false, false
 
   function b:ApplyLook()
+    if pills() then
+      local look = Tabs.pillLook(self.isSelected, self.isHovered)
+      self.skin:SetBackdropColor(look.fill[1], look.fill[2], look.fill[3], look.fillAlpha)
+      W.setTextColor(self.label, look.text)
+      if look.underline then setSolid(self.glow, look.underline) end
+      self.glow:SetShown(look.underline ~= false)
+      return
+    end
     local look = Tabs.look(self.isSelected, self.isHovered)
     self.skin:SetBackdropBorderColor(look.border[1], look.border[2], look.border[3], look.border[4])
     W.setTextColor(self.label, look.text)
+    setGlow(self.glow, ns.Theme.colors.tabGlow)
     self.glow:SetShown(look.glow)
   end
   b:SetScript("OnEnter", function(self) self.isHovered = true; self:ApplyLook() end)
@@ -576,7 +653,8 @@ function Tabs.strip(row, items, onSelect)
     left:ClearAllPoints()
     right:ClearAllPoints()
     right:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
-    if not selectedButton then
+    -- Pills: one line under every tab (the underline sits on it).
+    if not selectedButton or pills() then
       left:Hide()
       right:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
       return
