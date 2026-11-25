@@ -6,13 +6,6 @@ local Util = {}
 local huge = math.huge
 local floor = math.floor
 
--- A real, finite number (saved variables and addon APIs can hand back anything).
-function Util.isNumber(v)
-  return type(v) == "number" and v == v and v ~= huge and v ~= -huge
-end
-
-local isNumber = Util.isNumber
-
 -- A "secret" value: unit names, GUIDs and tooltip lines the client hides
 -- from addons in restricted contexts (instances, combat). Comparing,
 -- concatenating or matching one raises "attempt to compare ... a secret
@@ -24,6 +17,14 @@ function Util.isSecret(v)
   local ok, secret = pcall(f, v)
   return not ok or secret == true
 end
+
+-- A real, finite number (saved variables and addon APIs can hand back
+-- anything, the client also secret numbers, which are never compared).
+function Util.isNumber(v)
+  return type(v) == "number" and not Util.isSecret(v) and v == v and v ~= huge and v ~= -huge
+end
+
+local isNumber = Util.isNumber
 
 -- `v` when it is a readable, non-empty string, else nil.
 function Util.plainString(v)

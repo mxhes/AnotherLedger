@@ -290,7 +290,10 @@ Each of these is one call in one place; the UI never names them.
   30 s (no tooltip for objects). Names, GUIDs and cast targets the client
   hands over as secret values (`issecretvalue`, in instances and combat) are
   dropped unread through `Util.isSecret` / `Util.plainString`: comparing one
-  errors and taints the addon. No name is saved without one:
+  errors and taints the addon. The chat texts of CHAT_MSG_LOOT / MONEY /
+  CURRENCY / SYSTEM and UI_INFO_MESSAGE go through `Util.plainString` too (a
+  secret one is skipped), and `Util.isNumber` is false for a secret number.
+  No name is saved without one:
   `View.buildMobs` shows "NPC 12345" / "Object 1731" and takes the newest
   saved name (the first History entry's, the running session's over all). Coin
   slots wait for `settleLoot`, which scales them (`Mobs.scaleMoney`) to the

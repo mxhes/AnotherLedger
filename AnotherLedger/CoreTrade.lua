@@ -129,9 +129,11 @@ end
 
 -- Client API: CHAT_MSG_SYSTEM carries ERR_AUCTION_SOLD_S
 -- ("A buyer has been found for your auction of %s.") with the item name.
+-- A secret text (restricted content) is skipped unread (Util.plainString).
 events.CHAT_MSG_SYSTEM = function(text)
+  text = ns.Util.plainString(text)
   local pattern = Core.formatPattern(ERR_AUCTION_SOLD_S)
-  local name = pattern and type(text) == "string" and text:match(pattern)
+  local name = pattern and text and text:match(pattern)
   if not name then return end
   local bucket = Core.tradeBucket(true)
   if not bucket then return end
@@ -249,7 +251,8 @@ events.TRADE_ACCEPT_UPDATE = function()
 end
 
 events.UI_INFO_MESSAGE = function(_, message)
-  if not trade.snap or message ~= ERR_TRADE_COMPLETE then return end
+  message = ns.Util.plainString(message)
+  if not trade.snap or not message or message ~= ERR_TRADE_COMPLETE then return end
   local snap = trade.snap
   trade.snap = false
   local bucket = Core.tradeBucket(true)

@@ -852,16 +852,21 @@ function events.PLAYER_REGEN_ENABLED()
   if window then window.combatShow() end
 end
 
+-- Chat texts can be secret values (restricted content): those are skipped
+-- unread (Util.plainString), as reading one is an error.
 function events.CHAT_MSG_LOOT(text)
-  if ns.session then onLootMessage(text) end
+  text = ns.Util.plainString(text)
+  if ns.session and text then onLootMessage(text) end
 end
 
 function events.CHAT_MSG_MONEY(text)
-  if ns.session then onMoneyMessage(text) end
+  text = ns.Util.plainString(text)
+  if ns.session and text then onMoneyMessage(text) end
 end
 
 function events.CHAT_MSG_CURRENCY(text)
-  if ns.session then onCurrencyMessage(text) end
+  text = ns.Util.plainString(text)
+  if ns.session and text then onCurrencyMessage(text) end
 end
 
 function events.PLAYER_FLAGS_CHANGED(unit)

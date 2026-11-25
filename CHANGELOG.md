@@ -16,7 +16,8 @@
   is grouped under Fonts, Skin and Colors.
 - Window titles use the Titles color; History > Mobs values sit flush right.
 - Fixes: button text follows Font outline and Font shadow; the chosen pill
-  tab stands out more; fewer compact drops let the compact window shrink.
+  tab stands out more; fewer compact drops let the compact window shrink; no
+  more errors from chat lines the game hides from addons.
 
 ## v0.7.2
 

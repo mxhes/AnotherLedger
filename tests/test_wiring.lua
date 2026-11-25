@@ -4544,6 +4544,27 @@ h.test("wiring: the sold chat line marks the sale", function()
   h.eq(ctx.errors, {})
 end)
 
+h.test("wiring: secret chat texts and numbers are skipped unread", function()
+  local ctx = tradeWorld()
+  local ns = ctx.ns
+  local SOLD = "A buyer has been found for your auction of Bolt."
+  local secret = { [SOLD] = true, [LOOT] = true, ["Trade complete."] = true, [7] = true }
+  ctx.env.issecretvalue = function(v) return secret[v] == true end
+  fire(ctx, "CHAT_MSG_SYSTEM", SOLD)
+  local _, b = tradeLog(ctx)
+  h.eq(#(b and b.pending or {}), 0)
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589], nil)
+  fire(ctx, "CHAT_MSG_MONEY", LOOT); fire(ctx, "CHAT_MSG_CURRENCY", LOOT)
+  fire(ctx, "UI_INFO_MESSAGE", 0, "Trade complete.")
+  h.eq(ns.Util.isNumber(7), false); h.eq(ns.Util.isNumber(8), true)
+  -- readable again: counted as before
+  ctx.env.issecretvalue = nil
+  fire(ctx, "CHAT_MSG_LOOT", LOOT)
+  h.eq(ns.session.items[2589].qty, 3)
+  h.eq(ctx.errors, {})
+end)
+
 h.test("wiring: nothing is recorded while the realm key is unknown", function()
   local ctx = tradeWorld(false)
   ctx.env.mails[1] = SALE_MAIL

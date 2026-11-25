@@ -48,6 +48,9 @@ Everything up to v0.7.1 is confirmed in the client, except:
   skin parts all in the left one); window titles amber in Modern; History >
   Mobs amounts flush right (no empty tag column); the chosen pill tab clearly
   lighter; Compact: last drops 1 lets the compact window shrink.
+- Secret chat texts (`Util.plainString` in the CHAT_MSG_* / UI_INFO_MESSAGE
+  handlers): no Lua error where the game hides chat lines from addons (the
+  auction sold line, loot in restricted content); loot outside them counts.
 - Button text (`Widgets.button`, label no longer the button's own font
   string): Font outline Thick outline outlines every button's text (Reset,
   dropdowns, Start); Font shadow off removes its shadow; hover / disabled
