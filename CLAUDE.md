@@ -14,7 +14,7 @@ Docs:
 - Tests: `lua tests/run.lua` from the repo root (plain Lua, no client; exit 1 on failure). Run after every change; all must pass. Local `lua` is 5.4; GitHub Actions also runs 5.1 (the client's version), so write 5.1 code (no `goto`, `//`, `table.unpack`, integer-only APIs).
 - Lint: `luacheck AnotherLedger` (`.luacheckrc`; CI job `lint` fails on any warning). A WoW API the code starts to read goes in its `read_globals`.
 - No build step: the client loads `AnotherLedger/*.lua` in the order of `AnotherLedger/AnotherLedger.toc`. The addon must work without `Libs/` (packager-fetched, git-ignored).
-- Remote: GitHub `origin` (https://github.com/mxhes/AnotherLedger, public), branch `main` (changes go in through pull requests; `gh` works on the project). GitLab (https://gitlab.com/mhhenjes/lootledger) is kept as the backup remote `gitlab`; its history before 2026-11-25 has the old commit hashes. Commits are `feat:` / `fix:` / `refactor:` / `docs:` style, one line summary plus a short body.
+- Remote: GitHub `origin` (https://github.com/mxhes/AnotherLedger, public), branch `main` (changes go in through pull requests; `gh` works on the project). GitHub only: the project left GitLab on 2026-11-25; don't use GitLab or `glab`. Commits are `feat:` / `fix:` / `refactor:` / `docs:` style, one line summary plus a short body.
 
 ## Architecture
 
