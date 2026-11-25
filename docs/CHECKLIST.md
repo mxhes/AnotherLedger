@@ -8,55 +8,7 @@ and remove both once it is confirmed.
 
 ## Open checks
 
-Everything up to v0.7.1 is confirmed in the client, except:
-
-- Trade, unopened sale mails (`CoreTrade.lua` `readMail`): an "Auction
-  successful" mail not opened yet gives no invoice (`GetInboxInvoiceInfo`),
-  and its subject carries the amount sold as `Name (4)`. Check: sell a few
-  of a stack, empty the mails with Open All, the sales show in Trade > Log
-  with the right amount; open one sale mail by hand first, it still counts
-  once.
-- Trade, mails taken: after emptying the mailbox, a second equal sale
-  (same item, amount and price) arriving within a few minutes still counts
-  (`GetInboxNumItems` second return is the total in the inbox).
-- Saturation slider (`UI/Widgets.lua` `saturationDock`): opening a color
-  swatch shows a Saturation slider under the game's color picker at the
-  color's saturation; dragging it changes the color live (hue and
-  brightness kept), dragging the wheel moves it, Cancel restores the color;
-  a picker opened by another addon or the game shows no slider.
-- Pause while traveling (`Core.traveling`, `UnitOnTaxi`): on a flight path
-  the compact window says Traveling and the clock stands; boats, zeppelins
-  and your own mount keep it running.
-- Item tooltips with TSM: the `TSM sale info` line shows the levels in their
-  colors.
-- Modern skin (new installs; or pick Skin: Modern): the window edge is a thin
-  line with small rounded corners on all four sides and no fill outside the
-  corners (`Media/Skins/Rounded.tga`, top and bottom tiles of the backdrop
-  edge strip are rotated: a wrong side shows as a line on the inside of
-  that edge); tabs are flat pills, the chosen one filled with a blue
-  underline; every other list row is shaded, no row lines; text is Inter
-  (Font option lists Inter and Inter SemiBold); colors are Polaris. Header,
-  option labels and footer fit in English and German with Inter.
-- Options categories on the left (`Panel.nav`): every category fits its
-  button in English and German, the chosen one is filled with a colored bar
-  on its left, hovering half fills the others; same in Esc > Options >
-  AddOns > AnotherLedger; the divider runs down to the bottom of the options.
-- Inventory tab (Bags / Bank sub-tabs): the tab row has four tabs and the
-  window can be made narrower than before; a login that was on Bank opens on
-  Inventory > Bank; opening the bank redraws Inventory > Bank and > Bags.
-- Appearance headings Fonts / Skin / Colors (Colors in the right column, the
-  skin parts all in the left one); window titles amber in Modern; History >
-  Mobs amounts flush right (no empty tag column); the chosen pill tab clearly
-  lighter; Compact: last drops 1 lets the compact window shrink.
-- Secret chat texts (`Util.plainString` in the CHAT_MSG_* / UI_INFO_MESSAGE
-  handlers): no Lua error where the game hides chat lines from addons (the
-  auction sold line, loot in restricted content); loot outside them counts.
-- Button text (`Widgets.button`, label no longer the button's own font
-  string): Font outline Thick outline outlines every button's text (Reset,
-  dropdowns, Start); Font shadow off removes its shadow; hover / disabled
-  colors still change.
-- Compact drops: hovering a drop shows the item tooltip with its values;
-  Shift-click links it in chat; dragging a drop still moves the window.
+None: everything up to v0.8.0 is confirmed in the client.
 
 ## Release steps
 

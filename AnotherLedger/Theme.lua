@@ -647,9 +647,8 @@ function Theme.backdropSpec(border)
       edgeSize = S.backdropEdge, insets = { left = inset, right = inset, top = inset, bottom = inset } }
   end
   -- Rounded: the addon's edge strip; the fill starts under the line, so its
-  -- square corners stay inside the rounded ones.
-  -- UNVERIFIED (check in client): the tile order and rotation of the strip
-  -- (tools/render_skins.py rounded()) match the backdrop's edge drawing.
+  -- square corners stay inside the rounded ones (the strip:
+  -- tools/render_skins.py rounded()).
   if border == "rounded" then
     local inset = S.roundedInset
     return { bgFile = bg, edgeFile = Theme.textures.skinRounded, tile = true, tileSize = tileSize,

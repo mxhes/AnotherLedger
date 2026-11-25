@@ -404,7 +404,6 @@ function Widgets.button(parent, label, width, opts)
   -- The label is a plain FontString of the button, not the button's own
   -- (SetFontString): the game redraws a button's own text with its state
   -- fonts, which kept the label off the Font outline / shadow options.
-  -- UNVERIFIED (check in client): button text follows Font outline.
   function b:SetText(text) fs:SetText(text) end
   function b:GetText() return fs:GetText() end
   b.label, b.glyph, b.onEnter, b.onLeave = fs, false, false, false
@@ -773,9 +772,9 @@ end
 -- Saturation slider docked under the picker (only while AnotherLedger opened
 -- it): moving it sets the color's saturation and keeps hue and brightness;
 -- moving the wheel moves the slider.
--- UNVERIFIED (check in client): ColorPickerFrame.Content.ColorPicker (the
--- ColorSelect; older clients: ColorPickerFrame itself) with SetColorRGB and an
--- OnColorSelect script, and OptionsSliderTemplate parented to the picker.
+-- Client API: ColorPickerFrame.Content.ColorPicker (the ColorSelect; older
+-- clients: ColorPickerFrame itself) with SetColorRGB and an OnColorSelect
+-- script, and OptionsSliderTemplate parented to the picker.
 local L_SATURATION = ns.L["Saturation"]
 local satDock = false
 

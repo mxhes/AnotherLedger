@@ -743,11 +743,11 @@ Each of these is one call in one place; the UI never names them.
     keeps a "buyer found" mark with that moment's market (`Trade.markSold`).
   - `MAIL_INBOX_UPDATE` reads every mail: seller invoices (also
     `seller_temp_invoice`) are sales, buyer invoices (auctions won and
-    purchases, UNVERIFIED) are `buy` entries keyed by the attached item's
+    purchases) are `buy` entries keyed by the attached item's
     link (else the item ID of the name), the expired / cancelled subjects
     returns. A sale mail not opened yet has no invoice (Open All empties it
     unread): its subject (`AUCTION_SOLD_MAIL_SUBJECT`, the amount in
-    brackets, UNVERIFIED) makes it a sale marked `estimate`, priced from the
+    brackets) makes it a sale marked `estimate`, priced from the
     open post's unit price less `Trade.AH_CUT` (5%), else the money received.
     `Trade.recordInbox` takes one inbox read (temporary invoices
     first) through `Trade.recordMail`: a mail key (character, subject,
