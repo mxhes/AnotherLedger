@@ -69,7 +69,9 @@ end
 
 local function minHeight()
   local S = theme().sizes
-  return compact() and S.compactMinHeight or S.minHeight
+  if not compact() then return S.minHeight end
+  local C = ns.UI.Compact
+  return C and C.minHeight and C.minHeight() or S.compactMinHeight
 end
 
 -- Pure. A theme color with its alpha scaled by `scale` (0..1).
@@ -345,7 +347,8 @@ local function build(db)
   header.row4 = makeRow(header, header.row3, false)
   header.row4:Hide()
 
-  local title = ns.UI.Widgets.text(header.row1, T.fonts.title, T.colors.ink)
+  -- In the titles color (option "Titles and totals"), like the options title.
+  local title = ns.UI.Widgets.text(header.row1, T.fonts.title, T.colors.gold)
   title:SetPoint("LEFT", header.row1, "LEFT", 0, 0)
   title:SetText(TITLE)
   header.title = title

@@ -124,6 +124,8 @@ ns.Locale.register("deDE", {
   ["No waypoint could be set."] = "Es konnte kein Wegpunkt gesetzt werden.",
   ["Waypoint (/way)"] = "Wegpunkt (/way)",
   ["Font"] = "Schrift",
+  ["Fonts"] = "Schriften",
+  ["Colors"] = "Farben",
   ["WoW default"] = "WoW-Standard",
 
   -- Chat

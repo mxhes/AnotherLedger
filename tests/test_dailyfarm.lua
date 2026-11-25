@@ -77,6 +77,10 @@ h.test("Compact fits its body at the minimum window height", function()
   local S = ns.Theme.sizes
   h.eq(S.compactMinHeight >= C.requiredHeight(), true)
   h.eq(S.compactHeight >= S.compactMinHeight, true)
+  -- fewer last drops need less room; never more than four rows
+  h.eq(C.requiredHeight(2), C.requiredHeight(4) - 2 * S.compactRowHeight)
+  h.eq(C.requiredHeight(0) < C.requiredHeight(1), true)
+  h.eq(C.requiredHeight(9), C.requiredHeight(4))
 end)
 
 h.test("Compact.rateText: money per hour, a dash per hour without a rate", function()

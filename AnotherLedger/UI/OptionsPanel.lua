@@ -334,6 +334,13 @@ function Panel.populate(parent, pad, top, specs, layout, columnWidth)
       block:SetSize(columnWidth, ns.Options.HEIGHTS[spec.type])
       local x = pad + ((layout.cols[spec.key] or 1) - 1) * (columnWidth + sizes().columnGap)
       block:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.tops[spec.key]))
+      -- The option's section heading right above it (Options.layout heads).
+      if spec.heading and layout.heads and layout.heads[spec.key] then
+        local head = CreateFrame("Frame", nil, parent)
+        head:SetSize(columnWidth, ns.Options.HEIGHTS.header)
+        head:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -(top + layout.heads[spec.key]))
+        Panel.WIDGETS.header(head, { label = spec.heading })
+      end
       local widget = factory(block, spec)
       widget.block = block
       -- Dimmed (still usable) while the option does nothing (Options.inactive).

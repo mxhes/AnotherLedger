@@ -17,6 +17,9 @@ local L = ns.L
 --                                     -- box or a negative value is 0, Off)
 --     withPrevious = true,            -- never starts a panel column (optional:
 --                                     -- the second of a pair stays with the first)
+--     heading = L["Fonts"],           -- a section heading drawn above the option (optional)
+--     newColumn = true,               -- starts the next panel column (optional; a
+--                                     -- section with one breaks its columns only there)
 --     tooltipExtra = function() -> text or nil, -- a live line for the tooltip (optional)
 --     min = 0.1, max = 1, step = 0.05, -- slider
 --     choices = { { value = "a", label = L["A"] }, ... }, -- dropdown (or a function returning that list)
@@ -309,32 +312,43 @@ end
 
 -- Panel layout: top offset of each option block and the total height. With
 -- `columns` > 1 the blocks flow top to bottom through the columns, each about
--- equally tall. Returns { tops = { [key] = y }, cols = { [key] = column },
+-- equally tall. An option's `heading` sits right above it (heads); with a
+-- `newColumn` option in `specs` the columns break there only. Returns
+-- { tops = { [key] = y }, cols = { [key] = column }, heads = { [key] = y },
 -- height = tallest column }.
 function Options.layout(specs, columns)
   columns = math.max(1, math.floor(columns or 1))
-  local total = 0
-  for _, spec in ipairs(specs) do total = total + Options.HEIGHTS[spec.type] + Options.GAP end
+  local headH = Options.HEIGHTS.header + Options.GAP
+  local total, explicit = 0, false
+  for _, spec in ipairs(specs) do
+    total = total + Options.HEIGHTS[spec.type] + Options.GAP + (spec.heading and headH or 0)
+    if spec.newColumn then explicit = true end
+  end
   local per = total / columns
-  local tops, cols, col, y, height = {}, {}, 1, 0, 0
+  local tops, cols, heads, col, y, height = {}, {}, {}, 1, 0, 0
   local previous
   for i, spec in ipairs(specs) do
     local h = Options.HEIGHTS[spec.type]
+    local head = spec.heading and headH or 0
     -- A header counts together with the entry under it, and that entry never
     -- starts a column by itself; nor does an option marked `withPrevious`
     -- (the second of a pair, e.g. the medium volume under the high one).
-    local need = h
+    local need = h + head
     if spec.type == "header" and specs[i + 1] then need = h + Options.GAP + Options.HEIGHTS[specs[i + 1].type] end
     local bound = spec.withPrevious or (previous and previous.type == "header")
-    if col < columns and y > 0 and not bound and y + need / 2 > per then
+    local split
+    if explicit then split = spec.newColumn
+    else split = not bound and y + need / 2 > per end
+    if col < columns and y > 0 and split then
       height = math.max(height, y - Options.GAP)
       col, y = col + 1, 0
     end
-    tops[spec.key], cols[spec.key] = y, col
-    y = y + h + Options.GAP
+    if spec.heading then heads[spec.key] = y end
+    tops[spec.key], cols[spec.key] = y + head, col
+    y = y + head + h + Options.GAP
     previous = spec
   end
-  return { tops = tops, cols = cols, height = math.max(height, y - Options.GAP, 0) }
+  return { tops = tops, cols = cols, heads = heads, height = math.max(height, y - Options.GAP, 0) }
 end
 
 -- ---------------------------------------------------------------------------
@@ -783,7 +797,13 @@ Options.define({
 Options.define({
   key = "compactDrops", category = "display", type = "slider", label = L["Compact: last drops"],
   tooltip = L["How many of the last drops the compact window lists. 0 hides them."],
-  min = 0, max = ns.Session and ns.Session.RECENT_MAX or 4, step = 1, apply = refreshUI,
+  min = 0, max = ns.Session and ns.Session.RECENT_MAX or 4, step = 1,
+  -- Fewer drops: the compact window may be resized smaller (Compact.minHeight).
+  apply = function()
+    local W = ns.UI and ns.UI.Window
+    if W and W.applySizes then W.applySizes() end
+    refreshUI()
+  end,
 })
 
 -- Compact mode: the item icon before each of the last drops.
@@ -906,7 +926,7 @@ Options.define({
 
 -- Typeface of all addon text; changes live. "WoW default" keeps the game's own font.
 Options.define({
-  key = "fontFace", category = "look",
+  key = "fontFace", category = "look", heading = L["Fonts"],
   type = "dropdown",
   label = L["Font"],
   tooltip = L["Typeface of all AnotherLedger text. WoW default uses the game font of your client's language. Other addons are not affected."],

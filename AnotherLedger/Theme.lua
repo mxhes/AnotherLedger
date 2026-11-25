@@ -602,6 +602,9 @@ Theme.skinScales = {
   raisedLight = 3.5, raisedDark = 0.3, plainMix = 0.5, listBox = 0.5,
   -- Zebra: every other row lifted toward the text color by this much.
   zebra = 0.04,
+  -- Pill tabs: the chosen tab's fill is the button fill lifted by this much,
+  -- so it stands out from the window background.
+  pillSelected = 1.6,
 }
 
 -- The active picks; the options write them with Theme.setStyle.

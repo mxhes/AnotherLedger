@@ -109,6 +109,11 @@ h.test("Options.layout stacks the blocks with a gap", function()
   local L = O.layout(specs)
   local y = 0
   for _, spec in ipairs(specs) do
+    -- a heading sits right above its option
+    if spec.heading then
+      h.eq(L.heads[spec.key], y, spec.key)
+      y = y + O.HEIGHTS.header + O.GAP
+    end
     h.eq(L.tops[spec.key], y, spec.key)
     y = y + O.HEIGHTS[spec.type] + O.GAP
   end
@@ -124,11 +129,27 @@ h.test("Options.layout: columns split the blocks, each column stacks from the to
     local col = L.cols[spec.key]
     h.eq(col >= last, true, spec.key) -- columns fill in order
     last = col
-    if seen[col] == 0 then h.eq(L.tops[spec.key], 0, spec.key) end
+    if seen[col] == 0 then h.eq((L.heads[spec.key] or L.tops[spec.key]), 0, spec.key) end
     seen[col] = seen[col] + 1
   end
   h.eq(seen[1] > 0 and seen[2] > 0, true)
   h.eq(L.height < O.layout(specs, 1).height, true)
+end)
+
+h.test("Options.layout: Appearance breaks its columns at Colors only, under headings", function()
+  local look
+  for _, s in ipairs(O.sections()) do if s.id == "look" then look = s end end
+  local L = O.layout(look.specs, 2)
+  for _, spec in ipairs(look.specs) do
+    local inColors = spec.key == "colorPreset" or spec.key:match("^color") or spec.key == "resetColors"
+      or spec.key == "deleteColorPreset"
+    h.eq(L.cols[spec.key], inColors and 2 or 1, spec.key)
+  end
+  h.eq(L.heads.fontFace, 0); h.eq(L.heads.colorPreset, 0)
+  h.eq(L.tops.colorPreset, O.HEIGHTS.header + O.GAP)
+  h.eq(L.heads.skin > L.tops.fontSizeTitles, true)
+  -- the heading texts are translated
+  h.eq(O.spec("fontFace").heading, ns.L["Fonts"]); h.eq(O.spec("colorPreset").heading, ns.L["Colors"])
 end)
 
 h.test("Options.normalize: text is trimmed and falls back when empty, tsmSource and the new ranges", function()

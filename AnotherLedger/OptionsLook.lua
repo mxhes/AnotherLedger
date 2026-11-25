@@ -212,7 +212,7 @@ local function applySkin()
 end
 
 Options.define({
-  key = "skin", category = "look", type = "dropdown", label = L["Skin"],
+  key = "skin", category = "look", type = "dropdown", label = L["Skin"], heading = L["Skin"],
   tooltip = L["Sets the border, buttons, lines, tabs and list box at once. Modern also sets its font (Inter) and colors (Polaris); the others keep yours. You can change single parts afterwards."],
   choices = function()
     local out = {}
@@ -274,6 +274,7 @@ end
 -- the current colors as an own preset.
 Options.define({
   key = "colorPreset", category = "look", type = "dropdown", label = L["Color preset"],
+  heading = L["Colors"], newColumn = true,
   tooltip = L["Sets the whole look of the window, the buttons and the tooltips at once. You can change single colors afterwards and save them as your own preset with the last entry."],
   choices = function()
     local out = {}

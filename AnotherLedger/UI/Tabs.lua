@@ -469,12 +469,13 @@ end
 local strips = {}
 
 -- Pure. Tabs "pills" (option "skinTabs"): a flat fill (none when idle,
--- half on hover, full on the selected tab) and an underline on the selected
--- one. Returns { fill, fillAlpha, text, underline (color or false) }.
+-- half on hover, a lifted one on the selected tab, Theme.skinScales.pillSelected)
+-- and an underline on the selected one. Returns { fill, fillAlpha, text, underline (color or false) }.
 function Tabs.pillLook(selected, hovered)
   local c = ns.Theme.colors
   if selected then
-    return { fill = c.buttonFill, fillAlpha = 1, text = c.tabTextSelected, underline = c.tabBorderSelected }
+    return { fill = ns.Theme.scaleColor(c.buttonFill, ns.Theme.skinScales.pillSelected), fillAlpha = 1,
+      text = c.tabTextSelected, underline = c.tabBorderSelected }
   end
   return { fill = c.buttonFill, fillAlpha = hovered and 0.5 or 0, text = hovered and c.tabTextSelected or c.tabText,
     underline = false }
