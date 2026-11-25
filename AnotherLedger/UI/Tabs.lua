@@ -9,13 +9,14 @@ ns.UI = ns.UI or {}
 -- Tabs.define call:
 --
 --   Tabs.define({
---     key   = "bags",                -- saved in db.tab
+--     key   = "inventory",           -- saved in db.tab
 --     label = L["Bags"],                -- button text
 --     title = L["Bag Ledger"],          -- window title while selected
 --     build = function(ctx) return view end, -- see View.lua for the view shape
 --     sessionControls = false,       -- show the clock and Start / Stop / Reset
 --     ticks   = false,               -- per-hour rates change with the clock
 --     watches = "bags",              -- data kind whose change redraws the tab
+--                                    -- (or a set of kinds: { bags = true, bank = true })
 --     invalidate = function() end,   -- optional: drop cached data of `watches`
 --     hasItem = function(itemID, ctx) return bool end, -- is the item listed?
 --     sorts = { "ah", ... },         -- optional: the sorts the view offers; the
@@ -110,12 +111,31 @@ function Tabs.sortSlot(key, subKey)
   return slot, spec.defaultSort or spec.sorts[1]
 end
 
+-- Pure. Whether tab `key` watches data of kind `what`: its `watches` is that
+-- kind, or a set holding it ({ bags = true, bank = true }).
+function Tabs.watches(key, what)
+  local w = specs[key] and specs[key].watches
+  if type(w) == "table" then return w[what] == true end
+  return w ~= nil and w == what
+end
+
 -- Drops the cached data of every tab watching `what` ("bags", "bank", ...).
 function Tabs.invalidate(what)
   for _, key in ipairs(Tabs.KEYS) do
     local spec = specs[key]
-    if spec.watches == what and spec.invalidate then spec.invalidate() end
+    if Tabs.watches(key, what) and spec.invalidate then spec.invalidate() end
   end
+end
+
+-- Old tab keys that are now a sub-tab: { [old] = { tab, subtab } } (a saved
+-- db.tab from before, slash commands). Tabs.resolve maps them.
+Tabs.ALIASES = { bags = { tab = "inventory", subtab = "bags" }, bank = { tab = "inventory", subtab = "bank" } }
+
+-- Pure. The tab and sub-tab (nil: the saved one) that `key` stands for.
+function Tabs.resolve(key)
+  local alias = Tabs.ALIASES[key]
+  if alias then return alias.tab, alias.subtab end
+  return key, nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -165,63 +185,70 @@ function Tabs.noteWorth(ctx)
   if key and ns.db and not (ns.Demo and ns.Demo.active()) then ns.Worth.note(ns.db, key, snap) end
   return snap
 end
+
+local function buildBags(ctx)
+  if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
+  local view = ns.View.buildInventory(bagItems, ctx.opts)
+  view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
+  -- Gold on hand and net worth rows (bags + bank + gold), all characters'
+  -- with more than one saved; free slots next to the item count.
+  local snap = Tabs.noteWorth(ctx)
+  if snap then
+    ns.View.addWorth(view, snap.money, snap.bags, snap.bank)
+    local list, sum = ns.Worth.list(ns.db, ns.Core and ns.Core.character)
+    if #list > 1 then
+      view.totals.allWorth, view.worthList, view.now = sum, list, ctx.now
+    end
+  end
+  local free, total = ns.Inventory.freeSlots(ctx.env)
+  if total > 0 then
+    local count = ns.History.itemCount(#view.rows)
+    local freeText = ns.History.freeCount(free)
+    -- Few free slots: orange, almost none: red.
+    local level = ns.Inventory.freeLevel(free)
+    if level then
+      local C = ns.Theme.colors
+      freeText = "|cff" .. ns.Theme.colorToHex(level == "low" and C.marketBad or C.stale) .. freeText .. "|r"
+    end
+    view.headerInfo = count .. " \194\183 " .. freeText
+  end
+  return view
+end
+
+local function bagsHasItem(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end
+
+local function buildBank(ctx)
+  local bank = savedBank(ctx)
+  local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
+  -- Before the first scan: one message in the list and a dash in the
+  -- footer (no "0c" total, Summary.rowTexts).
+  view.unscanned = not wasScanned(bank)
+  if not view.unscanned then
+    local hours = ns.Util.setting("staleHours", nil)
+    view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank.scannedAt, hours and hours * 3600)
+  end
+  view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
+    view.unscanned and L["Not scanned yet. Open your bank once to scan it."] or L["Your bank is empty."])
+  return view
+end
+
+local function bankHasItem(itemID, ctx)
+  local bank = savedBank(ctx)
+  return bank ~= nil and ns.Session.hasItemID(bank.items, itemID)
+end
+
+-- Inventory: the bags and the last bank scan, one sub-tab each (the old Bank
+-- tab's key is an alias, Tabs.ALIASES).
 Tabs.define({
-  key = "bags", label = L["Bags"], title = L["Bag Ledger"],
-  watches = "bags",
+  key = "inventory", label = L["Inventory"], title = L["Bag Ledger"],
+  watches = { bags = true, bank = true },
   invalidate = function() bagItems = nil end,
-  build = function(ctx)
-    if not bagItems then bagItems = ns.Inventory.scanBags(ctx.env, ctx.now) end
-    local view = ns.View.buildInventory(bagItems, ctx.opts)
-    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter, L["Your bags are empty."])
-    -- Gold on hand and net worth rows (bags + bank + gold), all characters'
-    -- with more than one saved; free slots next to the item count.
-    local snap = Tabs.noteWorth(ctx)
-    if snap then
-      ns.View.addWorth(view, snap.money, snap.bags, snap.bank)
-      local list, sum = ns.Worth.list(ns.db, ns.Core and ns.Core.character)
-      if #list > 1 then
-        view.totals.allWorth, view.worthList, view.now = sum, list, ctx.now
-      end
-    end
-    local free, total = ns.Inventory.freeSlots(ctx.env)
-    if total > 0 then
-      local count = ns.History.itemCount(#view.rows)
-      local freeText = ns.History.freeCount(free)
-      -- Few free slots: orange, almost none: red.
-      local level = ns.Inventory.freeLevel(free)
-      if level then
-        local C = ns.Theme.colors
-        freeText = "|cff" .. ns.Theme.colorToHex(level == "low" and C.marketBad or C.stale) .. freeText .. "|r"
-      end
-      view.headerInfo = count .. " \194\183 " .. freeText
-    end
-    return view
-  end,
-  hasItem = function(itemID) return bagItems ~= nil and ns.Session.hasItemID(bagItems, itemID) end,
-})
-
-
-Tabs.define({
-  key = "bank", label = L["Bank"], title = L["Bank Ledger"],
-  watches = "bank",
-  build = function(ctx)
-    local bank = savedBank(ctx)
-    local view = ns.View.buildInventory(bank and bank.items or {}, ctx.opts)
-    -- Before the first scan: one message in the list and a dash in the
-    -- footer (no "0c" total, Summary.rowTexts).
-    view.unscanned = not wasScanned(bank)
-    if not view.unscanned then
-      local hours = ns.Util.setting("staleHours", nil)
-      view.note, view.noteStale = ns.Inventory.scanNote(ctx.now, bank.scannedAt, hours and hours * 3600)
-    end
-    view.empty = ns.View.emptyText(view.rows, ctx.opts.filter,
-      view.unscanned and L["Not scanned yet. Open your bank once to scan it."] or L["Your bank is empty."])
-    return view
-  end,
-  hasItem = function(itemID, ctx)
-    local bank = savedBank(ctx)
-    return bank ~= nil and ns.Session.hasItemID(bank.items, itemID)
-  end,
+  build = buildBags,
+  hasItem = bagsHasItem,
+  subtabs = {
+    { key = "bags", label = L["Bags"], title = L["Bag Ledger"], build = buildBags, hasItem = bagsHasItem },
+    { key = "bank", label = L["Bank"], title = L["Bank Ledger"], build = buildBank, hasItem = bankHasItem },
+  },
 })
 
 -- History: archived sessions; the opened one (ledger.historyIndex) lists its items.

@@ -85,17 +85,17 @@ clock is stopped).
 
 - **Header**: the session clock (red while stopped), **Start / Stop**,
   **Reset**, the layout arrow, the gear (options) and close. While the clock
-  is stopped, loot and gold are not counted; the chat says so once. On Bags
-  and Bank the header shows how many items are listed, on History how many
+  is stopped, loot and gold are not counted; the chat says so once. On
+  Inventory the header shows how many items are listed, on History how many
   sessions.
 - **Filter bar**: quality (the button shows how many are shown, e.g.
   `Quality 6/8`; the menu starts with one-click choices such as `Uncommon and
   better`), minimum value in gold, text search and the sort (Value, Vendor,
   Name, Recent). Filters are remembered; the small x next to the sort clears
-  them all. Session, Bags and Bank share one sort; History's Sessions and
+  them all. Session and Inventory share one sort; History's Sessions and
   Zones each keep their own (Sessions start newest first).
 - **Daily strip**: today's best farm (see below).
-- **Tabs**: Session, Bags, Bank, History and Trade (below).
+- **Tabs**: Session, Inventory (Bags and Bank), History and Trade (below).
 - **List**: one row per item: icon, name and quantity, and on the right its
   value with a tag saying where it comes from: `Vendor`, `Auction` or
   `Destroy` (disenchant, mill or prospect). With TSM, a second line says how
@@ -140,7 +140,9 @@ items.
 ## Tabs
 
 - **Session**: everything looted since the session started.
-- **Bags**: what is in your bags right now, valued the same way. Right-click
+- **Inventory** has two sub-tabs, **Bags** and **Bank**; it opens on the one
+  you used last.
+- **Inventory > Bags**: what is in your bags right now, valued the same way. Right-click
   an item and pick **Keep (not for sale)** for tools, consumables you use or
   gear sets: the row says `(kept)` and the footer splits the total into
   **Kept** and **Sellable**. The keep list is the same in Bags and Bank and
@@ -153,7 +155,7 @@ items.
   footer adds **All characters**: every character's net worth as it was when
   you last logged out with it (or looked at its Bags); the tooltip lists
   them with their age.
-- **Bank**: your bank. The game only shows it to addons while it is open, so
+- **Inventory > Bank**: your bank. The game only shows it to addons while it is open, so
   visit the banker once (until then the list says `Not scanned yet.` and the
   total shows `—`); after that the tab shows the last scan and its age.
 - **History**: your past sessions, newest first. Each row shows when it
@@ -341,7 +343,8 @@ then your own sales (Trade tab), then the last price seen earlier. If the
 
 Open them with the gear, a right-click on the minimap button, or Esc >
 Options > AddOns > AnotherLedger. The categories are listed on the left; pick
-one to see its options. Hover any option for what it does and its
+one to see its options. Appearance groups its options under Fonts, Skin and
+Colors. Hover any option for what it does and its
 default. Changes apply at once. Drag the options window to move it; it opens
 there from then on (until then, next to the ledger). **Opacity** and
 **Brightness** apply to the options window as well. **Lock window** also

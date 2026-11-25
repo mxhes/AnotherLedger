@@ -47,7 +47,7 @@ only inside functions.
 | `Options.lua` | option registry and the built-in options |
 | `OptionsLook.lua` | Appearance options that set the look: single colors, color presets, skin and its parts |
 | `Profiles.lua` | settings profiles (per character), export / import strings |
-| `View.lua` | the rows and totals a tab shows (Session, Bags, Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
+| `View.lua` | the rows and totals a tab shows (Session, Inventory's Bags and Bank, History sessions), the compact view, the session CSV; its shared helpers are `View.internal` (only for the two files below) |
 | `ViewZones.lua` | History Zones and Mobs, the Daily farm pick, their CSV export, the drop index of the item tooltips |
 | `ViewTrade.lua` | the Trade tab's Items and Log views |
 | `Waypoint.lua` | the farm spot as a `/way` line, TomTom waypoint or the game's map pin |
@@ -540,6 +540,15 @@ Each of these is one call in one place; the UI never names them.
   right-click Rename, at most `History.LABEL_MAX`) replaces the main place in
   line 2 of the row only; `places`, Zones and the CSV keep the real ones. A
   merge keeps the newer session's label.
+- **Inventory tab**: key `inventory`, sub-tabs `bags` and `bank`; it
+  watches both data kinds (`watches = { bags = true, bank = true }`,
+  `Tabs.watches`). The old tab keys `bags` / `bank` are `Tabs.ALIASES`:
+  `Tabs.resolve` maps them to the tab and sub-tab, so `Ledger.setTab("bank")`
+  and a saved `db.tab` from before open the sub-tab (the login rewrites
+  `db.tab` / `db.subtab.inventory`).
+- **Option headings**: a spec's `heading` is drawn above it
+  (`Options.layout` returns `heads`); `newColumn` starts the next column, and
+  a section with one breaks its columns only there (Appearance: Colors).
 - **Options categories**: a list down the left side (`Panel.nav`, one button
   per `Options.sections()` entry, colors from `Panel.navLook`: the chosen one
   filled with a `tabBorderSelected` bar, the same for every skin), a divider,

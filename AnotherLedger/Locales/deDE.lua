@@ -11,6 +11,7 @@ ns.Locale.register("deDE", {
   ["Session"] = "Sitzung",
   ["Bags"] = "Taschen",
   ["Bank"] = "Bank",
+  ["Inventory"] = "Inventar",
   ["History"] = "Verlauf",
   ["Start"] = "Start",
   ["Stop"] = "Stopp",

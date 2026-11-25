@@ -42,6 +42,13 @@ Everything up to v0.7.1 is confirmed in the client, except:
   button in English and German, the chosen one is filled with a colored bar
   on its left, hovering half fills the others; same in Esc > Options >
   AddOns > AnotherLedger; the divider runs down to the bottom of the options.
+- Inventory tab (Bags / Bank sub-tabs): the tab row has four tabs and the
+  window can be made narrower than before; a login that was on Bank opens on
+  Inventory > Bank; opening the bank redraws Inventory > Bank and > Bags.
+- Appearance headings Fonts / Skin / Colors (Colors in the right column, the
+  skin parts all in the left one); window titles amber in Modern; History >
+  Mobs amounts flush right (no empty tag column); the chosen pill tab clearly
+  lighter; Compact: last drops 1 lets the compact window shrink.
 - Button text (`Widgets.button`, label no longer the button's own font
   string): Font outline Thick outline outlines every button's text (Reset,
   dropdowns, Start); Font shadow off removes its shadow; hover / disabled

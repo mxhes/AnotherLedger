@@ -864,10 +864,10 @@ h.test("wiring: bags tab lists the bag contents, footer shows only the items blo
   bagEnv(ctx, { [0] = { n = 3, { 2589, 5 }, { 2592, 2 }, { 2589, 15 } } })
   startWorld(ctx, false)
   local L = ctx.ns.UI.Ledger
-  L.setTab("bags")
+  L.setTab("bags") -- the old Bags tab key opens Inventory > Bags
   h.eq(ctx.errors, {})
-  h.eq(L.tab, "bags")
-  h.eq(ctx.env.AnotherLedgerDB.tab, "bags")
+  h.eq(L.tab, "inventory"); h.eq(L.subtab, "bags")
+  h.eq(ctx.env.AnotherLedgerDB.tab, "inventory")
   h.eq(#L.view.rows, 2)
   h.eq(L.view.kind, "inventory")
   -- a bag change marks the list dirty and shows up on the next refresh
@@ -926,11 +926,43 @@ end)
 h.test("wiring: the last tab survives a reload", function()
   local ctx = boot()
   startWorld(ctx, false)
-  ctx.ns.UI.Ledger.setTab("bags")
+  ctx.ns.UI.Ledger.setTab("bank")
   local reload = boot({ db = ctx.env.AnotherLedgerDB, chardb = ctx.env.AnotherLedgerCharDB, now = 2000 })
   startWorld(reload, true)
   h.eq(reload.errors, {})
-  h.eq(reload.ns.UI.Ledger.tab, "bags")
+  h.eq(reload.ns.UI.Ledger.tab, "inventory"); h.eq(reload.ns.UI.Ledger.subtab, "bank")
+end)
+
+h.test("wiring: a Bags or Bank tab saved by an older version opens as its Inventory sub-tab", function()
+  for _, old in ipairs({ "bags", "bank" }) do
+    local ctx = boot({ db = { tab = old } })
+    startWorld(ctx, false)
+    local L = ctx.ns.UI.Ledger
+    h.eq(L.tab, "inventory"); h.eq(L.subtab, old)
+    h.eq(ctx.ns.db.tab, "inventory"); h.eq(ctx.ns.db.subtab.inventory, old)
+    h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("inventory", old))
+    h.eq(ctx.errors, {})
+  end
+end)
+
+h.test("wiring: Inventory has Bags and Bank sub-tabs; a bank scan redraws either", function()
+  local ctx = boot()
+  bagEnv(ctx, { [0] = { n = 1, { 2589, 5 } } })
+  startWorld(ctx, false)
+  local L, Tabs = ctx.ns.UI.Ledger, ctx.ns.UI.Tabs
+  h.eq(Tabs.KEYS, { "session", "inventory", "history", "trade" })
+  L.setTab("inventory")
+  h.eq(L.subtab, "bags")
+  h.eq(L.subtabStrips.inventory.frame:IsShown(), true)
+  L.setSubtab("bank")
+  h.eq(L.view.unscanned, true)
+  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), Tabs.title("inventory", "bank"))
+  h.eq(L.dataChanged("bank"), true); h.eq(L.dataChanged("bags"), true)
+  h.eq(L.dataChanged("trade"), false)
+  -- clicking the tab again comes back to the sub-tab used last
+  L.setTab("session"); L.setTab("inventory")
+  h.eq(L.subtab, "bank")
+  h.eq(ctx.errors, {})
 end)
 
 h.test("wiring: footer table height follows the tab and the raw gold option", function()
@@ -1124,10 +1156,10 @@ h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
   startWorld(ctx, false)
   ctx.ns.Options.pick(ctx.ns.db, "skin", "classic") -- the folder tabs / Classic parts
   local tabs = ctx.ns.UI.Ledger.tabs
-  local bags = tabs.buttons.bags
+  local bags = tabs.buttons.inventory
   bags._scripts.OnClick(bags, "LeftButton")
-  h.eq(ctx.ns.UI.Ledger.tab, "bags")
-  h.eq(tabs.selected, "bags")
+  h.eq(ctx.ns.UI.Ledger.tab, "inventory")
+  h.eq(tabs.selected, "inventory")
   h.eq(bags.isSelected, true)
   h.eq(bags.glow:IsShown(), true)
   h.eq(tabs.buttons.session.isSelected, false)
@@ -1140,7 +1172,7 @@ h.test("wiring: tab buttons switch tabs; the selected one is marked", function()
   h.eq(tabs.baseRight:IsShown(), true)
   -- the line is drawn on a frame above the tabs, so the tabs sit behind it
   h.eq(tabs.lineFrame ~= nil, true)
-  h.eq(tabs.lineFrame:GetFrameLevel() > tabs.buttons.bags:GetFrameLevel(), true)
+  h.eq(tabs.lineFrame:GetFrameLevel() > tabs.buttons.inventory:GetFrameLevel(), true)
   h.eq(ctx.errors, {})
 end)
 
@@ -2662,7 +2694,7 @@ h.test("wiring: compact ticks the clock and shows the session title on any tab",
   L.tick()
   h.eq(H.timer:GetText() ~= before, true)
   slash(ctx, "compact")
-  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("bags"))
+  h.eq(ctx.ns.UI.Window.frame.header.title:GetText(), ctx.ns.UI.Tabs.title("inventory", "bags"))
   h.eq(ctx.errors, {})
 end)
 
@@ -5031,7 +5063,7 @@ h.test("wiring: a new player starts on Modern: rounded border, pill tabs, zebra 
   -- Pills: the selected tab has its underline, the line runs under every tab
   local tabs = ns.UI.Ledger.tabs
   h.eq(tabs.buttons.session.glow:IsShown(), true)
-  h.eq(tabs.buttons.bags.glow:IsShown(), false)
+  h.eq(tabs.buttons.inventory.glow:IsShown(), false)
   h.eq(tabs.baseLeft:IsShown(), false); h.eq(tabs.baseRight:IsShown(), true)
   h.eq(tabs.buttons.session.skin._backdrop.edgeFile, nil)
   -- Zebra: no separators, the second row striped
