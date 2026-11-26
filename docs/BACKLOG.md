@@ -24,7 +24,12 @@ From the skins work (2026-11-21, profession window screenshot):
   headings, once the lists have headings. M
 - A title bar strip with the title centered and a red close button, as a
   Border option (needs header height room). M
-- Textured window backgrounds (Grain for Forge, Leather for Gilded) as a
+- A refined **Gilded** skin (removed after v0.8.0: it needs more
+  work). It was a double frame (six line rectangles, bright /
+  dark / bright), a bevelled stud texture in each corner (16 x 16), Bronze
+  buttons, Dotted lines and Folder tabs; best with the Blizzard preset.
+  Rework the frame and studs so they read on the dark presets. M
+- Textured window backgrounds (Grain for Forge, Leather for a refined Gilded) as a
   Background skin part again. `tools/render_skins.py --backgrounds DIR`
   draws them (512 x 512 on a 256 unit tile); the tint needs a lift
   (`LIFT` there) because multiplying only darkens. Check the size in the

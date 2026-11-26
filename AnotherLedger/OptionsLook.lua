@@ -187,10 +187,9 @@ Options.SKIN_PARTS = {
 Options.skinTargets = {}
 for _, p in ipairs(Options.SKIN_PARTS) do Options.skinTargets[p[1]] = p[2] end
 
-local SKIN_LABELS = { modern = L["Modern"], classic = L["Classic"], forge = L["Forge"], slate = L["Slate"],
-  gilded = L["Gilded"] }
+local SKIN_LABELS = { modern = L["Modern"], classic = L["Classic"], forge = L["Forge"], slate = L["Slate"] }
 local STYLE_LABELS = {
-  rounded = L["Rounded"], round = L["Round"], bevel = L["Bevel"], thin = L["Thin"], gilded = L["Gilded"],
+  rounded = L["Rounded"], round = L["Round"], bevel = L["Bevel"], thin = L["Thin"],
   zebra = L["Zebra"], pills = L["Pills"], folder = L["Folder"],
   flat = L["Flat"], bronze = L["Bronze"], raised = L["Raised"],
   gold = L["Gold"], groove = L["Groove"], plain = L["Plain"], dotted = L["Dotted"],

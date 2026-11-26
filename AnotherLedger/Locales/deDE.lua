@@ -658,7 +658,6 @@ ns.Locale.register("deDE", {
   ["Classic"] = "Klassisch",
   ["Forge"] = "Schmiede",
   ["Slate"] = "Schiefer",
-  ["Gilded"] = "Vergoldet",
   ["Round"] = "Rund",
   ["Bevel"] = "Fase",
   ["Flat"] = "Flach",

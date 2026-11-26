@@ -4833,12 +4833,14 @@ h.test("wiring: switching border restyles the window without stacking frames", f
   ns.Options.pick(ns.db, "skinBorder", "round")
   h.eq(win._backdrop.edgeFile, ns.Theme.textures.frameBorder)
   h.eq(win.skinEdges[1].top:IsShown(), false)
-  ns.Options.pick(ns.db, "skinBorder", "gilded")
+  ns.Options.pick(ns.db, "skinBorder", "bevel")
   h.eq(win.skinEdges[1].top, first) -- reused, not stacked
   h.eq(win.skinEdges[3].top:IsShown(), true)
-  h.eq(win.skinStuds[1]:IsShown(), true)
   ns.Options.pick(ns.db, "skinBorder", "thin")
-  h.eq(win.skinEdges[3].top:IsShown(), false); h.eq(win.skinStuds[1]:IsShown(), false)
+  h.eq(win.skinEdges[3].top:IsShown(), false)
+  -- A saved Gilded border (removed) falls back to the skin's border.
+  ns.db.settings.skinBorder = "gilded"
+  h.eq(ns.Options.get(ns.db, "skinBorder"), "round")
   h.eq(win._backdrop.bgFile, ns.Theme.textures.parchment)
   h.eq(ctx.errors, {})
 end)
