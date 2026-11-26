@@ -371,7 +371,6 @@ lines and tabs, and whether the list sits in a darker sunken box.
 | Classic | Round | Bronze | Gold | Folder | off |
 | Forge | Bevel | Raised | Groove | Folder | on |
 | Slate | Thin | Flat | Plain | Folder | off |
-| Gilded | Gilded | Bronze | Dotted | Folder | off |
 
 **Modern** is the look a new installation starts with: a flat navy window
 with a thin rounded edge, flat buttons, pill tabs with a blue line under the
@@ -381,9 +380,7 @@ other skins keep your font and colors, so you can combine Modern's shapes or
 font or colors with anything else. If you used the addon before, your look
 stays as it was until you pick Modern. **Classic** is the look the addon had before. **Forge** has a carved frame
 and a sunken list, like the game's profession windows.
-**Slate** is plain and square. **Gilded** has a double frame with studs in
-the corners; it looks best with the **Blizzard** color
-preset. With **Folder** tabs the **Border** decides their shape: **Round**
+**Slate** is plain and square. With **Folder** tabs the **Border** decides their shape: **Round**
 gives rounded tabs, the others square ones. After a skin you can still change single parts; the skin
 then shows "(edited)". Opacity and Brightness work with every skin. After
 updating the addon, restart the game once (not just /reload) so it finds the

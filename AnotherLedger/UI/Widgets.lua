@@ -540,13 +540,9 @@ end
 -- `opaque`: full alpha. Both get the opacity / brightness options from
 -- Window.applyLook afterwards.
 -- The border and background follow the skin (Theme.style): Round is the
--- backdrop's own tooltip edge; Bevel / Thin / Gilded are line rectangles on
--- the frame (frame.skinEdges, Theme.edgeRects) plus, for Gilded, a stud in
--- each corner (frame.skinStuds). Called again on a skin change: the regions
--- are made once and shown / hidden.
-local CORNERS = { "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }
-local STUD_OFFSET = { TOPLEFT = { 1, -1 }, TOPRIGHT = { -1, -1 }, BOTTOMLEFT = { 1, 1 }, BOTTOMRIGHT = { -1, 1 } }
-
+-- backdrop's own tooltip edge; Bevel / Thin are line rectangles on the frame
+-- (frame.skinEdges, Theme.edgeRects). Called again on a skin change: the
+-- regions are made once and shown / hidden.
 local function edgeRect(frame)
   local T = ns.Theme
   local function tex()
@@ -586,25 +582,9 @@ local function skinEdges(frame)
   for i = #rects + 1, #edges do
     showParts({ edges[i].top, edges[i].bottom, edges[i].left, edges[i].right }, false)
   end
-  local studs = T.edgeStuds(border)
-  if studs and type(frame.skinStuds) ~= "table" then
-    frame.skinStuds = {}
-    for i, corner in ipairs(CORNERS) do
-      local s = frame:CreateTexture(nil, "OVERLAY")
-      -- SetTexture returns false when the file cannot be loaded: no stud then.
-      s.loaded = s:SetTexture(T.textures.skinStud) ~= false
-      s:SetSize(T.sizes.studSize, T.sizes.studSize)
-      local off = STUD_OFFSET[corner]
-      s:SetPoint("CENTER", frame, corner, off[1], off[2])
-      frame.skinStuds[i] = s
-    end
-  end
-  if type(frame.skinStuds) == "table" then
-    for _, s in ipairs(frame.skinStuds) do s:SetShown(studs and s.loaded) end
-  end
 end
 
--- Colors the edge lines and studs of `frame` from `border` (the backdrop
+-- Colors the edge lines of `frame` from `border` (the backdrop
 -- border color with opacity / brightness already applied): each line its
 -- shade of it, alpha kept.
 function Widgets.paintEdges(frame, border)
@@ -616,9 +596,6 @@ function Widgets.paintEdges(frame, border)
       c[4] = border[4] or 1
       tint(r.top, c); tint(r.bottom, c); tint(r.left, c); tint(r.right, c)
     end
-  end
-  if type(frame.skinStuds) == "table" then
-    for _, s in ipairs(frame.skinStuds) do tint(s, border) end
   end
 end
 

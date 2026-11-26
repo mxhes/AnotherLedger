@@ -244,7 +244,7 @@ h.test("Theme.skins: every skin names a valid choice for each part", function()
     end
     h.eq(type(s.listBox), "boolean")
   end
-  h.eq(ids, { "modern", "classic", "forge", "slate", "gilded" })
+  h.eq(ids, { "modern", "classic", "forge", "slate" })
   h.eq(T.skin("modern").font, T.fontFiles.inter); h.eq(T.skin("modern").preset, "polaris")
   h.eq(T.preset("polaris") ~= nil, true)
   h.eq(T.skin("forge").border, "bevel"); h.eq(T.skin("nope"), nil)
@@ -269,7 +269,7 @@ h.test("Theme.backdropSpec: round keeps today's edge, others have no edge file",
   h.eq(T.skinParts.background, nil) -- flat only until textured backgrounds come
 end)
 
-h.test("Theme.edgeRects / edgeStuds per border", function()
+h.test("Theme.edgeRects per border", function()
   local d = T.skinScales.edgeDark
   h.eq(T.edgeRects("round"), {})
   h.eq(T.edgeRects("thin"), { { inset = 0, shade = d }, { inset = 1, shade = 1 } })
@@ -277,10 +277,6 @@ h.test("Theme.edgeRects / edgeStuds per border", function()
   -- Bevel: dark outline, a light highlight, a 2 px body, a dark inner line.
   h.eq(T.edgeRects("bevel"), { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = 1 },
     { inset = 3, shade = 1 }, { inset = 4, shade = d } })
-  -- Gilded: two bright lines with a dark gap between them.
-  h.eq(T.edgeRects("gilded"), { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = d },
-    { inset = 3, shade = d }, { inset = 4, shade = l }, { inset = 5, shade = d } })
-  h.eq(T.edgeStuds("gilded"), true); h.eq(T.edgeStuds("bevel"), false)
 end)
 
 h.test("Theme.lineColors: groove has two shades, plain loses the gold, alpha kept", function()

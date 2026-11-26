@@ -77,7 +77,7 @@ only inside functions.
 | `CoreTrade.lua` | Core's Trade section: auction post / cancel hooks, the sold line, auction mails, player trades |
 | `Boot.lua` | loads last: `Core.init()` in the client (registers every handler of `Core.events`) |
 | `Bindings.xml` | key bindings (not in the `.toc`: the client loads it by name); each runs a `/al` command, names in `Slash.BINDINGS` |
-| `Media/Skins/*.tga` | skin textures (Stud 16 x 16; Dotted 8 x 2; Rounded 128 x 16 backdrop edge strip), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
+| `Media/Skins/*.tga` | skin textures (Dotted 8 x 2; Rounded 128 x 16 backdrop edge strip), grey-scale, tinted by the theme colors (`Theme.textures.skin*`) |
 | `Media/Fonts/` | Inter Regular and SemiBold (SIL Open Font License, `Inter-LICENSE.txt`); `Theme.fontFiles.inter*`, offered by the Font option, Inter is the Modern skin's font |
 | `Media/Logo.tga` | the logo (leather ledger book with the AL coin), 64 x 64 uncompressed 32-bit TGA: `## IconTexture`, the minimap and broker icon (`Theme.textures.logo`) |
 
@@ -230,7 +230,7 @@ Each of these is one call in one place; the UI never names them.
   Destroy labels in tooltips use `Theme.sourceColor(source)`
   (`Tooltip.money(..., source)`, `Rows.tooltipLines`, `Summary.tooltipLines`).
   The swatch opens the game picker through `Widgets.pickColor`.
-- **Skins**: `Theme.skins` (Modern, Classic, Forge, Slate, Gilded) name one
+- **Skins**: `Theme.skins` (Modern, Classic, Forge, Slate) name one
   choice per part of `Theme.skinParts` (border, buttons, lines, tabs) plus
   `listBox`; Modern also names `font` and `preset`, which its `picked` sets
   (`fontFace`, then `Options.pick` of `colorPreset`, so the single colors
@@ -245,7 +245,7 @@ Each of these is one call in one place; the UI never names them.
   write `Theme.style` through `Theme.setStyle` and call
   `Widgets.applySkin()`, which re-runs `applyBackdrop` (`Theme.backdropSpec`;
   borders other than Round are line rectangles `frame.skinEdges` from
-  `Theme.edgeRects`, Gilded adds `frame.skinStuds`), repaints the buttons
+  `Theme.edgeRects`), repaints the buttons
   (`paint`: Bronze bands, Raised edge lines `b.raise`, Flat), restyles every
   `Widgets.rule` (styled dividers: row separators, the Top finds and compact
   dividers, the tab base lines, option section lines; colors from

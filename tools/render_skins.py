@@ -3,7 +3,6 @@
 Writes into AnotherLedger/Media/Skins/ (uncompressed 32-bit TGA, bottom-left
 origin, like the logo):
 
-  Stud.tga      16 x 16   a round bevelled stud, transparent around it (Border: Gilded)
   Dotted.tga     8 x 2    a dash: x 0..3 white, 4..7 transparent (Lines: Dotted)
 
 Planned, not in the addon yet (written only with --backgrounds DIR):
@@ -185,7 +184,7 @@ def grain(rng):
 
 
 def leather(rng):
-    """Pebble-grain leather (Gilded): rounded pebbles split by creases with a
+    """Pebble-grain leather: rounded pebbles split by creases with a
     little grime, finer pebbles between, pores, long shallow wrinkles, soft
     mottling and a faint sheen on the pebble tops."""
     warp = (fbm(rng, 4 * K, 3), fbm(rng, 4 * K, 3))
@@ -209,22 +208,6 @@ def leather(rng):
         grime = 0.80 + 0.20 * dome(big[i], 0.9)
         out.append(albedo * grime * (0.45 + 0.65 * lit[i]) + 0.10 * lit[i] ** 12 * peb[i])
     return tone_map(out, 40, 225)
-
-
-def stud():
-    s, k = 16, 8  # drawn 8 times larger, then scaled down
-    big = Image.new("RGBA", (s * k, s * k), (0, 0, 0, 0))
-    d = ImageDraw.Draw(big)
-    c, r = s * k / 2, s * k / 2 - k
-    # Dark rim, the body, a light spot top left (light from the top left).
-    d.ellipse((c - r, c - r, c + r, c + r), fill=(70, 70, 70, 255))
-    r2 = r - k * 1.2
-    d.ellipse((c - r2, c - r2, c + r2, c + r2), fill=(205, 205, 205, 255))
-    r3 = r2 * 0.45
-    hx, hy = c - r2 * 0.3, c - r2 * 0.3
-    d.ellipse((hx - r3, hy - r3, hx + r3, hy + r3), fill=(255, 255, 255, 255))
-    big = big.filter(ImageFilter.GaussianBlur(k * 0.35))
-    return big.resize((s, s), Image.LANCZOS)
 
 
 def dotted():
@@ -315,7 +298,7 @@ def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out = os.path.join(root, "AnotherLedger", "Media", "Skins")
     os.makedirs(out, exist_ok=True)
-    images = {"Stud": stud(), "Dotted": dotted(), "Rounded": rounded()}
+    images = {"Dotted": dotted(), "Rounded": rounded()}
     for name, img in images.items():
         save_tga(img, os.path.join(out, name + ".tga"))
     if "--backgrounds" in sys.argv:

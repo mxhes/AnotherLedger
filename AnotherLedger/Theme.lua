@@ -35,7 +35,6 @@ Theme.textures = {
   tabBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
   -- Skins (Theme.skins): the addon's own textures, drawn by
   -- tools/render_skins.py; grey-scale, tinted with the theme colors.
-  skinStud = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Stud",
   skinDotted = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Dotted",
   -- Backdrop edge strip of the Rounded border (1 unit line, rounded corners).
   skinRounded = "Interface\\AddOns\\AnotherLedger\\Media\\Skins\\Rounded",
@@ -417,9 +416,8 @@ Theme.sizes = {
   backdropTile = 16,
   backdropEdge = 16,
   backdropInset = 5,
-  -- Skins: the Gilded corner studs, and how far the Sunken list box reaches
-  -- past the list (inside the window padding).
-  studSize = 10,
+  -- Skins: how far the Sunken list box reaches past the list (inside the
+  -- window padding).
   listBoxPad = 3,
   -- Rounded border: edge size of the strip (4 unit corner radius) and the
   -- fill inset under its 1 unit line.
@@ -570,7 +568,7 @@ end
 
 -- The choices of each part, in option order.
 Theme.skinParts = {
-  border = { "rounded", "round", "bevel", "thin", "gilded" },
+  border = { "rounded", "round", "bevel", "thin" },
   buttons = { "bronze", "raised", "flat" },
   lines = { "zebra", "gold", "groove", "plain", "dotted" },
   tabs = { "pills", "folder" },
@@ -589,8 +587,6 @@ Theme.skins = {
     lines = "groove", listBox = true, tabs = "folder" },
   { id = "slate", label = "Slate", border = "thin", buttons = "flat",
     lines = "plain", listBox = false, tabs = "folder" },
-  { id = "gilded", label = "Gilded", border = "gilded", buttons = "bronze",
-    lines = "dotted", listBox = false, tabs = "folder" },
 }
 
 -- How the styles shade the theme colors: the dark edge lines, the groove's
@@ -661,8 +657,8 @@ end
 -- The line rectangles of a border: inset (px from the frame edge) and shade
 -- (a factor on the border color). Round has none (the backdrop edge).
 -- (Seen in the client: single 1 px lines in the border color barely show on
--- the dark panel, so Bevel and Gilded use light highlight lines and are
--- 5 / 6 px wide; all stay inside the 12 px content inset.)
+-- the dark panel, so Bevel uses a light highlight line and is 5 px
+-- wide; all stay inside the 12 px content inset.)
 function Theme.edgeRects(border)
   local d, l = Theme.skinScales.edgeDark, Theme.skinScales.edgeLight
   if border == "thin" then return { { inset = 0, shade = d }, { inset = 1, shade = 1 } } end
@@ -670,15 +666,7 @@ function Theme.edgeRects(border)
     return { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = 1 },
       { inset = 3, shade = 1 }, { inset = 4, shade = d } }
   end
-  if border == "gilded" then
-    return { { inset = 0, shade = d }, { inset = 1, shade = l }, { inset = 2, shade = d },
-      { inset = 3, shade = d }, { inset = 4, shade = l }, { inset = 5, shade = d } }
-  end
   return {}
-end
-
-function Theme.edgeStuds(border)
-  return border == "gilded"
 end
 
 -- Pure. `a` moved toward `b` by t (0..1); alpha of `a`.
