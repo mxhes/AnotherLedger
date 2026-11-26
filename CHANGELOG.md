@@ -1,5 +1,10 @@
 # AnotherLedger
 
+## v0.8.1
+
+- The Gilded skin is gone for now; it comes back reworked. Windows that
+  used it keep their skin's border.
+
 ## v0.8.0
 
 - Color picker: a Saturation slider under the game's picker.
