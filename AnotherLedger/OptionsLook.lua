@@ -212,6 +212,7 @@ end
 
 Options.define({
   key = "skin", category = "look", type = "dropdown", label = L["Skin"], heading = L["Skin"],
+  aliases = ns.Theme.removedSkins, -- a saved Gilded skin reads as Classic
   tooltip = L["Sets the border, buttons, lines, tabs and list box at once. Modern also sets its font (Inter) and colors (Polaris); the others keep yours. You can change single parts afterwards."],
   choices = function()
     local out = {}

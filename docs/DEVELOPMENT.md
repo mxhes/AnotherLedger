@@ -104,7 +104,8 @@ Each of these is one call in one place; the UI never names them.
   and is shown on hover with the default. `category` is `window`, `prices`,
   `display` (tab List), `session`, `history`, `look` (fonts and colors) or
   `profiles`. Types: `slider` (`min`, `max`, `step`, `format`), `dropdown`
-  (`choices` list or function), `checkbox`, `number` (whole number, empty =
+  (`choices` list or function; `aliases` maps a removed saved value to its
+  successor, as `Theme.removedSkins` turns a saved Gilded skin into Classic), `checkbox`, `number` (whole number, empty =
   unlimited, optional `zeroText`), `text`, `color` (`"rrggbb"`), `button`
   (`action`). `tooltipExtra = function() -> text` adds a live line to the
   tooltip (the profile's characters). Values are validated by type and fall
