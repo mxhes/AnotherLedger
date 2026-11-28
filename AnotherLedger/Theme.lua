@@ -606,7 +606,12 @@ Theme.skinScales = {
 -- The active picks; the options write them with Theme.setStyle.
 Theme.style = { border = "rounded", buttons = "flat", lines = "zebra", listBox = true, tabs = "pills" }
 
+-- Removed skins and the skin a saved one becomes (option "skin" reads it
+-- through `aliases`).
+Theme.removedSkins = { gilded = "classic" }
+
 function Theme.skin(id)
+  id = Theme.removedSkins[id] or id
   for _, s in ipairs(Theme.skins) do
     if s.id == id then return s end
   end

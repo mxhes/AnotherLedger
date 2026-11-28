@@ -24,12 +24,7 @@ From the skins work (2026-11-21, profession window screenshot):
   headings, once the lists have headings. M
 - A title bar strip with the title centered and a red close button, as a
   Border option (needs header height room). M
-- A refined **Gilded** skin (removed after v0.8.0: it needs more
-  work). It was a double frame (six line rectangles, bright /
-  dark / bright), a bevelled stud texture in each corner (16 x 16), Bronze
-  buttons, Dotted lines and Folder tabs; best with the Blizzard preset.
-  Rework the frame and studs so they read on the dark presets. M
-- Textured window backgrounds (Grain for Forge, Leather for a refined Gilded) as a
+- Textured window backgrounds (Grain for Forge) as a
   Background skin part again. `tools/render_skins.py --backgrounds DIR`
   draws them (512 x 512 on a 256 unit tile); the tint needs a lift
   (`LIFT` there) because multiplying only darkens. Check the size in the
@@ -59,7 +54,7 @@ and unpriced items first from the footer note. After it: Mobs counts with
 the clock stopped and with fast loot addons, and drop chances show in the
 Mobs tooltips and in the game's item tooltips.
 Then: AnotherLedger scan (own auction house prices without TSM or Auctionator:
-full scan, passive recording, Scan price, Scan reminder), gilded two-tone
+full scan, passive recording, Scan price, Scan reminder), two-tone
 buttons, and the Trade tab (auction and trade recording, Items and Log, Own
 sales price source, Trade log kept).
 From the fifth review: "without AH price" with the reason in the footer

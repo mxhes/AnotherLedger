@@ -694,6 +694,18 @@ h.test("skin options: bad saved values fall back to the skin's part", function()
   ns.db = saved
 end)
 
+h.test("skin options: a saved Gilded skin (removed) loads as Classic", function()
+  local saved = ns.db
+  ns.db = db({ skin = "gilded", skinBorder = "gilded", skinLines = "dotted" })
+  h.eq(O.get(ns.db, "skin"), "classic")
+  h.eq(O.get(ns.db, "skinBorder"), "round")
+  h.eq(O.get(ns.db, "skinButtons"), "bronze")
+  h.eq(O.get(ns.db, "skinLines"), "dotted") -- a part of its own, kept
+  h.eq(ns.Theme.skin("gilded").id, "classic")
+  for _, s in ipairs(ns.Theme.skins) do h.eq(s.id ~= "gilded", true) end
+  ns.db = saved
+end)
+
 h.test("skin options: applying a part sets Theme.style", function()
   local d = db()
   O.set(d, "skinButtons", "raised")

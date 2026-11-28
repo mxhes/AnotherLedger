@@ -160,6 +160,8 @@ function Options.normalize(spec, value)
     if value < 0 then return spec.zeroText and 0 or -1 end
     return math.floor(value)
   elseif spec.type == "dropdown" then
+    -- `aliases` maps an old saved value (a removed choice) to its successor.
+    if type(spec.aliases) == "table" and spec.aliases[value] ~= nil then value = spec.aliases[value] end
     for _, c in ipairs(Options.choices(spec)) do
       if c.value == value and value ~= Options.CUSTOM then return value end
     end

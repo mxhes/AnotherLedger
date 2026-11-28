@@ -168,7 +168,7 @@ function Widgets.snapPoint(region, point, rel, relPoint, x, y)
 end
 
 -- ---------------------------------------------------------------------------
--- Gilded two-tone buttons: one style for every button of the addon. An outer
+-- Two-tone buttons: one style for every button of the addon. An outer
 -- dark line, a fill that is light in its top third, dark in its bottom third
 -- and fades between them, and the edge color as a thin line just inside.
 -- Gold edge on hover, the halves swapped while pressed, dimmed text when
